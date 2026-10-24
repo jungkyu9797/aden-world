@@ -452,7 +452,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 94;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 95;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3534,6 +3534,7 @@ const NET = (() => {
   let IKS = null; const ik = () => IKS || (IKS = Object.keys(ITEMS));
   let room = null, myPeer = null, sendT = 0, chatSeq = 0, lastChat = '', atkSeq = 0, lastAtk = null, hitSeq = 0, dmgSeq = 0, rwSeq = 0, gvSeq = 0, pkSeq = 0, suSeq = 0, invSeq = 0;
   let hostCache = null, wasGuest = false, known = new Set(), ready = false, partyId = null, invOut = null, ansOut = null, spTotal = 0, mySpUsed = 0, hoverPeer = null, uiT = 0, hadMem = false, lastRw = {}, ptGrace = 0;
+  const extra = {};   // 다른 모듈이 덧붙이는 presence 필드 (교환 td 등)
   const myHits = [], toRemote = {}, rwOut = {}, gvOut = {}, pkOut = [], suOut = [], efOut = []; let efSeq = 0; const seenEf = new Map();
   // 강화 연출: 내 강화 결과를 보내고, 같은 지역 18칸 안의 다른 사람 강화는 그 사람 머리 위에 이펙트·글자·소리로
   const EFX = { ok: ['enok', '#9fe0ff'], bless: ['enbless', '#ffd86a'], earth: ['earth', '#c8a060'], fail: ['puff', '#c0b8a0'], boom: ['boom', '#ff6a5a'], curse: ['puff', '#c890e8'] };
@@ -3627,7 +3628,7 @@ const NET = (() => {
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
   function payload() { const P = { n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
       e: eqIds(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, bf: myBuffs(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
-    const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
+    Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
   // ----- 게스트: 호스트 몬스터·바닥 아이템 반영
@@ -3708,9 +3709,9 @@ const NET = (() => {
   // ----- 다른 플레이어 클릭 → 메뉴 (파티 초대)
   function peerAt(sx, sy) { if (!room) return null; const [px, py] = toWorldPx(sx, sy); let b = null, bd = 1e9; for (const o of othersInZone()) { const v = peers.get(o.peer); if (!v) continue; const [x, y] = W2P(v.x, v.z), dx = px - x, dy = py - (y - 40); if (Math.abs(dx) < 20 && Math.abs(dy) < 52) { const q = dx * dx + dy * dy; if (q < bd) { bd = q; b = o; } } } return b; }
   function openMenu(o, cx, cy) { const m = document.getElementById('pmenu'); if (!m) return; const same = partyId && o.pr.pt === partyId;
-    m.innerHTML = `<b>${esc_(nmOf(o.pr))}</b><small>${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1}</small>` + (same ? '<span class="pm-in">같은 파티원</span>' : '<button type="button" data-a="inv">파티 초대</button>') + '<button type="button" data-a="x">닫기</button>';
+    m.innerHTML = `<b>${esc_(nmOf(o.pr))}</b><small>${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1}</small>` + (same ? '<span class="pm-in">같은 파티원</span>' : '<button type="button" data-a="inv">파티 초대</button>') + (SCENE === 'town' && o.pr.z === 'town' ? '<button type="button" data-a="trade">교환 신청</button>' : '<span class="pm-in" style="color:#9c9682">교환은 마을에서만</span>') + '<button type="button" data-a="x">닫기</button>';
     m.hidden = false; const w = m.offsetWidth, h = m.offsetHeight; m.style.left = Math.max(8, Math.min(innerWidth - w - 8, cx + 10)) + 'px'; m.style.top = Math.max(8, Math.min(innerHeight - h - 8, cy - 10)) + 'px';
-    m.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.a; if (!a) return; m.hidden = true; if (a === 'inv') invite(o.peer); }; }
+    m.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.a; if (!a) return; m.hidden = true; if (a === 'inv') invite(o.peer); else if (a === 'trade') TRADE.request(o.peer); }; }
   addEventListener('pointerdown', ev => { const m = document.getElementById('pmenu'); if (m && !m.hidden && !m.contains(ev.target)) m.hidden = true; }, true);
   // ----- 그리기: 같은 지역의 다른 플레이어 (이름 · HP · 말풍선) — 파티원은 초록 이름
   function addDraw(list, g) { if (!room) return; for (const o of OTH) { if (o.pr.z !== zk()) continue; const v = peers.get(o.peer); if (!v) continue; if (ISLE && !DN.seen(Math.floor(v.x), Math.floor(v.z))) continue;
@@ -3721,11 +3722,82 @@ const NET = (() => {
         const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top);
         const w = 34, k = Math.max(0, Math.min(1, (pr.hp || 0) / (pr.hm || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore();
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
-  return { partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
+  return { setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, partyNear,
     guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH };
+})();
+// ============================================================ 교환 (마을에서 다른 유저 클릭 → 교환 신청 → 수락하면 양쪽에 교환창)
+// 각자 아이템·골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?" 한 번 더 → 둘 다 '예'면 서로 주고받음
+// 상태는 presence td = { id, to, st: req|no|open|lock|ok|done|cancel, v(내 항목 번호), pv(내가 확인한 상대 항목 번호), g, it:[아이템…] }
+const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; const icoC = {}, ico = (k, b) => icoC[k + (b ? '|b' : '')] || (icoC[k + (b ? '|b' : '')] = ICON(k, b)); let tickT = 0;
+  let S = null, offer = [], gold = 0, ver = 0, asked = false, doneT = 0, seenReq = new Map(), lastPv = -1;   // S = { id, peer, name, st, role }
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const partner = () => S && NET.others().find(o => o.peer === S.peer);
+  const ptd = () => { const o = partner(), t = o && o.pr.td; return t && S && t.id === S.id && t.to === NET.me() ? t : null; };
+  const clean = e => { const c = JSON.parse(JSON.stringify(e, (k, v) => k && k[0] === '_' ? undefined : v)); delete c.on; delete c.locked; delete c.godTemp; return c; };
+  const tradable = e => !e.on && !e.locked && !e.godTemp && !GOD_INF(e.id) && !(e.pet && e.pet.state === 'out') && ITEMS[e.id];
+  function push() { if (!S) { NET.setExtra('td', null); return; } NET.setExtra('td', { id: S.id, to: S.peer, st: S.st, v: ver, pv: S.pv == null ? -1 : S.pv, g: gold, it: offer.map(x => Object.assign(clean(x.e), { n: x.n })) }); }
+  function end(msg, c) { if (msg) say(msg, c || '#9c9682'); if (S && S.st !== 'done' && S.st !== 'cancel') { S.st = 'cancel'; push(); } setTimeout(() => { if (!S || S.st === 'cancel' || S.st === 'done') { S = null; offer = []; gold = 0; push(); } }, 2500); $('tradewin').hidden = true; asked = false; }
+  // 신청 (내가)
+  function request(peer) { const o = NET.others().find(q => q.peer === peer); if (!o) return; if (SCENE !== 'town' || o.pr.z !== 'town') { say('교환은 마을에서만 할 수 있어요.', '#f0c080'); return; }
+    if (S && S.st !== 'cancel' && S.st !== 'done') { say('이미 교환 중이에요.', '#f0c080'); return; }
+    S = { id: 'T' + Math.random().toString(36).slice(2, 9), peer, name: String(o.pr.n || '상대').slice(0, 12), st: 'req', at: Date.now(), pv: -1 }; offer = []; gold = 0; ver = 0; asked = false; push();
+    say(`${S.name}님에게 교환을 신청했습니다.`, '#a8d8ff'); }
+  // 받은 신청 확인 · 상대 상태 따라가기
+  function tick(dt) { tickT -= dt || 0.1; if (tickT > 0) return; tickT = 0.1; const me = NET.me(); if (!me) return;
+    for (const o of NET.others()) { const t = o.pr.td; if (!t || t.to !== me || t.st !== 'req') continue; if (seenReq.get(o.peer) === t.id) continue; seenReq.set(o.peer, t.id);
+      if (S && S.st !== 'cancel' && S.st !== 'done') continue; if (SCENE !== 'town') continue; const nm = String(o.pr.n || '상대').slice(0, 12), id = t.id, peer = o.peer;
+      if (AC && SFX_ON) tone(AC.currentTime, 'triangle', 660, 990, 0.2, 0.06);
+      INV.askYesNo(`${nm}님이 교환을 신청했습니다.`, '수락하시겠습니까?', () => { S = { id, peer, name: nm, st: 'open', pv: -1 }; offer = []; gold = 0; ver = 0; asked = false; push(); open(); }, () => { S = { id, peer, name: nm, st: 'no', pv: -1 }; push(); setTimeout(() => { if (S && S.st === 'no') { S = null; push(); } }, 2500); }); }
+    if (!S) return; const o = partner(), t = ptd();
+    if (S.st === 'req') { if (t && t.st === 'no') { end(`${S.name}님이 교환을 거절했습니다.`); return; } if (t && t.st === 'open') { S.st = 'open'; push(); open(); return; } if (Date.now() - S.at > 30000 || !o) { end('교환 신청에 응답이 없습니다.'); } return; }
+    if (S.st === 'no' || S.st === 'cancel' || S.st === 'done') return;
+    if (!o || o.pr.z !== 'town' || SCENE !== 'town') { end('상대가 멀어져서 교환이 취소되었습니다.', '#f08a7a'); return; }
+    if (t && t.st === 'cancel') { end(`${S.name}님이 교환을 취소했습니다.`, '#f08a7a'); return; }
+    if (!t) return;
+    if ((S.st === 'lock' || S.st === 'ok') && t.v !== S.pv && t.st !== 'done') { S.st = 'open'; S.pv = -1; asked = false; push(); say('상대가 항목을 바꿔서 확인이 풀렸어요. 다시 확인해 주세요.', '#f0c080'); }
+    // 둘 다 확인 → 한 번 더 묻기
+    if (S.st === 'lock' && (t.st === 'lock' || t.st === 'ok') && t.pv === ver && S.pv === t.v && !asked) { asked = true;
+      INV.askYesNo('교환하시겠습니까?', `주는 것: ${summary(offer.map(x => Object.assign({}, x.e, { n: x.n })), gold)}  ·  받는 것: ${summary(t.it || [], t.g || 0)}`, () => { if (S && S.st === 'lock') { S.st = 'ok'; push(); render(); } }, () => { if (S) { S.st = 'open'; S.pv = -1; asked = false; push(); render(); } }); }
+    // 둘 다 '예' → 주고받기
+    if (S.st === 'ok' && (t.st === 'ok' || t.st === 'done') && t.pv === ver && S.pv === t.v) execute(t);
+    render(); }
+  function summary(list, g) { const a = list.map(e => (ITEMS[e.id] ? INV.nameOf(e) : '?') + (ITEMS[e.id] && ITEMS[e.id].stack && e.n > 1 ? ' ×' + e.n : '')); if (g > 0) a.push(g.toLocaleString() + ' 골드'); return a.length ? a.join(', ') : '없음'; }
+  function execute(t) { if (!S || S.st !== 'ok') return; S.st = 'done'; push();
+    for (const x of offer) { const bag = INV.bag(); if (!bag.includes(x.e)) continue; const d = ITEMS[x.e.id]; if (d.stack && x.n < x.e.n) { x.e.n -= x.n; INV.render(); } else INV.removeEntry(x.e); }
+    coins = Math.max(0, coins - Math.min(gold, coins)) + Math.max(0, t.g | 0);
+    for (const e of t.it || []) { const d = ITEMS[e.id]; if (!d) continue; if (d.stack) INV.add(e.id, Math.max(1, e.n | 0), true); else INV.insertEntry(Object.assign({}, e, { on: false, n: 1 })); }
+    INV.render(); if (AC && SFX_ON) [784, 1047, 1319].forEach((f, k) => tone(AC.currentTime + k * 0.08, 'triangle', f, f, 0.3, 0.07));
+    say(`***** ${S.name}님과 교환했습니다 — 받은 것: ${summary(t.it || [], t.g || 0)} *****`, '#9fd08a'); try { if (SAVE.on()) SAVE.now(true, true); } catch (e) {}
+    $('tradewin').hidden = true; asked = false; setTimeout(() => { if (S && S.st === 'done') { S = null; offer = []; gold = 0; push(); } }, 3000); }
+  // ----- 교환창
+  function changed() { ver++; if (S && (S.st === 'lock' || S.st === 'ok')) { S.st = 'open'; S.pv = -1; asked = false; } push(); render(); }
+  function addItem(e) { if (!S || S.st === 'done') return; if (!tradable(e)) { say('착용 중·잠금·소환 중인 것은 교환할 수 없어요.', '#f08a7a'); return; } if (offer.some(x => x.e === e)) return; if (offer.length >= MAXIT) { say(`한 번에 ${MAXIT}개까지 올릴 수 있어요.`, '#f08a7a'); return; }
+    offer.push({ e, n: e.n }); changed(); }
+  function open() { const w = $('tradewin'); if (!w || !S) return; w.hidden = false; $('tw-who').textContent = S.name; $('tw-gold').value = gold || ''; render(); }
+  let lastH = '';
+  function render() { const w = $('tradewin'); if (!w || w.hidden || !S) return; const t = ptd(), mine = S.st, his = t ? t.st : 'open';
+    const row = (e, n, k, me) => { const d = ITEMS[e.id]; if (!d) return ''; return `<div class="tw-it"${me ? ` data-k="${k}" title="클릭: 빼기"` : ''}><span class="ic">${ico(d.icon, e.blessed)}</span><b style="color:${rarC(e.id)}">${esc(INV.nameOf(e))}</b>${d.stack ? (me ? `<input type="number" min="1" max="${e.n}" value="${n}" data-n="${k}" class="tw-n">` : `<small>×${n}</small>`) : ''}</div>`; };
+    const stTxt = s => s === 'ok' ? '<span class="ok">교환 수락 ✔</span>' : s === 'lock' ? '<span class="ok">확인함 ✔</span>' : '<span>항목 고르는 중…</span>';
+    const mineH = offer.map((x, k) => row(x.e, x.n, k, true)).join('') || '<p class="tw-empty">아래 내 가방에서 눌러 올리세요</p>';
+    const hisH = ((t && t.it) || []).map(e => row(e, e.n, 0, false)).join('') || '<p class="tw-empty">아직 올린 것이 없어요</p>';
+    const bagH = INV.bag().filter(e => tradable(e) && !offer.some(x => x.e === e)).map((e, k) => { const d = ITEMS[e.id]; return `<button type="button" class="tw-b" data-bag="${INV.bag().indexOf(e)}" title="${esc(INV.nameOf(e))}${d.stack ? ' ×' + e.n : ''}"><span class="ic">${ico(d.icon, e.blessed)}</span>${d.stack && e.n > 1 ? `<em>${e.n > 999 ? '999+' : e.n}</em>` : ''}</button>`; }).join('');
+    const h = mineH + '|' + hisH + '|' + bagH + '|' + mine + his + (t ? t.g : 0) + coins;
+    if (h !== lastH) { lastH = h; $('tw-mine').innerHTML = mineH; $('tw-his').innerHTML = hisH; $('tw-bag').innerHTML = bagH || '<p class="tw-empty">올릴 수 있는 물건이 없어요</p>'; $('tw-hisgold').textContent = ((t && t.g) || 0).toLocaleString(); $('tw-have').textContent = coins.toLocaleString(); }
+    $('tw-mst').innerHTML = stTxt(mine); $('tw-hst').innerHTML = stTxt(his);
+    const ok = $('tw-ok'); ok.textContent = mine === 'lock' || mine === 'ok' ? (his === 'lock' || his === 'ok' ? '교환 확인 중…' : '상대 확인 기다리는 중…') : '확인'; ok.disabled = mine !== 'open';
+    w.classList.toggle('locked', mine !== 'open'); }
+  { const w = $('tradewin');
+    if (w) { w.addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.preventDefault(); end('교환을 취소했습니다.'); } ev.stopPropagation(); });
+      $('tw-bag').onclick = ev => { const b = ev.target.closest('[data-bag]'); if (!b || !S || S.st !== 'open') return; const e = INV.bag()[+b.dataset.bag]; if (e) addItem(e); };
+      $('tw-mine').onclick = ev => { if (ev.target.closest('input')) return; const r = ev.target.closest('[data-k]'); if (!r || !S || S.st !== 'open') return; offer.splice(+r.dataset.k, 1); changed(); };
+      $('tw-mine').onchange = ev => { const i = ev.target.closest('[data-n]'); if (!i || !S) return; const x = offer[+i.dataset.n]; if (!x) return; x.n = Math.max(1, Math.min(x.e.n, Math.floor(+i.value || 1))); i.value = x.n; changed(); };
+      $('tw-gold').oninput = ev => { if (!S || S.st !== 'open') { ev.target.value = gold || ''; return; } const v = Math.max(0, Math.min(coins, Math.floor(+ev.target.value || 0))); if (String(v) !== ev.target.value && ev.target.value !== '') ev.target.value = v || ''; gold = v; changed(); };
+      $('tw-ok').onclick = () => { if (!S || S.st !== 'open') return; const t = ptd(); if (!t) { say('상대가 아직 교환창을 열지 않았어요.', '#f0c080'); return; } if (gold > coins) { say('골드가 부족해요.', '#f08a7a'); return; } S.st = 'lock'; S.pv = t.v; asked = false; push(); render(); };
+      $('tw-cancel').onclick = () => end('교환을 취소했습니다.'); $('tw-x').onclick = () => end('교환을 취소했습니다.'); } }
+  return { request, tick, active: () => !!S && S.st !== 'cancel' && S.st !== 'done' };
 })();
 // ============================================================ 업데이트 (로그인 화면): PC 실행 파일은 업데이트 서버에서 바뀐 파일만 받아 덮어씀 · 웹은 새로 불러오기
 const UPD = (() => { const $ = id => document.getElementById(id), N = () => window.native; let busy = false;
@@ -3758,6 +3830,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 95, items: ['교환: 마을에서 다른 유저를 클릭 → [교환 신청] → 상대가 수락하면 교환창이 열려요.', '각자 가방의 아이템(여러 개는 수량 지정)과 골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?"에서 한 번 더 확인하면 주고받아요.', '확인한 뒤 누구든 항목을 바꾸면 확인이 풀려서 다시 확인해야 해요. (착용 중·잠금 아이템은 교환 불가)'] },
     { v: 94, items: ['업데이트가 적용되면 바뀐 내용을 이 창으로 알려줘요. (ESC 메뉴 → 업데이트 소식에서 다시 볼 수 있어요)'] },
     { v: 93, items: ['모든 지역의 2구간에서도 자동사냥이 돼요. 마을에 다녀오면 사냥하던 구간으로 돌아가요.', '자동사냥 타겟팅 설정: 자율 공격 · 파티원과 같은 몬스터 · 파티원과 다른 몬스터', '새 버전이 나오면 화면 위에 [업데이트] 버튼이 생겨요. 누르면 그 자리·파티·멀티 방 그대로 이어서 플레이해요.', '파티창에 파티원의 버프(가속·실드·인챈트 등)와 남은 시간이 보여요.'] },
     { v: 92, items: ['ESC 메뉴에서 배경음·효과음 볼륨을 따로 조절할 수 있어요.', '소리 설정이 저장돼요. (같은 계정이면 다른 PC에서도 그대로)'] },
@@ -3997,7 +4070,7 @@ let last=performance.now(), invT=0;
 function frame(now){
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); }
+  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
