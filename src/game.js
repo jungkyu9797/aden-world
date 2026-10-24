@@ -452,7 +452,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 97;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 98;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2454,6 +2454,7 @@ const SHOP2ITEM = { ...Object.fromEntries(Object.entries(SK).map(([k, v]) => [v.
   '장검': 'long_sword', '한손검': 'short_sword', '능력치 초기화 주문서': 'stat_reset', '초록 물약': 'green_potion', '용기의 물약': 'brave_potion', '나무 방패': 'wood_shield', '가죽 갑옷': 'leather_armor', '가죽 장화': 'leather_boots', '마나 회복 물약': 'mana_potion', '펫 목걸이(Lv.1 도베르만)': 'pet_collar', '판금 투구': 'plate_helm', '판금 갑옷': 'plate_armor', '판금 장갑': 'plate_gloves', '판금 장화': 'plate_boots', '부활 주문서': 'revive_scroll' };
 for (const id of CX_LIST) if (!SHOP2ITEM[ITEMS[id].name]) SHOP2ITEM[ITEMS[id].name] = id;
 const INV = (() => {
+  let bagDrag = false;     // 가방 칸을 끄는 동안은 다시 그리지 않음
   const bag = [];          // {id, n, on}
   const eq = {};           // slot → bag entry
   const BASE = { str: 16, dex: 12, con: 14, int: 8, wis: 9, cha: 12 };   // 기사 시작 능력치 (직업별 고정)
@@ -2708,12 +2709,14 @@ const INV = (() => {
   function render() {
     hero.max = hero.baseHP + sum('hp') + Math.max(0, STAT.con - 14); hero.maxmp = hero.baseMP + sum('mp') + Math.max(0, Math.floor((STAT.wis - 9) / 2)); hero.hp = Math.min(hero.hp, hero.max); hero.mp = Math.min(hero.mp, hero.maxmp);
     const grid = $('inv-grid'); if (!grid) return; if (!$('invwin').hidden) renderSkills();
-    if (!$('invwin').hidden) {
+    if (!$('invwin').hidden && !bagDrag) {
       grid.innerHTML = ''; const N = Math.max(48, Math.ceil((bag.length + 1) / 4) * 4);
       for (let k = 0; k < N; k++) { const e = bag[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
-        if (e) { c.draggable = true; c.ondragstart = ev => { ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.setData('text/x-bag', String(bag.indexOf(e))); }; c.innerHTML = ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.on ? '<i class="on">ON</i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (ITEMS[e.id].stack ? `<b>${GOD_INF(e.id) ? '∞' : e.n}</b>` : ''); c.dataset.itip = tip(e) + (e.locked ? '\n잠김 — 강화·판매 불가' : ''); c.dataset.ic = rarC(e.id); { const rr = ITEMS[e.id].rar || '일반'; c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); c.classList.add('rar', 'r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } if (e.blessed) c.classList.add('blessed'); if (e.locked) c.insertAdjacentHTML('beforeend', '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>');
+        c.ondragover = ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('dropk'); } }; c.ondragleave = () => c.classList.remove('dropk');
+        c.ondrop = ev => { c.classList.remove('dropk'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); moveBag(+a, k); };   // 칸끼리 끌어서 자리 바꾸기
+        if (e) { c.draggable = true; c.ondragstart = ev => { bagDrag = true; ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.setData('text/x-bag', String(bag.indexOf(e))); }; c.innerHTML = ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.on ? '<i class="on">ON</i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (ITEMS[e.id].stack ? `<b>${GOD_INF(e.id) ? '∞' : e.n}</b>` : ''); c.dataset.itip = tip(e) + (e.locked ? '\n잠김 — 강화·판매 불가' : ''); c.dataset.ic = rarC(e.id); { const rr = ITEMS[e.id].rar || '일반'; c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); c.classList.add('rar', 'r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } if (e.blessed) c.classList.add('blessed'); if (e.locked) c.insertAdjacentHTML('beforeend', '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>');
           c.onpointerdown = ev => holdStart(ev, e); c.onclick = () => { if (tgtScroll) { lastApplyT = performance.now(); applyScroll(e); } else if ($('bulkwin') && !$('bulkwin').hidden) { lastApplyT = performance.now(); bulkToggle(e); } }; if (BK.list.includes(e)) c.classList.add('bk-on'); c.ondblclick = () => { if (!recentApply()) use(e); }; c.oncontextmenu = ev => { ev.preventDefault(); if ($('storewin') && !$('storewin').hidden) { lastApplyT = performance.now(); STORE.depositAsk(e); } else use(e); }; }   // 창고가 열려 있으면 우클릭 = 창고로
-        else c.disabled = true;
+        else { c.classList.add('empty'); c.tabIndex = -1; c.setAttribute('aria-disabled', 'true'); }
         grid.appendChild(c); }
       if (dwE && !$('itemwin').hidden) { if (bag.includes(dwE)) showDetail(dwE); else hideDetail(); }
       $('inv-w').textContent = Math.round(weight() / maxW() * 100) + '%'; $('inv-coin').textContent = coins.toLocaleString();
@@ -2768,6 +2771,8 @@ const INV = (() => {
     const close = () => { w.hidden = true; removeEventListener('keydown', key, true); };
     const key = ev => { if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); close(); yes(); } else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); close(); if (no) no(); } };
     $('ask-yes').onclick = () => { close(); yes(); }; $('ask-no').onclick = () => { close(); if (no) no(); }; addEventListener('keydown', key, true); $('ask-yes').focus(); }
+  addEventListener('dragend', () => { if (bagDrag) { bagDrag = false; render(); } }, true);
+  function moveBag(a, b) { bagDrag = false; if (a === b || !bag[a]) return; if (b >= bag.length) { const [e] = bag.splice(a, 1); bag.push(e); } else { const t = bag[a]; bag[a] = bag[b]; bag[b] = t; } render(); }
   function toggleBoth() { const open = $('invwin').hidden || $('charwin').hidden; $('invwin').hidden = !open; $('charwin').hidden = !open; skKey = ''; render(); renderSkills(); }
   // 단축키 칸 F5~F12 (휠로 선택, 휠 클릭·F키로 사용)
   const hot = ['red_potion', 'orange_potion', 'return_scroll', 'tele_scroll', null, null, null, null]; let hsel = 0;
@@ -3276,7 +3281,7 @@ const TOWN = (() => {
   function toField(name) { if (name === '이야기섬') { ISLAND.enter(1, 'town'); fadeTo(0); syncButtons(); return; }
     if (name === '사막필드') { ISLAND.enter(3, 'town'); fadeTo(0); syncButtons(); return; }
     if (name === '오크숲') { ISLAND.enter(5, 'town'); fadeTo(0); syncButtons(); return; } ISLE = null; setGeom(30); arrows.length = 0; SCENE = 'field'; ZONE = name; blockedT = FIELD_BLOCKED; PROPS = META.props; foxes = FIELD_FOXES; place(...META.spawn); hero.row = 1; say(`***** ${name}에 입장했습니다 *****`, '#f2e6a8'); say('여우를 클릭하면 공격합니다. R: 마을로 귀환', '#9fd0e8'); fadeTo(0); syncButtons(); }
-  function syncButtons() { $('btn-home').hidden = SCENE !== 'field'; }
+  function syncButtons() { $('btn-home').hidden = true; }   // 위쪽 '마을로 귀환' 버튼은 쓰지 않음 (귀환 주문서·월드맵으로)
   // 사냥터 → 마을: 귀환 주문서 1장 사용 (없으면 1구간의 마을 포털을 쓰라고 안내)
   function scrollHome() { if (SCENE === 'town') return true; if (!INV.take('return_scroll')) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 110, '귀환 주문서 없음', { color: '#ff9a8a', size: 13, big: true, life: 1.6 }); say('귀환 주문서가 없습니다. 1구간의 텔레포트(마을로 가는 포털)를 이용하세요.', '#ff8a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'square', 300, 180, 0.18, 0.05); return false; }
     say('귀환 주문서를 사용했습니다.', '#a0c0f2'); toTown(); return true; }
@@ -3758,7 +3763,8 @@ const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; 
   const clean = e => { const c = JSON.parse(JSON.stringify(e, (k, v) => k && k[0] === '_' ? undefined : v)); delete c.on; delete c.locked; delete c.godTemp; return c; };
   const tradable = e => !e.on && !e.locked && !e.godTemp && !GOD_INF(e.id) && !(e.pet && e.pet.state === 'out') && ITEMS[e.id];
   function push() { if (!S) { NET.setExtra('td', null); return; } NET.setExtra('td', { id: S.id, to: S.peer, st: S.st, v: ver, pv: S.pv == null ? -1 : S.pv, g: gold, it: offer.map(x => Object.assign(clean(x.e), { n: x.n })) }); }
-  function end(msg, c) { if (msg) say(msg, c || '#9c9682'); if (S && S.st !== 'done' && S.st !== 'cancel') { S.st = 'cancel'; push(); } setTimeout(() => { if (!S || S.st === 'cancel' || S.st === 'done') { S = null; offer = []; gold = 0; push(); } }, 2500); $('tradewin').hidden = true; asked = false; }
+  const hideTip = () => { const st = document.getElementById('stat-tip'); if (st) st.hidden = true; };
+  function end(msg, c) { hideTip(); if (msg) say(msg, c || '#9c9682'); if (S && S.st !== 'done' && S.st !== 'cancel') { S.st = 'cancel'; push(); } setTimeout(() => { if (!S || S.st === 'cancel' || S.st === 'done') { S = null; offer = []; gold = 0; push(); } }, 2500); $('tradewin').hidden = true; asked = false; }
   // 신청 (내가)
   function request(peer) { const o = NET.others().find(q => q.peer === peer); if (!o) return; if (SCENE !== 'town' || o.pr.z !== 'town') { say('교환은 마을에서만 할 수 있어요.', '#f0c080'); return; }
     if (S && S.st !== 'cancel' && S.st !== 'done') { say('이미 교환 중이에요.', '#f0c080'); return; }
@@ -3798,11 +3804,13 @@ const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; 
   function open() { const w = $('tradewin'); if (!w || !S) return; w.hidden = false; $('tw-who').textContent = S.name; $('tw-gold').value = gold || ''; render(); }
   let lastH = '';
   function render() { const w = $('tradewin'); if (!w || w.hidden || !S) return; const t = ptd(), mine = S.st, his = t ? t.st : 'open';
-    const row = (e, n, k, me) => { const d = ITEMS[e.id]; if (!d) return ''; return `<div class="tw-it"${me ? ` data-k="${k}" title="클릭: 빼기"` : ''}><span class="ic">${ico(d.icon, e.blessed)}</span><b style="color:${rarC(e.id)}">${esc(INV.nameOf(e))}</b>${d.stack ? (me ? `<input type="number" min="1" max="${e.n}" value="${n}" data-n="${k}" class="tw-n">` : `<small>×${n}</small>`) : ''}</div>`; };
+    const tipA = (e, extra) => ` data-itip="${esc(INV.tipOf(Object.assign({ n: 1 }, e, { on: false })).split('\n').filter(l => !/더블클릭|꾹 누르고|우클릭/.test(l)).concat(extra ? [extra] : []).join('\n'))}" data-ic="${rarC(e.id)}"`;
+    const enB = e => e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '';
+    const row = (e, n, k, me) => { const d = ITEMS[e.id]; if (!d) return ''; return `<div class="tw-it"${me ? ` data-k="${k}"` : ''}${tipA(e, me ? '클릭: 교환창에서 빼기' : '')}><span class="ic">${ico(d.icon, e.blessed)}${enB(e)}</span><b style="color:${rarC(e.id)}">${esc(INV.nameOf(e))}</b>${d.stack ? (me ? `<input type="number" min="1" max="${e.n}" value="${n}" data-n="${k}" class="tw-n">` : `<small>×${n}</small>`) : ''}</div>`; };
     const stTxt = s => s === 'ok' ? '<span class="ok">교환 수락 ✔</span>' : s === 'lock' ? '<span class="ok">확인함 ✔</span>' : '<span>항목 고르는 중…</span>';
     const mineH = offer.map((x, k) => row(x.e, x.n, k, true)).join('') || '<p class="tw-empty">아래 내 가방에서 눌러 올리세요</p>';
     const hisH = ((t && t.it) || []).map(e => row(e, e.n, 0, false)).join('') || '<p class="tw-empty">아직 올린 것이 없어요</p>';
-    const bagH = INV.bag().filter(e => tradable(e) && !offer.some(x => x.e === e)).map((e, k) => { const d = ITEMS[e.id]; return `<button type="button" class="tw-b" data-bag="${INV.bag().indexOf(e)}" title="${esc(INV.nameOf(e))}${d.stack ? ' ×' + e.n : ''}"><span class="ic">${ico(d.icon, e.blessed)}</span>${d.stack && e.n > 1 ? `<em>${e.n > 999 ? '999+' : e.n}</em>` : ''}</button>`; }).join('');
+    const bagH = INV.bag().filter(e => tradable(e) && !offer.some(x => x.e === e)).map((e, k) => { const d = ITEMS[e.id]; return `<button type="button" class="tw-b" data-bag="${INV.bag().indexOf(e)}"${tipA(e, '클릭: 교환창에 올리기')}><span class="ic">${ico(d.icon, e.blessed)}</span>${enB(e)}${d.stack && e.n > 1 ? `<em>${e.n > 999 ? '999+' : e.n}</em>` : ''}</button>`; }).join('');
     const h = mineH + '|' + hisH + '|' + bagH + '|' + mine + his + (t ? t.g : 0) + coins;
     if (h !== lastH) { lastH = h; $('tw-mine').innerHTML = mineH; $('tw-his').innerHTML = hisH; $('tw-bag').innerHTML = bagH || '<p class="tw-empty">올릴 수 있는 물건이 없어요</p>'; $('tw-hisgold').textContent = ((t && t.g) || 0).toLocaleString(); $('tw-have').textContent = coins.toLocaleString(); }
     $('tw-mst').innerHTML = stTxt(mine); $('tw-hst').innerHTML = stTxt(his);
@@ -3838,17 +3846,19 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
   let newVer = 0, gBusy = false;
   async function checkIn() { const n = N(); if (!n || !n.updateCheck || gBusy) return; try { const r = await n.updateCheck(); const b = $('btn-upd'); if (r && r.ok && r.ver > GAME_VER && b) { const first = b.hidden; newVer = r.ver; b.hidden = false; b.textContent = `⬇ 업데이트 (v${r.ver})`; if (first && ACCOUNT.started()) say(`새 버전(v${r.ver})이 나왔어요. 화면 위의 [업데이트]를 누르면 접속을 유지한 채 바로 업데이트돼요.`, '#ffd86a'); } } catch (e) {} }
   async function runIn() { const n = N(), b = $('btn-upd'); if (!n || !n.update || gBusy) return; gBusy = true; b.disabled = true; b.textContent = '업데이트 중…'; say('업데이트를 받는 중입니다… (캐릭터를 먼저 저장해요)', '#ffd86a');
-    try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {}
+    ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {}
     let r; try { r = await n.update(); } catch (e) { r = { ok: false, err: String(e && e.message || e) }; }
+    if (!r.ok || r.latest) { try { localStorage.removeItem('aden_resume'); } catch (e) {} }
     if (!r.ok) { gBusy = false; b.disabled = false; b.textContent = `⬇ 업데이트 (v${newVer})`; say('업데이트하지 못했어요. 인터넷 연결을 확인해 주세요. (' + String(r.err).slice(0, 60) + ')', '#f08a7a'); return; }
     if (r.latest) { gBusy = false; b.hidden = true; b.disabled = false; say('이미 최신 버전이에요.', '#9fd08a'); return; }
-    ACCOUNT.keepForUpdate(); say(`v${r.ver} 업데이트 완료! 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 800); }
+    say(`v${r.ver} 업데이트 완료! 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 800); }
   { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = runIn; setTimeout(checkIn, 8000); setInterval(checkIn, 5 * 60 * 1000); }
     if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
   return { run, check: checkIn }; })();
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 98, items: ['인벤토리에서 아이템을 끌어서 자리를 바꿀 수 있어요. (다른 아이템 위에 놓으면 서로 바뀌고, 빈 칸에 놓으면 맨 뒤로)', '교환창 가방·올린 물건에 마우스를 올리면 아이템 정보(이름·강화·옵션)가 보이고, 아이콘에 강화 수치(+7 등)가 표시돼요.', '게임 중 업데이트로 다시 접속돼도 소환해 둔 펫이 그대로 따라와요.', '화면 위의 [마을로 귀환] 버튼을 없앴어요. (귀환 주문서나 월드맵의 마을을 이용해 주세요)'] },
     { v: 97, items: ['펫이 체력 물약을 내 가방에서 같이 먹어요. (펫 HP 50% 아래 · 펫 가방에 따로 넣을 필요 없음)', '펫 가방에는 가속 물약만 넣어요. 넣어 두면 펫이 따로 먹어요. (예전에 넣어 둔 체력 물약은 먼저 먹고, 칸을 눌러 꺼낼 수도 있어요)'] },
     { v: 96, items: ['보스(셸로브·여왕개미·오우거)가 모든 사람에게 같은 시각·같은 자리에 나타나고, 등장·토벌 공지도 모두에게 보여요. 누가 잡으면 모두의 화면에서 사라져요.', '버프 남은 시간이 10초 이하가 되면 아이콘에 10, 9, 8… 숫자로 보여요. (파티창도)'] },
     { v: 95, items: ['교환: 마을에서 다른 유저를 클릭 → [교환 신청] → 상대가 수락하면 교환창이 열려요.', '각자 가방의 아이템(여러 개는 수량 지정)과 골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?"에서 한 번 더 확인하면 주고받아요.', '확인한 뒤 누구든 항목을 바꾸면 확인이 풀려서 다시 확인해야 해요. (착용 중·잠금 아이템은 교환 불가)'] },
@@ -4002,11 +4012,13 @@ const ACCOUNT = (() => {
     let rs = null; try { rs = JSON.parse(localStorage.getItem('aden_resume') || 'null'); localStorage.removeItem('aden_resume'); } catch (e) {}
     if (rs && rs.exp > Date.now() && rs.acc && CLS_DEF[rs.cls]) { acc = rs.acc; chars = rs.chars || {}; srv = rs.srv || 'legacy'; if (rs.fb) CLOUD.restore(rs.fb); sel = rs.cls;   // 게임 중 업데이트 → 다시 켜지면 그 자리에서
       begin(rs.cls, rs.name).then(() => { if (!started) return; const p = rs.pos || {}; if (p.isle && ISLAND.def(p.isle)) TOWN.toZone(p.isle, p.x, p.z); else if (p.scene === 'town') TOWN.placeAt(p.x, p.z);
-        if (rs.pt) NET.setParty(rs.pt); if (rs.mp) MPP.start(rs.mp); say(`***** 업데이트 완료 (v${GAME_VER}) — 그 자리에서 이어서 플레이합니다 *****`, '#9fd08a'); if (rs.auto) setTimeout(() => { if (!AUTO.on()) AUTO.toggle(); }, 800); }); return; }
+        if (rs.pt) NET.setParty(rs.pt); if (rs.mp) MPP.start(rs.mp);
+        for (const rid of rs.pets || []) { const e = INV.bag().find(x => x.pet && x.pet.rid === rid); if (e && e.pet.state === 'stored') PET.summon(e); } say(`***** 업데이트 완료 (v${GAME_VER}) — 그 자리에서 이어서 플레이합니다 *****`, '#9fd08a'); if (rs.auto) setTimeout(() => { if (!AUTO.on()) AUTO.toggle(); }, 800); }); return; }
     if (boot && boot.acc && CLS_DEF[boot.cls]) { acc = boot.acc; chars = boot.chars || {}; srv = boot.srv || 'legacy'; if (boot.fb) CLOUD.restore(boot.fb); sel = boot.cls; begin(boot.cls, boot.name); return; }
     const w = $('loginscr'); if (!w) return; w.hidden = false; { const sv = $('lg-srv'); if (sv) { sv.textContent = '계정 서버 확인 중…'; CLOUD.ping().then(ok => { sv.textContent = ok ? '● 계정 서버 연결됨 — 어느 PC에서든 이어서 플레이' : '○ 계정 서버에 연결되지 않음 — 이 기기에만 저장돼요'; sv.className = 'lg-srv ' + (ok ? 'ok' : 'no'); }); } } const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }, 120);
   function keepForUpdate() { if (!started) return false; const pos = { scene: SCENE, isle: ISLE ? ISLE.id : null, x: +hero.x.toFixed(2), z: +hero.z.toFixed(2) };
-    try { localStorage.setItem('aden_resume', JSON.stringify({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), exp: Date.now() + 180000 })); return true; } catch (e) { return false; } }
+    const pets = INV.bag().filter(e => e.pet && e.pet.state === 'out').map(e => (e.pet.rid = e.pet.rid || 'p' + Math.random().toString(36).slice(2, 9)));
+    try { localStorage.setItem('aden_resume', JSON.stringify({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), pets, exp: Date.now() + 180000 })); return true; } catch (e) { return false; } }
   return { acc: () => acc, openSel, started: () => started, mode: () => srv, keepForUpdate };
 })();
 const AUTO = (() => {
