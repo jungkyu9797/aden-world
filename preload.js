@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('native', {
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
   onClosing: (fn) => ipcRenderer.on('app:closing', () => fn()),
   closeNow: () => ipcRenderer.invoke('app:close-now'),
+  logAppend: (name, text) => ipcRenderer.invoke('log:append', name, text),
+  logShot: () => ipcRenderer.invoke('log:shot'),
 });

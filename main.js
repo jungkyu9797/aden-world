@@ -96,6 +96,12 @@ ipcMain.handle('update:run', async (e) => {
   } catch (err) { return { ok: false, err: String(err.message || err) }; }
 });
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
+// ===== 관찰 기록기: 플레이 기록과 게임 창 캡처를 게임 폴더 logs/ 에 남김 (모니터 리포트용 · 이 PC에만 저장)
+const LOG_DIR = () => path.join(APP_DIR, 'logs');
+ipcMain.handle('log:append', (_e, name, text) => { try { if (typeof name !== 'string' || !/^[\w\-.]+\.jsonl$/.test(name) || typeof text !== 'string' || text.length > 2e6) return false; fs.mkdirSync(LOG_DIR(), { recursive: true }); const f = path.join(LOG_DIR(), name); try { if (fs.statSync(f).size > 40e6) return false; } catch (_) {} fs.appendFileSync(f, text, 'utf-8'); return true; } catch (err) { return false; } });
+ipcMain.handle('log:shot', async (e) => { try { const w = BrowserWindow.fromWebContents(e.sender); if (!w || w.isMinimized()) return false; const img = await w.webContents.capturePage(); if (img.isEmpty()) return false; const sz = img.getSize(), sm = sz.width > 1280 ? img.resize({ width: 1280 }) : img;
+  const dir = path.join(LOG_DIR(), 'shots'); fs.mkdirSync(dir, { recursive: true }); const d = new Date(), p2 = n => String(n).padStart(2, '0'); const name = `shot-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.jpg`;
+  fs.writeFileSync(path.join(dir, name), sm.toJPEG(72)); const all = fs.readdirSync(dir).filter(x => /^shot-.*\.jpg$/.test(x)).sort(); for (const x of all.slice(0, Math.max(0, all.length - 18))) { try { fs.unlinkSync(path.join(dir, x)); } catch (_) {} } return name; } catch (err) { return false; } });
 
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());
