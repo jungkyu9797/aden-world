@@ -2668,6 +2668,7 @@ const INV = (() => {
     if (d.invis) { const left = (e.invisAt || 0) - time; ctl.push(!e.on ? '<p class="iw-st">착용하면 투명 기능을 쓸 수 있습니다.</p>' : left > 0 ? `<button type="button" disabled>투명 재사용 대기 ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}</button>` : `<button type="button" data-act="invis" class="iw-invis">투명 사용 (${d.invis.dur}초)</button>`);
       clearTimeout(cdTimer); if (e.on && left > 0) cdTimer = setTimeout(() => { if (dwE === e && !$('itemwin').hidden) showDetail(e); }, 1000); }
     else if (d.use) ctl.push(`<button type="button" data-act="use">${d.use === 'pet' ? '펫 창 열기' : d.use === 'learn' ? '배우기' : d.use === 'enchant' || d.use === 'attr' ? '사용하기 (장비 선택)' : '사용하기'}</button>`);
+    if (e.pet && !e.preview) { const ps = e.pet.state; ctl.unshift(ps === 'out' ? '<button type="button" data-act="pet-store">펫 보관하기 (넣기)</button>' : ps === 'dead' ? `<button type="button" data-act="pet-revive">부활 주문서로 되살리기 (${count('revive_scroll')}개)</button>` : '<button type="button" data-act="pet-summon" class="iw-pet">펫 소환하기 (꺼내기)</button>'); }   // 어디서든 소환·보관
     if (e.pet) ctl.push(`<div class="iw-rename"><input type="text" id="iw-petname" maxlength="8" value="${esc_(e.pet.name)}" aria-label="펫 이름"><button type="button" data-act="rename">이름 변경</button></div>`);
     if (e.id in AUTOBUFF) ctl.push(`<label class="iw-chk"><input type="checkbox" data-act="autobuff"${AUTOBUFF[e.id] ? ' checked' : ''}><span>자동 사용 <small>버프가 끝나면 자동으로 사용 (마을 제외)</small></span></label>`);
     for (const k of ['hp', 'mp']) if (potOK(k, e.id)) { const on = A[k].on && A[k].id === e.id;
@@ -2684,6 +2685,9 @@ const INV = (() => {
       else if (act === 'lock') el.onchange = () => { e.locked = el.checked; say(`${nameOf(e)}: ${e.locked ? '잠금 — 강화·판매할 수 없습니다.' : '잠금을 풀었습니다.'}`, e.locked ? '#f2d98a' : '#9c9682'); render(); w.dataset.h = ''; showDetail(e); };
       else if (act === 'rename') { const inp = w.querySelector('#iw-petname'); el.onclick = () => { if (PET.rename(e, inp.value)) { w.dataset.h = ''; showDetail(e); } }; inp.onkeydown = ev => { ev.stopPropagation(); if (ev.key === 'Enter') el.click(); }; }
       else if (act === 'invis') el.onclick = () => { useInvis(e); if (bag.includes(e)) showDetail(e); };
+      else if (act === 'pet-summon') el.onclick = () => { PET.summon(e); w.dataset.h = ''; showDetail(e); };
+      else if (act === 'pet-store') el.onclick = () => { PET.store(e); w.dataset.h = ''; showDetail(e); };
+      else if (act === 'pet-revive') el.onclick = () => { PET.revive(e); w.dataset.h = ''; showDetail(e); };
       else if (act.startsWith('pv-')) el.onclick = () => { const v = act.slice(3), cur = pvEn != null ? pvEn : (e.en || 0); pvEn = v === 'real' ? null : v === 'up' ? Math.min(15, cur + 1) : v === 'dn' ? Math.max(0, cur - 1) : +v; w.dataset.h = ''; showDetail(e); };
       else el.onclick = () => { if (act === 'use') { const keep = !(d.use === 'enchant' || d.use === 'attr'); use(e); if (keep && bag.includes(e)) showDetail(e); else hideDetail(); } else { setAuto(act.slice(5), e.id); showDetail(e); } }; });
     w.hidden = false; if (!wasHidden && x == null) { showCompare(e, pvEn); return; } const W_ = w.offsetWidth, H_ = w.offsetHeight; let L_ = dwPos[0] + 18, T_ = dwPos[1] - 20; if (L_ + W_ > innerWidth - 8) L_ = dwPos[0] - W_ - 18; L_ = Math.max(8, L_); T_ = Math.max(8, Math.min(innerHeight - H_ - 8, T_));
@@ -3872,7 +3876,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
-    { v: 99, items: ['장비 상세 정보에서 강화 수치를 임의로 넣어 볼 수 있어요. (+0·+4·+6·+7·+9 · ± 버튼) 착용 중인 장비도 같은 강화로 맞춰 비교해 줘요.', '가방 무게가 80% 이상이면 이동이 20% 느려지고, 100% 이상이면 절반으로 느려져요. 넘을 때 "가방이 무겁습니다" 경고가 떠요.', '자동사냥: 최근 나를 공격한 몬스터(멀리서 쏘는 다크엘프·오크마법사 포함)를 가장 먼저 잡아요. 지금 잡던 몹이 나를 안 때리는데 다른 몹이 때리면 바로 갈아타요.', '미니맵에 같은 지역 파티원 위치가 초록 점으로 보여요.', '업데이트를 더 안정적으로 받아요. (방금 나온 업데이트도 바로 받을 수 있게)'] },
+    { v: 99, items: ['교환창에서 아이템 정보 팝업이 교환창 뒤에 가려지던 문제를 고쳤어요.', '펫 목걸이의 아이템 정보에서 [펫 소환하기]·[펫 보관하기]로 어디서든 펫을 꺼내고 넣을 수 있어요. (쓰러졌으면 부활 주문서로 되살리기)', '장비 상세 정보에서 강화 수치를 임의로 넣어 볼 수 있어요. (+0·+4·+6·+7·+9 · ± 버튼) 착용 중인 장비도 같은 강화로 맞춰 비교해 줘요.', '가방 무게가 80% 이상이면 이동이 20% 느려지고, 100% 이상이면 절반으로 느려져요. 넘을 때 "가방이 무겁습니다" 경고가 떠요.', '자동사냥: 최근 나를 공격한 몬스터(멀리서 쏘는 다크엘프·오크마법사 포함)를 가장 먼저 잡아요. 지금 잡던 몹이 나를 안 때리는데 다른 몹이 때리면 바로 갈아타요.', '미니맵에 같은 지역 파티원 위치가 초록 점으로 보여요.', '업데이트를 더 안정적으로 받아요. (방금 나온 업데이트도 바로 받을 수 있게)'] },
     { v: 98, items: ['인벤토리에서 아이템을 끌어서 자리를 바꿀 수 있어요. (다른 아이템 위에 놓으면 서로 바뀌고, 빈 칸에 놓으면 맨 뒤로)', '교환창 가방·올린 물건에 마우스를 올리면 아이템 정보(이름·강화·옵션)가 보이고, 아이콘에 강화 수치(+7 등)가 표시돼요.', '게임 중 업데이트로 다시 접속돼도 소환해 둔 펫이 그대로 따라와요.', '화면 위의 [마을로 귀환] 버튼을 없앴어요. (귀환 주문서나 월드맵의 마을을 이용해 주세요)'] },
     { v: 97, items: ['펫이 체력 물약을 내 가방에서 같이 먹어요. (펫 HP 50% 아래 · 펫 가방에 따로 넣을 필요 없음)', '펫 가방에는 가속 물약만 넣어요. 넣어 두면 펫이 따로 먹어요. (예전에 넣어 둔 체력 물약은 먼저 먹고, 칸을 눌러 꺼낼 수도 있어요)'] },
     { v: 96, items: ['보스(셸로브·여왕개미·오우거)가 모든 사람에게 같은 시각·같은 자리에 나타나고, 등장·토벌 공지도 모두에게 보여요. 누가 잡으면 모두의 화면에서 사라져요.', '버프 남은 시간이 10초 이하가 되면 아이콘에 10, 9, 8… 숫자로 보여요. (파티창도)'] },
