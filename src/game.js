@@ -444,7 +444,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 88;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 89;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3861,8 +3861,20 @@ const AUTO = (() => {
   function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; if (INV.count('return_scroll')) INV.take('return_scroll'); TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
   function buyAll() { const want = (id, n) => { const p = PRICE[id], k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); } if (k) say(`자동사냥: ${ITEMS[id].name} ${k}개 구입 (-${k * p} 골드)`, '#cfe4a8'); else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
     if (C.buy) want(C.buyId, C.buyN); if (C.buyScroll) want('return_scroll', 2); if (C.buyHaste) want(C.hasteId, C.hasteN); if (CLASS === 'elf') want('arrow', 500); }
-  function pick() { let b = null, bd = 1e9; for (const f of foxes) { if (f.dead || f.gone) continue; const S = MOB[f.kind]; if (C.noBoss && S.boss) continue;
-      const d = cheb(f.i, f.j, hero.i, hero.j) - (C.aggrFirst && f.aggro ? 100 : 0); if (d < bd) { bd = d; b = f; } } return b; }
+  // 실제 걸음 수(나무·바위·물을 돌아가는 길) — 직선으로만 가까운 몹을 가깝다고 착각하지 않게 (22걸음 안)
+  function pathDist(R) { const W = 2 * R + 1, D = new Int16Array(W * W).fill(-1), i0 = hero.i - R, j0 = hero.j - R, q = [hero.i, hero.j]; D[R * W + R] = 0;
+    for (let h = 0; h < q.length; h += 2) { const i = q[h], j = q[h + 1], d = D[(j - j0) * W + (i - i0)]; if (d >= R) continue;
+      for (const [di, dj] of DIRS8) { const ni = i + di, nj = j + dj; if (ni < i0 || nj < j0 || ni >= i0 + W || nj >= j0 + W || !walkable(ni, nj)) continue; if (di && dj && (!walkable(i + di, j) || !walkable(i, j + dj))) continue;
+        const k = (nj - j0) * W + (ni - i0); if (D[k] < 0) { D[k] = d + 1; q.push(ni, nj); } } }
+    return (i, j) => i < i0 || j < j0 || i >= i0 + W || j >= j0 + W ? -1 : D[(j - j0) * W + (i - i0)]; }
+  const stepsTo = (pd, f) => { let d = pd(f.i, f.j); if (d < 0) for (const [di, dj] of DIRS8) { const x = pd(f.i + di, f.j + dj); if (x >= 0 && (d < 0 || x + 1 < d)) d = x + 1; } return d; };
+  // 가까운 몹 우선: 걸음 수가 가장 적은 몹 · 나를 노리고 달려오는 8걸음 안의 몹은 먼저 (멀리 있는 선공몹 때문에 멀리 가지 않음)
+  function pick(pd) { pd = pd || pathDist(22); let b = null, bd = 1e9, fb = null, fd = 1e9;
+    for (const f of foxes) { if (f.dead || f.gone) continue; const S = MOB[f.kind]; if (C.noBoss && S.boss) continue;
+      let d = stepsTo(pd, f); if (d < 0) { const c = cheb(f.i, f.j, hero.i, hero.j); if (c < fd) { fd = c; fb = f; } continue; }
+      if (C.aggrFirst && f.aggro && f.tgt === hero && d <= 8) d -= 100; if (d < bd) { bd = d; b = f; } }
+    return b ? { f: b, d: bd } : fb ? { f: fb, d: 999 } : null; }
+  let rtT = 0;
   function tick(dt) {
     if (state === 'off') { if (snd) muteOff(); return; }
     if (state === 'hunting') {
@@ -3873,7 +3885,10 @@ const AUTO = (() => {
       if (C.lowPot && INV.count(C.buyId) <= C.lowN && INV.count('red_potion') + INV.count('orange_potion') <= C.lowN) { goHome('물약 부족'); return; }
       if ((!hero.target || hero.target.dead) && !moveGoal && hero.t >= 1 && !hero.atk) { const threat = foxes.some(f => !f.dead && f.aggro && cheb(f.i, f.j, hero.i, hero.j) <= 2);
         const it = !threat && lootTarget(); if (it) { it._try = (it._try || 0) + 1; GROUND.go(it); return; }
-        const f = pick(); if (f) hero.target = f; }
+        const p = pick(); if (p) hero.target = p.f; }
+      // 가는 중에 더 가까운 몹이 보이면 갈아탐 (지금 대상이 나를 때리는 중이 아니고, 3걸음 이상 더 가까울 때)
+      else if (hero.target && !hero.target.dead && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target;
+        if (!(T.aggro && T.tgt === hero && cheb(T.i, T.j, hero.i, hero.j) <= 3) && cheb(T.i, T.j, hero.i, hero.j) > 1) { const pd = pathDist(22), cur = stepsTo(pd, T), p = pick(pd); if (p && p.f !== T && (cur < 0 || p.d <= cur - 3)) hero.target = p.f; } }
       return; }
     if (state === 'town') {
       if (SCENE !== 'town') { if (!inZ1()) { state = 'off'; } return; }
