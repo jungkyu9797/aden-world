@@ -452,7 +452,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 93;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 94;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3171,6 +3171,7 @@ const TOWN = (() => {
     for (const id of ['esc-bgmv', 'esc-sfxv', 'esc-mm-op']) $(id).onkeydown = ev => { if (ev.key !== 'Escape') ev.stopPropagation(); };
     $('esc-char').onclick = () => { escMenu(false); ACCOUNT.openSel(true); };
     $('esc-quit').onclick = async () => { escMenu(false); PET.storeAll(); await SAVE.now(false, true); $('quitscr').hidden = false; };
+    { const b = $('esc-notes'); if (b) b.onclick = () => { escMenu(false); NOTES.showAll(); }; }
     { const b = $('esc-save'); if (b) b.onclick = () => { escMenu(false); if (!SAVE.on()) { say('캐릭터를 고른 뒤에 저장할 수 있어요.', '#9c9682'); return; } SAVE.now(true); }; }
     $('esc-back').onclick = () => escMenu(false); }
   window.escMenu = escMenu;
@@ -3754,6 +3755,28 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
   { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = runIn; setTimeout(checkIn, 8000); setInterval(checkIn, 5 * 60 * 1000); }
     if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
   return { run, check: checkIn }; })();
+// ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
+const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
+  const LIST = [
+    { v: 94, items: ['업데이트가 적용되면 바뀐 내용을 이 창으로 알려줘요. (ESC 메뉴 → 업데이트 소식에서 다시 볼 수 있어요)'] },
+    { v: 93, items: ['모든 지역의 2구간에서도 자동사냥이 돼요. 마을에 다녀오면 사냥하던 구간으로 돌아가요.', '자동사냥 타겟팅 설정: 자율 공격 · 파티원과 같은 몬스터 · 파티원과 다른 몬스터', '새 버전이 나오면 화면 위에 [업데이트] 버튼이 생겨요. 누르면 그 자리·파티·멀티 방 그대로 이어서 플레이해요.', '파티창에 파티원의 버프(가속·실드·인챈트 등)와 남은 시간이 보여요.'] },
+    { v: 92, items: ['ESC 메뉴에서 배경음·효과음 볼륨을 따로 조절할 수 있어요.', '소리 설정이 저장돼요. (같은 계정이면 다른 PC에서도 그대로)'] },
+    { v: 90, items: ['강화 시도 이펙트가 주변 사람들에게도 보여요. +7 이상 성공·증발은 근처 채팅창에도 알려줘요.'] },
+    { v: 89, items: ['자동사냥이 실제 걸음 수 기준으로 가장 가까운 몹부터 잡아요. 가는 중에 더 가까운 몹이 보이면 갈아타요.'] },
+    { v: 88, items: ['계정·캐릭터가 서버에 저장돼요. 어느 PC에서든 같은 계정으로 접속하면 키우던 캐릭터 그대로 이어서 해요.', '20초마다 자동 저장 · ESC 메뉴 [지금 저장하기]'] },
+    { v: 87, items: ['파티: 다른 유저 클릭 → 파티 초대 · 파티 사냥 시 공헌도(딜·힐·버프)대로 경험치·골드 분배 + 10% 보너스', '드랍 아이템 5초 우선권 (공헌도 비율대로)', '로그인 화면 업데이트 버튼'] },
+  ];
+  const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  const seen = () => { try { return +localStorage.getItem(KEY) || 0; } catch (e) { return 0; } }, mark = () => { try { localStorage.setItem(KEY, String(GAME_VER)); } catch (e) {} };
+  function show(from, title) { const w = $('notewin'); if (!w) return; const L = LIST.filter(n => n.v > from && n.v <= GAME_VER).slice(0, 6); if (!L.length) return;
+    $('note-t').textContent = title || `업데이트 소식 · v${GAME_VER}`;
+    $('note-body').innerHTML = L.map((n, k) => `<section class="${k ? '' : 'new'}"><h3>v${n.v}${k ? '' : ' <span>NEW</span>'}</h3><ul>${n.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>`).join('');
+    w.hidden = false; mark(); setTimeout(() => $('note-ok') && $('note-ok').focus(), 50); }
+  const close = () => { const w = $('notewin'); if (w) w.hidden = true; };
+  { const w = $('notewin'); if (w) { $('note-ok').onclick = close; w.querySelector('[data-close]').onclick = close; w.addEventListener('keydown', ev => { if (ev.key === 'Escape' || ev.key === 'Enter') { ev.preventDefault(); close(); } ev.stopPropagation(); }); w.addEventListener('pointerdown', ev => { if (ev.target === w) close(); }); } }
+  // 접속할 때: 전에 본 버전보다 올라갔으면 그 사이 소식을 보여 줌 (처음 설치한 사람은 조용히 현재 버전으로 기록)
+  function onEnter() { const s0 = seen(); if (!s0) { let old = false; try { old = !!(localStorage.getItem('aden_acc') && localStorage.getItem('aden_pname')); } catch (e) {} if (old) show(GAME_VER - 1); else mark(); return; } if (s0 < GAME_VER) show(s0); }   // 이 기능 전부터 하던 사람은 이번 소식부터 보여 줌
+  return { onEnter, showAll: () => show(GAME_VER - 10, '업데이트 소식 (최근)') }; })();
 // ============================================================ PC 멀티 (실행 파일·로컬 파일용): 방 코드로 친구와 연결
 // 인터넷 공용 MQTT 서버(웹소켓)에 방 코드 주제로 내 상태를 10번/초 올리고 같은 방 사람 상태를 받음 — 포트 열기·설치 필요 없음. 테스트용(공용 서버라 내용이 암호화되지 않음)
 const MQ = (() => {
@@ -3871,7 +3894,7 @@ const ACCOUNT = (() => {
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
     const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
     if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
-    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); setTimeout(() => UPD.check(), 3000);
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살은 잡화상점에서 살 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 마력탄을 쏴 멀리서 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
