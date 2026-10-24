@@ -246,7 +246,7 @@ function drawBigFx(g, vw, vh, ox, oy) { if (!BIGFX.length) return; const [hx, hy
       tg.addColorStop(0, cc[0]); tg.addColorStop(1, cc[1]); g.fillStyle = tg; g.fillText(f.text, 0, 0); }
     g.restore(); } }
 // 경험치는 각자 가한 피해만큼 나눠 먹음 (나 vs 펫, 넘친 피해는 안 셈)
-function addDmg(f, who, d){ if (!f||d<=0) return; (f.dmgBy||(f.dmgBy=new Map())).set(who,(f.dmgBy.get(who)||0)+d); }
+function addDmg(f, who, d){ if (!f||d<=0) return; f.lastDmgAt=Date.now(); f.regenAt=0; f.regenOn=false; (f.dmgBy||(f.dmgBy=new Map())).set(who,(f.dmgBy.get(who)||0)+d); }
 function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.values()) tot+=v; const hd=M?(M.get(hero)||0):0; const heroExp=tot>0?Math.round(S.exp*hd/tot):S.exp; const parts=[];
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
@@ -300,6 +300,10 @@ function updateFox(f,dt){
   if (f.dead){ f.deadT+=dt; if (S.boss||f.summoned){ if (f.deadT>(S.boss?3:1.6)) f.gone=true; return; }
     if (f.deadT>9){ const L=f.leader, c=L&&!L.dead?[L.i,L.j]:f.home; const p=(c&&spotNear(c[0],c[1],L?2:3))||freeTile(7);
       const keep={home:f.home,leader:f.leader,grp:f.grp,uid:f.uid}; Object.assign(f,mkMob(f.kind,p[0],p[1]),keep); if (f.home){ f.hi=f.home[0]; f.hj=f.home[1]; } } return; }
+  if (S.boss && f.hp < f.max) { const now = Date.now(); if (!f.lastDmgAt) f.lastDmgAt = now;   // 보스: 2분 동안 아무도 못 때리면 체력 회복 — 초당 최대 HP의 2% (오래 비워 둔 지역이면 들어오자마자 그만큼 한꺼번에)
+    if (now - f.lastDmgAt >= 120000) { const base = Math.max(f.lastDmgAt + 120000, f.regenAt || 0); f.hp = Math.min(f.max, f.hp + f.max * 0.02 * (now - base) / 1000); f.regenAt = now;
+      if (!f.regenOn) { f.regenOn = true; if (foxes.includes(f)) say(`${JOSA(S.name, '이', '가')} 상처를 회복하기 시작합니다!`, '#ff9a7a'); }
+      if (f.hp >= f.max) { f.hp = f.max; f.dmgBy = null; f.regenOn = false; f.regenAt = 0; } } }
   if (f.hitDn>0) f.hitDn-=dt;   // 혼돈의 활: 명중 저하 시간
   if (f.bleed){ const B=f.bleed; B.t-=dt; B.acc+=dt; if (B.acc>=1){ B.acc-=1; addDmg(f,hero,Math.min(B.dps,Math.max(0,f.hp))); f.hp-=B.dps; f.flash=0.06; f.aggro=true; const [bx,by]=W2P(f.x,f.z); floatText(bx+8,by-headY(f)-4,String(B.dps),{color:'#ff5a5a',size:11}); killCheck(f); if (f.dead) return; } if (B.t<=0) f.bleed=null; }   // 출혈 (초당 피해)
   if (f.stunT>0){ f.stunT-=dt; f.flash=Math.max(0,f.flash-dt); f.lunge=0; f.atkT=null; f.dingT=(f.dingT||0)-dt; if (f.dingT<=0&&f.stunT>0.05){ f.dingT=0.45; stunDing(f); } return; }
@@ -331,15 +335,16 @@ function updateFox(f,dt){
 const webShots = [], webZones = [];
 // 범위 공격(미리 표시 → 후판정): 산성 웅덩이(계속 피해) · 땅 울림(한 번 큰 피해). 나와 펫 모두 맞음
 const AOES = [];
+const BOSS_MAGIC = 1.5;   // v102: 보스 마법(범위 기술) 피해 +50%
 function aoeTick(dt) { for (let n = AOES.length - 1; n >= 0; n--) { const a = AOES[n]; a.t += dt; const inR = e => Math.hypot(e.x - a.x, e.z - a.z) <= a.r;
     if (!a.landed && a.t >= a.warn) { a.landed = true; const [ax, ay] = W2P(a.x, a.z);
       if (a.kind === 'slam') { shake = Math.max(shake, 0.35); impact(ax, ay, 'quake', '#6a4a2a'); if (AC && SFX_ON) { nz(AC.currentTime, 0.5, 260, 60, 0.6); tone(AC.currentTime, 'sine', 90, 40, 0.5, 0.4); } }
       else { impact(ax, ay - 4, 'hit', '#9af06a'); if (AC && SFX_ON) { nz(AC.currentTime, 0.35, 1800, 600, 0.25); tone(AC.currentTime, 'sine', 300, 120, 0.3, 0.08); } }
       const g0 = a.grp ? AOES.filter(b => b.grp === a.grp) : [a], first = g0.every(b => b === a || !b.landed), hitAny = hero.hp > 0 && g0.some(b => Math.hypot(hero.x - b.x, hero.z - b.z) <= b.r);   // 산성 분사는 한 묶음으로 한 번만 판정
       if (a.fire) fireBurst(ax, ay - 10);
-      if (first) { if (hitAny) { hurtHero(rint(a.dmg)); say(a.msg ? a.msg[0] : a.kind === 'slam' ? '땅 울림에 휩쓸렸습니다!' : '산성액을 뒤집어썼습니다!', '#ff9a7a'); if (a.fire && !GOD && Math.random() < 0.5 * Math.max(0.2, 1 - INV.cx('fireRes') / 50)) { hero.burnT = 3; say('지옥불에 화상을 입었습니다!', '#ff9a5a'); } } else if (hero.hp > 0) say(a.msg ? a.msg[1] : a.kind === 'slam' ? '땅 울림을 피했습니다.' : '산성액을 피했습니다.', '#9fd0e8'); }
-      for (const pt of PETS_HERE) if (!pt.dead && inR(pt)) PET.hurt(pt, rint(a.dmg), null); }
-    if (a.landed && a.dot && a.t < a.life) { a.acc = (a.acc || 0) + dt; if (a.acc >= 1) { a.acc = 0; if (hero.hp > 0 && inR(hero)) hurtHero(a.dot); for (const pt of PETS_HERE) if (!pt.dead && inR(pt)) PET.hurt(pt, a.dot, null); } }
+      if (first) { if (hitAny) { hurtHero(Math.round(rint(a.dmg) * BOSS_MAGIC)); say(a.msg ? a.msg[0] : a.kind === 'slam' ? '땅 울림에 휩쓸렸습니다!' : '산성액을 뒤집어썼습니다!', '#ff9a7a'); if (a.fire && !GOD && Math.random() < 0.5 * Math.max(0.2, 1 - INV.cx('fireRes') / 50)) { hero.burnT = 3; say('지옥불에 화상을 입었습니다!', '#ff9a5a'); } } else if (hero.hp > 0) say(a.msg ? a.msg[1] : a.kind === 'slam' ? '땅 울림을 피했습니다.' : '산성액을 피했습니다.', '#9fd0e8'); }
+      for (const pt of PETS_HERE) if (!pt.dead && inR(pt)) PET.hurt(pt, Math.round(rint(a.dmg) * BOSS_MAGIC), null); }
+    if (a.landed && a.dot && a.t < a.life) { a.acc = (a.acc || 0) + dt; if (a.acc >= 1) { a.acc = 0; if (hero.hp > 0 && inR(hero)) hurtHero(Math.round(a.dot * BOSS_MAGIC)); for (const pt of PETS_HERE) if (!pt.dead && inR(pt)) PET.hurt(pt, Math.round(a.dot * BOSS_MAGIC), null); } }
     if (a.t >= a.life) AOES.splice(n, 1); }
   if (SCENE === 'town' && AOES.length) AOES.length = 0; }
 function drawAoes(g) { for (const a of AOES) { const [x, y] = W2P(a.x, a.z), rx = a.r * K * 1.42, ry = rx * 0.5; g.save();
@@ -406,9 +411,9 @@ function skillTick(dt){
   let onWeb = false;
   for (let n = webZones.length - 1; n >= 0; n--){ const z = webZones[n]; z.t += dt;
     if (!z.landed && z.t >= z.warn){ z.landed = true; if (AC) tone(AC.currentTime,'triangle',160,60,0.3,0.08); shake = Math.max(shake, 0.12);
-      if (Math.hypot(hero.x - z.x, hero.z - z.z) <= z.r){ hurtHero(4 + Math.floor(Math.random()*5)); BUFF.slow = Math.max(BUFF.slow, BUFF_DEF.slow.dur); say('거미줄에 맞았습니다! 움직임이 느려집니다.', '#c9a0ff'); }
+      if (Math.hypot(hero.x - z.x, hero.z - z.z) <= z.r){ hurtHero(Math.round((4 + Math.floor(Math.random()*5)) * BOSS_MAGIC)); BUFF.slow = Math.max(BUFF.slow, BUFF_DEF.slow.dur); say('거미줄에 맞았습니다! 움직임이 느려집니다.', '#c9a0ff'); }
       else say('거미줄을 피했습니다.', '#9fd0e8');
-      for (const pt of PETS_HERE) if (!pt.dead && Math.hypot(pt.x - z.x, pt.z - z.z) <= z.r) PET.hurt(pt, 4 + Math.floor(Math.random()*5), null); }
+      for (const pt of PETS_HERE) if (!pt.dead && Math.hypot(pt.x - z.x, pt.z - z.z) <= z.r) PET.hurt(pt, Math.round((4 + Math.floor(Math.random()*5)) * BOSS_MAGIC), null); }
     if (z.landed && z.t < z.life && Math.hypot(hero.x - z.x, hero.z - z.z) <= z.r) onWeb = true;
     if (z.t >= z.life) webZones.splice(n, 1); }
   if (onWeb) BUFF.slow = Math.max(BUFF.slow, 1.0);
@@ -474,7 +479,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 101;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 102;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -502,7 +507,7 @@ const SK = {};
 for (const [c, id, name, desc, mp] of MAGIC_LIST) SK[id] = { name, kind: 'magic', circle: c, lv: CIRCLE_LV(c), mp, cd: c <= 2 ? 1.2 : 2, desc, buff: BUFF_OF[id], book: '마법서: ' + name, ready: c <= 2 };
 // 기술: 기사 전용 (기술서)
 Object.assign(SK, {
-  stun:      { name: '스턴', kind: 'skill', lv: 5, mp: 3, cd: 8, desc: '근접한 대상을 1~4초 기절. 성공률은 나와 대상의 레벨 차이로 정해짐.', book: '기술서: 스턴', ready: true, shop: '마법상점' },
+  stun:      { name: '스턴', kind: 'skill', lv: 5, mp: 5, cd: 8, desc: '근접한 대상을 1~4초 기절. 성공률은 나와 대상의 레벨 차이로 정해짐.', book: '기술서: 스턴', ready: true, shop: '마법상점' },
   reduction: { name: '리덕션 아머', kind: 'skill', lv: 15, mp: 4, cd: 2, buff: 'reduction', desc: '3분 동안 받는 모든 피해 25% 감소.', book: '기술서: 리덕션 아머', ready: true, shop: '마법상점' },
   bounce:    { name: '바운스 어택', kind: 'skill', lv: 25, mp: 3, cd: 2, buff: 'bounce', desc: '3분 동안 근거리 명중률 +15%.', book: '기술서: 바운스 어택', ready: true, shop: '몬스터 드랍' },
   solid:     { name: '솔리드 캐리지', kind: 'skill', lv: 35, mp: 4, cd: 2, buff: 'solid', desc: '3분 동안 원거리 공격 회피 +25%.', book: '기술서: 솔리드 캐리지', ready: true, shop: '몬스터 드랍' },
@@ -4087,6 +4092,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 102, items: ['보스 몬스터(셸로브·거대 여왕개미·오우거·바포메트)는 2분 동안 아무도 피해를 주지 못하면 체력을 회복해요. 초당 최대 HP의 2%씩 차오르고, 다 차면 그동안의 공헌도도 초기화돼요. 공격을 다시 맞히면 회복이 바로 멈춰요.', '보스의 마법(범위 기술) 피해가 50% 올랐어요. 셸로브 거미줄, 거대 여왕개미 산성·땅 울림, 오우거 내려찍기·바위, 바포메트 도끼·지옥불이 해당돼요. (MR로 줄일 수 있어요)', '기사 기술 스턴의 MP 소모량이 3에서 5로 늘었어요.'] },
     { v: 101, items: ['버그베어밭 몬스터 6종이 정식 그림으로 바뀌었어요. 누렇게 바랜 해골 궁수, 썩은 좀비, 대머리에 배 나온 거인 버그베어(가시 몽둥이), 쇠 투구를 쓴 짙은 갈색의 킹 버그베어, 용암이 끓는 지옥견 켈베로스, 양날 대도끼를 든 염소 머리 마왕 바포메트예요.', '메시지 창 정리: 물약 마시는 메시지, 몬스터를 쓰러뜨린 메시지, 일반·고급 아이템이 떨어졌다는 메시지는 더 이상 뜨지 않아요. 주운 아이템과 경험치·골드 획득 메시지는 그대로 떠요. (희귀·영웅 아이템은 떨어질 때도 알려 줘요)'] },
     { v: 100, items: ['새 사냥터 [버그베어밭] (Lv 20~30)이 열렸어요. 월드맵에서 입장하세요. 핏자국과 시체, 해골 더미, 꼬챙이, 교수대 우리가 널린 어둡고 끔찍한 살육의 땅이에요. (전용 배경음)', '1구간 (Lv 20~25): 멀리서 먼저 활을 쏘는 해골 궁수, 느리지만 질긴 좀비, 버그베어가 나와요. 해골과 좀비는 언데드라 밤에 더 강해져요.', '2구간 (Lv 25~30): 버그베어, 물리면 화상을 입는 켈베로스, 먼저 덤비는 킹 버그베어가 나와요. 보스 바포메트는 잡히면 약 3시간 30분 뒤 다시 나타나요. 도끼 휘두르기, 지옥불, 하수인 소환, 공포의 울부짖음을 써요. 바포메트의 지팡이와 영웅 장비(아크메이지의 지팡이·암살자의 단검)를 떨어뜨려요.', '버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 다른 몬스터보다 잘 떨어뜨려요.', '성장 속도 조정: Lv 10까지는 그대로고, 그 뒤로 필요 경험치가 점점 늘어나요. (Lv 20대는 레벨당 몬스터 약 110~300마리) 지금 레벨은 그대로예요.', '몬스터 난이도: Lv 15 이상 몬스터의 HP가 25%, 공격력이 20% 올랐어요.', '전투 계산 변경: 방어력(AC)이 아무리 좋아도 몬스터 명중률이 30% 아래로 내려가지 않아요. (AC 1당 1%) AC 피해 감소는 고정값 대신 매번 0~(−AC÷3) 무작위예요. 몬스터 마법(파이어볼, 보스 범위기)은 AC를 무시하고 MR로만 줄어요. (MR 1당 0.5%, 최대 50%)', '강화 빛: 안전 강화를 넘긴 장비가 빛나요. (+1 초록 → +2 파랑 → +3 보라 → 그 이상은 반짝이는 강한 보라) 무기와 방어구 모두 캐릭터 외형에 보이고, 다른 유저 화면에도 보여요.', '자동사냥 자동판매: 설정에서 켜면 가방 무게가 정한 비율(기본 80%)을 넘을 때 귀환해서, 고른 등급의 장비를 아덴상단에 한꺼번에 팔고 돌아가요. 착용·잠금·강화된 장비와 물약·주문서는 팔지 않아요.', '잡화상점 [특별] 탭에 아르카의 마법주머니(10,000골드)를 팔아요. 열면 강화·축복 주문서나 모든 직업의 희귀~영웅 장비 중 하나가 나와요. 영웅 장비가 나오면 접속한 모두에게 공지가 떠요.', '인벤토리에 휴지통이 생겼어요. 아이템을 끌어다 놓으면 삭제할지 한 번 더 물어봐요. (착용·잠금 아이템은 삭제 불가)', '스킬 슬롯: 단축키 칸이나 스킬 상자에서 스킬을 꾹 누르거나 오른쪽 클릭하면 스킬 정보가 떠요. [자동 사용]을 켜면 버프는 끝날 때 다시 걸고, 회복은 HP 50% 이하일 때, 스턴과 에너지 볼트는 사냥 중 재사용될 때마다 써요. 자동 사용 중인 스킬에는 작은 A 표시가 붙어요.'] },
     { v: 99, items: ['교환창에서 아이템 정보 팝업이 교환창 뒤에 가려지던 문제를 고쳤어요.', '펫 목걸이의 아이템 정보에서 [펫 소환하기]·[펫 보관하기]로 어디서든 펫을 꺼내고 넣을 수 있어요. (쓰러졌으면 부활 주문서로 되살리기)', '장비 상세 정보에서 강화 수치를 임의로 넣어 볼 수 있어요. (+0·+4·+6·+7·+9 · ± 버튼) 착용 중인 장비도 같은 강화로 맞춰 비교해 줘요.', '가방 무게가 80% 이상이면 이동이 20% 느려지고, 100% 이상이면 절반으로 느려져요. 넘을 때 "가방이 무겁습니다" 경고가 떠요.', '자동사냥: 최근 나를 공격한 몬스터(멀리서 쏘는 다크엘프·오크마법사 포함)를 가장 먼저 잡아요. 지금 잡던 몹이 나를 안 때리는데 다른 몹이 때리면 바로 갈아타요.', '미니맵에 같은 지역 파티원 위치가 초록 점으로 보여요.', '업데이트를 더 안정적으로 받아요. (방금 나온 업데이트도 바로 받을 수 있게)'] },
