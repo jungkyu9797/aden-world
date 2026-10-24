@@ -60,7 +60,8 @@ ipcMain.handle('app:close-now', () => { closeOk = true; BrowserWindow.getAllWind
 // ===== 업데이트: update.json 의 base 주소에서 version.json(파일 목록·해시)을 받아 바뀐 파일만 내려받아 게임 폴더에 덮어씀
 const APP_DIR = __dirname;
 const readJSON = f => { try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (e) { return null; } };
-const updateBase = () => { const c = readJSON(path.join(APP_DIR, 'update.json')) || {}; const b = String(c.base || '').trim(); return b ? (b.endsWith('/') ? b : b + '/') : ''; };
+const DEFAULT_BASE = 'https://raw.githubusercontent.com/jungkyu9797/aden-world/main/';   // update.json이 없거나 비어 있어도 이 주소로
+const updateBase = () => { const c = readJSON(path.join(APP_DIR, 'update.json')) || {}; const b = String(c.base || '').trim() || DEFAULT_BASE; return b.endsWith('/') ? b : b + '/'; };
 const sha = buf => crypto.createHash('sha256').update(buf).digest('hex');
 const shaFile = f => { try { return sha(fs.readFileSync(f)); } catch (e) { return null; } };
 const safeRel = rel => typeof rel === 'string' && !rel.includes('..') && !path.isAbsolute(rel) && /^[\w\-./ ]+$/.test(rel) && rel !== 'version.json';
