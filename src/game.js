@@ -95,7 +95,7 @@ const rowFor = (dx,dz) => { let b=0,bd=-9; DIRV.forEach((d,i)=>{ const s=d[0]*dx
 
 // ---------- audio ----------
 let AC=null, master;
-function initAudio(){ if (!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.gain.value=0.4; master.connect(AC.destination); } if (AC.state==='suspended') AC.resume(); }
+function initAudio(){ if (!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.gain.value=SFX_ON?0.4*SND.sfxK():0; master.connect(AC.destination); } if (AC.state==='suspended') AC.resume(); }
 function tone(t,type,f0,f1,dur,peak){ const o=AC.createOscillator(); o.type=type; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur); const g=AC.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(peak,t+0.004); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.05); }
 function nz(t,dur,f0,f1,peak){ const b=AC.createBuffer(1,Math.max(1,AC.sampleRate*dur|0),AC.sampleRate), d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; const s=AC.createBufferSource(); s.buffer=b; const f=AC.createBiquadFilter(); f.type='bandpass'; f.frequency.setValueAtTime(f0,t); f.frequency.exponentialRampToValueAtTime(f1,t+dur); const g=AC.createGain(); g.gain.setValueAtTime(peak,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); s.connect(f); f.connect(g); g.connect(master); s.start(t); }
 const sfx = { swing(){ if(AC) nz(AC.currentTime,0.16,500,2200,0.2); },
@@ -105,10 +105,18 @@ const sfx = { swing(){ if(AC) nz(AC.currentTime,0.16,500,2200,0.2); },
 
 // 몬스터 효과음 (사운드팀 합성: 공격·피격·죽음) — assets/sound/sfx/<몬스터>_<종류>.mp3
 let SFX_ON = true;   // ESC 메뉴: 효과음 켜기/끄기
+// 소리 설정 (배경음·효과음 켜기/끄기 + 볼륨 0~100%) — 이 기기에 저장되고, 캐릭터 저장에도 함께 들어가 다른 PC에서도 그대로
+const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100 }; try { Object.assign(s, JSON.parse(localStorage.getItem('aden_snd') || '{}')); } catch (e) {}
+  const keep = () => { try { localStorage.setItem('aden_snd', JSON.stringify(s)); } catch (e) {} };
+  const set = o => { for (const k in o || {}) if (k in s) s[k] = typeof s[k] === 'boolean' ? !!o[k] : Math.max(0, Math.min(100, Math.round(+o[k] || 0))); keep(); };
+  return { get: () => Object.assign({}, s), set, bgmK: () => s.bgm / 100, sfxK: () => s.sfx / 100,
+    apply(o) { if (!o) return; set(o); SFX_ON = s.sfxOn; applySfxVol(); if (typeof TOWN !== 'undefined' && TOWN.setBgm) TOWN.setBgm(s.bgmOn); } }; })();
+SFX_ON = SND.get().sfxOn;
+function applySfxVol() { if (master) master.gain.value = SFX_ON ? 0.4 * SND.sfxK() : 0; }
 const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf']);   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
   return (kind, type, vol = 0.55) => { if (!has.has(kind) || !AC) return false; if (!SFX_ON) return true; const k = kind + '_' + type; let base = pool[k];
     if (!base) { base = pool[k] = new Audio('assets/sound/sfx/' + k + '.mp3'); base.preload = 'auto'; }
-    const a = base.cloneNode(); a.volume = vol; a.play().catch(() => {}); return true; }; })();
+    const a = base.cloneNode(); a.volume = Math.min(1, vol * SND.sfxK()); a.play().catch(() => {}); return true; }; })();
 // ---------- entities ----------
 function mk(kind,i,j){ return {kind,i,j,fi:i,fj:j,t:1,x:i+0.5,z:j+0.5,row:0,dist:0,hp:kind==='fox'?10:100,max:kind==='fox'?10:100,atk:null,cool:0,target:null,flash:0,dead:false,deadT:0,aggro:false,wander:Math.random()*3,hi:i,hj:j}; }
 const hero = mk('hero', META.spawn[0], META.spawn[1]); hero.row = 1;
@@ -444,7 +452,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 91;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 92;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3153,8 +3161,14 @@ const TOWN = (() => {
     const sync = () => { $('esc-bgm').textContent = '배경음악: ' + ($('btn-bgm').getAttribute('aria-pressed') === 'true' ? '켜짐' : '꺼짐'); $('esc-sfx').textContent = '효과음: ' + (SFX_ON ? '켜짐' : '꺼짐'); };
     const mmSync = () => { $('esc-mm').textContent = '미니맵: ' + (MM.on() ? '켜짐' : '꺼짐'); $('esc-mm-op').value = Math.round(MM.op() * 100); $('esc-mm-v').textContent = Math.round(MM.op() * 100) + '%'; };
     mmSync(); $('esc-mm').onclick = () => { MM.setOn(!MM.on()); mmSync(); say(`미니맵을 ${MM.on() ? '켰' : '껐'}습니다.`, '#9c9682'); }; $('esc-mm-op').oninput = ev => { MM.setOp(+ev.target.value / 100); mmSync(); };
-    sync(); $('esc-bgm').onclick = () => { $('btn-bgm').click(); sync(); };
-    $('esc-sfx').onclick = () => { SFX_ON = !SFX_ON; if (master) master.gain.value = SFX_ON ? 0.4 : 0; sync(); say(`효과음을 ${SFX_ON ? '켰' : '껐'}습니다.`, '#9c9682'); };
+    sync(); $('esc-bgm').onclick = () => { $('btn-bgm').click(); SND.set({ bgmOn: $('btn-bgm').getAttribute('aria-pressed') === 'true' }); sync(); };
+    $('esc-sfx').onclick = () => { SFX_ON = !SFX_ON; applySfxVol(); SND.set({ sfxOn: SFX_ON }); sync(); say(`효과음을 ${SFX_ON ? '켰' : '껐'}습니다.`, '#9c9682'); };
+    // 볼륨: 배경음·효과음 따로 (0~100%) — 바꾸면 바로 적용·저장
+    const vSync = () => { const v = SND.get(); $('esc-bgmv').value = v.bgm; $('esc-bgmv-t').textContent = v.bgm + '%'; $('esc-sfxv').value = v.sfx; $('esc-sfxv-t').textContent = v.sfx + '%'; };
+    vSync(); $('esc-bgmv').oninput = ev => { SND.set({ bgm: +ev.target.value }); TOWN.syncBGM(); vSync(); };
+    $('esc-sfxv').oninput = ev => { SND.set({ sfx: +ev.target.value }); applySfxVol(); vSync(); };
+    $('esc-sfxv').onchange = () => { initAudio(); if (AC && SFX_ON) tone(AC.currentTime, 'triangle', 880, 1320, 0.16, 0.09); };
+    for (const id of ['esc-bgmv', 'esc-sfxv', 'esc-mm-op']) $(id).onkeydown = ev => { if (ev.key !== 'Escape') ev.stopPropagation(); };
     $('esc-char').onclick = () => { escMenu(false); ACCOUNT.openSel(true); };
     $('esc-quit').onclick = async () => { escMenu(false); PET.storeAll(); await SAVE.now(false, true); $('quitscr').hidden = false; };
     { const b = $('esc-save'); if (b) b.onclick = () => { escMenu(false); if (!SAVE.on()) { say('캐릭터를 고른 뒤에 저장할 수 있어요.', '#9c9682'); return; } SAVE.now(true); }; }
@@ -3169,7 +3183,7 @@ const TOWN = (() => {
   // Web Audio로 재생 (아티팩트 화면 등 미디어 태그가 막히는 환경 대비), 안 되면 <audio> 태그로
   const SRC = { town: 'assets/sound/bgm_town.mp3', island: 'assets/sound/bgm_island.mp3', desert: 'assets/sound/bgm_desert.mp3', orc: 'assets/sound/bgm_orc.mp3', boss: 'assets/sound/bgm_boss.mp3' };
   const EL = { town: $('bgm'), island: $('bgm-island'), desert: $('bgm-desert'), orc: $('bgm-orc'), boss: $('bgm-boss') };
-  const T = {}; let unlocked = false, muted = false, curWant = null;
+  const T = {}; let unlocked = false, muted = !SND.get().bgmOn, curWant = null;
   function track(k) { if (T[k]) return T[k]; const t = T[k] = { buf: null, src: null, gain: null, loading: null, failed: false };
     t.loading = fetch(SRC[k]).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no))).then(buf => { t.buf = buf; }).catch(() => { t.failed = true; });
     return t; }
@@ -3185,7 +3199,7 @@ const TOWN = (() => {
   }
   const bossFight = () => foxes.some(f => !f.dead && MOB[f.kind] && MOB[f.kind].boss && f.aggro);   // 보스 전투 중이면 보스 음악
   function wantBGM() { return SCENE === 'town' ? 'town' : bossFight() ? 'boss' : ISLE ? (ISLE.def && ISLE.def.sand ? 'desert' : ISLE.def && ISLE.def.forest ? 'orc' : 'island') : null; }   // 사막 지역 = Desert Pulse
-  function syncBGM() { const want = curWant = wantBGM(); for (const k in SRC) setVol(k, k === want && unlocked && !muted ? (k === 'boss' ? 0.6 : 0.5) : 0); }
+  function syncBGM() { const want = curWant = wantBGM(), K = SND.bgmK(); for (const k in SRC) setVol(k, k === want && unlocked && !muted && K > 0 ? (k === 'boss' ? 0.6 : 0.5) * K : 0); }
   const fadeTo = () => syncBGM();
   $('inv-sort').onclick = () => INV.sortBag(); if ($('inv-bulk')) $('inv-bulk').onclick = () => INV.bulkOpen();
   { const tip = $('stat-tip'); document.querySelectorAll('#charwin dt[data-tip]').forEach(dt => {   // 능력치 설명 말풍선
@@ -3230,7 +3244,8 @@ const TOWN = (() => {
         tabs.onclick = ev => { const b = ev.target.closest('button[data-k]'); if (!b) return; gt = +b.dataset.k; draw(); };
         list.onclick = ev => { const b = ev.target.closest('button[data-id]'); if (!b) return; INV.add(b.dataset.id, 1); b.classList.remove('got'); void b.offsetWidth; b.classList.add('got'); };
         draw(); } } }
-  $('btn-bgm').onclick = () => { muted = !muted; $('btn-bgm').setAttribute('aria-pressed', !muted); syncBGM(); };
+  $('btn-bgm').onclick = ev => { muted = !muted; $('btn-bgm').setAttribute('aria-pressed', !muted); syncBGM(); if (ev && ev.isTrusted) SND.set({ bgmOn: !muted }); };   // 직접 누른 것만 저장 (자동사냥 음소거는 저장 안 함)
+  $('btn-bgm').setAttribute('aria-pressed', !muted); api.syncBGM = () => syncBGM(); api.setBgm = on => { muted = !on; $('btn-bgm').setAttribute('aria-pressed', !!on); syncBGM(); };
   api.unlockAudio = () => { if (unlocked) return; unlocked = true; initAudio(); for (const k in SRC) track(k); syncBGM(); };
   // 소리는 사용자가 처음 뭔가를 눌러야 켤 수 있음 → 화면 어디를 누르든, 키를 누르든 바로 켜지게
   ['pointerdown', 'keydown'].forEach(t => addEventListener(t, () => { initAudio(); api.unlockAudio(); }, { capture: true }));
@@ -3439,11 +3454,11 @@ const SAVE = (() => {
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
   function snap() { const b = {}; for (const k in BUFF) if (BUFF[k] > 0) b[k] = Math.round(BUFF[k]);
     return { v: 1, ver: GAME_VER, cls: CLASS, name: PNAME(), lv: hero.lv, exp: hero.exp, bhp: hero.baseHP, bmp: hero.baseMP, bp: hero.bonusPts, hp: Math.ceil(hero.hp), mp: Math.floor(hero.mp), coins: Math.floor(coins),
-      learned: [...LEARNED], buff: b, inv: INV.dump(), auto: AUTO.cfg() }; }
+      learned: [...LEARNED], buff: b, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get() }; }
   function apply(s) { if (!s || s.cls !== CLASS) return false;
     hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (s.bmp) hero.baseMP = +s.bmp; hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0);
     LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0;
-    INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); INV.render(); return true; }
+    INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); INV.render(); return true; }
   const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
   const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c;
   async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); return d && d.data ? JSON.parse(d.data) : null; }
@@ -3861,7 +3876,7 @@ const AUTO = (() => {
   // 켜면 배경음악·효과음을 끄고, 끄면 원래대로
   let snd = null;
   function muteOn() { if (!C.mute || snd) return; const bb = document.getElementById('btn-bgm'); snd = { bgm: !!bb && bb.getAttribute('aria-pressed') === 'true', sfx: SFX_ON }; if (snd.bgm) bb.click(); SFX_ON = false; if (master) master.gain.value = 0; say('자동사냥 중에는 배경음악·효과음을 끕니다. (끝나면 다시 켜짐)', '#9c9682'); }
-  function muteOff() { if (!snd) return; const s0 = snd; snd = null; const bb = document.getElementById('btn-bgm'); if (s0.bgm && bb && bb.getAttribute('aria-pressed') !== 'true') bb.click(); SFX_ON = s0.sfx; if (master) master.gain.value = SFX_ON ? 0.4 : 0; }
+  function muteOff() { if (!snd) return; const s0 = snd; snd = null; const bb = document.getElementById('btn-bgm'); if (s0.bgm && bb && bb.getAttribute('aria-pressed') !== 'true') bb.click(); SFX_ON = s0.sfx; applySfxVol(); }
   let state = 'off', wait = 0, selfMove = false, died = false, bought = false;
   const inZ1 = () => SCENE === 'field' && ISLE && ISLE.def && ISLE.def.tier === 1;   // 모든 지역의 1구간(평지)에서 자동사냥 가능
   let home = '이야기섬';   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
