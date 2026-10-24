@@ -480,7 +480,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 104;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 105;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3062,13 +3062,16 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
   const pool = g => CX_LIST.filter(id => { const d = ITEMS[id]; return d.slot && (d.rar || '일반') === g && (!d.cls || d.cls.includes(CLASS)); });
   function why(e) { const d = ITEMS[e.id]; if (!d.slot) return '장비 아이템만 올릴 수 있어요.'; if (e.on) return '착용 중인 장비는 올릴 수 없어요. 먼저 벗어 주세요.'; if (e.locked) return '잠긴 장비는 올릴 수 없어요.';
     if (!NEXT[rarOf(e)]) return '영웅 등급은 더 올릴 수 없어요.'; const g = S.find(x => x && x !== e); if (g && rarOf(g) !== rarOf(e)) return `같은 등급끼리만 조합할 수 있어요. (지금 올린 등급: ${rarOf(g)})`; return ''; }
+  const plain = e => !((e.en || 0) > 0 || e.blessed || e.attr);
+  const cands = g => INV.bag().filter(e => valid(e) && rarOf(e) === g && plain(e)).sort((a, b) => (ITEMS[a.id].price || 0) - (ITEMS[b.id].price || 0));
+  function fill(g) { if (busy) return; S.fill(null); const L = cands(g).slice(0, 3); L.forEach((e, k) => { S[k] = e; }); if (L.length < 3) say(L.length ? `${g} 장비가 ${L.length}개뿐이에요. (강화·축복·속성이 붙은 장비는 일괄 등록에서 빠져요 · 직접 올릴 수 있어요)` : `일괄 등록할 ${g} 장비가 없어요. (착용 중·잠긴·강화·축복·속성 장비는 빠져요)`, '#f0c080'); render(); INV.render(); }
   function put(k, e) { clean(); if (!e || !INV.bag().includes(e)) return; const w = why(e); if (w) { say(w, '#f08a7a'); return; } const i = S.indexOf(e); if (i >= 0) S[i] = null; if (k == null || S[k]) k = S.indexOf(null); if (k < 0) { say('칸이 가득 찼어요. 올린 장비를 눌러 빼 주세요.', '#f08a7a'); return; } S[k] = e; render(); INV.render(); }
   function toggle(e) { clean(); const i = S.indexOf(e); if (i >= 0) { S[i] = null; render(); INV.render(); } else put(null, e); }
   function render() { if (!isOpen()) return; clean(); const el = [...document.querySelectorAll('#alchwin .al-slot')];
     el.forEach((c, k) => { const e = S[k]; c.innerHTML = e ? ICON(ITEMS[e.id].icon, e.blessed) + (e.en ? `<b>${e.en > 0 ? '+' : ''}${e.en}</b>` : '') : ''; c.dataset.itip = e ? INV.tipOf(e) : '빈 칸 — 가방에서 장비를 클릭하거나 끌어다 놓으세요'; c.style.borderColor = e ? RARITY_C[rarOf(e)] : ''; });
     const n = S.filter(Boolean).length, g = S.find(x => x) ? rarOf(S.find(x => x)) : null, nx = g && NEXT[g];
     $('al-info').innerHTML = !g ? '가방에서 <b>같은 등급</b>의 장비 3개를 골라 주세요.' : `<span style="color:${RARITY_C[g]}">${g}</span> 장비 ${n}/3 → 성공하면 <span style="color:${RARITY_C[nx]}">${nx}</span> 등급 ${CLASS_NAME[CLASS]} 장비 · 성공 확률 <b>${Math.round(RATE[g] * 100)}%</b>` + (S.some(x => x && ((x.en || 0) > 0 || x.blessed || x.attr)) ? '<br><span style="color:#f0a080">강화·축복·속성이 붙은 장비가 있어요. 실패하면 함께 사라져요.</span>' : '');
-    $('al-go').disabled = busy || n < 3; }
+    $('al-go').disabled = busy || n < 3; document.querySelectorAll('#alchwin [data-alg]').forEach(b => { const c = cands(b.dataset.alg).length; b.querySelector('b').textContent = c; b.disabled = busy || c === 0; }); }
   function showOut(id, ok) { const o = $('al-out'); clearTimeout(outT); o.classList.remove('ok', 'fail', 'spin'); void o.offsetWidth; if (id) { o.innerHTML = ICON(ITEMS[id].icon); o.style.borderColor = RARITY_C[ITEMS[id].rar || '일반']; o.dataset.itip = INV.tipOf({ id, n: 1, on: false }); } else { o.textContent = ok === false ? '✕' : '?'; o.style.borderColor = ''; delete o.dataset.itip; }
     if (ok === true) o.classList.add('ok'); else if (ok === false) o.classList.add('fail'); if (ok != null) outT = setTimeout(() => showOut(null), 6000); }
   function go() { clean(); if (busy || S.some(x => !x)) return; const g = rarOf(S[0]); if (S.some(x => rarOf(x) !== g) || !NEXT[g]) return; const nx = NEXT[g], P = pool(nx); if (!P.length) { say(`${CLASS_NAME[CLASS]}가 얻을 수 있는 ${nx} 장비가 없어요.`, '#f08a7a'); return; }
@@ -3083,12 +3086,12 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
         else { TELE.ev('alch', { g, ok: 0 }); showOut(null, false); spellFx('puff', hero, '#8a7a6a'); say('연금술에 실패했습니다... 재료가 모두 사라졌습니다.', '#c9b98a'); if (AC && SFX_ON) { tone(AC.currentTime, 'sawtooth', 300, 110, 0.4, 0.07); nz(AC.currentTime, 0.3, 900, 200, 0.12); } }
         render(); INV.render(); }, 1300); }); }
   function open() { const w = $('alchwin'); if (!w) return; if (!w.hidden) { w.hidden = true; return; } w.hidden = false; if ($('invwin').hidden) { $('invwin').hidden = false; INV.render(); } render(); }
-  { const b = $('btn-alch'); if (b) b.onclick = open; const go_ = $('al-go'); if (go_) go_.onclick = go; const cl = $('al-clear'); if (cl) cl.onclick = () => { S.fill(null); render(); INV.render(); };
+  { const b = $('btn-alch'); if (b) b.onclick = open; const go_ = $('al-go'); if (go_) go_.onclick = go; const cl = $('al-clear'); if (cl) cl.onclick = () => { S.fill(null); render(); INV.render(); }; document.querySelectorAll('#alchwin [data-alg]').forEach(b => b.onclick = () => fill(b.dataset.alg));
     document.querySelectorAll('#alchwin .al-slot').forEach(c => { const k = +c.dataset.k; c.onclick = () => { if (S[k]) { S[k] = null; render(); INV.render(); } };
       c.addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('over'); } }); c.addEventListener('dragleave', () => c.classList.remove('over'));
       c.addEventListener('drop', ev => { c.classList.remove('over'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); put(k, INV.bag()[+a]); }); });
     const w = $('alchwin'); if (w) new MutationObserver(() => { if (w.hidden) INV.render(); else render(); }).observe(w, { attributes: true, attributeFilter: ['hidden'] }); }
-  return { open: isOpen, toggle, put, has: e => S.includes(e), render, rates: () => Object.assign({}, RATE) }; })();
+  return { open: isOpen, toggle, put, fill, has: e => S.includes(e), render, rates: () => Object.assign({}, RATE) }; })();
 
 document.addEventListener('click', ev => { const t = ev.target, lb = t && t.closest && t.closest('#huntwin label.hw-row'); if (!lb) return; if (/^(INPUT|SELECT|OPTION|BUTTON|TEXTAREA)$/.test(t.tagName)) return; ev.preventDefault(); }, true);
 // ============================================================ 마을 · 월드맵
@@ -4168,6 +4171,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 105, items: ['연금술 창에 등급별 [일괄 등록] 버튼이 생겼어요. 일반·고급·희귀 버튼을 누르면 그 등급 장비 3개가 한 번에 올라가요. (버튼 옆 숫자 = 올릴 수 있는 개수 · 값싼 것부터 · 착용 중·잠긴 장비와 강화·축복·속성이 붙은 장비는 빠져요)'] },
     { v: 104, items: ['반지·목걸이에 기본 방어력(AC) 1이 붙었어요. 능력치 반지·목걸이(힘·민첩·군주의 반지, 지식·민첩·신성한 목걸이)와 HP·MP 반지·목걸이(은·체력·마나·용의 반지, 나무 부적, 체력·마나의 목걸이) 모두 · 원래 AC가 있던 보호의 반지·수호의 목걸이·용의 목걸이는 그대로 · 이미 가진 것도 바로 적용돼요.'] },
     { v: 103, items: ['마나 회복 물약이 즉시 회복 대신 버프로 바뀌었어요. 마시면 10분 동안 MP 자연 회복이 초당 0.5씩 늘어나요. (다시 마시면 남은 시간이 10분으로 · 버프 칸에 표시) 아이템 정보에서 자동 사용을 켜면 버프가 끝날 때 알아서 마셔요.', '아이템에 마우스를 올리면 이름만 보여서 화면을 덜 가려요. 꾹 누르고 있으면 상세 정보가 떠요. (가방·장비 칸은 상세 정보창 · 교환창·창고·상점·도감은 전체 정보 말풍선 · 바닥 아이템은 이름과 등급만)', '이제 게임을 켜면 자동으로 하나뿐인 월드 서버에 접속해서 모두 함께 플레이해요. (방 만들기·참가 없음 · 끊기면 알아서 다시 접속) 누가 접속하면 공지로 알려 주고, 위쪽 [접속 N명] 버튼으로 접속자 목록(직업·레벨·위치)을 보고 바로 파티 초대도 할 수 있어요.', '영웅 등급 아이템은 어디서 누가 얻어도 모두에게 전체 공지로 떠요. (위치 포함 · 공지가 연달아 나와도 빠지지 않게 고침)', '채팅: 파티원 채팅은 다른 지역에 있어도 [파티](지역) 표시와 함께 보여요. 일반 채팅은 같은 지역에만 보이고, 맨 앞에 !를 붙이면 전체 채팅이에요. 채팅 줄은 경험치·골드 메시지에 밀려 금방 사라지지 않게 더 오래 남아요.', '새 메뉴 [연금술]: 같은 등급의 장비 3개를 올리고 조합하면 확률로 한 단계 위 등급의 내 직업 장비를 얻어요. 일반→고급 30% · 고급→희귀 10% · 희귀→영웅 3% · 실패하면 재료 3개가 사라져요. 성공하면 전체 공지로 알려요.', '보스 영웅 장비 드랍률을 낮췄어요. (한 번 잡을 때 약 18% → 셸로브 2% · 거대 여왕개미·오우거 8% · 바포메트 10%)', '보스 등장 시각이 구간 안에서 매번 고르게 바뀌어요. (예전엔 셸로브가 늘 매시 6~7분·36~37분에 나왔어요) 모두 같은 버전이어야 보스 시간이 맞아요.', '다른 사람 화면에서도 초록 물약·용기의 물약 가속과 공격 속도가 공격 동작에 반영돼요. (예전엔 상대 화면에서 늘 기본 속도로 보여서 느려 보였어요)', '월드맵으로 사냥터에 이동하면 1,000 골드가 들어요. (골드가 모자라면 이동 안 됨 · 자동사냥 복귀·포털·귀환 주문서는 그대로 무료)', '자동사냥 설정에서 줄의 빈 곳이나 글자를 눌러도 체크가 바뀌지 않아요. 체크박스를 직접 눌러야 켜지고 꺼져요.', 'PC 실행 파일에 관찰 기록기가 들어갔어요. 플레이 상태(레벨·경험치·골드·사냥터·사망·보스 드랍·강화·오류 등)를 게임 폴더 logs 에 기록하고 10분마다 게임 창만 캡처해서, 밸런스·버그 점검 리포트에 써요. (이 PC에만 저장 · 채팅 내용은 기록하지 않아요) 이번 업데이트 후 게임이 한 번 다시 켜져요.'] },
     { v: 102, items: ['보스 몬스터(셸로브·거대 여왕개미·오우거·바포메트)는 2분 동안 아무도 피해를 주지 못하면 체력을 회복해요. 초당 최대 HP의 2%씩 차오르고, 다 차면 그동안의 공헌도도 초기화돼요. 공격을 다시 맞히면 회복이 바로 멈춰요.', '보스의 마법(범위 기술) 피해가 50% 올랐어요. 셸로브 거미줄, 거대 여왕개미 산성·땅 울림, 오우거 내려찍기·바위, 바포메트 도끼·지옥불이 해당돼요. (MR로 줄일 수 있어요)', '기사 기술 스턴의 MP 소모량이 3에서 5로 늘었어요.'] },
