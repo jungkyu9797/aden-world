@@ -3775,7 +3775,8 @@ const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_
   const close = () => { const w = $('notewin'); if (w) w.hidden = true; };
   { const w = $('notewin'); if (w) { $('note-ok').onclick = close; w.querySelector('[data-close]').onclick = close; w.addEventListener('keydown', ev => { if (ev.key === 'Escape' || ev.key === 'Enter') { ev.preventDefault(); close(); } ev.stopPropagation(); }); w.addEventListener('pointerdown', ev => { if (ev.target === w) close(); }); } }
   // 접속할 때: 전에 본 버전보다 올라갔으면 그 사이 소식을 보여 줌 (처음 설치한 사람은 조용히 현재 버전으로 기록)
-  function onEnter() { const s0 = seen(); if (!s0) { let old = false; try { old = !!(localStorage.getItem('aden_acc') && localStorage.getItem('aden_pname')); } catch (e) {} if (old) show(GAME_VER - 1); else mark(); return; } if (s0 < GAME_VER) show(s0); }   // 이 기능 전부터 하던 사람은 이번 소식부터 보여 줌
+  const wasOld = (() => { try { return !!(localStorage.getItem('aden_acc') && localStorage.getItem('aden_pname')); } catch (e) { return false; } })();   // 켜질 때(로그인 전) 기준: 예전에 접속한 적 있는 기기
+  function onEnter() { const s0 = seen(); if (!s0) { if (wasOld) show(GAME_VER - 1); else mark(); return; } if (s0 < GAME_VER) show(s0); }   // 이 기능 전부터 하던 사람은 이번 소식부터 보여 줌
   return { onEnter, showAll: () => show(GAME_VER - 10, '업데이트 소식 (최근)') }; })();
 // ============================================================ PC 멀티 (실행 파일·로컬 파일용): 방 코드로 친구와 연결
 // 인터넷 공용 MQTT 서버(웹소켓)에 방 코드 주제로 내 상태를 10번/초 올리고 같은 방 사람 상태를 받음 — 포트 열기·설치 필요 없음. 테스트용(공용 서버라 내용이 암호화되지 않음)
