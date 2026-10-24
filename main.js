@@ -5,6 +5,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 app.setAppUserModelId('com.local.adensurvivors');   // 작업 표시줄에 게임 아이콘이 나오게
+let closeOk = false;
 const SAVE_DIR = () => path.join(app.getPath('userData'), 'saves');
 
 function createWindow() {
@@ -25,6 +26,8 @@ function createWindow() {
     },
   });
   Menu.setApplicationMenu(null);
+  // 창을 닫으면: 게임이 캐릭터를 서버에 저장할 시간을 준 뒤 닫힘 (최대 4초)
+  win.on('close', (e) => { if (closeOk) return; e.preventDefault(); try { win.webContents.send('app:closing'); } catch (_) {} setTimeout(() => { closeOk = true; if (!win.isDestroyed()) win.close(); }, 4000); });
   win.loadFile('index.html');
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
   // F11 전체화면, F12 개발자도구
@@ -52,6 +55,7 @@ ipcMain.handle('save:delete', (_e, slot) => {
   return true;
 });
 ipcMain.handle('app:quit', () => app.quit());
+ipcMain.handle('app:close-now', () => { closeOk = true; BrowserWindow.getAllWindows().forEach(w => { if (!w.isDestroyed()) w.close(); }); });
 
 // ===== 업데이트: update.json 의 base 주소에서 version.json(파일 목록·해시)을 받아 바뀐 파일만 내려받아 게임 폴더에 덮어씀
 const APP_DIR = __dirname;

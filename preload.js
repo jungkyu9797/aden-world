@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld('native', {
   update: () => ipcRenderer.invoke('update:run'),
   onUpdate: (fn) => ipcRenderer.on('update:progress', (_e, m) => fn(m)),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
+  onClosing: (fn) => ipcRenderer.on('app:closing', () => fn()),
+  closeNow: () => ipcRenderer.invoke('app:close-now'),
 });

@@ -444,7 +444,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 87;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 88;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2748,7 +2748,13 @@ const INV = (() => {
   return { tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 8) % 8; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${5 + a} ↔ F${5 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; const id = hot[i]; hot[i] = null; say(`F${5 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${5 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); autoTick(dt); }, auto: k => AUTO[k], blessHit, sp, openAuto, cx: sum, useInvis,
     godScrolls(on) { for (const id of GOD_SCROLLS) { let e = bag.find(x => x.id === id);   // 켜면 종류별로 1칸씩(없을 때만, 표시는 ∞), 끄면 그 1장만 빼서 원래 수로
         if (on) { if (!e) { bag.push({ id, n: 1, on: false, godTemp: true }); } } else if (e && e.godTemp) { e.n -= 1; delete e.godTemp; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); } } render(); },
-    setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, applyScroll, targeting: () => tgtScroll, bag: () => bag, nameOf, usePotion() { const e = bag.find(x => x.id === 'red_potion'); if (!e) { say('빨간 물약이 없습니다.', '#f08a7a'); return; } use(e); } };
+    setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, applyScroll, targeting: () => tgtScroll, bag: () => bag, nameOf,
+    dump() { const cl = x => JSON.parse(JSON.stringify(x, (k, v) => k && k[0] === '_' ? undefined : v)); const B = cl(bag.filter(e => !e.godTemp || e.n > 1).map(e => e.godTemp ? Object.assign({}, e, { n: e.n - 1, godTemp: undefined }) : e)); B.forEach(e => { delete e.godTemp; if (e.pet && e.pet.state === 'out') e.pet.state = 'stored'; });
+      return { bag: B, bonus: Object.assign({}, BONUS), hot: hot.slice(), auto: cl(AUTO), ab: cl(AUTOBUFF) }; },
+    load(o) { if (!o) return; bag.length = 0; for (const k in eq) delete eq[k]; BK.list = []; for (const e of o.bag || []) { if (!e || !ITEMS[e.id]) continue; if (e.on && !eq[e.on]) eq[e.on] = e; else e.on = false; bag.push(e); }
+      for (const k in BONUS) BONUS[k] = (o.bonus && +o.bonus[k]) || 0; if (o.hot) for (let i = 0; i < 8; i++) { const h = o.hot[i]; hot[i] = h && (String(h).startsWith('sk:') ? SK[h.slice(3)] : ITEMS[h]) ? h : null; }
+      if (o.auto) for (const k in o.auto) if (AUTO[k]) Object.assign(AUTO[k], o.auto[k]); if (o.ab) for (const k in o.ab) if (k in AUTOBUFF) AUTOBUFF[k] = !!o.ab[k]; render(); },
+    usePotion() { const e = bag.find(x => x.id === 'red_potion'); if (!e) { say('빨간 물약이 없습니다.', '#f08a7a'); return; } use(e); } };
 })();
 
 // ============================================================ 마을 · 월드맵
@@ -3150,7 +3156,8 @@ const TOWN = (() => {
     sync(); $('esc-bgm').onclick = () => { $('btn-bgm').click(); sync(); };
     $('esc-sfx').onclick = () => { SFX_ON = !SFX_ON; if (master) master.gain.value = SFX_ON ? 0.4 : 0; sync(); say(`효과음을 ${SFX_ON ? '켰' : '껐'}습니다.`, '#9c9682'); };
     $('esc-char').onclick = () => { escMenu(false); ACCOUNT.openSel(true); };
-    $('esc-quit').onclick = () => { escMenu(false); PET.storeAll(); $('quitscr').hidden = false; };
+    $('esc-quit').onclick = async () => { escMenu(false); PET.storeAll(); await SAVE.now(false, true); $('quitscr').hidden = false; };
+    { const b = $('esc-save'); if (b) b.onclick = () => { escMenu(false); if (!SAVE.on()) { say('캐릭터를 고른 뒤에 저장할 수 있어요.', '#9c9682'); return; } SAVE.now(true); }; }
     $('esc-back').onclick = () => escMenu(false); }
   window.escMenu = escMenu;
   $('quit-back').onclick = () => { $('quitscr').hidden = true; };
@@ -3341,7 +3348,7 @@ const STORE = (() => {
     if (I) { I.addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('text/x-store')) ev.preventDefault(); });
       I.addEventListener('drop', ev => { const k = ev.dataTransfer.getData('text/x-store'); if (k === '') return; ev.preventDefault(); withdraw(+k); }); }
     const sb = $('st-sort'); if (sb) sb.onclick = () => { box.sort((a, b) => { const A = ITEMS[a.id], B = ITEMS[b.id]; return (!!B.slot - !!A.slot) || (RO[B.rar || '일반'] - RO[A.rar || '일반']) || A.name.localeCompare(B.name, 'ko'); }); render(); }; }
-  return { open, render, deposit, depositAsk, list: () => box };
+  return { open, render, deposit, depositAsk, list: () => box, load(L) { box.length = 0; for (const e of L || []) if (e && ITEMS[e.id]) box.push(e); } };
 })();
 
 // 캐릭터 창: 장비 칸 아래 캐릭터 미리보기 (지금 착용한 장비 그대로 · 천천히 숨쉬는 대기 동작 · 클릭하면 방향 바꾸기)
@@ -3397,6 +3404,70 @@ const CHAT = (() => {
 })();
 
 // ============================================================ 아이디: 처음 캐릭터를 만들 때 정함 · 중복은 서버(아티팩트 공유 DB)에서 확인
+// ============================================================ 계정 서버 (Firebase): 로그인(이메일=계정@aden.world) + Firestore 저장 — PC 실행 파일·웹 공통
+// users/{uid} = { acc, chars(JSON: 직업→이름), store(JSON: 창고) } · users/{uid}/chars/{직업} = { name, data(JSON 세이브), ver, at } · names/{이름hex} = { uid, name, cls }
+// 웹 API 키는 공개용 식별자(보안은 서버 규칙: 자기 uid 문서만 읽기·쓰기). 연결이 안 되면(오프라인·차단) 예전 방식(이 기기/아티팩트 DB)으로
+const CLOUD = (() => {
+  const C = Object.assign({ key: 'AIzaSyB7YIKj-XThk-T8sppqKdBAh8yjTTsqDUw', project: 'aden-world' }, window.ADEN_FB || {});
+  const AUTH = C.auth || 'https://identitytoolkit.googleapis.com/v1/', TOK = C.token || 'https://securetoken.googleapis.com/v1/', FS = C.fs || `https://firestore.googleapis.com/v1/projects/${C.project}/databases/(default)/documents/`;
+  let S = null, reach = null;
+  const email = a => String(a).toLowerCase() + '@aden.world', pwOf = pw => 'aden:' + pw;   // 4자 비밀번호도 서버 최소 길이(6자)를 넘도록 앞에 고정 글자를 붙임
+  const err = (j, st) => { const m = (j && j.error && (j.error.message || j.error.status)) || ('HTTP ' + st); const e = new Error(m); e.code = String(m).split(/[ :]/)[0]; e.status = st; return e; };
+  async function post(url, body) { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(j, r.status); return j; }
+  const setS = j => (S = { uid: j.localId || j.user_id, tok: j.idToken || j.id_token, ref: j.refreshToken || j.refresh_token, exp: Date.now() + ((+(j.expiresIn || j.expires_in) || 3600) - 180) * 1000 });
+  async function ping() { if (reach !== null) return reach; try { const r = await Promise.race([fetch(`${AUTH}accounts:lookup?key=${C.key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 6000))]); reach = r.status > 0; } catch (e) { reach = false; } return reach; }
+  const signUp = async (a, pw) => setS(await post(`${AUTH}accounts:signUp?key=${C.key}`, { email: email(a), password: pwOf(pw), returnSecureToken: true }));
+  const signIn = async (a, pw) => setS(await post(`${AUTH}accounts:signInWithPassword?key=${C.key}`, { email: email(a), password: pwOf(pw), returnSecureToken: true }));
+  async function token() { if (!S) throw err(null, 401); if (Date.now() > S.exp) { const r = await fetch(`${TOK}token?key=${C.key}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(S.ref) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(j, r.status); setS(j); } return S.tok; }
+  // 문서 필드는 모두 문자열 (객체는 JSON으로)
+  const enc = o => ({ fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { stringValue: typeof v === 'string' ? v : JSON.stringify(v) }])) });
+  const dec = d => { const o = {}; for (const [k, v] of Object.entries((d && d.fields) || {})) o[k] = v.stringValue != null ? v.stringValue : v.integerValue != null ? +v.integerValue : null; return o; };
+  const mask = o => Object.keys(o).map(k => 'updateMask.fieldPaths=' + encodeURIComponent(k)).join('&');
+  async function get(path, pub) { const h = pub ? {} : { Authorization: 'Bearer ' + await token() }; const r = await fetch(FS + path, { headers: h }); if (r.status === 404) return null; const j = await r.json().catch(() => null); if (!r.ok) throw err(j, r.status); return dec(j); }
+  async function set(path, o, merge) { const q = [merge ? mask(o) : '', ''].filter(Boolean).join('&'); const r = await fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify(enc(o)) }); if (!r.ok) throw err(await r.json().catch(() => null), r.status); return true; }
+  async function create(path, o) { const r = await fetch(FS + path + '?currentDocument.exists=false', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify(enc(o)) }); if (r.ok) return true; if (r.status === 400 || r.status === 409 || r.status === 412 || r.status === 403) return false; throw err(await r.json().catch(() => null), r.status); }
+  async function del(path) { const r = await fetch(FS + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await token() } }); return r.ok; }
+  // 창을 닫을 때: 응답을 기다릴 수 없어서 keepalive로 한 번 보냄 (토큰이 아직 유효할 때만, 64KB 이하)
+  function beacon(path, o, merge) { if (!S || Date.now() > S.exp) return false; const body = JSON.stringify(enc(o)); if (body.length > 60000) return false; try { fetch(FS + path + (merge ? '?' + mask(o) : ''), { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.tok }, body }); return true; } catch (e) { return false; } }
+  return { ping, signUp, signIn, get, set, create, del, beacon, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
+})();
+// ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
+const SAVE = (() => {
+  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', pend = null;
+  const hex = s => [...new TextEncoder().encode(String(s).toLowerCase())].map(b => b.toString(16).padStart(2, '0')).join('');
+  const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
+  function snap() { const b = {}; for (const k in BUFF) if (BUFF[k] > 0) b[k] = Math.round(BUFF[k]);
+    return { v: 1, ver: GAME_VER, cls: CLASS, name: PNAME(), lv: hero.lv, exp: hero.exp, bhp: hero.baseHP, bmp: hero.baseMP, bp: hero.bonusPts, hp: Math.ceil(hero.hp), mp: Math.floor(hero.mp), coins: Math.floor(coins),
+      learned: [...LEARNED], buff: b, inv: INV.dump(), auto: AUTO.cfg() }; }
+  function apply(s) { if (!s || s.cls !== CLASS) return false;
+    hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (s.bmp) hero.baseMP = +s.bmp; hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0);
+    LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0;
+    INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); INV.render(); return true; }
+  const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
+  const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c;
+  async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); return d && d.data ? JSON.parse(d.data) : null; }
+      const a = await adb(); if (a) { try { const sn = await a.doc(`saves/${hex(ACCOUNT.acc())}_${c}`).get(); if (sn.exists) return JSON.parse(sn.data().data); } catch (e) {} } const v = ls.get(lkey(c)); return v ? JSON.parse(v) : null; }
+    catch (e) { console.warn('load', e); return undefined; } }   // undefined = 서버 오류 (null = 저장 없음)
+  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); return d && d.store ? JSON.parse(d.store) : null; } const v = ls.get('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase()); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function start(c, store) { cls = c; on = true; t = 0; lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); } }
+  // 지금 저장 (바뀐 것만) — force면 같아도 저장
+  async function now(force, quiet) { if (!on) return false; if (busy) { pend = pend || new Promise(r => setTimeout(r, 400)).then(() => now(force, quiet)); return pend; } busy = true; let ok = true;
+    try { const S_ = snap(), j = JSON.stringify(S_), st = JSON.stringify(STORE.list());
+      if (force || j !== lastC) { if (cloud()) await CLOUD.set(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) });
+        else { const a = await adb(); let done = false; if (a) { try { await a.doc(`saves/${hex(ACCOUNT.acc())}_${cls}`).set({ data: j, at: Date.now() }); done = true; } catch (e) {} } if (!done) ls.set(lkey(cls), j); }
+        lastC = j; }
+      if (force || st !== lastS) { if (cloud()) await CLOUD.set(`users/${CLOUD.uid()}`, { store: st }, true); else ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), st); lastS = st; }
+      if (!quiet) say('저장했습니다.' + (cloud() ? ' (계정 서버)' : ' (이 기기)'), '#9fd08a'); }
+    catch (e) { ok = false; console.warn('save', e); if (!quiet) say('저장하지 못했어요. 인터넷 연결을 확인해 주세요. (잠시 뒤 자동으로 다시 시도)', '#f08a7a'); }
+    busy = false; pend = null; return ok; }
+  function tick(dt) { if (!on) return; t += dt; if (t >= 20) { t = 0; now(false, true); } }
+  // 창 닫기 직전: 기다릴 수 없으니 keepalive로 마지막 저장
+  function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }); const st = JSON.stringify(STORE.list()); if (st !== lastS) CLOUD.beacon(`users/${CLOUD.uid()}`, { store: st }, true); } else { ls.set(lkey(cls), j); ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), JSON.stringify(STORE.list())); } } catch (e) {} }
+  addEventListener('beforeunload', flush); addEventListener('pagehide', flush);
+  if (window.native && window.native.onClosing) window.native.onClosing(async () => { try { await Promise.race([now(false, true), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} window.native.closeNow && window.native.closeNow(); });   // PC: 창 닫을 때 저장 끝나고 닫힘
+  return { snap, apply, load, loadStore, start, now, tick, flush, on: () => on, stop() { on = false; } };
+})();
 const NAMEREG = (() => {
   const $ = id => document.getElementById(id), KEY = 'aden_pname', RE = /^[가-힣a-zA-Z0-9]{2,12}$/;
   let db, user, uid, okName = null, busy = false, cb = null, back = null, curCls = 'knight';
@@ -3408,13 +3479,16 @@ const NAMEREG = (() => {
     try { if (window.claude && claude.use) { db = await claude.use('db'); user = await claude.use('user'); } } catch (e) { db = null; }
     try { uid = (user && await user.id()) || localId(); } catch (e) { uid = localId(); } return db; }
   const msg = (t, ok) => { const m = $('nm-msg'); if (m) { m.textContent = t; m.className = 'nm-msg ' + (ok ? 'ok' : 'no'); } };
+  const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
   async function check(name) { if (!RE.test(name)) return { ok: false, msg: '아이디는 한글·영문·숫자 2~12자로 정해 주세요. (띄어쓰기·특수문자 불가)' };
+    if (cloud()) { try { const o = await CLOUD.get('names/' + hex(name), true); return o && o.uid !== CLOUD.uid() ? { ok: false, msg: '이미 다른 사람이 쓰고 있는 아이디입니다.' } : { ok: true, msg: '사용할 수 있는 아이디예요!' }; } catch (e) { return { ok: false, msg: '서버 확인에 실패했어요. 잠시 후 다시 눌러 주세요.' }; } }
     const d = await conn();
     if (!d) { const L = JSON.parse(store.get('aden_names') || '[]'); return L.includes(name.toLowerCase()) ? { ok: false, msg: '이미 이 기기에서 쓰고 있는 아이디입니다.' } : { ok: true, msg: '사용할 수 있어요. (서버에 연결되지 않아 이 기기 기준으로만 확인했어요)' }; }
     try { const sn = await d.doc('names/' + hex(name)).get(); const o = sn.exists ? (sn.data() || {}).owner : null;
       return o && o !== uid && o !== me() ? { ok: false, msg: '이미 다른 사람이 쓰고 있는 아이디입니다.' } : { ok: true, msg: '사용할 수 있는 아이디예요!' }; }
     catch (e) { return { ok: false, msg: '서버 확인에 실패했어요. 잠시 후 다시 눌러 주세요.' }; } }
-  async function claim(name) { const d = await conn();
+  async function claim(name) { if (cloud()) { try { if (await CLOUD.create('names/' + hex(name), { uid: CLOUD.uid(), name, cls: curCls, at: String(Date.now()) })) return { ok: true }; const o = await CLOUD.get('names/' + hex(name), true); return o && o.uid === CLOUD.uid() ? { ok: true } : { ok: false, msg: '이미 다른 사람이 쓰고 있는 아이디입니다.' }; } catch (e) { return { ok: false, msg: '서버에 등록하지 못했어요. 잠시 후 다시 눌러 주세요.' }; } }
+    const d = await conn();
     if (!d) { const L = JSON.parse(store.get('aden_names') || '[]'); if (!L.includes(name.toLowerCase())) L.push(name.toLowerCase()); store.set('aden_names', JSON.stringify(L)); return { ok: true }; }
     try { const ref = d.doc('names/' + hex(name)), lease = await ref.acquire({ holder: uid, ttlMs: 5000 }); if (!lease.acquired) return { ok: false, msg: '다른 사람이 지금 이 아이디를 만드는 중이에요. 다른 아이디를 골라 주세요.' };
       const sn = await ref.get(), o = sn.exists ? (sn.data() || {}).owner : null; if (o && o !== uid && o !== me()) return { ok: false, msg: '이미 다른 사람이 쓰고 있는 아이디입니다.' };
@@ -3693,7 +3767,7 @@ function applyClass(cls, name) { CLASS = cls; const C = CLS_DEF[cls]; hero.pname
 const ACCOUNT = (() => {
   const $ = id => document.getElementById(id), RE = /^[a-zA-Z0-9]{4,16}$/;
   const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
-  let db, acc = null, chars = {}, mode = 'login', busy = false, sel = null, started = false, raf = 0;
+  let db, acc = null, chars = {}, mode = 'login', busy = false, sel = null, started = false, raf = 0, srv = 'legacy';   // srv: 'cloud' = 계정 서버(Firebase) · 'legacy' = 예전 방식(아티팩트 DB/이 기기)
   const hex = s => [...new TextEncoder().encode(s.toLowerCase())].map(b => b.toString(16).padStart(2, '0')).join('');
   async function conn() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
   const rnd = n => { try { return [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toString(16).padStart(2, '0')).join(''); } catch (e) { return Array.from({ length: n * 2 }, () => Math.floor(Math.random() * 16).toString(16)).join(''); } };
@@ -3701,14 +3775,27 @@ const ACCOUNT = (() => {
     catch (e) { let h = 2166136261 >>> 0; const t = salt + ':' + pw; for (let r = 0; r < 4000; r++) for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i) + r; h = Math.imul(h, 16777619) >>> 0; } return 'f' + h.toString(16); } }
   const localAll = () => { try { return JSON.parse(store.get('aden_accounts') || '{}'); } catch (e) { return {}; } };
   async function load(a) { const d = await conn(), loc = localAll()[a.toLowerCase()] || null; if (!d) return loc; try { const sn = await d.doc('accounts/' + hex(a)).get(); return sn.exists ? sn.data() : loc; } catch (e) { return loc; } }
-  async function saveChars(a, ch) { const L = localAll(), r = L[a.toLowerCase()]; if (r) { r.chars = ch; store.set('aden_accounts', JSON.stringify(L)); } const d = await conn(); if (!d || r) return; try { await d.doc('accounts/' + hex(a)).update({ chars: ch }); } catch (e) {} }
-  async function create(a, pw) { const d = await conn(); if (await load(a)) return { ok: false, msg: '이미 있는 계정입니다. 다른 계정 이름을 써 주세요.' };
+  async function saveChars(a, ch) { if (srv === 'cloud' && CLOUD.on()) { await CLOUD.set(`users/${CLOUD.uid()}`, { chars: JSON.stringify(ch) }, true); return; } const L = localAll(), r = L[a.toLowerCase()]; if (r) { r.chars = ch; store.set('aden_accounts', JSON.stringify(L)); } const d = await conn(); if (!d || r) return; try { await d.doc('accounts/' + hex(a)).update({ chars: ch }); } catch (e) {} }
+  async function createLegacy(a, pw) { const d = await conn(); if (await load(a)) return { ok: false, msg: '이미 있는 계정입니다. 다른 계정 이름을 써 주세요.' };
     const salt = rnd(12), r = { acc: a, salt, hash: await hashPw(pw, salt), chars: {}, at: Date.now() };
     let saved = false; if (d) { try { const ref = d.doc('accounts/' + hex(a)), lease = await ref.acquire({ holder: 'mk_' + rnd(6), ttlMs: 5000 }); if (!lease.acquired) return { ok: false, msg: '지금 다른 사람이 이 계정을 만드는 중이에요. 다른 이름을 써 주세요.' };
       const sn = await ref.get(); if (sn.exists) return { ok: false, msg: '이미 있는 계정입니다. 다른 계정 이름을 써 주세요.' }; await ref.set(r); saved = true; } catch (e) { saved = false; } }
     if (!saved) { r.local = 1; const L = localAll(); L[a.toLowerCase()] = r; store.set('aden_accounts', JSON.stringify(L)); }   // 서버에 쓸 권한이 없으면(보기 권한으로 공유받은 친구) 이 브라우저에 저장
     return { ok: true, chars: {} }; }
-  async function login(a, pw) { const r = await load(a); if (!r) return { ok: false, msg: '없는 계정입니다. 아래 \'새 계정 만들기\'로 먼저 만들어 주세요.' }; if ((await hashPw(pw, r.salt)) !== r.hash) return { ok: false, msg: '비밀번호가 맞지 않습니다.' }; return { ok: true, chars: r.chars || {} }; }
+  const FBMSG = e => ({ EMAIL_EXISTS: '이미 있는 계정입니다. 다른 계정 이름을 써 주세요.', TOO_MANY_ATTEMPTS_TRY_LATER: '로그인 시도가 너무 많아요. 잠시 뒤에 다시 해 주세요.', USER_DISABLED: '사용이 중지된 계정입니다.' })[e && e.code] || null;
+  async function create(a, pw) { if (!(await CLOUD.ping())) { srv = 'legacy'; return createLegacy(a, pw); } srv = 'cloud';
+    try { await CLOUD.signUp(a, pw); } catch (e) { return { ok: false, msg: FBMSG(e) || '계정을 만들지 못했어요. (' + e.message + ')' }; }
+    await CLOUD.set(`users/${CLOUD.uid()}`, { acc: a, chars: '{}', store: '[]', at: String(Date.now()) }); return { ok: true, chars: {} }; }
+  async function login(a, pw) { if (!(await CLOUD.ping())) { srv = 'legacy'; return loginLegacy(a, pw); } srv = 'cloud';
+    try { await CLOUD.signIn(a, pw); const d = await CLOUD.get(`users/${CLOUD.uid()}`); if (!d) await CLOUD.set(`users/${CLOUD.uid()}`, { acc: a, chars: '{}', store: '[]', at: String(Date.now()) }); let ch = {}; try { ch = JSON.parse((d && d.chars) || '{}'); } catch (e) {} return { ok: true, chars: ch }; }
+    catch (e) { if (FBMSG(e)) return { ok: false, msg: FBMSG(e) }; if (!/INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|INVALID_PASSWORD/.test(e.message)) return { ok: false, msg: '서버에 연결하지 못했어요. (' + e.message + ')' }; }
+    // 서버가 생기기 전에 만든 계정(이 기기/아티팩트 DB)이면 같은 비밀번호로 서버에 옮김 — 캐릭터 이름·이 기기 저장도 함께
+    const r = await load(a); if (!r) return { ok: false, msg: '없는 계정이거나 비밀번호가 맞지 않습니다.' }; if ((await hashPw(pw, r.salt)) !== r.hash) return { ok: false, msg: '비밀번호가 맞지 않습니다.' };
+    try { await CLOUD.signUp(a, pw); } catch (e) { return { ok: false, msg: e.code === 'EMAIL_EXISTS' ? '비밀번호가 맞지 않습니다.' : '계정을 서버로 옮기지 못했어요. (' + e.message + ')' }; }
+    const ch = r.chars || {}, low = a.toLowerCase(); await CLOUD.set(`users/${CLOUD.uid()}`, { acc: a, chars: JSON.stringify(ch), store: store.get('aden_store_' + low) || '[]', at: String(Date.now()) });
+    for (const c in ch) { try { await CLOUD.create('names/' + hex(ch[c]), { uid: CLOUD.uid(), name: ch[c], cls: c, at: String(Date.now()) }); const v = store.get('aden_save_' + low + '_' + c); if (v) await CLOUD.set(`users/${CLOUD.uid()}/chars/${c}`, { name: ch[c], data: v, ver: String(GAME_VER), at: String(Date.now()) }); } catch (e) {} }
+    return { ok: true, chars: ch, moved: true }; }
+  async function loginLegacy(a, pw) { const r = await load(a); if (!r) return { ok: false, msg: '없는 계정입니다. 아래 \'새 계정 만들기\'로 먼저 만들어 주세요.' }; if ((await hashPw(pw, r.salt)) !== r.hash) return { ok: false, msg: '비밀번호가 맞지 않습니다.' }; return { ok: true, chars: r.chars || {} }; }
   const msg = (t, ok) => { const m = $('lg-msg'); if (m) { m.textContent = t; m.className = 'nm-msg ' + (ok ? 'ok' : 'no'); } };
   function setMode(m) { mode = m; $('lg-pw2-row').hidden = m !== 'new'; $('lg-go').textContent = m === 'new' ? '계정 만들기' : '접속'; $('lg-mode').textContent = m === 'new' ? '이미 계정이 있어요 · 로그인으로' : '처음이신가요? 새 계정 만들기'; $('lg-sub').textContent = m === 'new' ? '사용할 계정과 비밀번호를 정해 주세요' : '계정과 비밀번호를 입력해 주세요'; $('lg-pw').autocomplete = m === 'new' ? 'new-password' : 'current-password'; msg('', true); }
   async function submit(ev) { if (ev) ev.preventDefault(); if (busy) return; const a = $('lg-acc').value.trim(), pw = $('lg-pw').value;
@@ -3717,7 +3804,8 @@ const ACCOUNT = (() => {
     busy = true; $('lg-go').disabled = true; msg(mode === 'new' ? '계정을 만드는 중…' : '접속하는 중…', true); let r;
     try { r = mode === 'new' ? await create(a, pw) : await login(a, pw); } catch (e) { r = { ok: false, msg: '서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.' }; }
     busy = false; $('lg-go').disabled = false; if (!r.ok) { msg(r.msg, false); return; }
-    acc = a; chars = r.chars || {}; store.set('aden_acc', a); $('lg-pw').value = ''; $('lg-pw2').value = ''; $('loginscr').hidden = true; openSel(false); }
+    acc = a; chars = r.chars || {}; store.set('aden_acc', a); $('lg-pw').value = ''; $('lg-pw2').value = ''; $('loginscr').hidden = true; openSel(false); if (r.moved) csMsg('예전 계정을 계정 서버로 옮겼어요. 이제 어느 PC에서든 이어서 할 수 있어요.', true); }
+  const csMsg = (t, ok) => { const m = $('cs-msg'); if (m) { m.textContent = t || ''; m.className = 'nm-msg ' + (ok ? 'ok' : 'no'); } };
   // 캐릭터 선택: 직업 카드 3장 (만든 캐릭터는 이름, 없으면 새로 만들기) · 그림은 대기 동작
   function openSel(fromGame) { $('charsel').hidden = false; $('cs-acc').textContent = acc || '-'; if (!sel) sel = started ? CLASS : (['knight', 'elf', 'wizard'].find(c => chars[c]) || 'knight'); render(); if (!raf) raf = requestAnimationFrame(anim); }
   function render() { document.querySelectorAll('#charsel .cs-card').forEach(c => { const cls = c.dataset.cls, ch = chars[cls]; c.classList.toggle('on', sel === cls); c.classList.toggle('new', !ch);
@@ -3733,21 +3821,25 @@ const ACCOUNT = (() => {
   function start() { if (!sel) return; const ch = chars[sel];
     if (!ch) { $('charsel').hidden = true; NAMEREG.show(sel, async n => { chars = { ...chars, [sel]: n }; try { await saveChars(acc, chars); } catch (e) {} begin(sel, n); }, () => openSel(started)); return; }
     begin(sel, ch); }
-  function begin(cls, name) {
+  async function begin(cls, name) {
     if (started && cls === CLASS) { $('charsel').hidden = true; return; }
-    if (started) { INV.askYesNo(`${name}(${CLASS_NAME[cls]})(으)로 바꿀까요?`, '캐릭터를 바꾸면 게임을 새로 불러옵니다. 지금 캐릭터의 진행 상황은 아직 저장되지 않아요 (저장 기능 준비 중).', () => {
-        try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars })); location.reload(); } catch (e) { $('charsel').hidden = true; applyClass(cls, name); store.set('aden_pname', name); TOWN.goTown(); } }); return; }
-    $('charsel').hidden = true; applyClass(cls, name); started = true; store.set('aden_pname', name); TOWN.goTown(); say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8');
+    if (started) { INV.askYesNo(`${name}(${CLASS_NAME[cls]})(으)로 바꿀까요?`, '지금 캐릭터를 저장한 뒤 게임을 새로 불러옵니다.', async () => { await SAVE.now(true, true);
+        try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
+    const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
+    if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st);
+    if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
+    say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살은 잡화상점에서 살 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 마력탄을 쏴 멀리서 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
-  function logout() { try { sessionStorage.removeItem('aden_boot'); } catch (e) {} if (started) { location.reload(); return; } acc = null; chars = {}; sel = null; $('charsel').hidden = true; $('loginscr').hidden = false; setMode('login'); }
+  async function logout() { try { sessionStorage.removeItem('aden_boot'); } catch (e) {} if (started) { await SAVE.now(true, true); location.reload(); return; } CLOUD.out(); acc = null; chars = {}; sel = null; $('charsel').hidden = true; $('loginscr').hidden = false; setMode('login'); }
   { const f = $('lg-form'); if (f) { f.addEventListener('submit', submit); f.addEventListener('keydown', ev => ev.stopPropagation()); $('lg-mode').onclick = () => setMode(mode === 'new' ? 'login' : 'new');
       document.querySelectorAll('#charsel .cs-card').forEach(c => { c.onclick = () => { sel = c.dataset.cls; render(); }; c.ondblclick = () => { sel = c.dataset.cls; start(); }; });
       $('cs-start').onclick = start; $('cs-logout').onclick = logout; } }
   // 켤 때: 캐릭터를 바꾸느라 새로 불러온 경우엔 바로 그 캐릭터로, 아니면 로그인 화면
   setTimeout(() => { let boot = null; try { boot = JSON.parse(sessionStorage.getItem('aden_boot') || 'null'); sessionStorage.removeItem('aden_boot'); } catch (e) {}
-    if (boot && boot.acc && CLS_DEF[boot.cls]) { acc = boot.acc; chars = boot.chars || {}; sel = boot.cls; begin(boot.cls, boot.name); return; }
-    const w = $('loginscr'); if (!w) return; w.hidden = false; const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }, 120);
-  return { acc: () => acc, openSel, started: () => started };
+    if (boot && boot.acc && CLS_DEF[boot.cls]) { acc = boot.acc; chars = boot.chars || {}; srv = boot.srv || 'legacy'; if (boot.fb) CLOUD.restore(boot.fb); sel = boot.cls; begin(boot.cls, boot.name); return; }
+    const w = $('loginscr'); if (!w) return; w.hidden = false; { const sv = $('lg-srv'); if (sv) { sv.textContent = '계정 서버 확인 중…'; CLOUD.ping().then(ok => { sv.textContent = ok ? '● 계정 서버 연결됨 — 어느 PC에서든 이어서 플레이' : '○ 계정 서버에 연결되지 않음 — 이 기기에만 저장돼요'; sv.className = 'lg-srv ' + (ok ? 'ok' : 'no'); }); } } const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }, 120);
+  return { acc: () => acc, openSel, started: () => started, mode: () => srv };
 })();
 const AUTO = (() => {
   const C = { retHp: 30, lowPot: true, lowN: 3, buy: true, buyId: 'red_potion', buyN: 30, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true,
@@ -3802,14 +3894,14 @@ const AUTO = (() => {
     w.querySelectorAll('[data-lr]').forEach(el => { el.onchange = () => { C.lootR[el.dataset.lr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lt]').forEach(el => { el.onchange = () => { C.lootT[el.dataset.lt] = el.checked; sync(); }; });
     w.querySelectorAll('[data-buff]').forEach(el => { el.onchange = () => { INV.setAutoBuff(el.dataset.buff, el.checked); sync(); }; });
     w.querySelectorAll('select,input').forEach(el => { el.onkeydown = ev => ev.stopPropagation(); }); }
-  return { tick, toggle, openSet, status, on: () => state !== 'off', died() { if (state !== 'off') died = true; } };
+  return { tick, toggle, openSet, status, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } } };
 })();
 
 let last=performance.now(), invT=0;
 function frame(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); PET.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); }
+  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
