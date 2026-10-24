@@ -452,7 +452,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 92;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 93;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -830,7 +830,7 @@ function desertSprite(p) { if (!ISLE || !ISLE.def.sand) return null; const set =
 function drawWater(g) { for (const o of ISLE.oases) { const [x, y] = W2P(o.x, o.z), rx = o.r * K * 1.42, ry = rx / 2; g.save();
     const gr = g.createRadialGradient(x, y - ry * 0.2, 2, x, y, rx); gr.addColorStop(0, '#5ab4c8'); gr.addColorStop(0.65, '#2a7a98'); gr.addColorStop(1, '#174e66'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill();
     g.strokeStyle = 'rgba(30,50,40,.6)'; g.lineWidth = 2; g.stroke(); g.clip();
-    for (let q = 0; q < 3; q++) { const k = ((time * 0.35 + q / 3) % 1); g.strokeStyle = `rgba(220,245,255,${0.35 * (1 - k)})`; g.lineWidth = 1; g.beginPath(); g.ellipse(x + Math.sin(q * 2) * rx * 0.2, y + Math.cos(q) * ry * 0.2, rx * 0.15 + k * rx * 0.6, (ry * 0.15 + k * ry * 0.6), 0, 0, 7); g.stroke(); }
+    for (let q = 0; q < 3; q++) { const k = (((time * 0.35 + q / 3) % 1) + 1) % 1; g.strokeStyle = `rgba(220,245,255,${0.35 * (1 - k)})`; g.lineWidth = 1; g.beginPath(); g.ellipse(x + Math.sin(q * 2) * rx * 0.2, y + Math.cos(q) * ry * 0.2, rx * 0.15 + k * rx * 0.6, (ry * 0.15 + k * ry * 0.6), 0, 0, 7); g.stroke(); }
     g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 10; q++) { const a = q * 2.4 + time * 0.3, rr = (q % 4 + 1) / 5, sx = x + Math.cos(a) * rx * rr, sy = y + Math.sin(a) * ry * rr, al = 0.25 + 0.25 * Math.sin(time * 3 + q * 1.7); g.strokeStyle = `rgba(255,255,240,${Math.max(0, al)})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(sx - 4, sy); g.lineTo(sx + 4, sy); g.stroke(); }
     g.restore(); } }
 // 굴러다니는 회전초 (바람 따라)
@@ -3262,6 +3262,8 @@ const TOWN = (() => {
     say('귀환 주문서를 사용했습니다.', '#a0c0f2'); toTown(); return true; }
   api.scrollHome = () => scrollHome();
   api.goTown = () => toTown();
+  api.placeAt = (x, z) => { const i = Math.floor(x), j = Math.floor(z); if (walkable(i, j)) place(i, j); };
+  api.toZone = (id, x, z) => { ISLAND.enter(id, 'town'); fadeTo(0); syncButtons(); if (x != null) api.placeAt(x, z); };   // 1·2구간 아무 데나 (자동사냥 복귀·업데이트 후 이어하기)
   api.toField = n => toField(n);
   api.start = () => { toTown(); say('상점 건물이나 주민을 클릭해 보세요. 월드맵은 위쪽 버튼이나 마을의 월드맵 포털로.', '#9fd0e8'); };
   return api;
@@ -3530,7 +3532,7 @@ const NET = (() => {
   const esc_ = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   let IKS = null; const ik = () => IKS || (IKS = Object.keys(ITEMS));
   let room = null, myPeer = null, sendT = 0, chatSeq = 0, lastChat = '', atkSeq = 0, lastAtk = null, hitSeq = 0, dmgSeq = 0, rwSeq = 0, gvSeq = 0, pkSeq = 0, suSeq = 0, invSeq = 0;
-  let hostCache = null, wasGuest = false, known = new Set(), ready = false, partyId = null, invOut = null, ansOut = null, spTotal = 0, mySpUsed = 0, hoverPeer = null, uiT = 0, hadMem = false, lastRw = {};
+  let hostCache = null, wasGuest = false, known = new Set(), ready = false, partyId = null, invOut = null, ansOut = null, spTotal = 0, mySpUsed = 0, hoverPeer = null, uiT = 0, hadMem = false, lastRw = {}, ptGrace = 0;
   const myHits = [], toRemote = {}, rwOut = {}, gvOut = {}, pkOut = [], suOut = [], efOut = []; let efSeq = 0; const seenEf = new Map();
   // 강화 연출: 내 강화 결과를 보내고, 같은 지역 18칸 안의 다른 사람 강화는 그 사람 머리 위에 이펙트·글자·소리로
   const EFX = { ok: ['enok', '#9fe0ff'], bless: ['enbless', '#ffd86a'], earth: ['earth', '#c8a060'], fail: ['puff', '#c0b8a0'], boom: ['boom', '#ff6a5a'], curse: ['puff', '#c890e8'] };
@@ -3580,7 +3582,7 @@ const NET = (() => {
       const pa = o.pr.pa; if (pa && pa.to === myPeer) { const key = pa.id + ':' + pa.s; if (seenAns.get(o.peer) === key) continue; seenAns.set(o.peer, key);
         if (invOut && pa.s === invOut.s) { say(pa.ok ? `${nmOf(o.pr)}님이 파티에 들어왔습니다.` : `${nmOf(o.pr)}님이 파티 초대를 거절했습니다.`, pa.ok ? PCOL : '#9c9682'); invOut = null; } } }
     if (invOut && Date.now() - invOut.at > 30000) { invOut = null; if (partyId && !members().length) say('파티 초대에 응답이 없습니다.', '#9c9682'); }
-    if (partyId && !invOut) { const n = members().length; if (n) hadMem = true; else { if (hadMem) say('파티원이 모두 나가서 파티가 해산되었습니다.', '#9c9682'); partyId = null; hadMem = false; renderParty(); } } }
+    if (partyId && !invOut && Date.now() > ptGrace) { const n = members().length; if (n) hadMem = true; else { if (hadMem) say('파티원이 모두 나가서 파티가 해산되었습니다.', '#9c9682'); partyId = null; hadMem = false; renderParty(); } } }
   // ----- 지원(힐·버프)을 파티원에게: 받는 쪽이 적용 · 준 양만큼 공헌도(지원 점수)에 쌓임
   function support(peer, k, v, pts) { suOut.push([++suSeq, peer, k, v]); trim(suOut, 10); spTotal += Math.max(0, pts); sendT = 0; }
   function partyNear(r) { const out = []; for (const o of members()) { if (o.pr.z !== zk() || !(o.pr.hp > 0)) continue; if (Math.max(Math.abs(o.pr.x - hero.x), Math.abs(o.pr.y - hero.z)) <= r) out.push(o); } return out; }
@@ -3623,7 +3625,7 @@ const NET = (() => {
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
   function payload() { const P = { n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
-      e: eqIds(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null };
+      e: eqIds(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, bf: myBuffs(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
     const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
@@ -3691,10 +3693,16 @@ const NET = (() => {
     uiT -= dt; if (uiT <= 0) { uiT = 0.25; renderParty(); }
     sendT -= dt; if (sendT <= 0) { sendT = 0.1; try { room.presence(payload()).catch(() => {}); } catch (e) {} } }
   // ----- 파티 창 (화면 왼쪽): 파티원 HP·MP
+  const myBuffs = () => { const o = {}; let n = 0; for (const k in BUFF) if (BUFF[k] > 0 && BUFF_DEF[k]) { o[k] = Math.ceil(BUFF[k]); n++; } return n ? o : null; };
+  const icoC = {}, ico = k => icoC[k] || (icoC[k] = ICON(k));
+  const tleft = s => s >= 60 ? Math.ceil(s / 60) + '분' : Math.ceil(s) + '초';
+  const DEBUFF = new Set(['root', 'slow']);
+  const bfRow = bf => { const ks = Object.keys(bf || {}).filter(k => BUFF_DEF[k] && bf[k] > 0); if (!ks.length) return '';
+    return '<div class="pb-bf">' + ks.map(k => `<span class="pb-b${DEBUFF.has(k) ? ' bad' : ''}" title="${esc_(BUFF_DEF[k].name)} · ${tleft(bf[k])} 남음">${ico(BUFF_DEF[k].icon)}<em>${tleft(bf[k])}</em></span>`).join('') + '</div>'; };
   function renderParty() { const box = document.getElementById('partybox'); if (!box) return; if (!partyId || !room) { if (!box.hidden) box.hidden = true; return; } box.hidden = false;
     const ZN = z => z === 'town' ? '마을' : /^isle\d+$/.test(z || '') ? ((ISLAND.def(+z.slice(4)) || {}).name || '사냥터') : '필드';
-    const row = (nm, cls, lv, hp, hm, mp, mm, z, me) => `<div class="pb-m${me ? ' me' : ''}${hp > 0 ? '' : ' dead'}"><div class="pb-t"><b>${esc_(nm)}</b><span>${CLASS_NAME[cls] || ''} Lv.${lv || 1}</span></div><div class="pb-bar hp"><i style="width:${Math.max(0, Math.min(100, hp / Math.max(1, hm) * 100))}%"></i><em>${Math.ceil(hp)}/${hm}</em></div><div class="pb-bar mp"><i style="width:${Math.max(0, Math.min(100, mp / Math.max(1, mm) * 100))}%"></i><em>${Math.floor(mp)}/${mm}</em></div>${z !== zk() ? `<small>${esc_(ZN(z))}</small>` : ''}</div>`;
-    const M = members(); const h = `<div class="pb-h">파티 <small>${M.length + 1}명${M.length ? '' : ' · 초대를 기다리는 중'}</small><button type="button" id="pb-leave">나가기</button></div>` + row(PNAME(), CLASS, hero.lv, hero.hp, hero.max, hero.mp, hero.maxmp, zk(), true) + M.map(o => row(nmOf(o.pr), o.pr.c, o.pr.lv, o.pr.hp || 0, o.pr.hm || 1, o.pr.mp || 0, o.pr.mm || 1, o.pr.z)).join('');
+    const row = (nm, cls, lv, hp, hm, mp, mm, z, me, bf) => `<div class="pb-m${me ? ' me' : ''}${hp > 0 ? '' : ' dead'}"><div class="pb-t"><b>${esc_(nm)}</b><span>${CLASS_NAME[cls] || ''} Lv.${lv || 1}</span></div><div class="pb-bar hp"><i style="width:${Math.max(0, Math.min(100, hp / Math.max(1, hm) * 100))}%"></i><em>${Math.ceil(hp)}/${hm}</em></div><div class="pb-bar mp"><i style="width:${Math.max(0, Math.min(100, mp / Math.max(1, mm) * 100))}%"></i><em>${Math.floor(mp)}/${mm}</em></div>${bfRow(bf)}${z !== zk() ? `<small>${esc_(ZN(z))}</small>` : ''}</div>`;
+    const M = members(); const h = `<div class="pb-h">파티 <small>${M.length + 1}명${M.length ? '' : ' · 초대를 기다리는 중'}</small><button type="button" id="pb-leave">나가기</button></div>` + row(PNAME(), CLASS, hero.lv, hero.hp, hero.max, hero.mp, hero.maxmp, zk(), true, myBuffs()) + M.map(o => row(nmOf(o.pr), o.pr.c, o.pr.lv, o.pr.hp || 0, o.pr.hm || 1, o.pr.mp || 0, o.pr.mm || 1, o.pr.z, false, o.pr.bf)).join('');
     if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; const b = document.getElementById('pb-leave'); if (b) b.onclick = () => INV.askYesNo('파티에서 나가시겠습니까?', '', leaveParty); } }
   // ----- 다른 플레이어 클릭 → 메뉴 (파티 초대)
   function peerAt(sx, sy) { if (!room) return null; const [px, py] = toWorldPx(sx, sy); let b = null, bd = 1e9; for (const o of othersInZone()) { const v = peers.get(o.peer); if (!v) continue; const [x, y] = W2P(v.x, v.z), dx = px - x, dy = py - (y - 40); if (Math.abs(dx) < 20 && Math.abs(dy) < 52) { const q = dx * dx + dy * dy; if (q < bd) { bd = q; b = o; } } } return b; }
@@ -3712,7 +3720,8 @@ const NET = (() => {
         const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top);
         const w = 34, k = Math.max(0, Math.min(1, (pr.hp || 0) / (pr.hm || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore();
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
-  return { fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, partyNear,
+  return { partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
+    fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, partyNear,
     guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH };
@@ -3733,7 +3742,18 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
   { const b = $('lg-update'); if (b) b.onclick = run; const v = $('lg-ver'); if (v) v.textContent = 'v' + GAME_VER; const n = N();
     if (n && n.onUpdate) n.onUpdate(m => { if (m.step === 'file') msg(`파일 받는 중… ${m.n + 1} / ${m.total}`); });
     if (n && n.updateCheck) n.updateCheck().then(r => { if (r && r.ok && r.ver > GAME_VER) { btn(`업데이트 (새 버전 v${r.ver})`, true); msg('새 버전이 나왔어요. 업데이트를 눌러 주세요.', '#ffd86a'); } }).catch(() => {}); }
-  return { run }; })();
+  // 게임 중: 5분마다 새 버전 확인 → 위쪽 [업데이트] 버튼 → 누르면 저장 → 받기 → 다시 불러온 뒤 같은 자리·같은 파티·같은 방에서 이어서
+  let newVer = 0, gBusy = false;
+  async function checkIn() { const n = N(); if (!n || !n.updateCheck || gBusy) return; try { const r = await n.updateCheck(); const b = $('btn-upd'); if (r && r.ok && r.ver > GAME_VER && b) { const first = b.hidden; newVer = r.ver; b.hidden = false; b.textContent = `⬇ 업데이트 (v${r.ver})`; if (first && ACCOUNT.started()) say(`새 버전(v${r.ver})이 나왔어요. 화면 위의 [업데이트]를 누르면 접속을 유지한 채 바로 업데이트돼요.`, '#ffd86a'); } } catch (e) {} }
+  async function runIn() { const n = N(), b = $('btn-upd'); if (!n || !n.update || gBusy) return; gBusy = true; b.disabled = true; b.textContent = '업데이트 중…'; say('업데이트를 받는 중입니다… (캐릭터를 먼저 저장해요)', '#ffd86a');
+    try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {}
+    let r; try { r = await n.update(); } catch (e) { r = { ok: false, err: String(e && e.message || e) }; }
+    if (!r.ok) { gBusy = false; b.disabled = false; b.textContent = `⬇ 업데이트 (v${newVer})`; say('업데이트하지 못했어요. 인터넷 연결을 확인해 주세요. (' + String(r.err).slice(0, 60) + ')', '#f08a7a'); return; }
+    if (r.latest) { gBusy = false; b.hidden = true; b.disabled = false; say('이미 최신 버전이에요.', '#9fd08a'); return; }
+    ACCOUNT.keepForUpdate(); say(`v${r.ver} 업데이트 완료! 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 800); }
+  { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = runIn; setTimeout(checkIn, 8000); setInterval(checkIn, 5 * 60 * 1000); }
+    if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
+  return { run, check: checkIn }; })();
 // ============================================================ PC 멀티 (실행 파일·로컬 파일용): 방 코드로 친구와 연결
 // 인터넷 공용 MQTT 서버(웹소켓)에 방 코드 주제로 내 상태를 10번/초 올리고 같은 방 사람 상태를 받음 — 포트 열기·설치 필요 없음. 테스트용(공용 서버라 내용이 암호화되지 않음)
 const MQ = (() => {
@@ -3781,7 +3801,7 @@ const MPP = (() => {
   // 아티팩트(claude.ai)에서는 room이 있어 자동 멀티 — 버튼은 PC 실행 파일·로컬 파일에서만
   setTimeout(() => { const b = $('btn-mp'); if (b && !NET.hasArtRoom()) { b.hidden = false; b.onclick = open; } const e = $('esc-mp'); if (e) { e.hidden = NET.hasArtRoom(); e.onclick = () => { window.escMenu && escMenu(false); open(); }; } }, 1500);
   setInterval(render, 1000);
-  return { open, leave, start, state: () => state };
+  return { open, leave, start, state: () => state, code: () => (state !== 'off' ? code : null) };
 })();
 // 직업 적용: 처음 접속할 때(새 상태) 한 번 — 다른 직업으로 바꿀 땐 페이지를 새로 불러 깨끗한 상태에서 적용
 function applyClass(cls, name) { CLASS = cls; const C = CLS_DEF[cls]; hero.pname = name; hero.lv = 1; hero.exp = 0; hero.baseHP = C.hp; hero.baseMP = C.mp; hero.bonusPts = 0; coins = 100;
@@ -3851,7 +3871,7 @@ const ACCOUNT = (() => {
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
     const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
     if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
-    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st);
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); setTimeout(() => UPD.check(), 3000);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살은 잡화상점에서 살 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 마력탄을 쏴 멀리서 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
@@ -3861,13 +3881,19 @@ const ACCOUNT = (() => {
       $('cs-start').onclick = start; $('cs-logout').onclick = logout; } }
   // 켤 때: 캐릭터를 바꾸느라 새로 불러온 경우엔 바로 그 캐릭터로, 아니면 로그인 화면
   setTimeout(() => { let boot = null; try { boot = JSON.parse(sessionStorage.getItem('aden_boot') || 'null'); sessionStorage.removeItem('aden_boot'); } catch (e) {}
+    let rs = null; try { rs = JSON.parse(localStorage.getItem('aden_resume') || 'null'); localStorage.removeItem('aden_resume'); } catch (e) {}
+    if (rs && rs.exp > Date.now() && rs.acc && CLS_DEF[rs.cls]) { acc = rs.acc; chars = rs.chars || {}; srv = rs.srv || 'legacy'; if (rs.fb) CLOUD.restore(rs.fb); sel = rs.cls;   // 게임 중 업데이트 → 다시 켜지면 그 자리에서
+      begin(rs.cls, rs.name).then(() => { if (!started) return; const p = rs.pos || {}; if (p.isle && ISLAND.def(p.isle)) TOWN.toZone(p.isle, p.x, p.z); else if (p.scene === 'town') TOWN.placeAt(p.x, p.z);
+        if (rs.pt) NET.setParty(rs.pt); if (rs.mp) MPP.start(rs.mp); say(`***** 업데이트 완료 (v${GAME_VER}) — 그 자리에서 이어서 플레이합니다 *****`, '#9fd08a'); if (rs.auto) setTimeout(() => { if (!AUTO.on()) AUTO.toggle(); }, 800); }); return; }
     if (boot && boot.acc && CLS_DEF[boot.cls]) { acc = boot.acc; chars = boot.chars || {}; srv = boot.srv || 'legacy'; if (boot.fb) CLOUD.restore(boot.fb); sel = boot.cls; begin(boot.cls, boot.name); return; }
     const w = $('loginscr'); if (!w) return; w.hidden = false; { const sv = $('lg-srv'); if (sv) { sv.textContent = '계정 서버 확인 중…'; CLOUD.ping().then(ok => { sv.textContent = ok ? '● 계정 서버 연결됨 — 어느 PC에서든 이어서 플레이' : '○ 계정 서버에 연결되지 않음 — 이 기기에만 저장돼요'; sv.className = 'lg-srv ' + (ok ? 'ok' : 'no'); }); } } const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }, 120);
-  return { acc: () => acc, openSel, started: () => started, mode: () => srv };
+  function keepForUpdate() { if (!started) return false; const pos = { scene: SCENE, isle: ISLE ? ISLE.id : null, x: +hero.x.toFixed(2), z: +hero.z.toFixed(2) };
+    try { localStorage.setItem('aden_resume', JSON.stringify({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), exp: Date.now() + 180000 })); return true; } catch (e) { return false; } }
+  return { acc: () => acc, openSel, started: () => started, mode: () => srv, keepForUpdate };
 })();
 const AUTO = (() => {
   const C = { retHp: 30, lowPot: true, lowN: 3, buy: true, buyId: 'red_potion', buyN: 30, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true,
-    buyHaste: false, hasteId: 'green_potion', hasteN: 5, mute: true, loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true } };
+    buyHaste: false, hasteId: 'green_potion', hasteN: 5, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true } };
   const PRICE = { red_potion: 25, orange_potion: 100, return_scroll: 40, arrow: 2, green_potion: 200, brave_potion: 500 };
   // 아이템 줍기: 체크한 등급·종류만, 나를 때리는 몬스터가 없을 때 10칸 안의 가장 가까운 것부터 (못 가는 곳은 3번 시도 후 건너뜀)
   const typeOf = d => d.slot === 'weapon' ? 'weapon' : ['ring', 'amulet'].includes(d.slot) ? 'acc' : d.slot ? 'armor' : d.use === 'learn' ? 'book' : d.use ? 'cons' : 'etc';
@@ -3878,8 +3904,8 @@ const AUTO = (() => {
   function muteOn() { if (!C.mute || snd) return; const bb = document.getElementById('btn-bgm'); snd = { bgm: !!bb && bb.getAttribute('aria-pressed') === 'true', sfx: SFX_ON }; if (snd.bgm) bb.click(); SFX_ON = false; if (master) master.gain.value = 0; say('자동사냥 중에는 배경음악·효과음을 끕니다. (끝나면 다시 켜짐)', '#9c9682'); }
   function muteOff() { if (!snd) return; const s0 = snd; snd = null; const bb = document.getElementById('btn-bgm'); if (s0.bgm && bb && bb.getAttribute('aria-pressed') !== 'true') bb.click(); SFX_ON = s0.sfx; applySfxVol(); }
   let state = 'off', wait = 0, selfMove = false, died = false, bought = false;
-  const inZ1 = () => SCENE === 'field' && ISLE && ISLE.def && ISLE.def.tier === 1;   // 모든 지역의 1구간(평지)에서 자동사냥 가능
-  let home = '이야기섬';   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
+  const inZ1 = () => SCENE === 'field' && ISLE && ISLE.def && (ISLE.def.tier === 1 || ISLE.def.tier === 2);   // 모든 지역의 1·2구간에서 자동사냥 가능
+  let home = '이야기섬', homeId = 1;   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
   function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; if (INV.count('return_scroll')) INV.take('return_scroll'); TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
@@ -3893,8 +3919,13 @@ const AUTO = (() => {
     return (i, j) => i < i0 || j < j0 || i >= i0 + W || j >= j0 + W ? -1 : D[(j - j0) * W + (i - i0)]; }
   const stepsTo = (pd, f) => { let d = pd(f.i, f.j); if (d < 0) for (const [di, dj] of DIRS8) { const x = pd(f.i + di, f.j + dj); if (x >= 0 && (d < 0 || x + 1 < d)) d = x + 1; } return d; };
   // 가까운 몹 우선: 걸음 수가 가장 적은 몹 · 나를 노리고 달려오는 8걸음 안의 몹은 먼저 (멀리 있는 선공몹 때문에 멀리 가지 않음)
-  function pick(pd) { pd = pd || pathDist(22); let b = null, bd = 1e9, fb = null, fd = 1e9;
-    for (const f of foxes) { if (f.dead || f.gone) continue; const S = MOB[f.kind]; if (C.noBoss && S.boss) continue;
+  // 타겟팅 모드 (파티 중일 때): same = 파티원이 때리는 몬스터 우선 · diff = 파티원이 때리는 몬스터는 피함 · free = 알아서 가까운 몹
+  const partyT = () => C.tgtMode !== 'free' && NET.inParty() ? NET.partyTargets() : null;
+  function pick(pd) { pd = pd || pathDist(22); const PT = partyT();
+    if (PT && PT.size) { const only = C.tgtMode === 'same' ? f => PT.has(f.uid) : f => !PT.has(f.uid) || (f.aggro && f.tgt === hero); const r = pickIn(pd, only); if (r) return r; }
+    return pickIn(pd, null); }
+  function pickIn(pd, only) { let b = null, bd = 1e9, fb = null, fd = 1e9;
+    for (const f of foxes) { if (f.dead || f.gone) continue; const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (only && !only(f)) continue;
       let d = stepsTo(pd, f); if (d < 0) { const c = cheb(f.i, f.j, hero.i, hero.j); if (c < fd) { fd = c; fb = f; } continue; }
       if (C.aggrFirst && f.aggro && f.tgt === hero && d <= 8) d -= 100; if (d < bd) { bd = d; b = f; } }
     return b ? { f: b, d: bd } : fb ? { f: fb, d: 999 } : null; }
@@ -3903,8 +3934,8 @@ const AUTO = (() => {
     if (state === 'off') { if (snd) muteOff(); return; }
     if (state === 'hunting') {
       if (SCENE === 'town') { if (died) { died = false; if (C.deathBack) { state = 'town'; bought = false; wait = 0; say('자동사냥: 사망 — 회복 후 다시 사냥터로 갑니다.', '#9fd0e8'); } else { state = 'off'; say('자동사냥을 멈췄습니다.', '#9c9682'); } } else { state = 'off'; say('자동사냥을 멈췄습니다. (마을로 이동)', '#9c9682'); } return; }
-      if (!inZ1()) { state = 'off'; say('자동사냥은 각 지역의 1구간에서만 됩니다. 멈췄습니다.', '#f08a7a'); return; }
-      home = regionOf();
+      if (!inZ1()) { state = 'off'; say('자동사냥은 각 지역의 1·2구간에서만 됩니다. 멈췄습니다.', '#f08a7a'); return; }
+      home = regionOf(); homeId = ISLE.id;
       if (pct() <= C.retHp) { goHome(`HP ${pct()}%`); return; }
       if (C.lowPot && INV.count(C.buyId) <= C.lowN && INV.count('red_potion') + INV.count('orange_potion') <= C.lowN) { goHome('물약 부족'); return; }
       if ((!hero.target || hero.target.dead) && !moveGoal && hero.t >= 1 && !hero.atk) { const threat = foxes.some(f => !f.dead && f.aggro && cheb(f.i, f.j, hero.i, hero.j) <= 2);
@@ -3912,17 +3943,19 @@ const AUTO = (() => {
         const p = pick(); if (p) hero.target = p.f; }
       // 가는 중에 더 가까운 몹이 보이면 갈아탐 (지금 대상이 나를 때리는 중이 아니고, 3걸음 이상 더 가까울 때)
       else if (hero.target && !hero.target.dead && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target;
-        if (!(T.aggro && T.tgt === hero && cheb(T.i, T.j, hero.i, hero.j) <= 3) && cheb(T.i, T.j, hero.i, hero.j) > 1) { const pd = pathDist(22), cur = stepsTo(pd, T), p = pick(pd); if (p && p.f !== T && (cur < 0 || p.d <= cur - 3)) hero.target = p.f; } }
+        if (!(T.aggro && T.tgt === hero && cheb(T.i, T.j, hero.i, hero.j) <= 3) && cheb(T.i, T.j, hero.i, hero.j) > 1) { const pd = pathDist(22), cur = stepsTo(pd, T), p = pick(pd), PT = partyT();
+          const party = PT && PT.size && p && (C.tgtMode === 'same' ? PT.has(p.f.uid) && !PT.has(T.uid) : PT.has(T.uid) && !PT.has(p.f.uid));   // 파티 규칙에 맞는 몹이 생기면 바로 갈아탐
+          if (p && p.f !== T && (party || cur < 0 || p.d <= cur - 3)) hero.target = p.f; } }
       return; }
     if (state === 'town') {
       if (SCENE !== 'town') { if (!inZ1()) { state = 'off'; } return; }
       if (!bought) { bought = true; buyAll(); }
       hero.hp = Math.min(hero.max, hero.hp + hero.max * 0.05 * dt); hero.mp = Math.min(hero.maxmp, hero.mp + hero.maxmp * 0.05 * dt);
-      if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${home} 1구간으로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; TOWN.toField(home); } } }
+      if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; TOWN.toZone(homeId); } } }
     } }
   function toggle() { if (state !== 'off') { state = 'off'; hero.target = null; muteOff(); say('자동사냥을 껐습니다.', '#9c9682'); return; }
-    if (!inZ1()) { say('자동사냥은 각 지역의 1구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); state = 'hunting'; died = false; say('자동사냥을 켰습니다.', '#f2e6a8'); muteOn(); }
-  function status() { if (state === 'off') return inZ1() ? '1구간에서 사용 가능' : '각 지역 1구간 전용'; if (state === 'hunting') return '사냥 중' + (hero.target && !hero.target.dead ? ' · ' + MOB[hero.target.kind].name : ''); return `마을 대기 · HP ${pct()}% / ${C.backHp}%`; }
+    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.id; state = 'hunting'; died = false; say('자동사냥을 켰습니다.', '#f2e6a8'); muteOn(); }
+  function status() { if (state === 'off') return inZ1() ? '이 구간에서 사용 가능' : '각 지역 1·2구간 전용'; if (state === 'hunting') return '사냥 중' + (hero.target && !hero.target.dead ? ' · ' + MOB[hero.target.kind].name : ''); return `마을 대기 · HP ${pct()}% / ${C.backHp}%`; }
   const $h = id => document.getElementById(id);
   function sync() { const w = $h('huntwin'); if (!w) return;
     w.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (el.type === 'checkbox') el.checked = !!C[k]; else el.value = C[k]; const out = w.querySelector(`[data-v="${k}"]`); if (out) out.textContent = C[k] + (el.type === 'range' ? '%' : ''); });
@@ -3938,7 +3971,7 @@ const AUTO = (() => {
 
 let last=performance.now(), invT=0;
 function frame(now){
-  const dt=Math.min(0.05,(now-last)/1000); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
+  const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
   if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
