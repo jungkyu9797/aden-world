@@ -452,7 +452,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 96;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 97;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1665,14 +1665,18 @@ const PET = (() => {
     say(`${nm(d)}: ${({ attack: '공격 — 내가 공격하는 몬스터를 함께 공격합니다', wait: '공격 대기 — 따라다니기만 하고 공격하지 않습니다', rest: '휴식 — 이 자리에서 기다립니다' })[m]}`, '#9fe0ff'); sfxBark(); refresh(); }
   function scatter() { let n = 0; for (const p of PETS_HERE) { if (p.dead) continue; let t = null; for (let k = 0; k < 40 && !t; k++) { const r = 2 + Math.floor(Math.random() * 3), a = Math.random() * 6.283, i = Math.round(p.i + Math.cos(a) * r), j = Math.round(p.j + Math.sin(a) * r); if (cheb(i, j, p.i, p.j) >= 2 && walkable(i, j) && !occ(i, j)) t = [i, j]; }
       if (t) { p.scatter = t; p.scatterT = 5; p.target = null; n++; } } say(n ? '펫이 흩어집니다. (산개)' : '흩어질 펫이 없습니다.', '#9fe0ff'); }
-  // 펫 가방: 물약(체력·가속)만. 펫이 HP 50% 아래에서 체력 물약을, 가속이 없으면 가속 물약을 스스로 먹음
-  const petItemOK = id => { const d = ITEMS[id]; return d && (d.use === 'heal' || d.use === 'haste'); };
-  function giveItem(e, id, n) { const d = e.pet; if (!d || !petItemOK(id)) { say('펫 가방에는 체력 물약과 가속 물약만 넣을 수 있습니다.', '#f08a7a'); return; } n = Math.min(n, INV.count(id)); if (n <= 0) return;
+  // 펫 물약: 체력 물약은 내 가방 것을 같이 먹음 (HP 50% 아래) · 가속 물약만 펫 가방에 넣어 두면 펫이 따로 먹음
+  const petItemOK = id => { const d = ITEMS[id]; return d && d.use === 'haste'; };
+  const HEAL_IDS = () => { const pref = (INV.auto('hp') || {}).id; return [pref, 'red_potion', 'orange_potion', 'clear_potion', ...Object.keys(ITEMS).filter(id => ITEMS[id].use === 'heal')].filter((id, k, a) => id && ITEMS[id] && ITEMS[id].use === 'heal' && a.indexOf(id) === k); };
+  function giveItem(e, id, n) { const d = e.pet; if (!d || !petItemOK(id)) { say(ITEMS[id] && ITEMS[id].use === 'heal' ? '체력 물약은 펫 가방에 넣지 않아도 돼요. 펫이 내 가방의 물약을 같이 먹어요.' : '펫 가방에는 가속 물약만 넣을 수 있습니다.', '#f0c080'); return; } n = Math.min(n, INV.count(id)); if (n <= 0) return;
     let slot = d.inv.findIndex(x => x && x.id === id); if (slot < 0) slot = d.inv.findIndex(x => !x); if (slot < 0) { say('펫 가방이 가득 찼습니다. (4칸)', '#f08a7a'); return; }
     INV.take(id, n); d.inv[slot] = d.inv[slot] ? { id, n: d.inv[slot].n + n } : { id, n }; say(`${nm(d)}의 가방에 ${ITEMS[id].name} ${n}개를 넣었습니다.`, '#cfe4a8'); refresh(); }
   function takeItem(e, k) { const d = e.pet, it = d && d.inv[k]; if (!it) return; INV.add(it.id, it.n, true); d.inv[k] = null; say(`${nm(d)}의 가방에서 ${ITEMS[it.id].name} ${it.n}개를 꺼냈습니다.`, '#cfe4a8'); refresh(); }
   function petUse(p) { const d = p.d; if (p.potCd > 0) return;
-    if (d.hp < d.maxhp * 0.5) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'heal'); if (k >= 0) { const it = d.inv[k], I = ITEMS[it.id], h = Math.min(d.maxhp - d.hp, rint(I.heal)); d.hp += h; if (--it.n <= 0) d.inv[k] = null; p.potCd = 1;
+    if (d.hp < d.maxhp * 0.5) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'heal'); let I = null;
+      if (k >= 0) { const it = d.inv[k]; I = ITEMS[it.id]; if (--it.n <= 0) d.inv[k] = null; }   // 예전에 펫 가방에 넣어 둔 체력 물약부터
+      else { const id = HEAL_IDS().find(x => INV.count(x) > 0); if (id && INV.take(id, 1)) I = ITEMS[id]; }   // 없으면 내 가방 물약
+      if (I) { const h = Math.min(d.maxhp - d.hp, rint(I.heal)); d.hp += h; p.potCd = 1;
         const [px, py] = W2P(p.x, p.z); floatText(px, py - 50, `+${h}`, { color: '#8af08a', size: 11 }); spellFx('heal', p); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 520, 880, 0.15, 0.07); refresh(); return; } }
     if (d.haste <= 0) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'haste'); if (k >= 0) { const it = d.inv[k], I = ITEMS[it.id]; d.haste = I.dur; d.hasteLv = I.haste; if (--it.n <= 0) d.inv[k] = null; p.potCd = 1; say(`${JOSA(nm(d), '이', '가')} ${JOSA(I.name, '을', '를')} 마셨습니다. (${I.haste}단 가속)`, '#a8f08a'); refresh(); } } }
   let lastHI = null, lastHJ = null;   // 순간이동 감지: 한 프레임에 3칸 넘게 뛰면 텔레포트로 봄
@@ -1720,7 +1724,7 @@ const PET = (() => {
     const html = `<div class="pw-head"><canvas id="pw-face" width="76" height="76"></canvas><div><b class="pw-name">${esc(d.name)}</b><span class="pw-sub">Lv.${d.lv} ${PET_KIND[d.kind].name} · <em class="st-${d.state}">${st}</em></span>
       <div class="pw-bar hp"><i style="width:${Math.round(100 * d.hp / d.maxhp)}%"></i><span>HP ${Math.ceil(d.hp)} / ${d.maxhp}</span></div><div class="pw-bar ex"><i style="width:${Math.round(100 * d.exp / need)}%"></i><span>EXP ${(100 * d.exp / need).toFixed(1)}%</span></div></div></div>
       ${d.state === 'out' ? `<div class="pw-cmd">${mb('attack', '공격')}${mb('wait', '공격 대기')}${mb('rest', '휴식')}<button type="button" data-pm="scatter" class="sc">산개</button></div>` : d.state === 'dead' ? `<div class="pw-cmd"><button type="button" data-pm="revive" class="rv">부활 주문서 사용 (${INV.count('revive_scroll')}개)</button></div>` : `<p class="pw-note">펫상인 루피에게서 '펫을 찾는다'로 소환할 수 있습니다.</p>`}
-      <div class="pw-inv-t">펫 가방 <small>체력·가속 물약을 넣어 두면 스스로 먹어요 · 칸 클릭: 꺼내기</small></div><div class="pw-inv">${d.inv.map((it, k) => `<button type="button" class="slot pw-slot" data-k="${k}"${it ? ` title="${ITEMS[it.id].name} ${it.n}개 [${ITEMS[it.id].rar}]" style="border-color:${rarC(it.id)}"` : ' aria-label="빈 칸"'}>${it ? `%ICON${k}%<b>${it.n}</b>` : ''}</button>`).join('')}</div>
+      <div class="pw-inv-t">펫 가방 <small>가속 물약을 넣어 두면 스스로 먹어요 · 체력 물약은 내 가방 것을 같이 먹어요 (HP 50% 아래) · 칸 클릭: 꺼내기</small></div><div class="pw-inv">${d.inv.map((it, k) => `<button type="button" class="slot pw-slot" data-k="${k}"${it ? ` title="${ITEMS[it.id].name} ${it.n}개 [${ITEMS[it.id].rar}]" style="border-color:${rarC(it.id)}"` : ' aria-label="빈 칸"'}>${it ? `%ICON${k}%<b>${it.n}</b>` : ''}</button>`).join('')}</div>
       ${bagPots.length ? `<div class="pw-give">${bagPots.map(id => `<button type="button" data-give="${id}" title="${ITEMS[id].name} 5개 넣기">%GIVE_${id}%<span>${INV.count(id)}</span></button>`).join('')}<small>눌러서 5개씩 넣기 · 가방에서 끌어다 놓아도 됩니다</small></div>` : ''}`;
     if (html === w.dataset.h) return; w.dataset.h = html;
     $('pw-body').innerHTML = html.replace(/%ICON(\d)%/g, (_, k) => ICON(ITEMS[d.inv[k].id].icon)).replace(/%GIVE_(\w+)%/g, (_, id) => ICON(ITEMS[id].icon));
@@ -3845,6 +3849,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 97, items: ['펫이 체력 물약을 내 가방에서 같이 먹어요. (펫 HP 50% 아래 · 펫 가방에 따로 넣을 필요 없음)', '펫 가방에는 가속 물약만 넣어요. 넣어 두면 펫이 따로 먹어요. (예전에 넣어 둔 체력 물약은 먼저 먹고, 칸을 눌러 꺼낼 수도 있어요)'] },
     { v: 96, items: ['보스(셸로브·여왕개미·오우거)가 모든 사람에게 같은 시각·같은 자리에 나타나고, 등장·토벌 공지도 모두에게 보여요. 누가 잡으면 모두의 화면에서 사라져요.', '버프 남은 시간이 10초 이하가 되면 아이콘에 10, 9, 8… 숫자로 보여요. (파티창도)'] },
     { v: 95, items: ['교환: 마을에서 다른 유저를 클릭 → [교환 신청] → 상대가 수락하면 교환창이 열려요.', '각자 가방의 아이템(여러 개는 수량 지정)과 골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?"에서 한 번 더 확인하면 주고받아요.', '확인한 뒤 누구든 항목을 바꾸면 확인이 풀려서 다시 확인해야 해요. (착용 중·잠금 아이템은 교환 불가)'] },
     { v: 94, items: ['업데이트가 적용되면 바뀐 내용을 이 창으로 알려줘요. (ESC 메뉴 → 업데이트 소식에서 다시 볼 수 있어요)'] },
