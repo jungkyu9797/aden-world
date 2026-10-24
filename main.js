@@ -66,13 +66,17 @@ const sha = buf => crypto.createHash('sha256').update(buf).digest('hex');
 const shaFile = f => { try { return sha(fs.readFileSync(f)); } catch (e) { return null; } };
 const safeRel = rel => typeof rel === 'string' && !rel.includes('..') && !path.isAbsolute(rel) && /^[\w\-./ ]+$/.test(rel) && rel !== 'version.json';
 async function getBuf(url) { const r = await net.fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return Buffer.from(await r.arrayBuffer()); }
+// raw.githubusercontent.com 은 새로 올린 직후 몇 분간 예전 파일을 줄 수 있어서, 가장 최근 커밋 번호로 고정한 주소를 씀 (실패하면 원래 주소)
+async function pinBase(base) { const g = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/$/.exec(base); if (!g) return base;
+  try { const r = await net.fetch(`https://api.github.com/repos/${g[1]}/${g[2]}/commits/${g[3]}`, { headers: { Accept: 'application/vnd.github.sha', 'User-Agent': 'AdenWorld' }, cache: 'no-store' }); if (r.ok) { const sha = (await r.text()).trim(); if (/^[0-9a-f]{40}$/.test(sha)) return `https://raw.githubusercontent.com/${g[1]}/${g[2]}/${sha}/`; } } catch (e) {}
+  return base; }
 async function manifest(base) { return JSON.parse((await getBuf(base + 'version.json?t=' + Date.now())).toString('utf-8')); }
 ipcMain.handle('update:check', async () => {
-  const base = updateBase(); if (!base) return { ok: false, err: 'nobase' };
+  const base0 = updateBase(); if (!base0) return { ok: false, err: 'nobase' }; const base = await pinBase(base0);
   try { const m = await manifest(base); return { ok: true, ver: m.ver | 0 }; } catch (e) { return { ok: false, err: String(e.message || e) }; }
 });
 ipcMain.handle('update:run', async (e) => {
-  const base = updateBase(); if (!base) return { ok: false, err: 'nobase' };
+  const base0 = updateBase(); if (!base0) return { ok: false, err: 'nobase' }; const base = await pinBase(base0);
   const send = m => { try { e.sender.send('update:progress', m); } catch (_) {} };
   try {
     const m = await manifest(base), files = Object.entries(m.files || {}).filter(([rel]) => safeRel(rel));
@@ -81,8 +85,8 @@ ipcMain.handle('update:run', async (e) => {
     let done = 0, restart = false;
     for (const [rel, info] of need) {
       send({ step: 'file', n: done, total: need.length, name: rel });
-      const buf = await getBuf(base + rel.split('/').map(encodeURIComponent).join('/') + '?v=' + info[1].slice(0, 12));
-      if (sha(buf) !== info[1]) throw new Error('파일이 손상되었어요: ' + rel);
+      let buf = null; for (let tr = 0; tr < 3; tr++) { const b = await getBuf(base + rel.split('/').map(encodeURIComponent).join('/') + '?v=' + info[1].slice(0, 12) + (tr ? '&r=' + Date.now() : '')); if (sha(b) === info[1]) { buf = b; break; } await new Promise(r => setTimeout(r, 3000)); }   // 예전 파일이 오면 잠깐 기다렸다 다시
+      if (!buf) throw new Error('STALE 파일이 아직 예전 것이에요: ' + rel);
       const dst = path.join(APP_DIR, rel); fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.writeFileSync(dst + '.tmp', buf); fs.renameSync(dst + '.tmp', dst);
       if (rel === 'main.js' || rel === 'preload.js') restart = true; done++;
