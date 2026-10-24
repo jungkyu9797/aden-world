@@ -137,6 +137,9 @@
 .iw-head{display:flex;gap:11px;align-items:center;margin-bottom:8px}
 .iw-ic{position:relative;width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a2218,#0e0b08);border:1px solid #6a5430;box-shadow:inset 0 0 8px #000}
 .iw-ic svg{width:46px;height:46px}
+.sk-auto{position:absolute;right:-3px;top:-3px;width:13px;height:13px;border-radius:50%;background:#140c04;border:1.5px solid #ffd86a;color:#ffe08a;font:900 8px/10px "Noto Sans KR",sans-serif;font-style:normal;text-align:center;box-shadow:0 0 4px rgba(255,216,106,.6);pointer-events:none}
+.iw-ic .sk-auto{right:2px;top:2px;width:16px;height:16px;font-size:10px;line-height:13px}
+.iw-chk.dis{opacity:.55;cursor:default}
 .iw-name{display:block;font:700 16px/1.3 "Noto Sans KR",sans-serif}
 .iw-type{display:block;font-size:12.5px;color:#b8ad92;margin-top:3px} .iw-type em{font-style:normal;font-weight:700}
 .iw-lines{list-style:none;margin:0;padding:8px 2px;border-top:1px solid #4a4030;border-bottom:1px solid #4a4030;font-size:13.5px;line-height:1.65}
@@ -171,6 +174,9 @@
 .eq{width:48px;height:48px;background:#0f0e0c;border:1px solid #4a4234;box-shadow:inset 0 0 6px #000;display:flex;align-items:center;justify-content:center;position:relative;cursor:default}
 .eq::after{content:attr(data-label);position:absolute;bottom:1px;left:0;right:0;text-align:center;font-size:9px;color:#6e6656;pointer-events:none}
 .eq.has::after{display:none} .eq.has{border-color:#8a7a52;cursor:pointer} .eq svg,.slot svg{width:38px;height:38px}
+.slot.eg1>svg,.eq.eg1>svg{filter:drop-shadow(0 0 2px rgba(110,255,140,.85)) drop-shadow(0 0 4px rgba(110,255,140,.45))} .slot.eg2>svg,.eq.eg2>svg{filter:drop-shadow(0 0 2px rgba(80,160,255,.95)) drop-shadow(0 0 6px rgba(70,150,255,.6))}
+.slot.eg3>svg,.eq.eg3>svg{filter:drop-shadow(0 0 3px rgba(200,110,255,1)) drop-shadow(0 0 7px rgba(185,80,255,.75))} .slot.eg4>svg,.eq.eg4>svg{filter:drop-shadow(0 0 3px rgba(225,140,255,1)) drop-shadow(0 0 9px rgba(210,100,255,.85));animation:egp 1s ease-in-out infinite alternate}
+@keyframes egp{to{filter:drop-shadow(0 0 4px rgba(245,190,255,1)) drop-shadow(0 0 14px rgba(215,110,255,1))}}
 .cw .align{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:6px}
 .cw .align span{font-family:"Nanum Myeongjo",serif;font-weight:800;color:#9fd0ff;background:#1a2430;border:1px solid #3a5a7a;padding:1px 10px;border-radius:2px}
 .cw .align i{flex:1;height:8px;background:linear-gradient(90deg,#3a1a14,#2a2a2a 50%,#1a3a5a);border:1px solid #4a4234;position:relative}
@@ -183,7 +189,7 @@
 .slot b{position:absolute;right:2px;bottom:0;font:800 10px "Noto Sans KR";color:#fff;text-shadow:0 1px 2px #000,0 0 2px #000}
 .inv-sort{background:#2a2620;border:1px solid #6e624a;color:#e9e2cf;font:700 11px "Noto Sans KR",sans-serif;padding:2px 10px;border-radius:2px;cursor:pointer} .inv-sort:hover{color:#f2d98a;border-color:#d2a94c}
 .inv-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#bdb39a} .inv-foot b{color:#e8d080;font-variant-numeric:tabular-nums}
-.inv-help{font-size:11px;color:#8a8270;margin-top:4px}
+.inv-help{font-size:11px;color:#8a8270;margin-top:4px}.inv-help-row{display:flex;align-items:center;gap:8px}.inv-help-row .inv-help{flex:1}.inv-trash{flex:none;width:40px;height:40px;margin-top:4px;display:flex;align-items:center;justify-content:center;border:1px solid #5a4a30;border-radius:4px;background:rgba(0,0,0,.35);transition:background .12s,border-color .12s}.inv-trash.over{border-color:#e0503a;background:rgba(130,24,14,.55)}.inv-trash.over svg path{stroke:#ffb0a0}
 .skillbox{margin-top:10px;border-top:2px solid #5a4e38;padding-top:8px} .skillbox h3{margin:0 0 6px;font-size:13px;color:#f2d98a} .skillbox h3 small{color:#9c9682;font-weight:400;font-size:11px}
 .sk-grid{display:flex;flex-direction:column;gap:4px;padding:5px;background:#0c0b0a;border:2px solid #5a4e38;box-shadow:inset 0 0 8px #000} .sk-row{display:flex;align-items:center;gap:6px} .sk-t{width:34px;font-size:11px;color:#c9bfa6;flex:none} .sk-cells{display:flex;gap:3px;flex-wrap:wrap}
 .sk{position:relative;width:34px;height:34px;background:#16130f;border:1px solid #3a3226;display:grid;place-items:center;cursor:help} .sk svg{width:30px;height:30px} .sk.learned{border-color:#d2a94c;cursor:grab}
@@ -467,7 +473,7 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
 </style>
 <canvas id="cv"></canvas>
 <div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>멀티플레이</button></div>
-<audio id="bgm" src="assets/sound/bgm_town.mp3" loop preload="auto"></audio><audio id="bgm-island" src="assets/sound/bgm_island.mp3" loop preload="auto"></audio><audio id="bgm-desert" src="assets/sound/bgm_desert.mp3" loop preload="none"></audio><audio id="bgm-orc" src="assets/sound/bgm_orc.mp3" loop preload="none"></audio><audio id="bgm-boss" src="assets/sound/bgm_boss.mp3" loop preload="auto"></audio>
+<audio id="bgm" src="assets/sound/bgm_town.mp3" loop preload="auto"></audio><audio id="bgm-island" src="assets/sound/bgm_island.mp3" loop preload="auto"></audio><audio id="bgm-desert" src="assets/sound/bgm_desert.mp3" loop preload="none"></audio><audio id="bgm-orc" src="assets/sound/bgm_orc.mp3" loop preload="none"></audio><audio id="bgm-bugbear" src="assets/sound/bgm_bugbear.mp3" loop preload="none"></audio><audio id="bgm-boss" src="assets/sound/bgm_boss.mp3" loop preload="auto"></audio>
 <div class="ovl" id="shop" hidden><div class="pn shop"><h2><span id="shop-title">상점</span><button type="button" data-close aria-label="닫기">×</button></h2>
   <div class="who"><canvas id="shop-face" width="96" height="96"></canvas><div><b id="shop-npc"></b><p id="shop-hello"></p></div></div>
   <div class="shop-tabs" id="shop-tabs" role="tablist" hidden></div><div class="list" id="shop-list"></div><div class="foot"><div class="ft-l"><span>보유 골드 <b id="shop-coins">0</b></span><span class="sum" id="shop-sum"></span></div><button type="button" class="buyall" id="shop-buyall" disabled>일괄 구매</button></div></div></div>
@@ -491,7 +497,7 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
 <div class="gw" id="invwin" hidden><span class="gw-plate">인벤토리</span><button class="x" type="button" data-closewin="invwin">닫기</button>
  <div class="inv-grid" id="inv-grid"></div>
  <div class="inv-foot"><span>무게 <b id="inv-w">0%</b></span><button type="button" id="inv-sort" class="inv-sort">정렬</button><button type="button" id="inv-bulk" class="inv-sort">일괄 강화</button><span>골드 <b id="inv-coin">0</b></span></div>
- <div class="inv-help">더블클릭(또는 우클릭): 착용·벗기·사용<br>끌어서 아래 단축키 칸에 놓으면 등록</div>
+ <div class="inv-help-row"><div class="inv-help">더블클릭(또는 우클릭): 착용·벗기·사용<br>끌어서 아래 단축키 칸에 놓으면 등록</div><div id="inv-trash" class="inv-trash" title="휴지통 — 아이템을 끌어다 놓으면 삭제" aria-label="휴지통: 아이템을 끌어다 놓으면 삭제"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 7h14l-1.2 13.2a1.6 1.6 0 0 1-1.6 1.4H7.8a1.6 1.6 0 0 1-1.6-1.4Z" fill="#3a2e22" stroke="#c9a24a" stroke-width="1.3"/><path d="M3.5 6.5h17M9.5 6.5V4.6c0-.6.5-1.1 1.1-1.1h2.8c.6 0 1.1.5 1.1 1.1v1.9" fill="none" stroke="#c9a24a" stroke-width="1.4" stroke-linecap="round"/><path d="M10 10.5v7.5M14 10.5v7.5" stroke="#c9a24a" stroke-width="1.2" stroke-linecap="round"/></svg></div></div>
  <div class="skillbox"><div class="sk-tabs" role="tablist"><button type="button" class="sk-tab" role="tab" data-tab="magic" aria-selected="true">마법</button><button type="button" class="sk-tab" role="tab" data-tab="skill" aria-selected="false">기술</button></div><h3><small id="sk-cls">기사</small></h3><div class="sk-grid" id="sk-grid"></div><div class="sk-help">마법서·기술서로 배워요 · 배운 스킬은 끌어서 단축키에 등록</div></div>
 </div>
 <div class="gw" id="storewin" hidden role="dialog" aria-label="창고"><span class="gw-plate">창고</span><button class="x" type="button" data-closewin="storewin">닫기</button>
@@ -563,6 +569,10 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
   <label class="hw-row"><input type="checkbox" data-k="loot"> 떨어진 아이템 자동으로 줍기 <small>(아래에서 체크한 것만)</small></label>
   <div class="hw-chips"><span class="hw-cap">등급</span><label class="chip" style="--c:#d9d2c0"><input type="checkbox" data-lr="일반"> 일반</label><label class="chip" style="--c:#5fd35f"><input type="checkbox" data-lr="고급"> 고급</label><label class="chip" style="--c:#62c8ff"><input type="checkbox" data-lr="희귀"> 희귀</label><label class="chip" style="--c:#c77dff"><input type="checkbox" data-lr="영웅"> 영웅</label></div>
   <div class="hw-chips"><span class="hw-cap">종류</span><label class="chip"><input type="checkbox" data-lt="weapon"> 무기</label><label class="chip"><input type="checkbox" data-lt="armor"> 방어구</label><label class="chip"><input type="checkbox" data-lt="acc"> 장신구</label><label class="chip"><input type="checkbox" data-lt="cons"> 물약·주문서</label><label class="chip"><input type="checkbox" data-lt="book"> 기술서·마법서</label><label class="chip"><input type="checkbox" data-lt="etc"> 기타</label></div></div>
+ <div class="hw-sec"><b>자동판매 <small>(아덴상단)</small></b>
+  <label class="hw-row"><input type="checkbox" data-k="sell"> 가방 무게가 <input type="number" min="50" max="100" step="5" data-k="sellPct" class="hw-n">% 이상이면 귀환해서 판매</label>
+  <div class="hw-chips hw-sell"><span class="hw-cap">등급</span><label class="chip" style="--c:#d9d2c0"><input type="checkbox" data-sr="일반"> 일반</label><label class="chip" style="--c:#5fd35f"><input type="checkbox" data-sr="고급"> 고급</label><label class="chip" style="--c:#62c8ff"><input type="checkbox" data-sr="희귀"> 희귀</label><label class="chip" style="--c:#c77dff"><input type="checkbox" data-sr="영웅"> 영웅</label></div>
+  <small>무기·방어구·장신구만 팝니다. 착용 중·잠근·강화(+1 이상)·축복·속성 강화 장비, 펫 목걸이, 물약·주문서·책·재료는 팔지 않아요.</small></div>
 </div>
 <div class="gw" id="autowin" hidden><button class="x" type="button" data-closewin="autowin">닫기</button>
  <h3 class="aw-t">자동 물약</h3>
