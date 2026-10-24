@@ -444,7 +444,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 89;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 90;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2505,7 +2505,7 @@ const INV = (() => {
   function slotFx(t, kind) { const k = bag.indexOf(t), grid = $('inv-grid'), cells = []; if (k >= 0 && grid && !$('invwin').hidden && grid.children[k]) cells.push(grid.children[k]);
     if (t.on && !$('charwin').hidden) { const el = $('eq-' + t.on); if (el) cells.push(el); } if (dwE === t && !$('itemwin').hidden) { const ic = $('itemwin').querySelector('.iw-ic'); if (ic) cells.push(ic); }
     for (const c of cells) { const r = c.getBoundingClientRect(), o = document.createElement('div'); o.className = 'slotfx fx-' + kind; Object.assign(o.style, { left: r.left - 8 + 'px', top: r.top - 8 + 'px', width: r.width + 16 + 'px', height: r.height + 16 + 'px' }); document.body.appendChild(o); setTimeout(() => o.remove(), 1400); } }
-  function enchantFx(t, kind, text) { slotFx(t, kind); bigFx(kind, text || ''); enchSfx(kind); spellFx({ ok: 'enok', bless: 'enbless', earth: 'earth', fail: 'puff', boom: 'boom', curse: 'puff' }[kind], hero);
+  function enchantFx(t, kind, text) { slotFx(t, kind); bigFx(kind, text || ''); enchSfx(kind); NET.fx(kind, text, nameOf(t)); spellFx({ ok: 'enok', bless: 'enbless', earth: 'earth', fail: 'puff', boom: 'boom', curse: 'puff' }[kind], hero);
     if (kind === 'curse' && AC && SFX_ON) { const T1 = AC.currentTime; tone(T1, 'sawtooth', 300, 150, 0.4, 0.06); tone(T1 + 0.05, 'sine', 220, 110, 0.5, 0.08); return; } if (!AC || !SFX_ON) return; const T0 = AC.currentTime;
     if (kind === 'ok') { tone(T0, 'triangle', 1047, 1060, 0.5, 0.09); tone(T0 + 0.06, 'sine', 1568, 1580, 0.6, 0.06); nz(T0, 0.25, 6000, 9000, 0.05); }
     else if (kind === 'bless') { [1047, 1319, 1568, 2093].forEach((f, n) => tone(T0 + n * 0.07, 'triangle', f, f, 0.5, 0.08)); tone(T0 + 0.35, 'sine', 2093, 2100, 0.8, 0.06); nz(T0, 0.5, 6000, 9000, 0.06); }
@@ -2541,9 +2541,9 @@ const INV = (() => {
       const tick = () => { if (BK.stop) return finish('<span class="no">중지했습니다.</span>'); if (!q.length) return finish();
         const e = q[0], d = ITEMS[e.id]; if (!bag.includes(e) || (e.en || 0) >= goalOf(e)) { if (bag.includes(e)) log(`<b style="color:${rarC(e.id)}">${nameHTML(e)}</b> 목표 도달 ✔`); q.shift(); return setTimeout(tick, 60); }
         const sid = bkScroll(d, $('bk-bless').checked); if (!sid) return finish(`<span class="no">${d.slot === 'weapon' ? '무기' : '갑옷'} 마법 주문서가 없어 멈췄습니다.</span>`);
-        const before = nameHTML(e), r = enchOnce(e, sid); if (r === 'none') return finish('<span class="no">주문서를 쓸 수 없어 멈췄습니다.</span>'); used++;
-        if (r === 'boom') { boom++; log(`<span class="no">${before} — 증발해 사라졌습니다</span>`); enchSfx('boom'); q.shift(); enFx('#ff6a5a', '파괴!'); }
-        else { ok++; log(`${before} → <b style="color:${rarC(e.id)}">${nameHTML(e)}</b>${r > 1 ? ' <small>(축복 +' + r + ')</small>' : ''}`); enchSfx(r > 1 ? 'bless' : 'ok'); }
+        const before = nameHTML(e), bn = nameOf(e), r = enchOnce(e, sid); if (r === 'none') return finish('<span class="no">주문서를 쓸 수 없어 멈췄습니다.</span>'); used++;
+        if (r === 'boom') { boom++; log(`<span class="no">${before} — 증발해 사라졌습니다</span>`); enchSfx('boom'); q.shift(); enFx('#ff6a5a', '파괴!'); NET.fx('boom', '증발…', bn); }
+        else { ok++; log(`${before} → <b style="color:${rarC(e.id)}">${nameHTML(e)}</b>${r > 1 ? ' <small>(축복 +' + r + ')</small>' : ''}`); enchSfx(r > 1 ? 'bless' : 'ok'); NET.fx(r > 1 ? 'bless' : 'ok', `+${e.en} 강화 성공!`, nameOf(e)); }
         render(); bkRender(); setTimeout(tick, 170); };
       bkRender(); tick(); };
     const risky = todo.filter(e => goalOf(e) > SAFE_EN(ITEMS[e.id]));
@@ -3516,7 +3516,16 @@ const NET = (() => {
   let IKS = null; const ik = () => IKS || (IKS = Object.keys(ITEMS));
   let room = null, myPeer = null, sendT = 0, chatSeq = 0, lastChat = '', atkSeq = 0, lastAtk = null, hitSeq = 0, dmgSeq = 0, rwSeq = 0, gvSeq = 0, pkSeq = 0, suSeq = 0, invSeq = 0;
   let hostCache = null, wasGuest = false, known = new Set(), ready = false, partyId = null, invOut = null, ansOut = null, spTotal = 0, mySpUsed = 0, hoverPeer = null, uiT = 0, hadMem = false, lastRw = {};
-  const myHits = [], toRemote = {}, rwOut = {}, gvOut = {}, pkOut = [], suOut = [];
+  const myHits = [], toRemote = {}, rwOut = {}, gvOut = {}, pkOut = [], suOut = [], efOut = []; let efSeq = 0; const seenEf = new Map();
+  // 강화 연출: 내 강화 결과를 보내고, 같은 지역 18칸 안의 다른 사람 강화는 그 사람 머리 위에 이펙트·글자·소리로
+  const EFX = { ok: ['enok', '#9fe0ff'], bless: ['enbless', '#ffd86a'], earth: ['earth', '#c8a060'], fail: ['puff', '#c0b8a0'], boom: ['boom', '#ff6a5a'], curse: ['puff', '#c890e8'] };
+  function fx(kind, text, item) { if (!EFX[kind]) return; efOut.push([++efSeq, kind, String(text || '').slice(0, 24), String(item || '').slice(0, 30)]); if (efOut.length > 6) efOut.splice(0, efOut.length - 6); sendT = 0; }
+  function applyFx(o) { const L = o.pr.ef; if (!L || !L.length) return; const last = seenEf.get(o.peer) || 0, fresh = L.filter(x => x[0] > last); if (!fresh.length) return; seenEf.set(o.peer, Math.max(...fresh.map(x => x[0])));
+    if (o.pr.z !== zk()) return; const v = peers.get(o.peer); if (!v) return; const dist = Math.max(Math.abs(v.x - hero.x), Math.abs(v.z - hero.z)); if (dist > 18) return;
+    for (const [, kind, text, item] of fresh.slice(-2)) { const E = EFX[kind]; if (!E) continue; spellFx(E[0], v); const [x, y] = W2P(v.x, v.z);
+      floatText(x, y - 104, text, { color: E[1], size: 13, big: true, life: 1.5, rise: 30 }); if (item) floatText(x, y - 120, item, { color: '#e8dcc0', size: 10, life: 1.5, rise: 30 });
+      if (kind === 'boom') { impact(x, y - 40, 'hit', '#ff6a5a'); } if (dist <= 12) enchSfx(kind);
+      const en = +((/\+(\d+)/.exec(text) || [])[1] || 0); if (kind === 'boom' || ((kind === 'ok' || kind === 'bless') && en >= 7)) say(`[강화] ${nmOf(o.pr)}님의 ${item || '장비'} — ${text}`, E[1]); } }
   const seenHit = new Map(), seenDmg = new Map(), seenRw = new Map(), seenGv = new Map(), seenPk = new Map(), seenSu = new Map(), seenInv = new Map(), seenAns = new Map(), spUsed = new Map();
   const peers = new Map(), proxies = new Map();
   const zk = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
@@ -3599,7 +3608,7 @@ const NET = (() => {
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
   function payload() { const P = { n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
-      e: eqIds(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), su: suOut.slice(-10), pk: pkOut.slice(-6) };
+      e: eqIds(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null };
     const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
@@ -3654,12 +3663,12 @@ const NET = (() => {
     return v; }
   function tick(dt) { if (!room) return;
     OTH = others(); const ids = new Set(OTH.map(o => o.peer));
-    for (const o of OTH) if (!known.has(o.peer)) { known.add(o.peer); seenHit.set(o.peer, maxSeq(o.pr.h)); spUsed.set(o.peer, o.pr.sp || 0); seenSu.set(o.peer, maxSeq(o.pr.su)); seenPk.set(o.peer, maxSeq(o.pr.pk)); seenInv.set(o.peer, o.pr.pi ? o.pr.pi.s : 0); seenAns.set(o.peer, o.pr.pa ? o.pr.pa.id + ':' + o.pr.pa.s : ''); if (ready) say(`[접속] ${nmOf(o.pr)}님이 들어왔습니다. (${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1})`, PCOL); }
+    for (const o of OTH) if (!known.has(o.peer)) { known.add(o.peer); seenHit.set(o.peer, maxSeq(o.pr.h)); spUsed.set(o.peer, o.pr.sp || 0); seenSu.set(o.peer, maxSeq(o.pr.su)); seenPk.set(o.peer, maxSeq(o.pr.pk)); seenEf.set(o.peer, maxSeq(o.pr.ef)); seenInv.set(o.peer, o.pr.pi ? o.pr.pi.s : 0); seenAns.set(o.peer, o.pr.pa ? o.pr.pa.id + ':' + o.pr.pa.s : ''); if (ready) say(`[접속] ${nmOf(o.pr)}님이 들어왔습니다. (${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1})`, PCOL); }
     for (const k of [...known]) if (!ids.has(k)) { known.delete(k); const v = peers.get(k); say(`[접속 종료] ${v && v.pr ? nmOf(v.pr) : '다른 플레이어'}님이 나갔습니다.`, '#9c9682'); peers.delete(k); proxies.delete(k); seenHit.delete(k); delete toRemote[k]; delete rwOut[k]; delete gvOut[k]; }
     for (const o of OTH) { const v = view(o); if (o.pr.z === zk()) { const p = proxy(o.peer); p.x = o.pr.x; p.z = o.pr.y; p.i = Math.floor(p.x); p.j = Math.floor(p.z); p.hp = o.pr.hp; p.max = o.pr.hm || 1; p.dead = !(o.pr.hp > 0); }
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt; if (v.atkT > 0.75 / GSPD) v.atkT = null; }
-      applySupport(o); applyRewards(o); }
+      applySupport(o); applyRewards(o); applyFx(o); }
     partyTick();
     if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } }
     else { const h = hostData(); hostCache = h; if (h) { wasGuest = true; applyHost(h); } else if (wasGuest) { wasGuest = false; GROUND.adoptShared(); } }
@@ -3688,7 +3697,7 @@ const NET = (() => {
         const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top);
         const w = 34, k = Math.max(0, Math.min(1, (pr.hp || 0) / (pr.hm || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore();
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
-  return { tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, partyNear,
+  return { fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, partyNear,
     guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH };
