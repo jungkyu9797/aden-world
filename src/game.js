@@ -251,9 +251,9 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
   if (parts.length) say('경험치 '+parts.join(' · '),'#d8e8a8'); f.dmgBy=null; }
-function killCheck(f){ const S=MOB[f.kind]; if (f.hp<=0&&!f.dead){ f.dead=true; f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; say(S.name+'을(를) 쓰러뜨렸습니다.');
+function killCheck(f){ const S=MOB[f.kind]; if (f.hp<=0&&!f.dead){ f.dead=true; f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss) say(S.name+'을(를) 쓰러뜨렸습니다.');
   const D=NET.distribute(f,S); if (!D){ shareExp(f,S); const c=rint(S.coin); coins+=c; say('골드('+c+') 획득: '+S.name, '#cfe4a8'); }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); }
+  GROUND.capStart(); if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function dmgMob(f, d, who){ if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
 function mobHurt(f,d,color,src){ if (!f||f.dead) return; if (!src||src===hero) breakInvis(); dmgMob(f, d, src||hero); f.flash=0.09; mobHitFx(f,false); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); const [fx,fy]=W2P(f.x,f.z); floatText(fx,fy-headY(f)-4,String(d),{color:color||'#ffffff',size:12}); if (f.hp>0) MSFX(f.kind,'hit',0.4); killCheck(f); }
@@ -474,7 +474,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 100;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 101;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1285,6 +1285,13 @@ const MSHEET = {
   atuba_orc: { W: 181, H: 142, ax: 81, ay: 107, s: 1.0, af: 8, hh: 78, hw: 44 },
   gast: { W: 209, H: 191, ax: 98, ay: 146, s: 0.7692, af: 8, hh: 63, hw: 37 },
   ogre: { W: 336, H: 295, ax: 166, ay: 225, s: 1.0, af: 8, hh: 134, hw: 73 },
+  // 버그베어밭 (PC 렌더 BBF): 해골 궁수(해골 모델+요정 활 동작) · 좀비 · 버그베어/킹 버그베어(같은 몸, 킹은 짙은 갈색+쇠 투구) · 켈베로스(용암 지옥견) · 보스 바포메트(약 4m, 양날 대도끼)
+  skeleton_archer: { W: 118, H: 102, ax: 46, ay: 84, s: 1.0, af: 8, hh: 64, hw: 23 },
+  zombie: { W: 100, H: 91, ax: 35, ay: 78, s: 1.0, af: 8, hh: 63, hw: 28 },
+  bugbear: { W: 196, H: 136, ax: 82, ay: 100, s: 1.0, af: 8, hh: 74, hw: 49 },
+  king_bugbear: { W: 222, H: 172, ax: 95, ay: 126, s: 1.0, af: 8, hh: 90, hw: 61 },
+  cerberus: { W: 154, H: 108, ax: 69, ay: 74, s: 1.0, af: 8, hh: 56, hw: 42 },
+  baphomet: { W: 311, H: 280, ax: 140, ay: 212, s: 1.0, af: 8, hh: 149, hw: 81 },
 };
 // 오크숲 몬스터 임시 그림: [원본 렌더, 크기 배율, 물들임] — 정식 렌더(mon_<이름>_*.webp)가 MSHEET에 들어오면 이 별칭은 쓰지 않음
 const MS_ALIAS = { roba_orc: ['orc', 1.08, 'hue-rotate(-28deg) saturate(1.25) brightness(.92)'], dudamara_orc: ['orc_warrior', 0.96, 'hue-rotate(-50deg) saturate(.9) brightness(.95)'],
@@ -1692,7 +1699,7 @@ const regionDropP = lv => Math.min(0.12, 0.02 + 0.004 * lv);   // Lv1 2.4% · Lv
 function regionDrop(f) { const b = REGION_BOSS[f.kind], T = b && DROP_TABLE[b]; if (!T || Math.random() >= regionDropP(MOB[f.kind].lv || 1)) return false;
   const pool = T.filter(([id]) => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')); if (!pool.length) return false;
   const tot = pool.reduce((a, r) => a + r[1], 0); let x = Math.random() * tot; const row = pool.find(r => (x -= r[1]) < 0) || pool[0];
-  GROUND.drop(row[0], 1, f.i, f.j); say(`${rarTag(row[0])}${JOSA(ITEMS[row[0]].name, '이', '가')} 떨어졌습니다!`, rarC(row[0])); return true; }
+  GROUND.drop(row[0], 1, f.i, f.j); if (!lowRar(row[0])) say(`${rarTag(row[0])}${JOSA(ITEMS[row[0]].name, '이', '가')} 떨어졌습니다!`, rarC(row[0])); return true; }
 const GROUND = (() => {
   const L = [], IMG = {}, LIFE = Infinity, CAP = 400; let want = null, hov = null, tipOn = false, cap = null, SH = null;   // SH: 게스트일 때 호스트가 보내 준 바닥 아이템 (같은 지역)
   const now = () => performance.now(), newGid = () => 1 + Math.floor(Math.random() * 2e9);
@@ -1826,7 +1833,7 @@ const PET = (() => {
       else { const id = HEAL_IDS().find(x => INV.count(x) > 0); if (id && INV.take(id, 1)) I = ITEMS[id]; }   // 없으면 내 가방 물약
       if (I) { const h = Math.min(d.maxhp - d.hp, rint(I.heal)); d.hp += h; p.potCd = 1;
         const [px, py] = W2P(p.x, p.z); floatText(px, py - 50, `+${h}`, { color: '#8af08a', size: 11 }); spellFx('heal', p); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 520, 880, 0.15, 0.07); refresh(); return; } }
-    if (d.haste <= 0) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'haste'); if (k >= 0) { const it = d.inv[k], I = ITEMS[it.id]; d.haste = I.dur; d.hasteLv = I.haste; if (--it.n <= 0) d.inv[k] = null; p.potCd = 1; say(`${JOSA(nm(d), '이', '가')} ${JOSA(I.name, '을', '를')} 마셨습니다. (${I.haste}단 가속)`, '#a8f08a'); refresh(); } } }
+    if (d.haste <= 0) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'haste'); if (k >= 0) { const it = d.inv[k], I = ITEMS[it.id]; d.haste = I.dur; d.hasteLv = I.haste; if (--it.n <= 0) d.inv[k] = null; p.potCd = 1; refresh(); } } }
   let lastHI = null, lastHJ = null;   // 순간이동 감지: 한 프레임에 3칸 넘게 뛰면 텔레포트로 봄
   function tick(dt) { const z = zk(), jump = lastHI !== null && cheb(hero.i, hero.j, lastHI, lastHJ) > 3; lastHI = hero.i; lastHJ = hero.j;
     for (const p of L) { if (p.zone !== z || (p.dead && jump)) { const dd = p.dead, dt0 = p.deadT; place(p); if (dd) { p.dead = true; p.deadT = Math.max(dt0, 1.4); } } }   // 쓰러진 펫: 걸어갈 땐 그 자리에 누워 있고, 텔레포트·맵 이동 땐 옆에 같이 떨어짐
@@ -2546,7 +2553,7 @@ const CX_P = { zone: 0.003, dwarf: 0.01, rare: 0.04, hero: 0.007 };   // 고급:
   const iv = CX_LIST.find(id => ITEMS[id].invis); BUFF.invis = 0; BUFF_DEF.invis = { name: '투명 (투명 망토)', desc: '몬스터가 나를 보지 못함 · 공격하면 풀림', icon: 'ic_' + iv, dur: ITEMS[iv].invis.dur, c: '#bfe0ff' }; }
 // 사막 몬스터(보스 제외)를 잡으면: 그 구간 고급 장비 중 하나가 아주 낮은 확률로 (한 번에 최대 1개)
 function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < 0.0003); if (!hit.length) return false;   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
-  const id = hit[Math.floor(Math.random() * hit.length)]; GROUND.drop(id, 1, f.i, f.j); say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); return true; }
+  const id = hit[Math.floor(Math.random() * hit.length)]; GROUND.drop(id, 1, f.i, f.j); if (!lowRar(id)) say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); return true; }
 const cxClsName = d => d.cls ? d.cls.map(c => CLASS_NAME[c]).join('·') : '공용';
 const cxReq = d => { const okC = !d.cls || d.cls.includes(CLASS), okL = !d.lv || hero.lv >= d.lv; return { okC, okL, ok: okC && okL, txt: `착용 가능: ${cxClsName(d)}${d.lv > 1 ? ` · Lv.${d.lv} 이상` : ''}` }; };
 const cxInfo = d => [cxClsName(d), d.lv > 1 ? 'Lv.' + d.lv : '', d.dmg ? `공격 ${d.dmg[0]}~${d.dmg[1]}` : d.ac ? `방어 +${d.ac}` : '', d.hit ? '명중 +' + d.hit : '', d.xdmg ? '추가 피해 +' + d.xdmg : '', d.mr ? 'MR +' + d.mr : '', ...d.optTxt].filter(Boolean).join(' · ');
@@ -2596,6 +2603,7 @@ const RARITY_C = { 일반: '#f2f2f2', 고급: '#5fd35f', 희귀: '#62c8ff', 영�
     gold_wing: '영웅', silver_wing: '영웅', bless_scroll: '영웅', book_tornado: '영웅', book_eruption: '영웅', book_healall: '영웅' };
   for (const [id, d] of Object.entries(ITEMS)) { if (d.codex) continue; if (R[id]) { d.rar = R[id]; continue; } if (d.use === 'learn') { const k = SK[d.learn]; d.rar = k.kind === 'magic' ? (k.circle >= 3 ? '희귀' : '일반') : k.shop === '몬스터 드랍' ? '희귀' : '고급'; continue; } d.rar = '일반'; } })();
 const rarC = id => RARITY_C[(ITEMS[id] && ITEMS[id].rar) || '일반'];
+const lowRar = id => { const r = (ITEMS[id] && ITEMS[id].rar) || '일반'; return r === '일반' || r === '고급'; };   // 일반·고급은 떨어질 때 메시지 없이 (주울 때만)
 const rarTag = id => { const r = ITEMS[id] && ITEMS[id].rar; return r && r !== '일반' ? '[' + r + '] ' : ''; };
 const ATTR_N = { earth: '땅' }, ATTR_DMG = [0, 1, 3, 5], ARMOR_SLOTS = new Set(['helm', 'armor', 'shield', 'cloak', 'shirt', 'gloves', 'boots']);
 const nameHTML = e => String(nameOf(e)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]).replace('축복받은', '<span class="bl">축복받은</span>');
@@ -2672,9 +2680,9 @@ const INV = (() => {
   function use(e) { const d = ITEMS[e.id];
     if (d.slot) { e.on ? unequip(e) : equip(e); return; }
     if (cd > 0) return;
-    if (d.use === 'heal') { if (hero.hp >= hero.max) { say('체력이 가득 차 있습니다.', '#9c9682'); return; } const h = Math.max(1, Math.min(Math.ceil(hero.max - hero.hp), rint(d.heal))); hero.hp = Math.min(hero.max, hero.hp + h); take(e.id); cd = 0.5; say(`${d.name}을(를) 마셨습니다. (HP +${h})`, '#f2a0a0'); if (AC) tone(AC.currentTime, 'sine', 520, 880, 0.18, 0.12); return; }
-    if (d.use === 'mana') { const h = Math.max(1, Math.min(Math.ceil(hero.maxmp - hero.mp), rint(d.heal))); hero.mp = Math.min(hero.maxmp, hero.mp + h); take(e.id); cd = 0.5; say(`${d.name}을(를) 마셨습니다. (MP +${h})`, '#a0c0f2'); return; }
-    if (d.use === 'haste') { const k = 'haste' + d.haste; take(e.id); BUFF[k] = d.dur; say(`${d.name}을(를) 마셨습니다. ${d.haste === 1 ? '1단 가속 (1.2배)' : '2단 가속 (1.4배)'} · 10분`, d.haste === 1 ? '#a8f08a' : '#f2c060'); if (AC) tone(AC.currentTime, 'triangle', 440, 990, 0.25, 0.1); return; }
+    if (d.use === 'heal') { if (hero.hp >= hero.max) { say('체력이 가득 차 있습니다.', '#9c9682'); return; } const h = Math.max(1, Math.min(Math.ceil(hero.max - hero.hp), rint(d.heal))); hero.hp = Math.min(hero.max, hero.hp + h); take(e.id); cd = 0.5; if (AC) tone(AC.currentTime, 'sine', 520, 880, 0.18, 0.12); return; }
+    if (d.use === 'mana') { const h = Math.max(1, Math.min(Math.ceil(hero.maxmp - hero.mp), rint(d.heal))); hero.mp = Math.min(hero.maxmp, hero.mp + h); take(e.id); cd = 0.5; return; }
+    if (d.use === 'haste') { const k = 'haste' + d.haste; take(e.id); BUFF[k] = d.dur; if (AC) tone(AC.currentTime, 'triangle', 440, 990, 0.25, 0.1); return; }
     if (d.use === 'enchant' || d.use === 'attr' || d.use === 'blessit') { const ok = bag.some(x => canScroll(d, ITEMS[x.id]));
       if (!ok) { say(d.use === 'attr' ? '속성을 부여할 무기가 없습니다.' : d.ench === 'weapon' ? '강화할 무기가 없습니다.' : '강화할 방어구가 없습니다.', '#9c9682'); return; }
       tgtScroll = e.id; if ($('invwin').hidden) { $('invwin').hidden = false; render(); } $('invwin').classList.add('targeting'); document.body.classList.add('cursor-hammer'); say(`${d.name}: 강화할 장비를 클릭하세요. (취소: Esc · 오른쪽 클릭)`, '#f2e6a8'); return; }
@@ -4079,6 +4087,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 101, items: ['버그베어밭 몬스터 6종이 정식 그림으로 바뀌었어요. 누렇게 바랜 해골 궁수, 썩은 좀비, 대머리에 배 나온 거인 버그베어(가시 몽둥이), 쇠 투구를 쓴 짙은 갈색의 킹 버그베어, 용암이 끓는 지옥견 켈베로스, 양날 대도끼를 든 염소 머리 마왕 바포메트예요.', '메시지 창 정리: 물약 마시는 메시지, 몬스터를 쓰러뜨린 메시지, 일반·고급 아이템이 떨어졌다는 메시지는 더 이상 뜨지 않아요. 주운 아이템과 경험치·골드 획득 메시지는 그대로 떠요. (희귀·영웅 아이템은 떨어질 때도 알려 줘요)'] },
     { v: 100, items: ['새 사냥터 [버그베어밭] (Lv 20~30)이 열렸어요. 월드맵에서 입장하세요. 핏자국과 시체, 해골 더미, 꼬챙이, 교수대 우리가 널린 어둡고 끔찍한 살육의 땅이에요. (전용 배경음)', '1구간 (Lv 20~25): 멀리서 먼저 활을 쏘는 해골 궁수, 느리지만 질긴 좀비, 버그베어가 나와요. 해골과 좀비는 언데드라 밤에 더 강해져요.', '2구간 (Lv 25~30): 버그베어, 물리면 화상을 입는 켈베로스, 먼저 덤비는 킹 버그베어가 나와요. 보스 바포메트는 잡히면 약 3시간 30분 뒤 다시 나타나요. 도끼 휘두르기, 지옥불, 하수인 소환, 공포의 울부짖음을 써요. 바포메트의 지팡이와 영웅 장비(아크메이지의 지팡이·암살자의 단검)를 떨어뜨려요.', '버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 다른 몬스터보다 잘 떨어뜨려요.', '성장 속도 조정: Lv 10까지는 그대로고, 그 뒤로 필요 경험치가 점점 늘어나요. (Lv 20대는 레벨당 몬스터 약 110~300마리) 지금 레벨은 그대로예요.', '몬스터 난이도: Lv 15 이상 몬스터의 HP가 25%, 공격력이 20% 올랐어요.', '전투 계산 변경: 방어력(AC)이 아무리 좋아도 몬스터 명중률이 30% 아래로 내려가지 않아요. (AC 1당 1%) AC 피해 감소는 고정값 대신 매번 0~(−AC÷3) 무작위예요. 몬스터 마법(파이어볼, 보스 범위기)은 AC를 무시하고 MR로만 줄어요. (MR 1당 0.5%, 최대 50%)', '강화 빛: 안전 강화를 넘긴 장비가 빛나요. (+1 초록 → +2 파랑 → +3 보라 → 그 이상은 반짝이는 강한 보라) 무기와 방어구 모두 캐릭터 외형에 보이고, 다른 유저 화면에도 보여요.', '자동사냥 자동판매: 설정에서 켜면 가방 무게가 정한 비율(기본 80%)을 넘을 때 귀환해서, 고른 등급의 장비를 아덴상단에 한꺼번에 팔고 돌아가요. 착용·잠금·강화된 장비와 물약·주문서는 팔지 않아요.', '잡화상점 [특별] 탭에 아르카의 마법주머니(10,000골드)를 팔아요. 열면 강화·축복 주문서나 모든 직업의 희귀~영웅 장비 중 하나가 나와요. 영웅 장비가 나오면 접속한 모두에게 공지가 떠요.', '인벤토리에 휴지통이 생겼어요. 아이템을 끌어다 놓으면 삭제할지 한 번 더 물어봐요. (착용·잠금 아이템은 삭제 불가)', '스킬 슬롯: 단축키 칸이나 스킬 상자에서 스킬을 꾹 누르거나 오른쪽 클릭하면 스킬 정보가 떠요. [자동 사용]을 켜면 버프는 끝날 때 다시 걸고, 회복은 HP 50% 이하일 때, 스턴과 에너지 볼트는 사냥 중 재사용될 때마다 써요. 자동 사용 중인 스킬에는 작은 A 표시가 붙어요.'] },
     { v: 99, items: ['교환창에서 아이템 정보 팝업이 교환창 뒤에 가려지던 문제를 고쳤어요.', '펫 목걸이의 아이템 정보에서 [펫 소환하기]·[펫 보관하기]로 어디서든 펫을 꺼내고 넣을 수 있어요. (쓰러졌으면 부활 주문서로 되살리기)', '장비 상세 정보에서 강화 수치를 임의로 넣어 볼 수 있어요. (+0·+4·+6·+7·+9 · ± 버튼) 착용 중인 장비도 같은 강화로 맞춰 비교해 줘요.', '가방 무게가 80% 이상이면 이동이 20% 느려지고, 100% 이상이면 절반으로 느려져요. 넘을 때 "가방이 무겁습니다" 경고가 떠요.', '자동사냥: 최근 나를 공격한 몬스터(멀리서 쏘는 다크엘프·오크마법사 포함)를 가장 먼저 잡아요. 지금 잡던 몹이 나를 안 때리는데 다른 몹이 때리면 바로 갈아타요.', '미니맵에 같은 지역 파티원 위치가 초록 점으로 보여요.', '업데이트를 더 안정적으로 받아요. (방금 나온 업데이트도 바로 받을 수 있게)'] },
     { v: 98, items: ['인벤토리에서 아이템을 끌어서 자리를 바꿀 수 있어요. (다른 아이템 위에 놓으면 서로 바뀌고, 빈 칸에 놓으면 맨 뒤로)', '교환창 가방·올린 물건에 마우스를 올리면 아이템 정보(이름·강화·옵션)가 보이고, 아이콘에 강화 수치(+7 등)가 표시돼요.', '게임 중 업데이트로 다시 접속돼도 소환해 둔 펫이 그대로 따라와요.', '화면 위의 [마을로 귀환] 버튼을 없앴어요. (귀환 주문서나 월드맵의 마을을 이용해 주세요)'] },
