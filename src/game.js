@@ -251,7 +251,7 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (parts.length) say('경험치 '+parts.join(' · '),'#d8e8a8'); f.dmgBy=null; }
 function killCheck(f){ const S=MOB[f.kind]; if (f.hp<=0&&!f.dead){ f.dead=true; f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; say(S.name+'을(를) 쓰러뜨렸습니다.');
   const D=NET.distribute(f,S); if (!D){ shareExp(f,S); const c=rint(S.coin); coins+=c; say('골드('+c+') 획득: '+S.name, '#cfe4a8'); }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else ISLAND.bossDown(f.kind); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); }
+  GROUND.capStart(); if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function dmgMob(f, d, who){ if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
 function mobHurt(f,d,color,src){ if (!f||f.dead) return; if (!src||src===hero) breakInvis(); dmgMob(f, d, src||hero); f.flash=0.09; mobHitFx(f,false); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); const [fx,fy]=W2P(f.x,f.z); floatText(fx,fy-headY(f)-4,String(d),{color:color||'#ffffff',size:12}); if (f.hp>0) MSFX(f.kind,'hit',0.4); killCheck(f); }
@@ -452,7 +452,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 95;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 96;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1125,7 +1125,8 @@ function drawUI(g, vw, vh){
       g.save(); g.globalAlpha=0.78; g.fillStyle='rgba(10,8,6,.55)'; g.fillRect(bx-1,by-1,sz+2,sz+2); g.strokeStyle=D.c; g.lineWidth=1; g.strokeRect(bx-0.5,by-0.5,sz+1,sz+1);
       if (im2.complete&&im2.naturalWidth){ g.imageSmoothingEnabled=true; g.drawImage(im2,bx+2,by+2,sz-4,sz-4); }
       const k2=Math.min(1,BUFF[k]/D.dur); g.globalAlpha=0.9; g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(bx,by+sz-3,sz,3); g.fillStyle=D.c; g.fillRect(bx,by+sz-3,sz*k2,3);
-      if (BUFF[k]<30 && Math.floor(time*3)%2) { g.fillStyle='rgba(255,255,255,.18)'; g.fillRect(bx,by,sz,sz); }
+      if (BUFF[k]<30 && BUFF[k]>10 && Math.floor(time*3)%2) { g.fillStyle='rgba(255,255,255,.18)'; g.fillRect(bx,by,sz,sz); }
+      if (BUFF[k]<=10) { const n=Math.ceil(BUFF[k]), pop=1+0.35*Math.max(0,1-(n-BUFF[k])*4); g.globalAlpha=1; g.fillStyle='rgba(0,0,0,.45)'; g.fillRect(bx,by,sz,sz-3); g.font=`900 ${Math.round(15*pop)}px "Noto Sans KR",sans-serif`; g.textAlign='center'; g.textBaseline='middle'; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.9)'; g.strokeText(String(n),bx+sz/2,by+sz/2-1); g.fillStyle=n<=3?'#ff6a5a':'#ffe08a'; g.fillText(String(n),bx+sz/2,by+sz/2-1); g.textBaseline='alphabetic'; }   // 10초 남으면 10·9·8… 숫자
       g.restore(); BUFFRECT.push([bx,by,sz,sz,k]);
       if (mp&&mp[0]>=bx&&mp[0]<=bx+sz&&mp[1]>=by&&mp[1]<=by+sz) tip={k,x:bx,y:by};
       bx-=6; }
@@ -1461,11 +1462,22 @@ const ISLAND = (() => {
   const DEMO = !!window.DEMO_MODE;      // 데모 페이지: 셸로브 테스트용으로 2구간에 항상 등장
   const Z = {};
   // 보스: 셸로브(이야기섬 2구간, 1~30분) · 거대 여왕개미(사막 2구간, 잡은 뒤 3시간~3시간30분 · 첫 등장 5~20분). 데모 페이지는 짧게(셸로브 20초, 여왕개미 40초)
+  // 보스 시간표 (모든 PC 공통): 시계 기준 구간(P초)마다 같은 시각(구간 안 R초 범위)·같은 자리에 등장, 잡힐 때까지 있음
+  // 누가 잡으면 '잡힌 구간 번호'를 presence(bk)로 서로 알려서 모두 같은 상태 — 이 기기에도 기억 (aden_bk)
   const BOSS = {
-    shelob: { zone: 2, ent: null, t: DEMO ? 1 : 60 + Math.random() * 1740, again: () => DEMO ? 20 : 60 + Math.random() * 1740, title: '대왕거미 셸로브', where: '이야기섬 2구간', againTxt: DEMO ? '데모: 20초 뒤' : '1~30분 뒤' },
-    queen_ant: { zone: 4, ent: null, t: DEMO ? 1 : 300 + Math.random() * 900, again: () => DEMO ? 40 : 10800 + Math.random() * 1800, title: '거대 여왕개미', where: '사막필드 2구간', againTxt: DEMO ? '데모: 40초 뒤' : '3시간~3시간 30분 뒤' },
-    ogre: { zone: 6, ent: null, t: DEMO ? 1 : 300 + Math.random() * 900, again: () => DEMO ? 40 : 10800 + Math.random() * 1800, title: '오우거', where: '오크숲 2구간', againTxt: DEMO ? '데모: 40초 뒤' : '3시간~3시간 30분 뒤' },
+    shelob: { zone: 2, ent: null, P: DEMO ? 90 : 1800, R: DEMO ? 60 : 1800, title: '대왕거미 셸로브', where: '이야기섬 2구간', againTxt: DEMO ? '데모: 1~3분 안에' : '다음 30분 구간 안에' },
+    queen_ant: { zone: 4, ent: null, P: DEMO ? 180 : 12600, R: DEMO ? 60 : 1800, title: '거대 여왕개미', where: '사막필드 2구간', againTxt: DEMO ? '데모: 3~4분 뒤' : '약 3시간 30분 뒤' },
+    ogre: { zone: 6, ent: null, P: DEMO ? 180 : 12600, R: DEMO ? 60 : 1800, title: '오우거', where: '오크숲 2구간', againTxt: DEMO ? '데모: 3~4분 뒤' : '약 3시간 30분 뒤' },
   };
+  const KILL = (() => { try { return JSON.parse(localStorage.getItem('aden_bk') || '{}') || {}; } catch (e) { return {}; } })(), keepK = () => { try { localStorage.setItem('aden_bk', JSON.stringify(KILL)); } catch (e) {} };
+  const hsh = str => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
+  const rngOf = seed => () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const nowS = () => Date.now() / 1000, atOf = (k, n) => n * BOSS[k].P + hsh(k + ':' + n) / 4294967296 * BOSS[k].R;
+  const lastSlot = k => { const t = nowS(); let n = Math.floor(t / BOSS[k].P); if (atOf(k, n) > t) n--; return n; };   // 이미 등장 시각이 지난 가장 최근 구간
+  const killedK = k => (KILL[k] && KILL[k].k) || -1, isAlive = k => lastSlot(k) > killedK(k);
+  const nextAt = k => { const t = nowS(); let n = Math.floor(t / BOSS[k].P); if (atOf(k, n) <= t) n++; return atOf(k, n); };
+  const BUID = k => 90000 + Object.keys(BOSS).indexOf(k);
+  function removeBoss(k) { const B = BOSS[k], z = get(B.zone), e = B.ent; if (e) { e.dead = true; e.gone = true; const i = z.mobs.indexOf(e); if (i >= 0) z.mobs.splice(i, 1); if (hero.target === e) hero.target = null; } B.ent = null; }
   const get = id => Z[id] || (Z[id] = build(id));
   function enter(id, from) { const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap);
     ISLE = z; setGeom(z.N); SCENE = 'field'; ZONE = z.name; blockedT = z.blocked; PROPS = z.props; foxes = z.mobs; arrows.length = 0;
@@ -1476,27 +1488,30 @@ const ISLAND = (() => {
     if (z.def.hello) say(z.def.hello, '#f0c080');
     else if (id === 1) say('먼저 덤비는 몬스터가 없는 초보 사냥터입니다. 북쪽 끝 포털로 2구간에 갈 수 있어요.', '#9fd0e8');
     else say('무리 중 하나를 때리면 무리 전체가 덤빕니다. 보스 셸로브를 조심하세요!', '#f0c080'); }
-  // 셸로브: 2구간 아무 곳에나 무작위로. 사냥 중인 2구간에 있으면 25% 확률로 바로 근처(6~10칸)에 극적으로 등장
-  function spawnBoss(kind) { const B = BOSS[kind], z = get(B.zone), here = ISLE === z, near = here && Math.random() < 0.25; let p = null;
-    const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.mobs.some(m => !m.dead && m.i === i && m.j === j) && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6) && !(here && cheb(i, j, hero.i, hero.j) < (near ? 6 : 5));
-    for (let t = 0; t < 600 && !p; t++) { let i, j;
-      if (near) { const a = Math.random() * 6.283, r = 6 + Math.random() * 4; i = Math.round(hero.i + Math.cos(a) * r); j = Math.round(hero.j + Math.sin(a) * r); if (cheb(i, j, hero.i, hero.j) > 10) continue; }
-      else { i = 2 + Math.floor(Math.random() * (z.N - 4)); j = 2 + Math.floor(Math.random() * (z.N - 4)); }
-      if (ok(i, j)) p = [i, j]; }
-    if (!p) { B.t = 30; return; }
-    const boss = mkMob(kind, ...p); boss.home = p; z.mobs.push(boss); B.ent = boss;
-    if (near && p) { const [bx, by] = W2P(p[0] + 0.5, p[1] + 0.5); shake = 0.7; impact(bx, by, 'quake', '#6a4a2a'); impact(bx, by - 20, 'bolt', '#ff7a5a');
-      for (let n = 0; n < 26; n++) { const a = Math.random() * 6.283, sp = 40 + Math.random() * 70; parts.push({ x: bx + Math.cos(a) * 10, y: by, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.4 - 20, life: 0.9, max: 0.9, dust: true }); }
+  // 보스 등장: 자리도 모든 PC가 같게 (구간 번호로 정한 무작위) · 막 등장한 순간 근처(12칸)에 있으면 극적인 연출
+  function spawnBoss(kind, n, fresh) { const B = BOSS[kind], z = get(B.zone);
+    const ex = z.mobs.find(m => m.kind === kind && !m.dead && !m.gone && !m.summoned); if (ex) { B.ent = ex; return; }   // 호스트에게서 받은 보스가 이미 있으면 그대로
+    const R = rngOf(hsh(kind + ':pos:' + n)); let p = null; const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6);
+    for (let t = 0; t < 800 && !p; t++) { const i = 2 + Math.floor(R() * (z.N - 4)), j = 2 + Math.floor(R() * (z.N - 4)); if (ok(i, j)) p = [i, j]; } if (!p) p = [z.N >> 1, z.N >> 1];
+    const boss = mkMob(kind, ...p); boss.home = p; boss.uid = BUID(kind); z.mobs.push(boss); B.ent = boss;
+    if (fresh && ISLE === z && cheb(p[0], p[1], hero.i, hero.j) <= 12) { const [bx, by] = W2P(p[0] + 0.5, p[1] + 0.5); shake = 0.7; impact(bx, by, 'quake', '#6a4a2a'); impact(bx, by - 20, 'bolt', '#ff7a5a');
+      for (let q = 0; q < 26; q++) { const a = Math.random() * 6.283, sp = 40 + Math.random() * 70; parts.push({ x: bx + Math.cos(a) * 10, y: by, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.4 - 20, life: 0.9, max: 0.9, dust: true }); }
       if (AC && SFX_ON) { const t = AC.currentTime; nz(t, 1.1, 300, 70, 0.7); tone(t, 'sawtooth', 110, 45, 1.0, 0.25); tone(t + 0.15, 'sawtooth', 160, 60, 0.8, 0.12); }
-      say(`***** 땅이 갈라지며 바로 근처에서 ${JOSA(B.title, '이', '가')} 튀어나왔습니다! *****`, '#ff5040'); announce(`${B.where}에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, '#ff7a5a', 'boss'); }
-    else { announce(`${B.where} 어딘가에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, '#ff7a5a', 'boss'); } }
+      say(`***** 땅이 갈라지며 바로 근처에서 ${JOSA(B.title, '이', '가')} 튀어나왔습니다! *****`, '#ff5040'); } }
   function prebake(id) { const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap); }
   return {
     enter, prebake, def: id => DEF[id],
-    bossDown(kind) { const B = BOSS[kind || 'shelob']; if (!B) return; B.ent = null; B.t = B.again(); announce(`${PNAME()}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); say(`${B.title.split(' ').pop()}${kind === 'queen_ant' ? '를' : '를'} 쓰러뜨렸습니다! (${B.againTxt} 다시 나타납니다)`, '#f2e6a8'); },
-    bossTimers: () => Object.fromEntries(Object.entries(BOSS).map(([k, B]) => [k, B.ent ? 'alive' : Math.round(B.t)])),
+    bossDown(kind, by) { const B = BOSS[kind || 'shelob']; if (!B) return; B.ent = null; KILL[kind] = { k: Math.max(killedK(kind), lastSlot(kind)), by: String(by || PNAME()).slice(0, 12) }; keepK(); B.was = false; announce(`${KILL[kind].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); say(`${B.title.split(' ').pop()}${kind === 'queen_ant' ? '를' : '를'} 쓰러뜨렸습니다! (${B.againTxt} 다시 나타납니다)`, '#f2e6a8'); },
+    bossTimers: () => Object.fromEntries(Object.keys(BOSS).map(k => [k, isAlive(k) ? 'alive' : Math.round(nextAt(k) - nowS())])),
+    bossKills: () => KILL,
+    // 다른 사람이 잡은 소식: 더 최근 구간이면 받아들이고, 내 화면의 보스는 치움 + 토벌 공지
+    mergeKills(o) { if (!o || typeof o !== 'object') return; for (const k in o) { const B = BOSS[k], x = o[k]; if (!B || !x || !(+x.k > killedK(k))) continue; const was = isAlive(k);
+        KILL[k] = { k: +x.k, by: String(x.by || '누군가').slice(0, 12) }; keepK(); if (was && !isAlive(k)) { announce(`${KILL[k].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); B.was = false; if (B.ent && !B.ent.dead) removeBoss(k); } } },
     tick(dt) {
-      for (const k in BOSS) { const B = BOSS[k]; if (B.ent && (B.ent.gone || B.ent.dead)) { if (B.ent.gone) B.ent = null; continue; } if (!B.ent) { B.t -= dt; if (B.t <= 0) { if (NET.guestIn('isle' + B.zone)) B.t = 15; else spawnBoss(k); } } }
+      for (const k in BOSS) { const B = BOSS[k], alive = isAlive(k), fresh = B.was === false && alive; if (B.was === undefined) B.was = alive;
+        if (fresh) announce(`${B.where} 어딘가에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, '#ff7a5a', 'boss'); B.was = alive;   // 모든 PC가 같은 시각에 공지
+        if (B.ent && (B.ent.gone || B.ent.dead)) { if (B.ent.gone) B.ent = null; continue; }
+        if (alive && !B.ent && !NET.guestIn('isle' + B.zone)) spawnBoss(k, lastSlot(k), fresh); else if (!alive && B.ent && !B.ent.dead) removeBoss(k); }
       for (let k = arrows.length - 1; k >= 0; k--) { const a = arrows[k]; a.t += dt; if (a.t >= a.dur) { arrows.splice(k, 1); if (a.pl) { if (a.onHit) a.onHit(); continue; } if (a.kind === 'fireball') { const [bx, by] = a.tg ? W2P(a.tg.x, a.tg.z) : W2P(hero.x, hero.z); fireBurst(bx, by - (a.tg ? 16 : 30)); } if (a.tg) { if (!a.tg.dead) { const [ix, iy] = W2P(a.tg.x, a.tg.z); if (a.tg.isRemote) { NET.hitRemote(a.tg, a.src, MOB[a.src.kind], a.dmg, a.hit); continue; } if (Math.random() < 0.75) { PET.hurt(a.tg, a.dmg, a.src); impact(ix, iy - 16, 'hit', '#ffd890'); } else impact(ix, iy + 2, 'miss'); } continue; } const [ix, iy] = W2P(hero.x, hero.z); if (Math.random() < a.hit - (BUFF.solid > 0 && a.kind !== 'fireball' ? 0.25 : 0)) { hurtHero(a.dmg, a.src); impact(ix, iy - 30, 'hit', a.kind === 'fireball' ? '#ff8a3a' : '#ffd890'); if (a.kind !== 'fireball') MSFX('elf', 'arrowhit', 0.45); if (a.kind === 'fireball' && !GOD && Math.random() < 0.25 * Math.max(0.2, 1 - INV.cx('fireRes') / 50)) { hero.burnT = 3; say('파이어볼에 맞아 화상을 입었습니다!', '#ff9a5a'); } } else { heroMiss(); impact(ix + (Math.random() - 0.5) * 20, iy + 2, 'miss'); } } }
       if (!ISLE) return;
       if (!ISLE.ground && im.ground.complete) ISLE.ground = buildGround(ISLE.def);
@@ -3627,7 +3642,7 @@ const NET = (() => {
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
   function payload() { const P = { n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
-      e: eqIds(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, bf: myBuffs(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
+      e: eqIds(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, bf: myBuffs(), bk: ISLAND.bossKills(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
@@ -3687,7 +3702,7 @@ const NET = (() => {
     for (const o of OTH) { const v = view(o); if (o.pr.z === zk()) { const p = proxy(o.peer); p.x = o.pr.x; p.z = o.pr.y; p.i = Math.floor(p.x); p.j = Math.floor(p.z); p.hp = o.pr.hp; p.max = o.pr.hm || 1; p.dead = !(o.pr.hp > 0); }
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt; if (v.atkT > 0.75 / GSPD) v.atkT = null; }
-      applySupport(o); applyRewards(o); applyFx(o); }
+      applySupport(o); applyRewards(o); applyFx(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); }
     partyTick();
     if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } }
     else { const h = hostData(); hostCache = h; if (h) { wasGuest = true; applyHost(h); } else if (wasGuest) { wasGuest = false; GROUND.adoptShared(); } }
@@ -3700,7 +3715,7 @@ const NET = (() => {
   const tleft = s => s >= 60 ? Math.ceil(s / 60) + '분' : Math.ceil(s) + '초';
   const DEBUFF = new Set(['root', 'slow']);
   const bfRow = bf => { const ks = Object.keys(bf || {}).filter(k => BUFF_DEF[k] && bf[k] > 0); if (!ks.length) return '';
-    return '<div class="pb-bf">' + ks.map(k => `<span class="pb-b${DEBUFF.has(k) ? ' bad' : ''}" title="${esc_(BUFF_DEF[k].name)} · ${tleft(bf[k])} 남음">${ico(BUFF_DEF[k].icon)}<em>${tleft(bf[k])}</em></span>`).join('') + '</div>'; };
+    return '<div class="pb-bf">' + ks.map(k => `<span class="pb-b${DEBUFF.has(k) ? ' bad' : ''}${bf[k] <= 10 ? ' cd' : ''}" title="${esc_(BUFF_DEF[k].name)} · ${tleft(bf[k])} 남음">${ico(BUFF_DEF[k].icon)}${bf[k] <= 10 ? `<i>${Math.ceil(bf[k])}</i>` : `<em>${tleft(bf[k])}</em>`}</span>`).join('') + '</div>'; };
   function renderParty() { const box = document.getElementById('partybox'); if (!box) return; if (!partyId || !room) { if (!box.hidden) box.hidden = true; return; } box.hidden = false;
     const ZN = z => z === 'town' ? '마을' : /^isle\d+$/.test(z || '') ? ((ISLAND.def(+z.slice(4)) || {}).name || '사냥터') : '필드';
     const row = (nm, cls, lv, hp, hm, mp, mm, z, me, bf) => `<div class="pb-m${me ? ' me' : ''}${hp > 0 ? '' : ' dead'}"><div class="pb-t"><b>${esc_(nm)}</b><span>${CLASS_NAME[cls] || ''} Lv.${lv || 1}</span></div><div class="pb-bar hp"><i style="width:${Math.max(0, Math.min(100, hp / Math.max(1, hm) * 100))}%"></i><em>${Math.ceil(hp)}/${hm}</em></div><div class="pb-bar mp"><i style="width:${Math.max(0, Math.min(100, mp / Math.max(1, mm) * 100))}%"></i><em>${Math.floor(mp)}/${mm}</em></div>${bfRow(bf)}${z !== zk() ? `<small>${esc_(ZN(z))}</small>` : ''}</div>`;
@@ -3830,6 +3845,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 96, items: ['보스(셸로브·여왕개미·오우거)가 모든 사람에게 같은 시각·같은 자리에 나타나고, 등장·토벌 공지도 모두에게 보여요. 누가 잡으면 모두의 화면에서 사라져요.', '버프 남은 시간이 10초 이하가 되면 아이콘에 10, 9, 8… 숫자로 보여요. (파티창도)'] },
     { v: 95, items: ['교환: 마을에서 다른 유저를 클릭 → [교환 신청] → 상대가 수락하면 교환창이 열려요.', '각자 가방의 아이템(여러 개는 수량 지정)과 골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?"에서 한 번 더 확인하면 주고받아요.', '확인한 뒤 누구든 항목을 바꾸면 확인이 풀려서 다시 확인해야 해요. (착용 중·잠금 아이템은 교환 불가)'] },
     { v: 94, items: ['업데이트가 적용되면 바뀐 내용을 이 창으로 알려줘요. (ESC 메뉴 → 업데이트 소식에서 다시 볼 수 있어요)'] },
     { v: 93, items: ['모든 지역의 2구간에서도 자동사냥이 돼요. 마을에 다녀오면 사냥하던 구간으로 돌아가요.', '자동사냥 타겟팅 설정: 자율 공격 · 파티원과 같은 몬스터 · 파티원과 다른 몬스터', '새 버전이 나오면 화면 위에 [업데이트] 버튼이 생겨요. 누르면 그 자리·파티·멀티 방 그대로 이어서 플레이해요.', '파티창에 파티원의 버프(가속·실드·인챈트 등)와 남은 시간이 보여요.'] },
