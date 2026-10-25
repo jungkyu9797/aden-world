@@ -259,7 +259,7 @@ function heroRelease(f){   // 활시위를 놓는 순간 / 마력탄을 쏘는 �
   const mage=CLASS==='wizard', [x0,y0]=W2P(hero.x,hero.z), [x1,y1]=W2P(f.x,f.z), d=cheb(f.i,f.j,hero.i,hero.j);
   arrows.push({ pl:true, kind:mage?'bolt':'arrow', col:mage?['140,100,255','175,185,255','245,240,255']:null, x0:x0+(mage?6:0), y0:y0-(mage?64:42), x1, y1:y1-headY(f)*0.55, t:0, dur:(mage?0.16:0.1)+d*(mage?0.06:0.05), onHit:()=>{ if (!f.dead) strike(f, mage?'magic':'bow'); } });
   if (AC&&SFX_ON){ const t=AC.currentTime; if (mage){ tone(t,'sine',480,980,0.2,0.07); tone(t+0.02,'triangle',1460,1900,0.14,0.03); nz(t,0.22,2400,5200,0.05); } else if (!MSFX('elf','bow',0.6)) { tone(t,'triangle',230,140,0.14,0.09); nz(t,0.14,3000,6500,0.07); } } }
-function strike(f, mode){ const S=MOB[f.kind]; breakInvis(); if (!GOD_OHK && Math.random()>heroHit(S, mode)){ const [mx,my]=W2P(f.x,f.z); floatText(mx+(Math.random()*18-9),my-headY(f)-12,'MISS',{color:'#c8d0d8',size:11}); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); return; } const crit=Math.random()<0.12+INV.cx('crit')/100; const DR=mode==='magic'?magicDmg():INV.dmg(); let d=DR[0]+Math.floor(Math.random()*(DR[1]-DR[0]+1)); { const A=mode!=='magic'&&INV.wAttr(); if (A){ const am=attrMult(A.el,f); d=Math.max(1,d+ATTR_DMG[A.lv]*(am-1)); if (am===2&&Math.random()<0.35){ const [ax,ay]=W2P(f.x,f.z); floatText(ax+16,ay-headY(f)-22,'약점!',{color:ATTR_C[A.el],size:10}); } } } if (ISLE&&ISLE.def.sand) d+=INV.cx('sandDmg'); if (S.undead) d+=INV.cx('undeadDmg'); if (crit) d=Math.round(d*1.8); if (GOD_OHK) d=Math.max(d,f.hp);
+function strike(f, mode){ const S=MOB[f.kind]; breakInvis(); if (!GOD_OHK && Math.random()>heroHit(S, mode)){ const [mx,my]=W2P(f.x,f.z); floatText(mx+(Math.random()*18-9),my-headY(f)-12,'MISS',{color:'#c8d0d8',size:11}); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); return; } const crit=Math.random()<0.12+INV.cx('crit')/100; const DR=mode==='magic'?magicDmg():INV.dmg(); let d=DR[0]+Math.floor(Math.random()*(DR[1]-DR[0]+1)); { const A=mode!=='magic'&&INV.wAttr(); if (A){ const am=attrMult(A.el,f); d=Math.max(1,d+ATTR_DMG[A.lv]*(am-1)); if (am===2&&Math.random()<0.35){ const [ax,ay]=W2P(f.x,f.z); floatText(ax+16,ay-headY(f)-22,'약점!',{color:ATTR_C[A.el],size:10}); } } } if (ISLE&&ISLE.def.sand) d+=INV.cx('sandDmg'); if (S.undead) d+=INV.cx('undeadDmg'); if (crit) d=Math.round(d*1.8); if (S.pdr && mode!=='magic') d=Math.max(1,Math.round(d*(1-S.pdr))); if (GOD_OHK) d=Math.max(d,f.hp);
   dmgMob(f, d); if (INV.blessHit()&&f.hp>0&&Math.random()<0.35){ const ex=1+Math.floor(Math.random()*2); dmgMob(f, ex); const [ex1,ey1]=W2P(f.x,f.z); floatText(ex1+10,ey1-headY(f)-18,'추가 타격 '+ex,{color:'#ffd86a',size:11}); } cxProcs(f);
   if (f.hp>0) MSFX(f.kind,'hit',0.5); f.flash=0.09; mobHitFx(f,crit); hero.lastHit=f; hero.lastHitT=time; if (f.tgt&&Math.random()<0.4) f.tgt=null; f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); hitstop=crit?0.12:0.07; if (crit) shake=0.18; if (mode==='bow') { if (!MSFX('elf','arrowhit',crit?0.75:0.6)) sfx.hit(crit); } else sfx.hit(crit);
   { const [fx,fy]=W2P(f.x,f.z), top=fy-headY(f)-4;
@@ -569,7 +569,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 116;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 117;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4793,17 +4793,18 @@ const CLOUD = (() => {
   const enc = o => ({ fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { stringValue: typeof v === 'string' ? v : JSON.stringify(v) }])) });
   const dec = d => { const o = {}; for (const [k, v] of Object.entries((d && d.fields) || {})) o[k] = v.stringValue != null ? v.stringValue : v.integerValue != null ? +v.integerValue : null; return o; };
   const mask = o => Object.keys(o).map(k => 'updateMask.fieldPaths=' + encodeURIComponent(k)).join('&');
-  async function get(path, pub) { const h = pub ? {} : { Authorization: 'Bearer ' + await token() }; const r = await fetch(FS + path, { headers: h }); if (r.status === 404) return null; const j = await r.json().catch(() => null); if (!r.ok) throw err(j, r.status); return dec(j); }
-  async function set(path, o, merge) { const q = [merge ? mask(o) : '', ''].filter(Boolean).join('&'); const r = await fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify(enc(o)) }); if (!r.ok) throw err(await r.json().catch(() => null), r.status); return true; }
+  async function get(path, pub) { const h = pub ? {} : { Authorization: 'Bearer ' + await token() }; const r = await fetch(FS + path, { headers: h }); if (r.status === 404) return null; const j = await r.json().catch(() => null); if (!r.ok) throw err(j, r.status); const o = dec(j); Object.defineProperty(o, '__ut', { value: j && j.updateTime, enumerable: false }); return o; }
+  async function set(path, o, merge, pre) { const q = [merge ? mask(o) : '', pre ? 'currentDocument.updateTime=' + encodeURIComponent(pre) : ''].filter(Boolean).join('&'); const r = await fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify(enc(o)) }); const j = await r.json().catch(() => null);
+    if (!r.ok) { const e = err(j, r.status); if (pre && (r.status === 412 || r.status === 400 || /FAILED_PRECONDITION/.test(e.message))) e.code = 'FAILED_PRECONDITION'; throw e; } return (j && j.updateTime) || true; }   // v117: pre = 마지막으로 본 수정 시각 (그 뒤에 다른 곳에서 고쳤으면 거절 → 덮어쓰기 방지)
   async function create(path, o) { const r = await fetch(FS + path + '?currentDocument.exists=false', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify(enc(o)) }); if (r.ok) return true; if (r.status === 400 || r.status === 409 || r.status === 412 || r.status === 403) return false; throw err(await r.json().catch(() => null), r.status); }
   async function del(path) { const r = await fetch(FS + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await token() } }); return r.ok; }
   // 창을 닫을 때: 응답을 기다릴 수 없어서 keepalive로 한 번 보냄 (토큰이 아직 유효할 때만, 64KB 이하)
-  function beacon(path, o, merge) { if (!S || Date.now() > S.exp) return false; const body = JSON.stringify(enc(o)); if (body.length > 60000) return false; try { fetch(FS + path + (merge ? '?' + mask(o) : ''), { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.tok }, body }); return true; } catch (e) { return false; } }
+  function beacon(path, o, merge, pre) { if (!S || Date.now() > S.exp) return false; const body = JSON.stringify(enc(o)); if (body.length > 60000) return false; const q = [merge ? mask(o) : '', pre ? 'currentDocument.updateTime=' + encodeURIComponent(pre) : ''].filter(Boolean).join('&'); try { fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.tok }, body }); return true; } catch (e) { return false; } }
   return { ping, signUp, signIn, get, set, create, del, beacon, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
 })();
 // ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
 const SAVE = (() => {
-  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', pend = null;
+  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0;   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
   const hex = s => [...new TextEncoder().encode(String(s).toLowerCase())].map(b => b.toString(16).padStart(2, '0')).join('');
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
@@ -4816,24 +4817,27 @@ const SAVE = (() => {
     INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); INV.render(); return true; }
   const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
   const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c;
-  async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); return d && d.data ? JSON.parse(d.data) : null; }
+  async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); ut.c = d ? d.__ut || null : null; return d && d.data ? JSON.parse(d.data) : null; }
       const a = await adb(); if (a) { try { const sn = await a.doc(`saves/${hex(ACCOUNT.acc())}_${c}`).get(); if (sn.exists) return JSON.parse(sn.data().data); } catch (e) {} } const v = ls.get(lkey(c)); return v ? JSON.parse(v) : null; }
     catch (e) { console.warn('load', e); return undefined; } }   // undefined = 서버 오류 (null = 저장 없음)
-  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); return d && d.store ? JSON.parse(d.store) : null; } const v = ls.get('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase()); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
-  function start(c, store) { cls = c; on = true; t = 0; lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); } }
+  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; return d && d.store ? JSON.parse(d.store) : null; } const v = ls.get('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase()); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function start(c, store) { cls = c; on = true; t = 0; lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); }
+    SESS.begin(); if (cloud()) sessP = CLOUD.set(`users/${CLOUD.uid()}`, { sess: SESS.id, sessAt: String(Date.now()) }, true).then(r => { if (typeof r === 'string') ut.u = r; }).catch(() => {}); }   // v117: 이 접속을 계정의 '현재 접속'으로 표시 → 먼저 있던 접속은 다음 저장 때 끊김
+  // 계정 서버의 현재 접속이 내가 아니면 → 이 창은 저장을 멈추고 접속 종료
+  async function sessOk() { if (!cloud()) return true; if (sessP) { await sessP; sessP = null; } try { const d = await CLOUD.get(`users/${CLOUD.uid()}?mask.fieldPaths=sess`); if (d && d.sess && d.sess !== SESS.id) { SESS.kick('server'); return false; } } catch (e) {} return true; }
   // 지금 저장 (바뀐 것만) — force면 같아도 저장
   async function now(force, quiet) { if (!on) return false; if (busy) { pend = pend || new Promise(r => setTimeout(r, 400)).then(() => now(force, quiet)); return pend; } busy = true; let ok = true;
-    try { const S_ = snap(), j = JSON.stringify(S_), st = JSON.stringify(STORE.list());
-      if (force || j !== lastC) { if (cloud()) await CLOUD.set(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) });
+    try { if (!(await sessOk())) { busy = false; pend = null; return false; } const S_ = snap(), j = JSON.stringify(S_), st = JSON.stringify(STORE.list());
+      if (force || j !== lastC) { if (cloud()) { const doc = { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }, P = `users/${CLOUD.uid()}/chars/${cls}`; let r; try { r = await CLOUD.set(P, doc, false, ut.c || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if (!(await sessOk())) { busy = false; pend = null; return false; } r = await CLOUD.set(P, doc, false); } if (typeof r === 'string') ut.c = r; }
         else { const a = await adb(); let done = false; if (a) { try { await a.doc(`saves/${hex(ACCOUNT.acc())}_${cls}`).set({ data: j, at: Date.now() }); done = true; } catch (e) {} } if (!done) ls.set(lkey(cls), j); }
         lastC = j; }
-      if (force || st !== lastS) { if (cloud()) await CLOUD.set(`users/${CLOUD.uid()}`, { store: st }, true); else ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), st); lastS = st; }
+      if (force || st !== lastS) { if (cloud()) { const P = `users/${CLOUD.uid()}`; let r; try { r = await CLOUD.set(P, { store: st }, true, ut.u || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if (!(await sessOk())) { busy = false; pend = null; return false; } r = await CLOUD.set(P, { store: st }, true); } if (typeof r === 'string') ut.u = r; } else ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), st); lastS = st; }
       if (!quiet) say('저장했습니다.' + (cloud() ? ' (계정 서버)' : ' (이 기기)'), '#9fd08a'); }
     catch (e) { ok = false; console.warn('save', e); if (!quiet) say('저장하지 못했어요. 인터넷 연결을 확인해 주세요. (잠시 뒤 자동으로 다시 시도)', '#f08a7a'); }
     busy = false; pend = null; return ok; }
-  function tick(dt) { if (!on) return; t += dt; if (t >= 20) { t = 0; now(false, true); } }
+  function tick(dt) { if (!on) return; t += dt; chkT += dt; if (t >= 20) { t = 0; chkT = 0; now(false, true); } else if (chkT >= 60) { chkT = 0; sessOk(); } }   // 바뀐 게 없어도 1분마다 현재 접속 확인
   // 창 닫기 직전: 기다릴 수 없으니 keepalive로 마지막 저장
-  function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }); const st = JSON.stringify(STORE.list()); if (st !== lastS) CLOUD.beacon(`users/${CLOUD.uid()}`, { store: st }, true); } else { ls.set(lkey(cls), j); ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), JSON.stringify(STORE.list())); } } catch (e) {} }
+  function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }, false, ut.c || undefined); const st = JSON.stringify(STORE.list()); if (st !== lastS) CLOUD.beacon(`users/${CLOUD.uid()}`, { store: st }, true, ut.u || undefined); } else { ls.set(lkey(cls), j); ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), JSON.stringify(STORE.list())); } } catch (e) {} }
   addEventListener('beforeunload', flush); addEventListener('pagehide', flush);
   if (window.native && window.native.onClosing) window.native.onClosing(async () => { try { await Promise.race([now(false, true), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} window.native.closeNow && window.native.closeNow(); });   // PC: 창 닫을 때 저장 끝나고 닫힘
   return { snap, apply, load, loadStore, start, now, tick, flush, on: () => on, stop() { on = false; } };
@@ -4880,6 +4884,25 @@ const NAMEREG = (() => {
 // ============================================================ 멀티플레이: 같은 페이지(아티팩트)를 연 사람끼리 실시간 (room presence)
 // 내 상태(위치·동작·장비·채팅)를 presence로 10번/초 보내고, 같은 지역 사람을 그림. 몬스터는 그 지역의 '호스트'(peer 이름이 가장 앞선 사람)가
 // 움직이고 위치·체력을 보냄 → 게스트는 그대로 따라 보여 주고, 게스트가 때린 피해는 호스트에게 보내 호스트가 적용 · 몬스터가 게스트를 때린 피해는 호스트가 보냄
+// ============================================================ v117: 중복 접속 막기 — 같은 계정은 한 곳에서만 (나중에 들어온 쪽이 이어 하고, 먼저 있던 창은 접속 종료)
+const SESS = (() => {
+  const id = (() => { try { return [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join(''); } catch (e) { return Math.random().toString(36).slice(2) + Date.now().toString(36); } })();
+  let t0 = 0, kicked = false, ahC = null, noted = new Set();
+  const fnv = t => { let h = 2166136261 >>> 0; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16).padStart(8, '0'); };
+  const ah = () => { if (ahC) return ahC; const a = typeof ACCOUNT !== 'undefined' && ACCOUNT.acc && ACCOUNT.acc(); return a ? (ahC = fnv('aden:' + String(a).toLowerCase())) : null; };
+  function begin() { t0 = Date.now(); }
+  function kick(why) { if (kicked) return; kicked = true; window.__gameOn = false;
+    try { SAVE.stop(); } catch (e) {} try { if (AUTO.on()) AUTO.toggle(); } catch (e) {} try { NET.setRoom(null); } catch (e) {} try { MPP.leave(); } catch (e) {}
+    const w = document.createElement('div'); w.id = 'dupkick'; w.setAttribute('role', 'alertdialog');
+    w.innerHTML = '<div class="dk-box"><b>다른 곳에서 같은 계정으로 접속했어요</b><p>같은 계정은 한 곳에서만 플레이할 수 있어서 이 창의 접속을 끊었어요.<br>진행 상황은 새로 접속한 쪽에서 이어서 저장돼요. (이 창은 더 이상 저장하지 않아요)</p><button type="button" id="dk-re">다시 접속하기</button></div>';
+    document.body.appendChild(w); const b = document.getElementById('dk-re'); if (b) b.onclick = () => location.reload();
+    try { TELE.ev('dupkick', { why }); } catch (e) {} }
+  // 월드 서버에서 같은 계정의 다른 접속이 보이면: 내가 먼저 들어온 쪽이면 나감 · 나중이면 알림만
+  function scan(L) { const me = ah(); if (!me || kicked || !t0) return; for (const o of L) { const p = o.pr; if (!p || p.ah !== me || !p.sd || p.sd === id || !(+p.st)) continue;   // 아직 캐릭터 선택 중인 접속은 무시
+      const newer = (+p.st || 0) > t0 || ((+p.st || 0) === t0 && p.sd > id); if (newer) { kick('presence'); return; }
+      if (!noted.has(p.sd)) { noted.add(p.sd); say('[알림] 같은 계정으로 다른 곳에 남아 있던 접속을 끊었어요. (이 창에서 이어서 저장돼요)', '#f0c080'); } } }
+  return { id, begin, kick, scan, ah, t0: () => t0, kicked: () => kicked };
+})();
 const NET = (() => {
   const KINDS = Object.keys(MOB), RCOL = '#a8d8ff', PCOL = '#8fe08a', TE = new TextEncoder();
   const esc_ = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -4987,7 +5010,7 @@ const NET = (() => {
   function groundOut() { const pos = [[hero.x, hero.z], ...othersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
-  function payload() { const P = { n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
+  function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
       e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
@@ -5049,6 +5072,7 @@ const NET = (() => {
     OTH = others(); const ids = new Set(OTH.map(o => o.peer));
     for (const o of OTH) if (!known.has(o.peer)) { known.add(o.peer); seenHit.set(o.peer, maxSeq(o.pr.h)); spUsed.set(o.peer, o.pr.sp || 0); seenSu.set(o.peer, maxSeq(o.pr.su)); seenPk.set(o.peer, maxSeq(o.pr.pk)); seenEf.set(o.peer, maxSeq(o.pr.ef)); seenInv.set(o.peer, o.pr.pi ? o.pr.pi.s : 0); seenAns.set(o.peer, o.pr.pa ? o.pr.pa.id + ':' + o.pr.pa.s : ''); if (ready) { const nm = nmOf(o.pr), back = (goneAt.get(nm) || 0) > Date.now() - 60000; if (!initDone && performance.now() - roomAt < 4000) initL.push(nm); else if (back) say(`[접속] ${nm}님이 다시 연결되었습니다.`, '#9c9682'); else announce(`${nm}님이 접속했습니다. (${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1})`, PCOL); } }
     for (const k of [...known]) if (!ids.has(k)) { known.delete(k); const v = peers.get(k); if (v && v.pr) goneAt.set(nmOf(v.pr), Date.now()); say(`[접속 종료] ${v && v.pr ? nmOf(v.pr) : '다른 플레이어'}님이 나갔습니다.`, '#9c9682'); peers.delete(k); proxies.delete(k); seenHit.delete(k); delete toRemote[k]; delete rwOut[k]; delete gvOut[k]; }
+    SESS.scan(OTH); if (SESS.kicked()) return;
     for (const o of OTH) { const v = view(o); if (o.pr.z === zk()) { const p = proxy(o.peer); p.x = o.pr.x; p.z = o.pr.y; p.i = Math.floor(p.x); p.j = Math.floor(p.z); p.hp = o.pr.hp; p.max = o.pr.hm || 1; p.dead = !(o.pr.hp > 0); }
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt * Math.min(3, Math.max(0.5, +o.pr.hs || 1)); if (v.atkT > 0.75 / GSPD) v.atkT = null; }
@@ -5201,6 +5225,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 117, items: ['중복 접속을 막았어요. 같은 계정은 한 곳에서만 플레이할 수 있어요. 다른 PC(또는 창)에서 같은 계정으로 접속하면 새로 접속한 쪽이 이어서 하고, 먼저 켜져 있던 창은 "다른 곳에서 접속했어요" 안내와 함께 접속이 끊기며 더 이상 저장하지 않아요. (월드 서버에서 바로 알아채고, 계정 서버에 저장할 때도 한 번 더 확인 · 예전 창이 새 진행 상황을 덮어쓰거나 창고 아이템이 복사되는 일을 막아요)'] },
     { v: 116, items: ['장비 비교창에 추가 옵션도 보여요: 힘·민첩·지능 같은 능력치, SP, 공격·이동 속도, 치명타, 받는 피해 감소, 속성 저항, MP 회복, 번개·화염 같은 특수 효과까지 착용 중인 장비와 나란히 비교해요.', '기사 그래픽을 고화질로 다시 그렸어요. 2배로 렌더해 줄이는 방식이라 갑옷 표면의 지글거림이 줄고 매끈해졌어요. 금장식·어깨에 윤곽광이 들어가 입체감이 생기고 색도 조금 더 진해졌어요. (모든 장비 부위·동작 · 크기와 움직임은 그대로)'] },
     { v: 115, items: ['아이템 등급 테두리를 두껍고 선명하게 바꿨어요. 칸 안쪽에 등급색 띠가 들어가고 바탕도 등급색으로 은은하게 물들어요. (고급 초록 · 희귀 파랑 · 영웅 보라 + 빛)', '희귀 색을 더 파란색으로 바꿔 고급(초록)과 한눈에 구분돼요. 장비창에도 같은 테두리가 적용돼요.'] },
     { v: 114, items: ['모든 직업이 레벨이 되면 1~3서클 마법을 무료로 자동으로 배워요. (Lv4 1서클 · Lv8 2서클 · Lv12 3서클 · 직업이 배울 수 있는 서클까지 — 기사는 2서클) 이미 그 레벨을 넘은 캐릭터는 접속하면 바로 받아요. 1~3서클 마법서는 이제 없는 아이템이라 상점·드랍에서 빠지고, 가방·창고에 있던 것도 사라져요.', '마법상점에서 4~6서클 마법서를 팔아요. (요정·마법사) 4서클 파이어볼·슬로우·메디테이션 3,000 · 5서클 콜 라이트닝·그레이터 힐·카운터 매직 6,000 · 6서클 콘 오브 콜드·선버스트 10,000 · 이럽션 12,000. 보스 드랍도 그대로예요.', '새 마법사는 마나의 지팡이를 들고 시작해요. 마나의 지팡이는 이제 Lv1부터 착용할 수 있어요.', '7서클 [이뮨 투 함] 마법서를 모든 보스가 떨어뜨려요. 셸로브 4% · 거대 여왕개미·오우거·바포메트 10% · 카스파 패밀리 넷 각 5% · 데스나이트·얼음여왕 12%.', '이뮨 투 함 지속 시간이 20초 → 12초로 줄었어요.', '모든 공격 마법(에너지 볼트·아이스 대거·파이어 애로우·턴 언데드·파이어볼·콜 라이트닝·콘 오브 콜드·이럽션·선버스트 등)을 자동 사용으로 설정할 수 있어요. 스킬창에서 꾹 누르거나 단축키 칸 오른쪽 클릭 → 자동 사용. 여러 개 켜면 높은 서클부터 써요. (턴 언데드는 언데드 몬스터에게만 자동으로 쓰고, 직접 쓸 때도 언데드에게만 써져요)', '마법사 레벨당 HP 성장이 4~7 → 5~8로 늘었어요. 이미 레벨을 올린 마법사도 레벨당 +1씩 소급해서 받아요.', '자동사냥 설정 [사냥]에 [힐 마법 먼저]가 생겼어요. 켜 두면 HP가 자동 물약 기준보다 10% 높을 때 배운 힐 중 가장 센 것(그레이터 힐 → 익스트라 힐 → 힐)을 MP로 먼저 써서 물약을 아껴요. (처음엔 켜짐)', '(테스트) 갓 모드 패널에 [허수아비]가 생겼어요. Lv10·20·30·40·50 허수아비를 내 앞에 세우면 공격·이동 없이 맞기만 하고, 머리 위에 DPS(최근 10초 평균)가 떠요. 방어는 그 레벨 구간 몬스터 평균이고, 4초 동안 안 맞으면 체력이 다시 차요. [모두 치우기]로 없앨 수 있어요.', '뇌신검의 번개가 콜 라이트닝처럼 하늘에서 떨어져요. (번개 글자 없이 피해 숫자만) 번개 확률은 +7부터 강화당 3%씩 올라가요: +6 이하 10% · +7 13% · +8 16% · +9 19%.', '커츠의 검에도 뇌신검과 같은 번개가 발동해요. (타격 시 10% 번개 추가 피해 4~8 · +7부터 강화당 +3%)', '파이어볼 MP 10 → 15 · 재사용 대기 1.5초 → 2.5초. 마나의 지팡이 MP 흡수 1~3 → 1~2. (마법사 성장 속도를 기사와 비슷하게)', '물약을 마시면 리니지처럼 캐릭터 가슴 쪽에 그 물약 색의 빛이 잠깐 반짝여요. (빨간·주홍·맑은·초록·용기·마나·해독제 · 같은 지역 다른 사람에게도 보임)'] },
@@ -5287,7 +5312,7 @@ const MPP = (() => {
         else if (st === 'closed' && state === 'on') { NET.setRoom(null); state = 'off'; nextTry = performance.now() + 3000; msg('서버 연결이 끊겼어요. 잠시 뒤 자동으로 다시 접속해요.', false); say('월드 서버 연결이 끊겼습니다. 다시 접속하는 중…', '#f08a7a'); } }); }
   function leave() { clearTimeout(timer); if (cli) cli.close(); cli = null; NET.setRoom(null); others.clear(); if (state !== 'off') say('멀티플레이 방에서 나왔습니다.', '#9c9682'); state = 'off'; msg('', true); }
   function open() { const w = $('mpwin'); if (!w) return; w.hidden = !w.hidden; render(); }
-  function autoJoin() { if (!window.__gameOn || NET.hasArtRoom() || /[?&]mp=bc/.test(location.search) || state !== 'off' || performance.now() < nextTry) return; want = true; start(WORLD); }
+  function autoJoin() { if (SESS.kicked() || !window.__gameOn || NET.hasArtRoom() || /[?&]mp=bc/.test(location.search) || state !== 'off' || performance.now() < nextTry) return; want = true; start(WORLD); }
   setInterval(autoJoin, 1000);
   // 아티팩트(claude.ai)에서는 room이 있어 자동 멀티 — 버튼은 PC 실행 파일·로컬 파일에서만
   setTimeout(() => { const b = $('btn-mp'); if (b) { b.hidden = false; b.onclick = open; } const e = $('esc-mp'); if (e) { e.hidden = false; e.onclick = () => { window.escMenu && escMenu(false); open(); }; } }, 1500);

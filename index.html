@@ -484,6 +484,13 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
 .slot.rar.r-3:not(.blessed),.eq.rar.r-3{box-shadow:inset 0 0 0 2px var(--rar),inset 0 0 0 3px rgba(0,0,0,.55),inset 0 0 20px color-mix(in srgb,var(--rar) 50%,transparent),0 0 0 1px #0a0806,0 0 9px color-mix(in srgb,var(--rar) 75%,transparent)!important;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rar) 30%,#18121c),#0b070d 78%)!important}
 .slot.rar.blessed:not(.r-0){border-color:var(--rar)!important;box-shadow:inset 0 0 0 2px var(--rar),inset 0 0 10px rgba(255,210,90,.55),0 0 0 1px #6a5010,0 0 6px rgba(255,210,90,.45)!important}
 .cw-t tr.fx td{font-size:11px;line-height:1.25;white-space:normal;max-width:120px}
+
+/* v117: 중복 접속으로 끊긴 창 */
+#dupkick{position:fixed;inset:0;z-index:9999;background:rgba(6,4,2,.82);display:flex;align-items:center;justify-content:center}
+#dupkick .dk-box{max-width:440px;margin:16px;padding:22px 24px;background:linear-gradient(#2a2016,#16100a);border:1px solid #8a6a32;box-shadow:0 0 0 1px #0a0806,0 10px 40px rgba(0,0,0,.7);border-radius:6px;color:#e9e2cf;font:14px/1.6 "Noto Sans KR",sans-serif;text-align:center}
+#dupkick .dk-box b{display:block;font-size:17px;color:#ffd98a;margin-bottom:8px}
+#dupkick .dk-box p{margin:0 0 16px;color:#cfc6b0}
+#dupkick .dk-box button{padding:9px 22px;font:700 14px "Noto Sans KR";color:#2a1a08;background:linear-gradient(#ffe2a0,#d9a84a);border:1px solid #7a5a20;border-radius:4px;cursor:pointer}
 </style>
 <canvas id="cv"></canvas>
 <div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>서버 연결 중…</button><button id="btn-alch" type="button">연금술</button></div>
