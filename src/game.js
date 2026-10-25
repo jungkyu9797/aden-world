@@ -248,7 +248,7 @@ const floats=[], bursts=[];
 function floatText(x,y,text,o={}){ floats.push({x,y,text,t:0,life:o.life||0.9,color:o.color||'#fff',size:o.size||11,rise:o.rise||26,big:!!o.big,dx:(Math.random()-0.5)*8}); }
 function headY(f){ const S=MOB[f.kind]; return (S.hh||Math.round(62*S.sc)); }
 let hitstop=0, shake=0, hurt=0; const parts=[];
-function heroHit(S, mode){ const st=INV.stat(), sb = mode==='bow' ? (st.dex>=16?0.05:0)+(st.dex>=18?0.05:0) : mode==='magic' ? 0.12+(st.int>=16?0.05:0)+(st.int>=18?0.05:0) : (st.str>=16?0.05:0)+(st.str>=18?0.05:0);
+function heroHit(S, mode){ const st=INV.stat(), sb = mode==='bow' ? (st.dex>=16?0.05:0)+(st.dex>=18?0.05:0)+Math.max(0,Math.floor((st.dex-20)/2))*0.01 : mode==='magic' ? 0.12+(st.int>=16?0.05:0)+(st.int>=18?0.05:0) : (st.str>=16?0.05:0)+(st.str>=18?0.05:0)+Math.max(0,Math.floor((st.str-20)/2))*0.01;   /* v121: 힘(근거리)·민첩(활) 20 넘으면 2포인트마다 명중 +1% */
   return Math.max(0.2,Math.min(0.97, 0.6 + (BUFF.bounce>0&&!mode?0.15:0) + 0.05*(hero.lv-S.lv) + (10-(S.mac??10))*(mode==='magic'?-0.015:-0.03) + sb + INV.cx('hit')*0.03)); }
 // 마법사 기본 공격(마력탄) 피해: 지능·SP·레벨
 function magicDmg(){ const st=INV.stat(), sp=INV.sp(), ib=Math.max(0,Math.floor((st.int-12)/2)); return [1+ib+sp, 4+Math.floor(hero.lv/2)+ib+sp*2]; }
@@ -572,7 +572,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 120;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 121;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3759,8 +3759,8 @@ const INV = (() => {
   const blessAc = () => Object.values(eq).reduce((s, e) => s + (e.blessed && ITEMS[e.id].slot !== 'weapon' ? 1 : 0), 0);
   const ac0 = () => 10 - sum('ac') - enSum() - blessAc();                                    // 리니지식: 낮을수록 단단함
   const ac = () => ac0() - (BUFF.shieldm > 0 ? 2 : 0);
-  const strB = () => STAT.str >= 20 ? 3 : STAT.str >= 18 ? 2 : STAT.str >= 16 ? 1 : 0;   // 힘 보너스 (근거리 공격)
-  const dexB = () => STAT.dex >= 20 ? 3 : STAT.dex >= 18 ? 2 : STAT.dex >= 16 ? 1 : 0;   // 민첩 보너스 (활)
+  const strB = () => STAT.str >= 20 ? 3 + Math.floor((STAT.str - 20) / 2) : STAT.str >= 18 ? 2 : STAT.str >= 16 ? 1 : 0;   // 힘 보너스 (근거리 공격) · v121: 20 넘으면 2포인트마다 +1
+  const dexB = () => STAT.dex >= 20 ? 3 + Math.floor((STAT.dex - 20) / 2) : STAT.dex >= 18 ? 2 : STAT.dex >= 16 ? 1 : 0;   // 민첩 보너스 (활) · v121: 20 넘으면 2포인트마다 +1
   const dmg = () => { const W_ = eq.weapon, w = W_ ? ITEMS[W_.id].dmg : [1, 2]; const b = (W_ && ITEMS[W_.id].wtype === 'bow' ? dexB() : strB()) + sum('xdmg') + (BUFF.enchant > 0 ? 1 : 0) + (W_ ? enBonus(ITEMS[W_.id], W_.en || 0) + (W_.attr ? ATTR_DMG[W_.attr.lv] : 0) : 0); return [Math.max(1, w[0] + b), Math.max(1, w[1] + b)]; };
   const blessHit = () => { const W_ = eq.weapon; return W_ && W_.blessed && ITEMS[W_.id].wtype !== 'staff'; };
   const sp = () => { const W_ = eq.weapon; return sum('sp') + (W_ && W_.blessed && ITEMS[W_.id].wtype === 'staff' ? W_.blessSp || 1 : 0); };
@@ -5259,6 +5259,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 121, items: ['기사·요정이 힘·민첩을 올리는 보람이 생겼어요. 지금까지는 힘(근거리)·민첩(활)이 20이 되면 더 올려도 피해·명중이 그대로였는데, 이제 20을 넘으면 2포인트마다 피해 +1 · 명중 +1%씩 계속 올라요. (예: 힘 22 → 피해 +4 · 명중 +11% / 힘 26 → 피해 +6 · 명중 +13%)'] },
     { v: 120, items: ['오프라인 자동사냥이 생겼어요. 자동사냥을 켜 둔 채 게임을 끄면, 다시 접속할 때 꺼져 있던 시간만큼 최근 사냥 효율 그대로 경험치·골드·아이템을 받아요. (하루 최대 8시간 · 한국 시간 0시에 다시 채워짐 · 10분 이상 꺼져 있어야 정산)', '정산 기준은 최근 30분의 자동사냥 기록이에요. 10분 이상 기록이 있어야 쓸 수 있고, 시간은 계정 서버가 기록한 시각으로 재서 PC 시계를 바꿔도 달라지지 않아요. 파티 중·보스는 빠져요.', '물약·화살도 실제로 줄어요. 떨어지면 그때 사냥이 멈춰요. (자동사냥 설정에서 자동 구매를 켜 두면 번 골드로 사서 계속해요) 가방은 자동판매 무게 기준(꺼져 있으면 80%)까지 줍고, 넘치면 자동판매 등급은 골드로 바꿔요. 최근 기록에 사망이 있으면 보상이 절반이에요.', '접속하면 오프라인 사냥 결과 창이 떠요. 자동사냥 설정 맨 위에서 켜고 끌 수 있고, 지금 효율·오늘 남은 시간을 보거나 [오프라인 사냥으로 종료] 버튼으로 바로 끌 수 있어요.', '자동사냥에 매너 사냥이 생겼어요. (기본 켜짐) 파티원이 아닌 다른 유저가 노리거나 때리고 있는 몬스터는 같이 치지 않고 다른 몬스터를 잡아요. 가던 중에 다른 사람이 먼저 때리면 바로 다른 몬스터로 바꿔요. 나를 공격하는 몬스터와 내가 먼저 때린 몬스터는 그대로 잡아요. 자동사냥 설정 [사냥]에서 끌 수 있어요.'] },
     { v: 119, items: ['파티로 보스를 잡으면 드랍이 랜덤 분배돼요. 아이템마다 자격 있는 파티원 중 한 명에게 같은 확률로 3초 우선권이 가요. (자격: 같은 파티 · 보스 15칸 안 · 보스에 피해를 줬거나 최근 1분 안에 공격·마법을 쓴 사람 — 소환수를 잡아 준 마법사도 받을 수 있어요) 누가 무엇을 받았는지 채팅으로 알려줘요. 혼자 잡거나 파티가 아닌 사람이 섞이면 예전처럼 공헌도대로 나눠요.', '거대 여왕개미·오우거·바포메트의 소환수는 동시에 최대 9마리까지만 나와요.', '드랍 우선권(3초)이 실제로는 적용되지 않던 오류를 고쳤어요.'] },
     { v: 118, items: ['이제 마법서·기술서·정령수정이 없어도 레벨이 되면 직업이 배울 수 있는 모든 마법·기술·정령마법을 자동으로 배워요. (기사: 스턴 Lv5 · 리덕션 아머 15 · 바운스 어택 25 · 솔리드 캐리지 35 · 카운터 배리어 45 / 요정: 정령마법 Lv10·20 / 마법사: 이뮨 투 함 Lv28 포함) 이미 레벨을 넘은 캐릭터는 접속하면 바로 받아요.', '몬스터·보스 드랍과 마법상점에서 마법서·기술서·정령수정이 빠져요. 마법상점은 이제 마법 물품(마나 회복 물약 · 카운터 매직 주문서 · 능력치 초기화 주문서)을 팔아요. 가지고 있는 책은 상점에 팔 수 있어요. (예전 값의 30%)', '셸로브·거대 여왕개미·오우거·바포메트가 더 강해졌어요: 물리 피해(근접·화살)를 30% 덜 받고, 물리·마법 공격력이 1.25배예요. (마법 피해는 그대로 들어가요)', '셸로브를 뺀 모든 보스의 범위 공격(붉은·초록 원)에 맞으면 기절할 수 있어요. 확률은 기사 스턴처럼 레벨 차이로 정해져요: 50% + 보스가 나보다 1레벨 높을 때마다 +5% (낮으면 −5% · 최저 10% · 최고 90%). 기절하면 1~3초 동안 움직이지도·공격·마법·물약 사용도 못 해요. 카운터 매직으로 막으면 기절도 없어요.'] },
