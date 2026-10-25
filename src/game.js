@@ -96,7 +96,7 @@ const DN = (() => {
 const nightUp = S => S.undead && DN.isNight() && !MAZE();   // 던전은 늘 어두워서 밤 보너스 없음 (수치에 이미 반영)
 const mobDmg = S => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1) * (S.boss ? 1.5 : 1) * (S.solo ? SOLO_MUL : 1) * (S.atkMul || 1));   // v109: 보스 기본 공격 ×1.5 · v112: 단일 보스 ×1.4 더
 const lowLvMul = S => { const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };   // v111: 내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치 −5% (최대 −50%)
-let OFFL_HOOK = null;   /* v120: 오프라인 사냥 기록기 (아래 OFFL) — 정의되기 전에 불려도 안전하게 */
+let OFFL_HOOK = null, TITLE_SHOW = false;   /* v120: 오프라인 사냥 기록기 (아래 OFFL) — 정의되기 전에 불려도 안전하게 */
 const lowLvTag = S => { const m = lowLvMul(S); return m < 1 ? ` (낮은 레벨 −${Math.round((1 - m) * 100)}%)` : ''; };
 const mobHit = S => Math.max(S.boss ? 0.5 : 0.10, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (hero.lv * 2 - INV.ac()) - 40 + (S.boss ? 10 : 0) + (nightUp(S) ? 10 : 0)) / 100));   // v109: (몬스터 레벨×3 + 명중) − (내 레벨×2 + 방어력) − 40 · 최저 10% · 최고 95% · 보스 +10%
 const mobHitM = S => Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * (S.lv - hero.lv) + (nightUp(S) ? 0.05 : 0)));   // 몬스터 마법: AC 무시
@@ -572,7 +572,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 122;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 123;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4535,7 +4535,7 @@ const TOWN = (() => {
   // ---- 배경음악
   // 배경음악: 마을 = Village Market Day, 이야기섬 = 이야기섬 테마, 사막 = Desert Pulse, 보스 전투 = 보스 테마
   // Web Audio로 재생 (아티팩트 화면 등 미디어 태그가 막히는 환경 대비), 안 되면 <audio> 태그로
-  const SRC = { town: 'assets/sound/bgm_town.mp3', island: 'assets/sound/bgm_island.mp3', desert: 'assets/sound/bgm_desert.mp3', orc: 'assets/sound/bgm_orc.mp3', bugbear: 'assets/sound/bgm_bugbear.mp3', dungeon: 'assets/sound/bgm_dungeon.mp3', snow: 'assets/sound/bgm_snow.mp3', boss: 'assets/sound/bgm_boss.mp3' };
+  const SRC = { title: 'assets/sound/bgm_title.mp3', town: 'assets/sound/bgm_town.mp3', island: 'assets/sound/bgm_island.mp3', desert: 'assets/sound/bgm_desert.mp3', orc: 'assets/sound/bgm_orc.mp3', bugbear: 'assets/sound/bgm_bugbear.mp3', dungeon: 'assets/sound/bgm_dungeon.mp3', snow: 'assets/sound/bgm_snow.mp3', boss: 'assets/sound/bgm_boss.mp3' };
   const EL = { town: $('bgm'), island: $('bgm-island'), desert: $('bgm-desert'), orc: $('bgm-orc'), bugbear: $('bgm-bugbear'), boss: $('bgm-boss') };
   const T = {}; let unlocked = false, muted = !SND.get().bgmOn, curWant = null;
   function track(k) { if (T[k]) return T[k]; const t = T[k] = { buf: null, src: null, gain: null, loading: null, failed: false };
@@ -4552,7 +4552,7 @@ const TOWN = (() => {
     if (v === 0) { const s0 = t.src, g0 = t.gain; t.src = null; t.gain = null; setTimeout(() => { try { s0.stop(); } catch (e) {} g0.disconnect(); }, 1300); }
   }
   const bossFight = () => foxes.some(f => !f.dead && MOB[f.kind] && MOB[f.kind].boss && f.aggro);   // 보스 전투 중이면 보스 음악
-  function wantBGM() { return SCENE === 'town' ? 'town' : bossFight() ? 'boss' : ISLE ? (ISLE.def && ISLE.def.sand ? 'desert' : ISLE.def && ISLE.def.forest ? 'orc' : ISLE.def && (ISLE.def.gore || ISLE.def.maze) ? (ISLE.def.maze && SRC.dungeon ? 'dungeon' : 'bugbear') : ISLE.def && ISLE.def.snow && SRC.snow ? 'snow' : 'island') : null; }   // 사막 지역 = Desert Pulse
+  function wantBGM() { return TITLE_SHOW ? 'title' : SCENE === 'town' ? 'town' : bossFight() ? 'boss' : ISLE ? (ISLE.def && ISLE.def.sand ? 'desert' : ISLE.def && ISLE.def.forest ? 'orc' : ISLE.def && (ISLE.def.gore || ISLE.def.maze) ? (ISLE.def.maze && SRC.dungeon ? 'dungeon' : 'bugbear') : ISLE.def && ISLE.def.snow && SRC.snow ? 'snow' : 'island') : null; }   // 사막 지역 = Desert Pulse
   function syncBGM() { const want = curWant = wantBGM(), K = SND.bgmK(); for (const k in SRC) setVol(k, k === want && unlocked && !muted && K > 0 ? (k === 'boss' ? 0.6 : 0.5) * K : 0); }
   const fadeTo = () => syncBGM();
   $('inv-sort').onclick = () => INV.sortBag(); if ($('inv-bulk')) $('inv-bulk').onclick = () => INV.bulkOpen();
@@ -5268,6 +5268,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 123, items: ['로그인·캐릭터 선택·캐릭터 만들기 화면을 새로 꾸몄어요. 달빛 아래 성과 산, 흘러가는 구름과 안개, 피어오르는 불씨, 가끔 떨어지는 별똥별이 움직이는 배경 위로 금빛 아덴 월드 로고가 떠요. 마우스를 움직이면 배경이 살짝 따라 움직여요.', '캐릭터 선택 카드가 하나씩 날아 들어오고, 고른 직업은 금빛 테두리와 빛줄기로 표시돼요. 입력창·버튼에도 빛나는 효과가 생겼어요.', '타이틀 화면 전용 배경음악이 생겼어요. (오른쪽 위 [♪ 배경음악] 버튼으로 켜고 끌 수 있고, 게임 안 배경음악 설정과 함께 저장돼요) 게임에 들어가면 원래 지역 음악으로 바뀌어요.'] },
     { v: 122, items: ['웹(아티팩트)에서도 게임 중에 업데이트할 수 있어요. 새 버전이 나오면 화면 위에 [업데이트] 버튼이 생기고, 누르면 캐릭터를 저장한 뒤 잠깐 다시 불러와서 로그인·캐릭터 선택 없이 같은 사냥터·같은 자리로 돌아와요. 파티·멀티 방·꺼내 둔 펫·자동사냥도 그대로 이어져요. (PC 클라이언트와 같은 방식 · 새 버전은 5분마다 확인)'] },
     { v: 121, items: ['기사·요정이 힘·민첩을 올리는 보람이 생겼어요. 지금까지는 힘(근거리)·민첩(활)이 20이 되면 더 올려도 피해·명중이 그대로였는데, 이제 20을 넘으면 2포인트마다 피해 +1 · 명중 +1%씩 계속 올라요. (예: 힘 22 → 피해 +4 · 명중 +11% / 힘 26 → 피해 +6 · 명중 +13%)'] },
     { v: 120, items: ['오프라인 자동사냥이 생겼어요. 자동사냥을 켜 둔 채 게임을 끄면, 다시 접속할 때 꺼져 있던 시간만큼 최근 사냥 효율 그대로 경험치·골드·아이템을 받아요. (하루 최대 8시간 · 한국 시간 0시에 다시 채워짐 · 10분 이상 꺼져 있어야 정산)', '정산 기준은 최근 30분의 자동사냥 기록이에요. 10분 이상 기록이 있어야 쓸 수 있고, 시간은 계정 서버가 기록한 시각으로 재서 PC 시계를 바꿔도 달라지지 않아요. 파티 중·보스는 빠져요.', '물약·화살도 실제로 줄어요. 떨어지면 그때 사냥이 멈춰요. (자동사냥 설정에서 자동 구매를 켜 두면 번 골드로 사서 계속해요) 가방은 자동판매 무게 기준(꺼져 있으면 80%)까지 줍고, 넘치면 자동판매 등급은 골드로 바꿔요. 최근 기록에 사망이 있으면 보상이 절반이에요.', '접속하면 오프라인 사냥 결과 창이 떠요. 자동사냥 설정 맨 위에서 켜고 끌 수 있고, 지금 효율·오늘 남은 시간을 보거나 [오프라인 사냥으로 종료] 버튼으로 바로 끌 수 있어요.', '자동사냥에 매너 사냥이 생겼어요. (기본 켜짐) 파티원이 아닌 다른 유저가 노리거나 때리고 있는 몬스터는 같이 치지 않고 다른 몬스터를 잡아요. 가던 중에 다른 사람이 먼저 때리면 바로 다른 몬스터로 바꿔요. 나를 공격하는 몬스터와 내가 먼저 때린 몬스터는 그대로 잡아요. 자동사냥 설정 [사냥]에서 끌 수 있어요.'] },
@@ -5554,6 +5555,72 @@ const AUTO = (() => {
   return { tick, toggle, openSet, status, wantLoot, home: () => home, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; } } };
 })();
 
+// v123: 타이틀 화면 (로그인·캐릭터 선택·캐릭터 만들기) — 움직이는 밤 배경(별·달·구름·산·성·안개·불씨·유성) + 타이틀 음악 · 화면이 닫히면 그리기를 멈춤
+const TITLE = (() => {
+  const $ = id => document.getElementById(id), bg = $('titlebg'), cv = $('tb-cv'), sb = $('tb-snd'), scr = ['loginscr', 'charsel', 'namescr'].map(id => $(id)).filter(Boolean);
+  if (!bg || !cv) return { on: () => false };
+  const g = cv.getContext('2d'), RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  let W = 1, H = 1, raf = 0, on = false, last = 0, T = 0, px = 0, py = 0, tpx = 0, tpy = 0, shoot = null, nextShoot = 5;
+  let sd = 11; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const stars = Array.from({ length: 240 }, () => ({ x: rnd(), y: Math.pow(rnd(), 1.4) * 0.66, r: 0.3 + rnd() * 1.2, p: rnd() * 6.28, s: 0.6 + rnd() * 2.2, w: rnd() < 0.12 }));
+  const clouds = Array.from({ length: 6 }, () => ({ x: rnd() * 1.2 - 0.1, y: 0.07 + rnd() * 0.3, w: 0.16 + rnd() * 0.22, h: 0.02 + rnd() * 0.025, v: 0.003 + rnd() * 0.005 }));
+  const mkE = init => ({ x: Math.random(), y: init ? 0.35 + Math.random() * 0.7 : 1.03, v: 0.025 + Math.random() * 0.05, ph: Math.random() * 6.28, r: 0.7 + Math.random() * 1.7, a: 0.5 + Math.random() * 0.5 });
+  const embers = Array.from({ length: 70 }, () => mkE(true));
+  const wins = Array.from({ length: 14 }, () => ({ ph: rnd() * 6.28, sp: 1 + rnd() * 3 }));
+  const trees = [[0.015, 1.1], [0.05, 0.8], [0.085, 1.3], [0.12, 0.7], [0.83, 0.9], [0.87, 1.4], [0.91, 1.0], [0.955, 1.25], [0.99, 0.85]];
+  const ridge = (x, base, amp, k) => base - amp * (0.55 + 0.25 * Math.sin(x * 6.1 * k + k * 3) + 0.14 * Math.sin(x * 15.3 * k + 1.7 * k) + 0.06 * Math.sin(x * 41 * k + k));
+  function resize() { const d = Math.min(1.5, window.devicePixelRatio || 1); W = Math.max(1, innerWidth); H = Math.max(1, innerHeight); cv.width = Math.round(W * d); cv.height = Math.round(H * d); g.setTransform(d, 0, 0, d, 0, 0); }
+  function mtn(base, amp, k, col, par) { const ox = px * par * 30, oy = py * par * 10; g.fillStyle = col; g.beginPath(); g.moveTo(-40, H); for (let x = -40; x <= W + 40; x += 8) g.lineTo(x, ridge((x - ox) / W, base * H, amp * H, k) + oy); g.lineTo(W + 40, H); g.closePath(); g.fill(); }
+  function fog(yc, hh, a, sp) { for (let i = 0; i < 5; i++) { const x = (((i * 0.29 + T * sp * (1 + (i % 2) * 0.6)) % 1.6) - 0.3) * W + px * 20, y = (yc + Math.sin(T * 0.2 + i) * 0.01) * H + py * 8, rw = W * 0.45, rh = hh * H;
+      g.save(); g.translate(x, y); g.scale(1, rh / rw); const fg = g.createRadialGradient(0, 0, 0, 0, 0, rw); fg.addColorStop(0, `rgba(150,165,205,${a})`); fg.addColorStop(1, 'rgba(150,165,205,0)'); g.fillStyle = fg; g.beginPath(); g.arc(0, 0, rw, 0, 6.283); g.fill(); g.restore(); } }
+  function castle(par) { const ox = px * par * 30, oy = py * par * 10, s = Math.min(W, H * 1.6) / 1000, cx = W * 0.27 + ox, gy = H * 0.7 + oy, base = gy - 20 * s;
+    g.fillStyle = '#080c17'; g.beginPath(); g.moveTo(cx - 340 * s, H); g.quadraticCurveTo(cx - 200 * s, gy - 8 * s, cx, base); g.quadraticCurveTo(cx + 220 * s, gy - 8 * s, cx + 370 * s, H); g.closePath(); g.fill();
+    const TW = [[-150, 34, 120], [-95, 30, 165], [-40, 70, 120], [-10, 30, 235], [35, 40, 150], [80, 30, 190], [125, 36, 110]];   // [x, 너비, 높이]
+    g.fillStyle = '#060912';
+    for (const [x, w, hh] of TW) { const L = cx + x * s, Tp = base - hh * s; g.fillRect(L, Tp, w * s, hh * s + 6 * s);
+      if (w <= 40) { g.beginPath(); g.moveTo(L - 4 * s, Tp); g.lineTo(L + w * s / 2, Tp - w * 1.3 * s); g.lineTo(L + w * s + 4 * s, Tp); g.closePath(); g.fill(); }   // 고깔 지붕
+      else for (let b = 0; b < w; b += 10) g.fillRect(L + b * s, Tp - 7 * s, 6 * s, 7 * s); }   // 성가퀴
+    g.fillStyle = 'rgba(170,190,240,.10)'; for (const [x, w, hh] of TW) g.fillRect(cx + (x + w - 3) * s, base - hh * s, 3 * s, hh * s);   // 달빛 테두리
+    const fx = cx + 5 * s, fy = base - 235 * s - 39 * s; g.strokeStyle = '#060912'; g.lineWidth = Math.max(1, 1.5 * s); g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx, fy - 26 * s); g.stroke();
+    g.fillStyle = '#6a1616'; g.beginPath(); g.moveTo(fx, fy - 26 * s); for (let q = 0; q <= 6; q++) g.lineTo(fx + q * 4 * s, fy - 26 * s + Math.sin(T * 3 + q * 0.8) * 2 * s); for (let q = 6; q >= 0; q--) g.lineTo(fx + q * 4 * s, fy - 16 * s + Math.sin(T * 3 + q * 0.8 + 0.4) * 2 * s); g.closePath(); g.fill();
+    const WP = [[-140, 60], [-130, 90], [-85, 70], [-85, 120], [-25, 80], [-1, 120], [-1, 170], [5, 200], [45, 100], [50, 70], [88, 120], [90, 160], [133, 70], [-60, 95]];
+    WP.forEach(([x, hh], i) => { const w = wins[i], a = 0.55 + 0.45 * Math.sin(T * w.sp + w.ph) * Math.sin(T * 0.7 * w.sp + w.ph * 2); g.fillStyle = `rgba(255,${(180 + a * 40) | 0},90,${(0.5 + a * 0.45).toFixed(2)})`; g.fillRect(cx + x * s, base - hh * s, Math.max(1.5, 4 * s), Math.max(2.5, 7 * s)); });
+    const gl = g.createRadialGradient(cx, gy, 0, cx, gy, 280 * s); gl.addColorStop(0, 'rgba(255,150,60,.16)'); gl.addColorStop(1, 'rgba(255,150,60,0)'); g.fillStyle = gl; g.fillRect(cx - 280 * s, gy - 280 * s, 560 * s, 560 * s); }
+  function fore(par) { const ox = px * par * 30, oy = py * par * 10; mtn(0.95, 0.07, 2.6, '#03050a', par);
+    g.fillStyle = '#03050a'; for (const [tx, k] of trees) { const x = tx * W + ox, b = ridge((x - ox) / W, 0.95 * H, 0.07 * H, 2.6) + oy + 6, th = Math.min(W, H) * 0.16 * k, tw = th * 0.42;
+      for (let q = 0; q < 4; q++) { const y0 = b - th * (q / 4), y1 = b - th * ((q + 1.6) / 4); g.beginPath(); g.moveTo(x - tw * (1 - q * 0.2) / 2, y0); g.lineTo(x, y1); g.lineTo(x + tw * (1 - q * 0.2) / 2, y0); g.closePath(); g.fill(); } } }
+  function draw(dt) { T += dt; px += (tpx - px) * Math.min(1, dt * 2); py += (tpy - py) * Math.min(1, dt * 2);
+    const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#03050d'); sky.addColorStop(0.45, '#0d1832'); sky.addColorStop(0.7, '#272642'); sky.addColorStop(0.84, '#4a2f37'); sky.addColorStop(1, '#170e15'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
+    for (const st of stars) { const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(T * st.s + st.p)); g.globalAlpha = Math.max(0, a * (st.y < 0.45 ? 1 : 1 - (st.y - 0.45) * 3)); g.fillStyle = st.w ? '#ffe9c4' : '#dfe8ff'; g.beginPath(); g.arc(st.x * W + px * 6, st.y * H + py * 3, st.r, 0, 6.283); g.fill(); }
+    g.globalAlpha = 1;
+    const mx = W * 0.76 + px * 10, my = H * 0.2 + py * 5, mr = Math.max(18, Math.min(W, H) * 0.07);
+    let gr = g.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 5); gr.addColorStop(0, 'rgba(200,215,255,.26)'); gr.addColorStop(0.3, 'rgba(150,170,230,.07)'); gr.addColorStop(1, 'rgba(120,140,220,0)'); g.fillStyle = gr; g.fillRect(mx - mr * 5, my - mr * 5, mr * 10, mr * 10);
+    gr = g.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr); gr.addColorStop(0, '#fbfaf2'); gr.addColorStop(0.7, '#dfe1d6'); gr.addColorStop(1, '#b4b8b4'); g.fillStyle = gr; g.beginPath(); g.arc(mx, my, mr, 0, 6.283); g.fill();
+    g.fillStyle = 'rgba(140,140,135,.2)'; for (const [a, b, r] of [[-0.3, -0.1, 0.22], [0.25, 0.2, 0.16], [0.05, -0.4, 0.1], [0.35, -0.25, 0.08], [-0.15, 0.35, 0.12]]) { g.beginPath(); g.arc(mx + a * mr, my + b * mr, r * mr, 0, 6.283); g.fill(); }
+    for (const c of clouds) { c.x += c.v * dt; if (c.x - c.w > 1.15) c.x = -c.w - 0.05; const cx = c.x * W + px * 14, cy = c.y * H + py * 6, rw = c.w * W, rh = c.h * H;
+      g.save(); g.translate(cx, cy); g.scale(1, rh / rw); const cg = g.createRadialGradient(0, 0, 0, 0, 0, rw); cg.addColorStop(0, 'rgba(26,34,62,.6)'); cg.addColorStop(0.6, 'rgba(26,34,62,.3)'); cg.addColorStop(1, 'rgba(26,34,62,0)'); g.fillStyle = cg; g.beginPath(); g.arc(0, 0, rw, 0, 6.283); g.fill(); g.restore(); }
+    if (!RM) { nextShoot -= dt; if (!shoot && nextShoot <= 0) { shoot = { x: 0.15 + Math.random() * 0.55, y: 0.04 + Math.random() * 0.18, t: 0 }; nextShoot = 7 + Math.random() * 10; } }
+    if (shoot) { shoot.t += dt; const k = shoot.t / 0.9, x = (shoot.x - k * 0.18) * W, y = (shoot.y + k * 0.09) * H; const sg = g.createLinearGradient(x, y, x + 0.09 * W, y - 0.045 * H); sg.addColorStop(0, `rgba(255,250,230,${(1 - k).toFixed(2)})`); sg.addColorStop(1, 'rgba(255,250,230,0)');
+      g.strokeStyle = sg; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 0.09 * W, y - 0.045 * H); g.stroke(); if (k >= 1) shoot = null; }
+    mtn(0.62, 0.16, 1.0, '#131b32', 0.25); fog(0.6, 0.06, 0.06, 0.006); mtn(0.71, 0.14, 1.7, '#0d1427', 0.45); fog(0.69, 0.07, 0.07, 0.009);
+    castle(0.6); fog(0.84, 0.1, 0.08, 0.012); fore(0.95);
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < embers.length; i++) { const e = embers[i]; if (!RM) { e.y -= e.v * dt; e.x += Math.sin(T * 1.3 + e.ph) * 0.0007 + 0.0004 * dt * 60 * 0.02; }
+      if (e.y < 0.25 || e.x > 1.05) { embers[i] = mkE(false); continue; } const a = e.a * Math.min(1, (e.y - 0.25) * 3) * (0.6 + 0.4 * Math.sin(T * 6 + e.ph)), x = e.x * W + px * 26, y = e.y * H + py * 10;
+      g.fillStyle = `rgba(255,140,50,${(a * 0.25).toFixed(3)})`; g.beginPath(); g.arc(x, y, e.r * 3.2, 0, 6.283); g.fill(); g.fillStyle = `rgba(255,215,140,${a.toFixed(3)})`; g.beginPath(); g.arc(x, y, e.r * 0.8, 0, 6.283); g.fill(); }
+    g.globalCompositeOperation = 'source-over'; }
+  function loop(now) { if (!on) { raf = 0; return; } const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now; draw(dt); raf = requestAnimationFrame(loop); }
+  function set(v) { if (v === on) return; on = v; bg.hidden = !v; document.body.classList.toggle('title-on', v); if (sb) sb.hidden = !v; TITLE_SHOW = v; try { if (TOWN.syncBGM) TOWN.syncBGM(); } catch (e) {}
+    if (v) { resize(); last = 0; if (RM) draw(0.016); else if (!raf) raf = requestAnimationFrame(loop); } }
+  const check = () => set(scr.some(el => !el.hidden));
+  { const mo = new MutationObserver(check); scr.forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['hidden'] })); }
+  addEventListener('resize', () => { if (on) { resize(); if (RM) draw(0.016); } });
+  addEventListener('pointermove', ev => { if (on) { tpx = ev.clientX / W - 0.5; tpy = ev.clientY / H - 0.5; } });
+  if (sb) { const lab = () => { const m = !!SND.get().bgmOn; sb.setAttribute('aria-pressed', String(m)); sb.textContent = m ? '♪ 배경음악 켜짐' : '♪ 배경음악 꺼짐'; };
+    lab(); sb.onclick = () => { const v = !SND.get().bgmOn; SND.set({ bgmOn: v }); if (TOWN.setBgm) TOWN.setBgm(v); lab(); }; }
+  check();
+  return { on: () => on };
+})();
 // v120: 오프라인 자동사냥 — 자동사냥을 켠 채 게임을 끄면, 다시 접속할 때 꺼져 있던 시간(하루 최대 8시간)만큼 최근 사냥 효율 그대로 보상
 //   기록: 자동사냥 중(파티·갓 모드 제외) 1분마다 경험치·골드·처치 수(종류별)·쓴 물품·사망 → 최근 30분만 저장 데이터(ofl)에 보관
 //   정산: 지난 종료 = 마지막 저장의 서버 수정 시각, 지금 = 이번 접속 기록의 서버 시각 → 10분 단위로 계산 (레벨이 오르면 낮은 레벨 감소를 다시 적용)
