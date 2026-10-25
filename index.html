@@ -476,6 +476,13 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
 .gp-it b{font-size:12.5px;line-height:1.2} .gp-it small{font-size:10.5px;color:#a89e86} .gp-it small:nth-of-type(1){text-align:right;font-weight:700}
 .gp-it small:nth-of-type(2){grid-column:2/4}
 .gp-it.got{animation:gpgot .5s ease-out} @keyframes gpgot{0%{box-shadow:0 0 0 0 rgba(255,216,106,.9);background:#5a4214}100%{box-shadow:0 0 0 8px rgba(255,216,106,0)}}
+
+/* v115: 등급 테두리를 두껍고 선명하게 — 고급 초록 · 희귀 파랑 · 영웅 보라 (칸 안쪽 3px 띠 + 등급색 바탕) */
+.slot.rar:not(.r-0),.eq.rar:not(.r-0){border-color:var(--rar)!important}
+.slot.rar.r-1:not(.blessed),.eq.rar.r-1{box-shadow:inset 0 0 0 2px var(--rar),inset 0 0 0 3px rgba(0,0,0,.55),inset 0 0 16px color-mix(in srgb,var(--rar) 34%,transparent),0 0 0 1px #0a0806!important;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rar) 20%,#1a1612),#0b0907 78%)!important}
+.slot.rar.r-2:not(.blessed),.eq.rar.r-2{box-shadow:inset 0 0 0 2px var(--rar),inset 0 0 0 3px rgba(0,0,0,.55),inset 0 0 18px color-mix(in srgb,var(--rar) 42%,transparent),0 0 0 1px #0a0806,0 0 5px color-mix(in srgb,var(--rar) 55%,transparent)!important;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rar) 26%,#15161c),#08090d 78%)!important}
+.slot.rar.r-3:not(.blessed),.eq.rar.r-3{box-shadow:inset 0 0 0 2px var(--rar),inset 0 0 0 3px rgba(0,0,0,.55),inset 0 0 20px color-mix(in srgb,var(--rar) 50%,transparent),0 0 0 1px #0a0806,0 0 9px color-mix(in srgb,var(--rar) 75%,transparent)!important;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rar) 30%,#18121c),#0b070d 78%)!important}
+.slot.rar.blessed:not(.r-0){border-color:var(--rar)!important;box-shadow:inset 0 0 0 2px var(--rar),inset 0 0 10px rgba(255,210,90,.55),0 0 0 1px #6a5010,0 0 6px rgba(255,210,90,.45)!important}
 </style>
 <canvas id="cv"></canvas>
 <div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>서버 연결 중…</button><button id="btn-alch" type="button">연금술</button></div>
