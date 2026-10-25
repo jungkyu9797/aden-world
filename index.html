@@ -486,6 +486,21 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
 .cw-t tr.fx td{font-size:11px;line-height:1.25;white-space:normal;max-width:120px}
 
 /* v117: 중복 접속으로 끊긴 창 */
+.hw-ofl{margin:4px 0 6px;font-size:12px;color:#cfc6b0;line-height:1.5}.hw-ofl b{color:#ffd98a}
+.hw-oflq{padding:5px 12px;font:700 12px "Noto Sans KR";color:#2a1a08;background:linear-gradient(#ffe2a0,#d9a84a);border:1px solid #7a5a20;border-radius:4px;cursor:pointer}.hw-oflq:disabled{opacity:.45;cursor:default}
+#oflres{position:fixed;inset:0;z-index:9990;background:rgba(6,4,2,.72);display:flex;align-items:center;justify-content:center}
+#oflres .of-box{width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;padding:20px 22px;background:linear-gradient(#2a2016,#16100a);border:1px solid #8a6a32;box-shadow:0 0 0 1px #0a0806,0 10px 40px rgba(0,0,0,.7);border-radius:6px;color:#e9e2cf;font:14px/1.55 "Noto Sans KR",sans-serif;text-align:center}
+#oflres .of-box>b{display:block;font-size:18px;color:#ffd98a;margin-bottom:4px}
+#oflres .of-sub{margin:0 0 12px;font-size:12.5px;color:#b9b09a}#oflres .of-sub em{font-style:normal;color:#ffd98a;font-weight:700}
+#oflres .of-main{display:flex;gap:10px;margin-bottom:12px}#oflres .of-main>div{flex:1;padding:8px 6px;background:rgba(0,0,0,.28);border:1px solid #4a3a20;border-radius:4px;display:flex;flex-direction:column;gap:1px}
+#oflres .of-main span{font-size:12px;color:#b9b09a}#oflres .of-main strong{font-size:19px;color:#f2e6a8}#oflres .of-main small{font-size:11.5px;color:#9fd08a}
+#oflres .of-h{font-size:13px;color:#cfc6b0;margin:4px 0 6px}#oflres .of-h small{color:#8f8670}
+#oflres .of-items{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px}
+#oflres .of-it{position:relative;width:38px;height:38px;border-radius:4px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 2px var(--rar,#f2f2f2)}#oflres .of-it svg{width:100%;height:100%}
+#oflres .of-it.r-0{--rar:#f2f2f2}#oflres .of-it.r-1{--rar:#5ee05e}#oflres .of-it.r-2{--rar:#3f9bff}#oflres .of-it.r-3{--rar:#c77dff}
+#oflres .of-it i{position:absolute;right:2px;bottom:0;font:700 11px "Noto Sans KR";font-style:normal;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000}
+#oflres .of-use{margin:0 0 8px;font-size:12px;color:#b9b09a}#oflres .of-note{margin:0 0 6px;font-size:12.5px;color:#f0c080}
+#oflres button{margin-top:6px;padding:9px 28px;font:700 14px "Noto Sans KR";color:#2a1a08;background:linear-gradient(#ffe2a0,#d9a84a);border:1px solid #7a5a20;border-radius:4px;cursor:pointer}
 #dupkick{position:fixed;inset:0;z-index:9999;background:rgba(6,4,2,.82);display:flex;align-items:center;justify-content:center}
 #dupkick .dk-box{max-width:440px;margin:16px;padding:22px 24px;background:linear-gradient(#2a2016,#16100a);border:1px solid #8a6a32;box-shadow:0 0 0 1px #0a0806,0 10px 40px rgba(0,0,0,.7);border-radius:6px;color:#e9e2cf;font:14px/1.6 "Noto Sans KR",sans-serif;text-align:center}
 #dupkick .dk-box b{display:block;font-size:17px;color:#ffd98a;margin-bottom:8px}
@@ -577,6 +592,10 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
  <div class="tw-btns"><button type="button" id="tw-ok" class="cs-go">확인</button><button type="button" id="tw-cancel">취소</button></div></div>
 <div class="notewin" id="notewin" hidden role="dialog" aria-modal="true" aria-labelledby="note-t"><div class="pn note-box"><h2><span id="note-t">업데이트 소식</span><button type="button" data-close aria-label="닫기">×</button></h2><div class="note-body" id="note-body"></div><button type="button" id="note-ok" class="cs-go">확인</button></div></div><div class="askwin" id="askwin" hidden role="dialog" aria-modal="true" aria-labelledby="ask-q"><div class="ask-box"><p class="ask-q" id="ask-q"></p><p class="ask-sub" id="ask-sub"></p><div class="ask-btns"><button type="button" id="ask-yes">네</button><button type="button" id="ask-no">아니오</button></div></div></div><div class="gw" id="huntwin" hidden><button class="x" type="button" data-closewin="huntwin">닫기</button>
  <h3 class="aw-t">자동사냥 설정 <small>(각 지역 1·2구간)</small></h3>
+ <div class="hw-sec hw-oflsec"><b>오프라인 사냥 <small>(하루 8시간 · 사냥 효율 그대로)</small></b>
+  <label class="hw-row"><input type="checkbox" data-k="ofl"> 자동사냥을 켜 둔 채 게임을 끄면 꺼져 있던 시간만큼 보상 받기</label>
+  <div class="hw-ofl" id="hw-ofl"></div>
+  <button type="button" class="hw-oflq" id="hw-oflq">오프라인 사냥으로 종료</button></div>
  <div class="hw-sec"><b>귀환</b>
   <label class="aw-pct">HP <input type="range" min="10" max="70" step="5" data-k="retHp"> <b data-v="retHp"></b> 이하면 마을로 귀환</label>
   <label class="hw-row"><input type="checkbox" data-k="lowPot"> 물약이 <input type="number" min="0" max="50" data-k="lowN" class="hw-n">개 이하면 귀환 <small>(아래에서 체크한 물약 수량만)</small></label>
@@ -589,6 +608,7 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
   <label class="hw-row"><input type="checkbox" data-k="deathBack"> 사망 후 자동 복귀</label></div>
  <div class="hw-sec"><b>사냥</b>
   <label class="hw-row">타겟팅 <select data-k="tgtMode"><option value="free">자율 공격 (알아서 가까운 몹)</option><option value="same">파티원과 같은 몬스터 공격</option><option value="diff">파티원과 다른 몬스터 공격</option></select> <small>(파티 중일 때 적용)</small></label>
+  <label class="hw-row"><input type="checkbox" data-k="manner"> 매너 사냥: 파티원이 아닌 다른 유저가 잡는 몬스터는 건너뛰기 <small>(나를 공격하는 몬스터는 반격)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="aggrFirst"> 나를 공격하는 몬스터 먼저</label>
   <label class="hw-row"><input type="checkbox" data-k="healFirst"> 힐 마법 먼저 <small>(자동 물약 기준보다 HP 10% 높을 때 MP로 회복)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="noBoss"> 보스 몬스터는 공격 안 함</label>

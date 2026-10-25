@@ -96,6 +96,7 @@ const DN = (() => {
 const nightUp = S => S.undead && DN.isNight() && !MAZE();   // 던전은 늘 어두워서 밤 보너스 없음 (수치에 이미 반영)
 const mobDmg = S => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1) * (S.boss ? 1.5 : 1) * (S.solo ? SOLO_MUL : 1) * (S.atkMul || 1));   // v109: 보스 기본 공격 ×1.5 · v112: 단일 보스 ×1.4 더
 const lowLvMul = S => { const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };   // v111: 내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치 −5% (최대 −50%)
+let OFFL_HOOK = null;   /* v120: 오프라인 사냥 기록기 (아래 OFFL) — 정의되기 전에 불려도 안전하게 */
 const lowLvTag = S => { const m = lowLvMul(S); return m < 1 ? ` (낮은 레벨 −${Math.round((1 - m) * 100)}%)` : ''; };
 const mobHit = S => Math.max(S.boss ? 0.5 : 0.10, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (hero.lv * 2 - INV.ac()) - 40 + (S.boss ? 10 : 0) + (nightUp(S) ? 10 : 0)) / 100));   // v109: (몬스터 레벨×3 + 명중) − (내 레벨×2 + 방어력) − 40 · 최저 10% · 최고 95% · 보스 +10%
 const mobHitM = S => Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * (S.lv - hero.lv) + (nightUp(S) ? 0.05 : 0)));   // 몬스터 마법: AC 무시
@@ -303,7 +304,7 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
 function killCheck(f){ const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0) f.hp=f.max; return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss) say(S.name+'을(를) 쓰러뜨렸습니다.');
-  const D=NET.distribute(f,S); if (!D){ shareExp(f,S); const c=rint(S.coin); coins+=c; say('골드('+c+') 획득: '+S.name, '#cfe4a8'); }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
+  const D=NET.distribute(f,S); if (!D){ shareExp(f,S); const c=rint(S.coin); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+S.name, '#cfe4a8'); }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
   GROUND.capStart(); if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function dmgMob(f, d, who){ if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
@@ -571,7 +572,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 119;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 120;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1569,7 +1570,7 @@ addEventListener('keydown', ev=>{ const k=ev.key;
   if ((/^F([5-9]|1[0-2])$/.test(k) || k==='F4') && !ev.repeat && !HELD.has(k)) { holdTry(k, true); HELD.set(k, performance.now() + (k === 'F4' ? 1000 : 400)); } }, {capture:true});
 addEventListener('help', ev=>ev.preventDefault());
 const needExp = lv => Math.floor(15*Math.pow(lv,1.7)*(lv<10?1:lv<20?1+(lv-9)*0.35:4.5+(lv-19)*0.6));   // v100: Lv10까지는 그대로, 그 뒤로 점점 무겁게 (Lv15 약 55마리 · Lv20 110 · Lv25 210 · Lv30 330마리)
-function gainExp(n){ TELE.xp(n); hero.exp += n; while (hero.exp >= needExp(hero.lv)){ hero.exp -= needExp(hero.lv); hero.lv++; { const C=CLS_DEF[CLASS]; hero.baseHP += rint(C.hpLv); hero.baseMP += rint(C.mpLv); } INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; say('레벨이 올랐습니다. (레벨 '+hero.lv+')', '#f2e6a8'); levelUpFx(); wizAutoLearn();
+function gainExp(n){ TELE.xp(n); if (OFFL_HOOK) OFFL_HOOK.exp(n); hero.exp += n; while (hero.exp >= needExp(hero.lv)){ hero.exp -= needExp(hero.lv); hero.lv++; { const C=CLS_DEF[CLASS]; hero.baseHP += rint(C.hpLv); hero.baseMP += rint(C.mpLv); } INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; say('레벨이 올랐습니다. (레벨 '+hero.lv+')', '#f2e6a8'); levelUpFx(); wizAutoLearn();
     if (hero.lv % 5 === 0){ hero.bonusPts++; say('보너스 능력치 1개를 받았습니다. 캐릭터 정보창에서 찍어 주세요.', '#f2d98a'); const cw=document.getElementById('charwin'); if (cw && cw.hidden){ cw.hidden=false; INV.render(); } } } }
 const LEATHER = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#1e1813'; g.fillRect(0, 0, 128, 128);
   for (let k = 0; k < 2600; k++) { const x = Math.random() * 128, y = Math.random() * 128, a = Math.random() * 0.06; g.fillStyle = Math.random() < 0.5 ? `rgba(255,220,170,${a})` : `rgba(0,0,0,${a * 1.6})`; g.fillRect(x, y, 1 + Math.random() * 2, 1); }
@@ -1921,7 +1922,7 @@ function hurtHero(d, src, kind) { if (src && typeof src === 'object') src.hitMeT
     { const el = MS && (MS.el || (MS.fire ? 'fire' : null)); if (el) d = Math.round(d * (1 - Math.min(0.6, elemRes(el) / 100))); } d = Math.max(1, d); }   // 화염 저항: 불 몬스터 피해 감소
   if (BUFF.counter > 0 && src && !src.dead) { const rd = Math.max(1, Math.round(d * 0.3)); setTimeout(() => mobHurt(src, rd, '#c9a0ff'), 120); }
   hero.hp -= d; TELE.hurt(src && src.kind || kind || 'etc', d); { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 96, String(d), { color: '#ff5a4a', size: 12 }); } hurt = 0.25; sfx.bite(); hitstop = Math.max(hitstop, 0.04);
-  if (hero.hp <= 0) { TELE.ev('death', { by: src && src.kind || kind || '?', z: zoneTitle(), lv: hero.lv, d }); hero.hp = Math.ceil(hero.max * 0.5); hero.target = null; say('당신은 쓰러졌습니다... 마을에서 깨어납니다.', '#f08a7a'); AUTO.died(); TOWN.goTown(); } }
+  if (hero.hp <= 0) { TELE.ev('death', { by: src && src.kind || kind || '?', z: zoneTitle(), lv: hero.lv, d }); hero.hp = Math.ceil(hero.max * 0.5); hero.target = null; say('당신은 쓰러졌습니다... 마을에서 깨어납니다.', '#f08a7a'); if (OFFL_HOOK) OFFL_HOOK.died(); AUTO.died(); TOWN.goTown(); } }
 function shoot(f, S, TG) { TG = TG || hero; if (TG === hero) f.hitMeT = time; const [x0, y0] = W2P(f.x, f.z), [x1, y1] = W2P(TG.x, TG.z); arrows.push({ kind: S.fireball ? 'fireball' : 'arrow', x0, y0: y0 - (S.fireball ? 44 : 30), x1, y1: y1 - (TG === hero ? 30 : 16), t: 0, dur: (S.fireball ? 0.22 : 0.12) + cheb(f.i, f.j, TG.i, TG.j) * (S.fireball ? 0.1 : 0.07), dmg: mobDmg(S), hit: (S.fireball ? mobHitM(S) : mobHit(S)) - (f.hitDn > 0 ? 0.03 * (f.hitDnV || 2) : 0), src: f, tg: TG === hero ? null : TG }); }
 function spotNear(ci, cj, r) { for (let t = 0; t < 60; t++) { const i = ci + Math.round((Math.random() * 2 - 1) * r), j = cj + Math.round((Math.random() * 2 - 1) * r); if (walkable(i, j) && !occ(i, j) && cheb(i, j, hero.i, hero.j) >= 6) return [i, j]; } return null; }
 // 몬스터 그림: 정식 모델이 나오기 전까지 주민·여우 그림을 색만 바꿔 임시로 씀
@@ -3597,7 +3598,7 @@ const INV = (() => {
     const e = d.stack ? bag.find(x => x.id === id) : null; if (e) e.n += n; else for (let k = 0; k < (d.stack ? 1 : n); k++) bag.push({ id, n: d.stack ? n : 1, on: false, ...(d.petKind ? { pet: mkPetData(d.petKind) } : {}) });
     if (!silent) say(`${rarTag(id)}${d.name}${n > 1 ? ' (' + n + ')' : ''}을(를) 얻었습니다.`, rarC(id)); render(); }
   const count = id => bag.filter(x => x.id === id).reduce((s, x) => s + x.n, 0);
-  function take(id, n = 1) { if (GOD_INF(id)) return true; const e = bag.find(x => x.id === id); if (!e || e.n < n) return false; e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); render(); return true; }
+  function take(id, n = 1) { if (GOD_INF(id)) return true; const e = bag.find(x => x.id === id); if (!e || e.n < n) return false; e.n -= n; if (OFFL_HOOK) OFFL_HOOK.used(id, n); if (e.n <= 0) bag.splice(bag.indexOf(e), 1); render(); return true; }
   function slotFor(d) { if (d.slot !== 'ring') return d.slot; return !eq.ring1 ? 'ring1' : !eq.ring2 ? 'ring2' : 'ring1'; }
   function equip(e) { const d = ITEMS[e.id];
     if (d.codex && !GOD) { const R = cxReq(d);   // 착용 제한: 직업 · 레벨 (갓 모드는 무시)
@@ -4821,25 +4822,28 @@ const CLOUD = (() => {
 })();
 // ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
 const SAVE = (() => {
-  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0;   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
+  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0, offUT = null, nowUT = null, startP = null;   /* v120: offUT = 불러온 캐릭터 저장의 서버 수정 시각(=지난 종료) · nowUT = 이번 접속 기록의 서버 시각 */   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
   const hex = s => [...new TextEncoder().encode(String(s).toLowerCase())].map(b => b.toString(16).padStart(2, '0')).join('');
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
   function snap() { const b = {}; for (const k in BUFF) if (BUFF[k] > 0) b[k] = Math.round(BUFF[k]);
     return { v: 1, ver: GAME_VER, cls: CLASS, name: PNAME(), lv: hero.lv, exp: hero.exp, bhp: hero.baseHP, bmp: hero.baseMP, bp: hero.bonusPts, hp: Math.ceil(hero.hp), mp: Math.floor(hero.mp), coins: Math.floor(coins),
-      learned: [...LEARNED], buff: b, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get() }; }
+      learned: [...LEARNED], buff: b, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined }; }
   function apply(s) { if (!s || s.cls !== CLASS) return false;
     hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0);
     LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0; setTimeout(() => wizAutoLearn(), 1200);
-    INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); INV.render(); return true; }
+    INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); if (OFFL_HOOK) OFFL_HOOK.load(s.ofl); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); INV.render(); return true; }
   const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
   const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c;
-  async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); ut.c = d ? d.__ut || null : null; return d && d.data ? JSON.parse(d.data) : null; }
+  async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); ut.c = d ? d.__ut || null : null; offUT = ut.c; return d && d.data ? JSON.parse(d.data) : null; }
       const a = await adb(); if (a) { try { const sn = await a.doc(`saves/${hex(ACCOUNT.acc())}_${c}`).get(); if (sn.exists) return JSON.parse(sn.data().data); } catch (e) {} } const v = ls.get(lkey(c)); return v ? JSON.parse(v) : null; }
     catch (e) { console.warn('load', e); return undefined; } }   // undefined = 서버 오류 (null = 저장 없음)
   async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; return d && d.store ? JSON.parse(d.store) : null; } const v = ls.get('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase()); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
   function start(c, store) { cls = c; on = true; t = 0; lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); }
-    SESS.begin(); if (cloud()) sessP = CLOUD.set(`users/${CLOUD.uid()}`, { sess: SESS.id, sessAt: String(Date.now()) }, true).then(r => { if (typeof r === 'string') ut.u = r; }).catch(() => {}); }   // v117: 이 접속을 계정의 '현재 접속'으로 표시 → 먼저 있던 접속은 다음 저장 때 끊김
+    SESS.begin(); if (cloud()) sessP = CLOUD.set(`users/${CLOUD.uid()}`, { sess: SESS.id, sessAt: String(Date.now()) }, true).then(r => { if (typeof r === 'string') { ut.u = r; nowUT = r; } }).catch(() => {}); startP = sessP; }   // v117: 이 접속을 계정의 '현재 접속'으로 표시 → 먼저 있던 접속은 다음 저장 때 끊김
+  // v120: 오프라인 정산용 시각 — 계정 서버면 서버가 기록한 시각만 씀 (PC 시계를 바꿔도 소용없음)
+  async function times(o) { if (cloud()) { if (startP) { try { await startP; } catch (e) {} } const a = Date.parse(offUT || ''), b = Date.parse(nowUT || ''); return isFinite(a) && isFinite(b) ? { off: a, now: b, key: String(offUT) } : null; }
+    const a = +(o && o.ts) || 0; return a > 0 ? { off: a, now: Date.now(), key: String(a) } : null; }
   // 계정 서버의 현재 접속이 내가 아니면 → 이 창은 저장을 멈추고 접속 종료
   async function sessOk() { if (!cloud()) return true; if (sessP) { await sessP; sessP = null; } try { const d = await CLOUD.get(`users/${CLOUD.uid()}?mask.fieldPaths=sess`); if (d && d.sess && d.sess !== SESS.id) { SESS.kick('server'); return false; } } catch (e) {} return true; }
   // 지금 저장 (바뀐 것만) — force면 같아도 저장
@@ -4857,7 +4861,7 @@ const SAVE = (() => {
   function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }, false, ut.c || undefined); const st = JSON.stringify(STORE.list()); if (st !== lastS) CLOUD.beacon(`users/${CLOUD.uid()}`, { store: st }, true, ut.u || undefined); } else { ls.set(lkey(cls), j); ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), JSON.stringify(STORE.list())); } } catch (e) {} }
   addEventListener('beforeunload', flush); addEventListener('pagehide', flush);
   if (window.native && window.native.onClosing) window.native.onClosing(async () => { try { await Promise.race([now(false, true), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} window.native.closeNow && window.native.closeNow(); });   // PC: 창 닫을 때 저장 끝나고 닫힘
-  return { snap, apply, load, loadStore, start, now, tick, flush, on: () => on, stop() { on = false; } };
+  return { snap, apply, load, loadStore, start, now, tick, flush, times, sessOk, on: () => on, stop() { on = false; } };
 })();
 const NAMEREG = (() => {
   const $ = id => document.getElementById(id), KEY = 'aden_pname', RE = /^[가-힣a-zA-Z0-9]{2,12}$/;
@@ -5010,7 +5014,7 @@ const NET = (() => {
     for (const p of [myPeer, ...othersInZone().map(o => o.peer)]) { const pt = ptOf(p), pos = posOf(p); if (!pt || !pts.has(pt) || !pos || Math.max(Math.abs(pos.x - f.x), Math.abs(pos.z - f.z)) > 15) continue; const b = supBank(p); if (b > 0) { add(p, b); useSup(p); } }
     lastRw = {}; const tot = [...C.values()].reduce((a, b) => a + b, 0) || 1, shares = new Map([...C].map(([p, v]) => [p, v / tot])), gold = rint(S.coin), petSum = pets.reduce((a, x) => a + x[1], 0);
     for (const [p, s] of shares) { const bn = partyBonus(p) ? 1.1 : 1, gd = Math.round(gold * s * bn);
-      if (p === myPeer) { for (const [w, v] of pets) { const pe = Math.round(S.exp * v / tot); if (pe > 0) PET.gainExp(w, pe); } const ex = Math.max(0, Math.round(S.exp * Math.max(0, s - petSum / tot) * bn * lowLvMul(S))); if (ex > 0) gainExp(ex); coins += gd;
+      if (p === myPeer) { for (const [w, v] of pets) { const pe = Math.round(S.exp * v / tot); if (pe > 0) PET.gainExp(w, pe); } const ex = Math.max(0, Math.round(S.exp * Math.max(0, s - petSum / tot) * bn * lowLvMul(S))); if (ex > 0) gainExp(ex); coins += gd; if (OFFL_HOOK) { OFFL_HOOK.kill(f, s); OFFL_HOOK.gold(gd); }
         say(`보상 (공헌도 ${Math.round(s * 100)}%${bn > 1 ? ' · 파티 +10%' : ''}) — 경험치 +${ex}${ex > 0 ? lowLvTag(S) : ''} · 골드 +${gd}`, '#d8e8a8'); }
       else { const L = rwOut[p] || (rwOut[p] = []), E = [++rwSeq, Math.round(S.exp * s * bn), gd, KINDS.indexOf(f.kind), Math.round(s * 100), bn > 1 ? 1 : 0, 0, 0]; L.push(E); lastRw[p] = E; trim(L, 8); } }
     f.dmgBy = null; sendT = 0; return { shares }; }
@@ -5067,7 +5071,7 @@ const NET = (() => {
   function hit(f, d) { myHits.push([++hitSeq, f.uid, d]); trim(myHits, 30); f.myDmg = (f.myDmg || 0) + d; f.predUntil = time + 1.2; sendT = 0; }
   // 보상·아이템 받기 (누가 보냈든 내 몫만, 번호로 한 번씩)
   function applyRewards(o) { const rw = o.pr.rw && myPeer && o.pr.rw[myPeer]; if (rw) { if (!seenRw.has(o.peer)) seenRw.set(o.peer, 0); const last = seenRw.get(o.peer); let mx = last;
-      for (const [sq, ex, gd, k, pct, bn, li, ln, its] of rw) { if (sq <= last) continue; mx = Math.max(mx, sq); const S = MOB[KINDS[k]], ex2 = S ? Math.round(ex * lowLvMul(S)) : ex; if (Array.isArray(its) && its.length) say(`[분배] ${S ? S.name : '보스'} 드랍 중 ${its.map(id => (ITEMS[id] && ITEMS[id].name) || id).join(', ')} 우선권을 받았어요! (3초 안에 주우세요)`, '#ffd86a'); if (ex2 <= 0 && gd <= 0 && Array.isArray(its)) continue; if (ex2 > 0) gainExp(ex2); if (gd > 0) coins += gd; say(`${S ? S.name : '몬스터'} 처치 보상 (공헌도 ${pct}%${bn ? ' · 파티 +10%' : ''}) — 경험치 +${ex2}${ex2 > 0 && S ? lowLvTag(S) : ''} · 골드 +${gd}`, '#d8e8a8'); }
+      for (const [sq, ex, gd, k, pct, bn, li, ln, its] of rw) { if (sq <= last) continue; mx = Math.max(mx, sq); const S = MOB[KINDS[k]], ex2 = S ? Math.round(ex * lowLvMul(S)) : ex; if (Array.isArray(its) && its.length) say(`[분배] ${S ? S.name : '보스'} 드랍 중 ${its.map(id => (ITEMS[id] && ITEMS[id].name) || id).join(', ')} 우선권을 받았어요! (3초 안에 주우세요)`, '#ffd86a'); if (ex2 <= 0 && gd <= 0 && Array.isArray(its)) continue; if (ex2 > 0) gainExp(ex2); if (gd > 0) coins += gd; if (OFFL_HOOK && S) { OFFL_HOOK.kill({ kind: KINDS[k] }, (+pct || 0) / 100); if (gd > 0) OFFL_HOOK.gold(gd); } say(`${S ? S.name : '몬스터'} 처치 보상 (공헌도 ${pct}%${bn ? ' · 파티 +10%' : ''}) — 경험치 +${ex2}${ex2 > 0 && S ? lowLvTag(S) : ''} · 골드 +${gd}`, '#d8e8a8'); }
       seenRw.set(o.peer, mx); }
     const gv = o.pr.gv && myPeer && o.pr.gv[myPeer]; if (gv) { if (!seenGv.has(o.peer)) seenGv.set(o.peer, 0); const last = seenGv.get(o.peer); let mx = last;
       for (const [sq, ii, n, gid, x4] of gv) { if (sq <= last) continue; mx = Math.max(mx, sq);
@@ -5142,7 +5146,7 @@ const NET = (() => {
         const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top);
         const w = 34, k = Math.max(0, Math.min(1, (pr.hp || 0) / (pr.hm || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore();
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
-  return { mx, setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
+  return { mx, setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
     guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
@@ -5255,6 +5259,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 120, items: ['오프라인 자동사냥이 생겼어요. 자동사냥을 켜 둔 채 게임을 끄면, 다시 접속할 때 꺼져 있던 시간만큼 최근 사냥 효율 그대로 경험치·골드·아이템을 받아요. (하루 최대 8시간 · 한국 시간 0시에 다시 채워짐 · 10분 이상 꺼져 있어야 정산)', '정산 기준은 최근 30분의 자동사냥 기록이에요. 10분 이상 기록이 있어야 쓸 수 있고, 시간은 계정 서버가 기록한 시각으로 재서 PC 시계를 바꿔도 달라지지 않아요. 파티 중·보스는 빠져요.', '물약·화살도 실제로 줄어요. 떨어지면 그때 사냥이 멈춰요. (자동사냥 설정에서 자동 구매를 켜 두면 번 골드로 사서 계속해요) 가방은 자동판매 무게 기준(꺼져 있으면 80%)까지 줍고, 넘치면 자동판매 등급은 골드로 바꿔요. 최근 기록에 사망이 있으면 보상이 절반이에요.', '접속하면 오프라인 사냥 결과 창이 떠요. 자동사냥 설정 맨 위에서 켜고 끌 수 있고, 지금 효율·오늘 남은 시간을 보거나 [오프라인 사냥으로 종료] 버튼으로 바로 끌 수 있어요.', '자동사냥에 매너 사냥이 생겼어요. (기본 켜짐) 파티원이 아닌 다른 유저가 노리거나 때리고 있는 몬스터는 같이 치지 않고 다른 몬스터를 잡아요. 가던 중에 다른 사람이 먼저 때리면 바로 다른 몬스터로 바꿔요. 나를 공격하는 몬스터와 내가 먼저 때린 몬스터는 그대로 잡아요. 자동사냥 설정 [사냥]에서 끌 수 있어요.'] },
     { v: 119, items: ['파티로 보스를 잡으면 드랍이 랜덤 분배돼요. 아이템마다 자격 있는 파티원 중 한 명에게 같은 확률로 3초 우선권이 가요. (자격: 같은 파티 · 보스 15칸 안 · 보스에 피해를 줬거나 최근 1분 안에 공격·마법을 쓴 사람 — 소환수를 잡아 준 마법사도 받을 수 있어요) 누가 무엇을 받았는지 채팅으로 알려줘요. 혼자 잡거나 파티가 아닌 사람이 섞이면 예전처럼 공헌도대로 나눠요.', '거대 여왕개미·오우거·바포메트의 소환수는 동시에 최대 9마리까지만 나와요.', '드랍 우선권(3초)이 실제로는 적용되지 않던 오류를 고쳤어요.'] },
     { v: 118, items: ['이제 마법서·기술서·정령수정이 없어도 레벨이 되면 직업이 배울 수 있는 모든 마법·기술·정령마법을 자동으로 배워요. (기사: 스턴 Lv5 · 리덕션 아머 15 · 바운스 어택 25 · 솔리드 캐리지 35 · 카운터 배리어 45 / 요정: 정령마법 Lv10·20 / 마법사: 이뮨 투 함 Lv28 포함) 이미 레벨을 넘은 캐릭터는 접속하면 바로 받아요.', '몬스터·보스 드랍과 마법상점에서 마법서·기술서·정령수정이 빠져요. 마법상점은 이제 마법 물품(마나 회복 물약 · 카운터 매직 주문서 · 능력치 초기화 주문서)을 팔아요. 가지고 있는 책은 상점에 팔 수 있어요. (예전 값의 30%)', '셸로브·거대 여왕개미·오우거·바포메트가 더 강해졌어요: 물리 피해(근접·화살)를 30% 덜 받고, 물리·마법 공격력이 1.25배예요. (마법 피해는 그대로 들어가요)', '셸로브를 뺀 모든 보스의 범위 공격(붉은·초록 원)에 맞으면 기절할 수 있어요. 확률은 기사 스턴처럼 레벨 차이로 정해져요: 50% + 보스가 나보다 1레벨 높을 때마다 +5% (낮으면 −5% · 최저 10% · 최고 90%). 기절하면 1~3초 동안 움직이지도·공격·마법·물약 사용도 못 해요. 카운터 매직으로 막으면 기절도 없어요.'] },
     { v: 117, items: ['중복 접속을 막았어요. 같은 계정은 한 곳에서만 플레이할 수 있어요. 다른 PC(또는 창)에서 같은 계정으로 접속하면 새로 접속한 쪽이 이어서 하고, 먼저 켜져 있던 창은 "다른 곳에서 접속했어요" 안내와 함께 접속이 끊기며 더 이상 저장하지 않아요. (월드 서버에서 바로 알아채고, 계정 서버에 저장할 때도 한 번 더 확인 · 예전 창이 새 진행 상황을 덮어쓰거나 창고 아이템이 복사되는 일을 막아요)'] },
@@ -5419,7 +5424,7 @@ const ACCOUNT = (() => {
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
     const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
     if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
-    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살은 잡화상점에서 살 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 가까이에서 때리고, 멀리서는 마법으로 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
@@ -5442,7 +5447,7 @@ const ACCOUNT = (() => {
   return { acc: () => acc, openSel, started: () => started, mode: () => srv, keepForUpdate };
 })();
 const AUTO = (() => {
-  const C = { retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true, healFirst: true,
+  const C = { ofl: true, manner: true, retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true, healFirst: true,
     buyHaste: false, hasteId: 'green_potion', hasteN: 5, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
     sell: false, sellPct: 80, sellR: { 일반: true, 고급: false, 희귀: false, 영웅: false } };   // 자동판매: 가방 무게 sellPct% 이상이면 귀환해서 아덴상단에 고른 등급 장비를 일괄 판매
   // v109: 물약 귀환은 체크한 물약 수량만 셈 (아무것도 안 고르면 자동 구매 물약)
@@ -5484,11 +5489,13 @@ const AUTO = (() => {
   // 타겟팅 모드 (파티 중일 때): same = 파티원이 때리는 몬스터 우선 · diff = 파티원이 때리는 몬스터는 피함 · free = 알아서 가까운 몹
   const partyT = () => C.tgtMode !== 'free' && NET.inParty() ? NET.partyTargets() : null;
   const atkMe = f => C.aggrFirst && !!f.hitMeT && time - f.hitMeT < 6 && !f.dead && !f.gone;   // 최근 6초 안에 나를 공격한(쏜·때린·빗나간) 몬스터
-  function pick(pd) { pd = pd || pathDist(22); const PT = partyT();
-    if (PT && PT.size) { const only = C.tgtMode === 'same' ? f => PT.has(f.uid) : f => !PT.has(f.uid) || (f.aggro && f.tgt === hero); const r = pickIn(pd, only); if (r) return r; }
-    return pickIn(pd, null); }
-  function pickIn(pd, only) { let b = null, bd = 1e9, fb = null, fd = 1e9;
-    for (const f of foxes) { if (f.dead || f.gone) continue; const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (S.dummy) continue; if (only && !only(f)) continue;
+  // v120: 매너 사냥 (기본 켜짐) — 파티원이 아닌 다른 유저가 노리거나 때리는 몬스터는 건너뜀 (나를 공격 중이거나 내가 먼저 때린 몬스터는 예외)
+  const mineF = f => atkMe(f) || (f.aggro && f.tgt === hero) || (f.myDmg || 0) > 0 || !!(f.dmgBy && f.dmgBy.get && f.dmgBy.get(hero) > 0);
+  function pick(pd) { pd = pd || pathDist(22); const PT = partyT(), OT = C.manner ? NET.othersTargets() : null;
+    if (PT && PT.size) { const only = C.tgtMode === 'same' ? f => PT.has(f.uid) : f => !PT.has(f.uid) || (f.aggro && f.tgt === hero); const r = pickIn(pd, only, OT); if (r) return r; }
+    return pickIn(pd, null, OT); }
+  function pickIn(pd, only, OT) { let b = null, bd = 1e9, fb = null, fd = 1e9;
+    for (const f of foxes) { if (f.dead || f.gone) continue; const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (S.dummy) continue; if (only && !only(f)) continue; if (OT && OT.has(f.uid) && !mineF(f)) continue;
       let d = stepsTo(pd, f); if (d < 0) { const c = cheb(f.i, f.j, hero.i, hero.j); if (c < fd) { fd = c; fb = f; } continue; }
       if (atkMe(f) || (C.aggrFirst && f.aggro && f.tgt === hero && d <= 8)) d -= 100; if (d < bd) { bd = d; b = f; } }
     return b ? { f: b, d: bd } : fb ? { f: fb, d: 999 } : null; }
@@ -5509,7 +5516,7 @@ const AUTO = (() => {
         const it = lootTarget(threat ? 4 : 10); if (it) { it._try = (it._try || 0) + 1; GROUND.go(it); return; }   // v109: 처치 후엔 떨어진 아이템 먼저 (둘러싸여도 4칸 안은 주우러 감)
         const p = pick(); if (p) hero.target = p.f; }
       // 가는 중에 더 가까운 몹이 보이면 갈아탐 (지금 대상이 나를 때리는 중이 아니고, 3걸음 이상 더 가까울 때)
-      else if (hero.target && !hero.target.dead && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target, threat = !atkMe(T) && foxes.some(f => f !== T && atkMe(f));
+      else if (hero.target && !hero.target.dead && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target; if (C.manner && !mineF(T) && NET.othersTargets().has(T.uid)) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } const threat = !atkMe(T) && foxes.some(f => f !== T && atkMe(f));
         if (threat || (!(T.aggro && T.tgt === hero && cheb(T.i, T.j, hero.i, hero.j) <= 3) && cheb(T.i, T.j, hero.i, hero.j) > 1)) { const pd = pathDist(22), cur = stepsTo(pd, T), p = pick(pd), PT = partyT();
           const party = PT && PT.size && p && (C.tgtMode === 'same' ? PT.has(p.f.uid) && !PT.has(T.uid) : PT.has(T.uid) && !PT.has(p.f.uid));   // 파티 규칙에 맞는 몹이 생기면 바로 갈아탐
           if (p && p.f !== T && ((threat && atkMe(p.f)) || party || cur < 0 || p.d <= cur - 3)) hero.target = p.f; } }
@@ -5533,15 +5540,125 @@ const AUTO = (() => {
     w.querySelectorAll('[data-lr]').forEach(el => { el.onchange = () => { C.lootR[el.dataset.lr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lt]').forEach(el => { el.onchange = () => { C.lootT[el.dataset.lt] = el.checked; sync(); }; }); w.querySelectorAll('[data-sr]').forEach(el => { el.onchange = () => { C.sellR[el.dataset.sr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lp]').forEach(el => { el.onchange = () => { C.lowIds[el.dataset.lp] = el.checked; sync(); }; });
     w.querySelectorAll('[data-buff]').forEach(el => { el.onchange = () => { INV.setAutoBuff(el.dataset.buff, el.checked); sync(); }; });
     w.querySelectorAll('select,input').forEach(el => { el.onkeydown = ev => ev.stopPropagation(); }); }
-  return { tick, toggle, openSet, status, wantLoot, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; } } };
+  return { tick, toggle, openSet, status, wantLoot, home: () => home, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; } } };
 })();
+
+// v120: 오프라인 자동사냥 — 자동사냥을 켠 채 게임을 끄면, 다시 접속할 때 꺼져 있던 시간(하루 최대 8시간)만큼 최근 사냥 효율 그대로 보상
+//   기록: 자동사냥 중(파티·갓 모드 제외) 1분마다 경험치·골드·처치 수(종류별)·쓴 물품·사망 → 최근 30분만 저장 데이터(ofl)에 보관
+//   정산: 지난 종료 = 마지막 저장의 서버 수정 시각, 지금 = 이번 접속 기록의 서버 시각 → 10분 단위로 계산 (레벨이 오르면 낮은 레벨 감소를 다시 적용)
+//   물약·화살이 떨어지면 그 시점에서 멈춤 (자동 구매를 켜 두면 번 골드로 사서 계속) · 가방은 자동판매 기준(기본 80%)까지 · 최근 30분에 사망이 있으면 보상 절반
+const OFFL = (() => {
+  const MAXM = 30, NEED = 10, DAY = 480, STEP = 10, KCAP = 40;
+  let rec = [], cur = null, region = null, isle = null, om = 0, omT = 0, ts = 0, day = '', used = 0, done = '', settling = false, did = false, uiT = 0;
+  const blank = () => ({ s: 0, x: 0, g: 0, d: 0, k: {}, u: {} });
+  const r2 = v => Math.round(v * 100) / 100;
+  const kst = ms => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);   // 하루 = 한국 시간 0시 기준
+  const fmt = m => { m = Math.max(0, Math.round(m)); const h = Math.floor(m / 60), mm = m % 60; return (h ? h + '시간' : '') + (h && mm ? ' ' : '') + (mm || !h ? mm + '분' : ''); };
+  const lowAt = (lv, S) => { const d = lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };
+  const live = () => !settling && AUTO.on() && !NET.inParty() && !GOD && hero.hp > 0;
+  const arm = () => AUTO.on() && AUTO.conf().ofl !== false && !NET.inParty() && !GOD && rec.length >= NEED;
+  const leftToday = () => (day === kst(Date.now()) ? Math.max(0, DAY - used) : DAY);
+  const rec_ = () => cur && live();
+  function tick(dt) { if (!SAVE.on()) return;
+    if (live()) { const h = AUTO.home(); if (region !== h) { region = h; rec = []; cur = blank(); } if (SCENE === 'field' && ISLE) isle = ISLE.id; if (!cur) cur = blank(); if (!ts) ts = Date.now();
+      cur.s += dt; if (cur.s >= 60) { const k = {}, u = {}; for (const q in cur.k) k[q] = r2(cur.k[q]); for (const q in cur.u) u[q] = cur.u[q]; rec.push([Math.round(cur.x), Math.round(cur.g), cur.d, k, u, hero.lv]); if (rec.length > MAXM) rec.shift(); cur = blank(); }
+      if ((omT += dt) >= 60) { omT = 0; om++; ts = Date.now(); } }   // 1분마다 저장 데이터가 바뀌어서 켜져 있는 동안은 늘 1분 안에 저장됨
+    if ((uiT -= dt) <= 0) { uiT = 1; ui(); } }
+  function kill(f, share) { if (!f || f.sumBy || !(share > 0) || !rec_()) return; const S = MOB[f.kind]; if (!S || S.boss || S.dummy) return; cur.k[f.kind] = (cur.k[f.kind] || 0) + share; }
+  function dump() { return { v: 1, r: region, i: isle, rec, om, ts, arm: arm() ? 1 : 0, day, used, done }; }
+  function load(o) { rec = []; region = null; isle = null; om = 0; ts = 0; day = ''; used = 0; done = ''; cur = blank(); did = false;
+    if (!o || o.v !== 1) return; rec = Array.isArray(o.rec) ? o.rec.filter(Array.isArray).slice(-MAXM) : []; region = o.r || null; isle = o.i != null ? o.i : null; om = o.om | 0; day = String(o.day || ''); used = Math.max(0, +o.used || 0); done = String(o.done || ''); }
+  // 일반 몬스터 한 마리 드랍 (처치할 때와 같은 순서: 몬스터 전용 → 지역 보스표 일반·고급 → 사냥터 장비)
+  function roll(kind, iid) { const S = MOB[kind]; if (!S) return null;
+    if (MOB_DROPS[kind]) for (const [id, pr] of MOB_DROPS[kind]) if (Math.random() < pr) return id;
+    const b = REGION_BOSS[kind], T = b && DROP_TABLE[b];
+    if (T && Math.random() < regionDropP(S.lv || 1)) { const pool = T.filter(([id]) => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')); if (pool.length) { const tot = pool.reduce((a, r) => a + r[1], 0); let x = Math.random() * tot; const row = pool.find(r => (x -= r[1]) < 0) || pool[0]; return row[0]; } }
+    const L = iid != null && CX_ZONE[iid]; if (!L || !L.length) return null; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[iid], LH = CX_ZONE_H[iid];
+    if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[iid] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < 0.00002); return hit.length ? hit[Math.floor(Math.random() * hit.length)] : null; }
+  async function settle(o) { if (did || !o || o.v !== 1 || !o.arm || GOD) return; did = true;
+    const T = await SAVE.times(o); if (!T || !(T.now > T.off) || (o.done && String(o.done) === T.key)) return;
+    const tell = t => say('[오프라인 사냥] ' + t, '#9fd0e8');
+    const mins = Math.floor((T.now - T.off) / 60000), today = kst(T.now); if (day !== today) { day = today; used = 0; }
+    if (mins < 10) { tell(`꺼져 있던 시간이 ${fmt(mins)}이라 정산하지 않았어요. (10분 이상부터)`); return; }
+    const R = (Array.isArray(o.rec) ? o.rec : []).filter(Array.isArray).slice(-MAXM), M = R.length;
+    if (M < NEED) { tell('사냥 기록이 10분이 안 돼서 정산하지 않았어요.'); return; }
+    const left = DAY - used; if (left <= 0) { tell('오늘 오프라인 사냥 한도(8시간)를 다 썼어요. 한국 시간 0시에 다시 채워져요.'); return; }
+    const Tm = Math.min(mins, left);
+    // 최근 기록 → 분당 효율 (처치 수 기준 · 실제로 받은 경험치/예상 경험치 비율로 보정 · 분당 처치 수와 골드는 위아래로 묶음)
+    const kpm = {}, upm = {}; let xs = 0, gs = 0, ds = 0, pred = 0, gmax = 0;
+    for (const [x, g, d, k, u, lv] of R) { xs += Math.max(0, +x || 0); gs += Math.max(0, +g || 0); ds += Math.max(0, +d || 0);
+      for (const q in k || {}) { const S = MOB[q]; if (!S || S.boss || S.dummy) continue; const n = Math.max(0, +k[q] || 0); kpm[q] = (kpm[q] || 0) + n; pred += n * S.exp * lowAt(+lv || hero.lv, S); gmax += n * (S.coin ? S.coin[1] : 0); }
+      for (const id in u || {}) if (ITEMS[id]) upm[id] = (upm[id] || 0) + Math.max(0, +u[id] || 0); }
+    let kt = 0; for (const q in kpm) { kpm[q] /= M; kt += kpm[q]; } const kc = kt > KCAP ? KCAP / kt : 1; if (kc < 1) for (const q in kpm) kpm[q] *= kc;
+    for (const id in upm) upm[id] /= M;
+    const cX = pred > 0 ? Math.min(1.1, xs / pred) : 0, gpm = Math.min(gs, gmax * 1.1) / M * kc, rD = ds > 0 ? 0.5 : 1;
+    const A = AUTO.conf(), crit = id => id === 'arrow' || (ITEMS[id] && ITEMS[id].use === 'heal');
+    const buyable = id => (A.buy && id === A.buyId) || (A.buyScroll && id === 'return_scroll') || (A.buyHaste && id === A.hasteId) || (CLASS === 'elf' && id === 'arrow');
+    const sr = v => { const f = Math.floor(v); return f + (Math.random() < v - f ? 1 : 0); };
+    const have = {}, start = {}; for (const id in upm) start[id] = have[id] = INV.count(id);
+    const maxW = Math.max(1, INV.maxW()), lim = (A.sell ? A.sellPct : 80) / 100; let wp = INV.wPct();
+    const res = { min: 0, x: 0, g: 0, lv0: hero.lv, got: {}, use: {}, buy: {}, spent: 0, sold: 0, soldN: 0, lost: 0, stop: '', lim: mins > Tm, dead: rD < 1 };
+    let cash = coins, t = 0; settling = true;
+    try {
+      while (t < Tm - 1e-6) { const L = Math.min(STEP, Tm - t); let frac = 1, stopId = ''; const need = {};
+        for (const id in upm) { const n = sr(upm[id] * L); if (!n) continue; need[id] = n;
+          if (have[id] < n && buyable(id)) { const p = AUTO.price(id), k = p > 0 ? Math.min(n - have[id], Math.floor(cash / p)) : 0; if (k > 0) { cash -= k * p; have[id] += k; res.buy[id] = (res.buy[id] || 0) + k; res.spent += k * p; } }
+          if (have[id] < n && crit(id)) { const fr = have[id] / n; if (fr < frac) { frac = fr; stopId = id; } } }
+        for (const id in need) { const n = Math.min(have[id], Math.round(need[id] * frac)); have[id] -= n; res.use[id] = (res.use[id] || 0) + n; }
+        const m = L * frac; let ex = 0; for (const q in kpm) ex += kpm[q] * m * MOB[q].exp * lowLvMul(MOB[q]);
+        ex = Math.round(ex * cX * rD); if (ex > 0) { gainExp(ex); res.x += ex; }
+        const gd = Math.round(gpm * m * rD); cash += gd; res.g += gd;
+        for (const q in kpm) { const n = sr(kpm[q] * m * rD); for (let z = 0; z < n; z++) { const id = roll(q, o.i); if (!id || !AUTO.wantLoot(id)) continue; const d = ITEMS[id], w = (d.w || 0) / maxW;
+            if (wp + w > lim) { if (A.sell && d.slot && A.sellR[d.rar || '일반']) { const u = SELL.unit({ id, n: 1 }); cash += u; res.sold += u; res.soldN++; } else res.lost++; continue; }
+            wp += w; res.got[id] = (res.got[id] || 0) + 1; } }
+        t += m; if (frac < 1) { res.stop = stopId; break; } }
+      res.min = Math.round(t);
+      for (const id in have) { const dl = have[id] - start[id]; if (dl < 0) INV.take(id, -dl); else if (dl > 0) INV.add(id, dl, true); }
+      for (const id in res.got) INV.add(id, res.got[id], true);
+      coins = cash; used = Math.min(DAY, used + res.min); done = T.key; INV.render();
+    } finally { settling = false; }
+    try { TELE.ev('offline', { m: res.min, x: res.x, g: res.g, n: Object.keys(res.got).length }); } catch (e) {}
+    await SAVE.now(true, true); show(res, mins, o.i); }
+  function show(res, mins, iid) { const old = document.getElementById('oflres'); if (old) old.remove();
+    const zn = (iid != null && (ISLAND.def(iid) || {}).name) || '사냥터', nm = id => (ITEMS[id] && ITEMS[id].name) || id;
+    const rk = id => ({ 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 })[(ITEMS[id] && ITEMS[id].rar) || '일반'] || 0;
+    const items = Object.entries(res.got).sort((a, b) => rk(b[0]) - rk(a[0]) || b[1] - a[1]), cnt = items.reduce((a, x) => a + x[1], 0);
+    const useTxt = Object.entries(res.use).filter(([, n]) => n > 0).map(([id, n]) => `${nm(id)} ${n.toLocaleString()}개` + (res.buy[id] ? ` (자동 구매 ${res.buy[id].toLocaleString()}개)` : '')).join(' · ');
+    const notes = [];
+    if (res.stop) notes.push(`${JOSA(nm(res.stop), '이', '가')} 떨어져서 ${fmt(res.min)} 만에 사냥을 멈췄어요.`);
+    if (res.lim) notes.push('오늘 한도(8시간)까지만 정산했어요.');
+    if (res.dead) notes.push('최근 사냥 기록에 사망이 있어서 보상을 절반만 받았어요.');
+    if (res.lost) notes.push(`가방이 무거워서 아이템 ${res.lost.toLocaleString()}개는 줍지 못했어요.`);
+    const w = document.createElement('div'); w.id = 'oflres'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-labelledby', 'ofl-t');
+    w.innerHTML = `<div class="of-box"><b id="ofl-t">오프라인 사냥 결과</b><p class="of-sub">${zn} · 꺼져 있던 시간 ${fmt(mins)} 중 <em>${fmt(res.min)}</em> 정산 · 오늘 남은 한도 ${fmt(Math.max(0, DAY - used))}</p>`
+      + `<div class="of-main"><div><span>경험치</span><strong>+${res.x.toLocaleString()}</strong>${hero.lv > res.lv0 ? `<small>Lv.${res.lv0} → Lv.${hero.lv}</small>` : ''}</div><div><span>골드</span><strong>+${(res.g + res.sold).toLocaleString()}</strong>${res.sold ? `<small>자동판매 ${res.soldN.toLocaleString()}개 포함</small>` : ''}</div></div>`
+      + (items.length ? `<div class="of-h">얻은 아이템 <small>${cnt.toLocaleString()}개</small></div><div class="of-items">${items.map(([id, n]) => `<span class="of-it r-${rk(id)}" title="${nm(id)}">${ICON(ITEMS[id].icon)}${n > 1 ? `<i>${n}</i>` : ''}</span>`).join('')}</div>` : '<div class="of-h">얻은 아이템 없음</div>')
+      + (useTxt ? `<p class="of-use">쓴 물품: ${useTxt}${res.spent ? ` · 구매 −${res.spent.toLocaleString()} 골드` : ''}</p>` : '')
+      + notes.map(t => `<p class="of-note">${t}</p>`).join('') + '<button type="button" id="ofl-ok">확인</button></div>';
+    document.body.appendChild(w); const close = () => w.remove(), b = document.getElementById('ofl-ok'); if (b) { b.onclick = close; setTimeout(() => b.focus(), 50); }
+    w.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Escape' || ev.key === 'Enter') { ev.preventDefault(); close(); } });
+    say(`[오프라인 사냥] ${fmt(res.min)} 정산 — 경험치 +${res.x.toLocaleString()} · 골드 +${(res.g + res.sold).toLocaleString()} · 아이템 ${cnt.toLocaleString()}개`, '#f2e6a8'); }
+  function ui() { const el = document.getElementById('hw-ofl'); if (!el || el.offsetParent === null) return; const M = rec.length, A = AUTO.conf();
+    const xs = rec.reduce((a, b) => a + (+b[0] || 0), 0), gs = rec.reduce((a, b) => a + (+b[1] || 0), 0);
+    el.innerHTML = (A.ofl === false ? '꺼져 있어요. ' : M >= NEED ? `분당 경험치 <b>${Math.round(xs / M).toLocaleString()}</b> · 골드 <b>${Math.round(gs / M).toLocaleString()}</b> · ` : '자동사냥 기록이 10분 이상 쌓이면 쓸 수 있어요. · ') + `기록 ${M}/${MAXM}분 · 오늘 남은 한도 <b>${fmt(leftToday())}</b>`;
+    const q = document.getElementById('hw-oflq'); if (q) q.disabled = !arm(); }
+  async function quit() { try { await SAVE.now(true, true); } catch (e) {} if (window.native && window.native.closeNow) { window.native.closeNow(); return; }
+    try { SAVE.stop(); } catch (e) {} window.__gameOn = false; try { if (AUTO.on()) AUTO.toggle(); } catch (e) {} try { NET.setRoom(null); } catch (e) {} try { MPP.leave(); } catch (e) {}
+    const w = document.createElement('div'); w.id = 'dupkick'; w.setAttribute('role', 'alertdialog');
+    w.innerHTML = '<div class="dk-box"><b>오프라인 사냥 중이에요</b><p>저장을 마쳤어요. 이 창을 닫아도 돼요.<br>다시 접속하면 꺼져 있던 시간만큼(하루 최대 8시간) 보상을 받아요.</p><button type="button" id="dk-re">다시 접속하기</button></div>';
+    document.body.appendChild(w); const b = document.getElementById('dk-re'); if (b) b.onclick = () => location.reload(); }
+  { const q = document.getElementById('hw-oflq'); if (q) q.onclick = () => { if (!arm()) { say('자동사냥을 켜고 10분 이상 사냥해야 오프라인 사냥으로 끌 수 있어요.', '#f08a7a'); return; }
+      INV.askYesNo('오프라인 사냥으로 종료할까요?', `저장하고 게임을 끕니다. 다시 접속하면 꺼져 있던 시간만큼(오늘 남은 한도 ${fmt(leftToday())}) 지금 효율 그대로 보상을 받아요.`, quit); }; }
+  return { tick, dump, load, settle, kill, arm, exp(n) { if (rec_()) cur.x += n; }, gold(n) { if (rec_()) cur.g += n; }, used(id, n) { if (rec_()) cur.u[id] = (cur.u[id] || 0) + n; }, died() { if (rec_()) cur.d++; }, state: () => ({ rec: rec.length, used, day, region, isle }) };
+})();
+OFFL_HOOK = OFFL;
 
 let last=performance.now(), invT=0;
 function frame(now){
   holdTick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
+  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
