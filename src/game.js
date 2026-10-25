@@ -572,7 +572,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 121;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 122;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -5253,12 +5253,22 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     if (!r.ok) { gBusy = false; b.disabled = false; b.textContent = `⬇ 업데이트 (v${newVer})`; say(updErr(r.err), '#f08a7a'); return; }
     if (r.latest) { gBusy = false; b.hidden = true; b.disabled = false; say('이미 최신 버전이에요.', '#9fd08a'); return; }
     say(`v${r.ver} 업데이트 완료! 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 800); }
+  // v122: 웹(아티팩트)도 게임 중 5분마다 새 버전 확인 → [업데이트] → 저장 후 다시 불러와 같은 자리·파티·자동사냥 그대로 (PC와 같은 이어하기)
+  const VER_URL = 'https://raw.githubusercontent.com/jungkyu9797/aden-world/main/version.json';
+  let tried = 0; try { tried = +(localStorage.getItem('aden_patch_to') || 0); localStorage.removeItem('aden_patch_to'); } catch (e) {}
+  async function webVer() { try { const r = await fetch((window.ADEN_VER_URL || VER_URL) + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return 0; const m = /"ver"\s*:\s*(\d+)/.exec((await r.text()).slice(0, 300)); return m ? +m[1] : 0; } catch (e) { return 0; } }
+  async function checkWeb() { if (gBusy) return; const v = await webVer(), b = $('btn-upd'); if (!(v > GAME_VER) || !b) return; const first = b.hidden; newVer = v; b.hidden = false; b.textContent = `⬇ 업데이트 (v${v})`;
+    if (first && ACCOUNT.started()) say(tried >= v ? `새 버전(v${v})이 아직 이 페이지에 반영되지 않았어요. 잠시 뒤 [업데이트]를 다시 누르거나 페이지를 닫았다가 다시 열어 주세요.` : `새 버전(v${v})이 나왔어요. 화면 위의 [업데이트]를 누르면 저장한 뒤 다시 불러와서 그 자리에서 이어서 플레이해요.`, '#ffd86a'); }
+  async function runWeb() { const b = $('btn-upd'); if (gBusy || !b) return; gBusy = true; b.disabled = true; b.textContent = '업데이트 중…'; say('캐릭터를 저장하고 새 버전을 불러옵니다… (잠깐 뒤 그 자리에서 이어져요)', '#ffd86a');
+    ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {} try { localStorage.setItem('aden_patch_to', String(newVer)); } catch (e) {} setTimeout(() => location.reload(), 500); }
   { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = runIn; setTimeout(checkIn, 8000); setInterval(checkIn, 5 * 60 * 1000); }
+    else if (b && !n && !window.ADEN_DEMO) { b.onclick = runWeb; setTimeout(checkWeb, 15000); setInterval(checkWeb, 5 * 60 * 1000); }
     if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
   return { run, check: checkIn }; })();
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 122, items: ['웹(아티팩트)에서도 게임 중에 업데이트할 수 있어요. 새 버전이 나오면 화면 위에 [업데이트] 버튼이 생기고, 누르면 캐릭터를 저장한 뒤 잠깐 다시 불러와서 로그인·캐릭터 선택 없이 같은 사냥터·같은 자리로 돌아와요. 파티·멀티 방·꺼내 둔 펫·자동사냥도 그대로 이어져요. (PC 클라이언트와 같은 방식 · 새 버전은 5분마다 확인)'] },
     { v: 121, items: ['기사·요정이 힘·민첩을 올리는 보람이 생겼어요. 지금까지는 힘(근거리)·민첩(활)이 20이 되면 더 올려도 피해·명중이 그대로였는데, 이제 20을 넘으면 2포인트마다 피해 +1 · 명중 +1%씩 계속 올라요. (예: 힘 22 → 피해 +4 · 명중 +11% / 힘 26 → 피해 +6 · 명중 +13%)'] },
     { v: 120, items: ['오프라인 자동사냥이 생겼어요. 자동사냥을 켜 둔 채 게임을 끄면, 다시 접속할 때 꺼져 있던 시간만큼 최근 사냥 효율 그대로 경험치·골드·아이템을 받아요. (하루 최대 8시간 · 한국 시간 0시에 다시 채워짐 · 10분 이상 꺼져 있어야 정산)', '정산 기준은 최근 30분의 자동사냥 기록이에요. 10분 이상 기록이 있어야 쓸 수 있고, 시간은 계정 서버가 기록한 시각으로 재서 PC 시계를 바꿔도 달라지지 않아요. 파티 중·보스는 빠져요.', '물약·화살도 실제로 줄어요. 떨어지면 그때 사냥이 멈춰요. (자동사냥 설정에서 자동 구매를 켜 두면 번 골드로 사서 계속해요) 가방은 자동판매 무게 기준(꺼져 있으면 80%)까지 줍고, 넘치면 자동판매 등급은 골드로 바꿔요. 최근 기록에 사망이 있으면 보상이 절반이에요.', '접속하면 오프라인 사냥 결과 창이 떠요. 자동사냥 설정 맨 위에서 켜고 끌 수 있고, 지금 효율·오늘 남은 시간을 보거나 [오프라인 사냥으로 종료] 버튼으로 바로 끌 수 있어요.', '자동사냥에 매너 사냥이 생겼어요. (기본 켜짐) 파티원이 아닌 다른 유저가 노리거나 때리고 있는 몬스터는 같이 치지 않고 다른 몬스터를 잡아요. 가던 중에 다른 사람이 먼저 때리면 바로 다른 몬스터로 바꿔요. 나를 공격하는 몬스터와 내가 먼저 때린 몬스터는 그대로 잡아요. 자동사냥 설정 [사냥]에서 끌 수 있어요.'] },
     { v: 119, items: ['파티로 보스를 잡으면 드랍이 랜덤 분배돼요. 아이템마다 자격 있는 파티원 중 한 명에게 같은 확률로 3초 우선권이 가요. (자격: 같은 파티 · 보스 15칸 안 · 보스에 피해를 줬거나 최근 1분 안에 공격·마법을 쓴 사람 — 소환수를 잡아 준 마법사도 받을 수 있어요) 누가 무엇을 받았는지 채팅으로 알려줘요. 혼자 잡거나 파티가 아닌 사람이 섞이면 예전처럼 공헌도대로 나눠요.', '거대 여왕개미·오우거·바포메트의 소환수는 동시에 최대 9마리까지만 나와요.', '드랍 우선권(3초)이 실제로는 적용되지 않던 오류를 고쳤어요.'] },
@@ -5580,7 +5590,7 @@ const OFFL = (() => {
     const T = await SAVE.times(o); if (!T || !(T.now > T.off) || (o.done && String(o.done) === T.key)) return;
     const tell = t => say('[오프라인 사냥] ' + t, '#9fd0e8');
     const mins = Math.floor((T.now - T.off) / 60000), today = kst(T.now); if (day !== today) { day = today; used = 0; }
-    if (mins < 10) { tell(`꺼져 있던 시간이 ${fmt(mins)}이라 정산하지 않았어요. (10분 이상부터)`); return; }
+    if (mins < 10) { if (mins >= 3) tell(`꺼져 있던 시간이 ${fmt(mins)}이라 정산하지 않았어요. (10분 이상부터)`); return; }
     const R = (Array.isArray(o.rec) ? o.rec : []).filter(Array.isArray).slice(-MAXM), M = R.length;
     if (M < NEED) { tell('사냥 기록이 10분이 안 돼서 정산하지 않았어요.'); return; }
     const left = DAY - used; if (left <= 0) { tell('오늘 오프라인 사냥 한도(8시간)를 다 썼어요. 한국 시간 0시에 다시 채워져요.'); return; }
