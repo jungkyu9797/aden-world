@@ -565,7 +565,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 109;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 110;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3956,6 +3956,46 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
 
 document.addEventListener('click', ev => { const t = ev.target, lb = t && t.closest && t.closest('#huntwin label.hw-row'); if (!lb) return; if (/^(INPUT|SELECT|OPTION|BUTTON|TEXTAREA)$/.test(t.tagName)) return; ev.preventDefault(); }, true);
 // ============================================================ 마을 · 월드맵
+// ============================================================ 시장 (v110): 마을 남쪽의 기사·마법사·요정 상인
+// 30분마다 모든 접속자에게 같은 물건이 진열되고(시계 기준 · 보스 시간표와 같은 방식), 먼저 산 사람이 가져감 → 품절은 presence(mk)로 서로 알림 · 다음 교체 때 다시 등록
+let SHOP_REFRESH = null;
+const MARKET = (() => {
+  const SLOT = 1800, BOSS_ONLY = ['얼음 여왕의 지팡이', '바포메트의 지팡이'];   // 보스 대표 장비는 드랍 전용
+  const PRICE = { weapon: [80000, 100000], armor: [65000, 80000], shield: [65000, 80000], helm: [40000, 50000], gloves: [40000, 50000], boots: [40000, 50000], cloak: [40000, 50000], ring: [30000, 40000], amulet: [30000, 40000], belt: [30000, 40000], shirt: [30000, 40000] };
+  const SCROLLS = [['bscroll_armor', 30000], ['bscroll_weapon', 50000]];
+  const SLOT_N = { weapon: '무기', armor: '갑옷', shield: '방패', helm: '투구', gloves: '장갑', boots: '장화', cloak: '망토', ring: '반지', amulet: '목걸이', belt: '벨트', shirt: '티셔츠' };
+  const idOf = nm => CX_LIST.find(x => ITEMS[x].name === nm) || null;
+  const staffId = () => CX_LIST.find(x => ITEMS[x].wtype === 'staff' && ITEMS[x].rar === '고급') || CX_LIST.find(x => ITEMS[x].wtype === 'staff') || null;
+  const SAY = ['싸게싸게 팝니다~', '떨이떨이~ 떨이요!', '고가 장비 팝니다!', '희귀 장비 들어왔어요~', '축복받은 주문서 있습니다!', '30분마다 물건이 바뀝니다~'];
+  const DEF = [
+    { k: 'knight', cls: 'knight', name: '용병 상인 바르크', tag: '기사 상인', npcType: 'm', i: 13, j: 20, f: [1, 0], c: '#c8463a', eqN: { weapon: '뇌신검', armor: '비늘 갑옷', helm: '지휘관의 투구', shield: '붉은 기사의 방패' }, say: ['기사님들, 쓸 만한 칼 들어왔어요!', '방패도 있어요, 방패!'] },
+    { k: 'wizard', cls: 'wizard', name: '수습 마법사 미르', tag: '마법사 상인', npcType: 'f', i: 17, j: 21, f: [-1, 0], c: '#5a6ad8', eqN: { armor: '수호성의 로브', helm: '마나의 투구' }, say: ['마법사님들 로브 보고 가세요~', '마나가 넘치는 장비 있어요!'] },
+    { k: 'elf', cls: 'elf', name: '요정 상인 엘린', tag: '요정 상인', npcType: 'f', i: 13, j: 23, f: [1, 0], c: '#3a9a58', eqN: { weapon: '화염의 활', armor: '비늘 갑옷', cloak: '보호의 망토' }, say: ['명궁의 활 있어요~', '요정 숲에서 가져온 물건이에요!'] },
+  ];
+  DEF.forEach(d => { d.eq = null; d.say = SAY.concat(d.say); });
+  const eqOf = d => { if (!d.eq) { d.eq = {}; for (const sl in d.eqN) d.eq[sl] = idOf(d.eqN[sl]); if (d.k === 'wizard') d.eq.weapon = staffId(); } return d.eq; };
+  let rares = null; const pool = () => rares || (rares = CX_LIST.filter(id => ITEMS[id].rar === '희귀' && !BOSS_ONLY.includes(ITEMS[id].name)));
+  const priceOf = id => { const d = ITEMS[id], p = PRICE[d.slot] || [40000, 50000]; return (d.lv || 20) >= 24 ? p[1] : p[0]; };
+  const slotNow = () => Math.floor(Date.now() / 1000 / SLOT), minsLeft = () => Math.max(1, Math.ceil((SLOT - (Date.now() / 1000) % SLOT) / 60));
+  const rng = seed => () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const shuffle = (a, R) => { a = a.slice(); for (let q = a.length - 1; q > 0; q--) { const r = Math.floor(R() * (q + 1)); [a[q], a[r]] = [a[r], a[q]]; } return a; };
+  let LC = null;
+  function lineup(n) { if (LC && LC.n === n) return LC.L; const R = rng((n * 2654435761) >>> 0), P = pool().slice().sort(), common = shuffle(P.filter(id => !ITEMS[id].cls), R), L = {};
+    DEF.forEach((d, q) => { const own = shuffle(P.filter(id => ITEMS[id].cls && ITEMS[id].cls.includes(d.k)), R).slice(0, 3); L[d.k] = own.concat(common.slice(q * 2, q * 2 + 2)); });
+    LC = { n, L }; return L; }
+  let SOLD = (() => { try { return JSON.parse(localStorage.getItem('aden_mk') || 'null') || { n: 0, s: {} }; } catch (e) { return { n: 0, s: {} }; } })();
+  const save = () => { try { localStorage.setItem('aden_mk', JSON.stringify(SOLD)); } catch (e) {} };
+  const cur = () => { const n = slotNow(); if (SOLD.n !== n) { SOLD = { n, s: {} }; save(); } return n; };
+  const keyOf = (npc, id) => (ITEMS[id] && ITEMS[id].slot ? npc : 'all') + ':' + id;   // 축복 주문서는 세 상인이 같은 재고
+  function tabs(npc) { const n = cur(), mk = id => { const kk = keyOf(npc, id); return { left: () => (slotNow() === n && !SOLD.s[kk]) ? 1 : 0, buy: () => { cur(); SOLD.s[kk] = 1; save(); } }; };
+    const gear = lineup(n)[npc].map(id => { const d = ITEMS[id]; return [d.name, priceOf(id), [SLOT_N[d.slot] || '', d.lv ? 'Lv.' + d.lv : '', cxClsName(d), d.dmg ? `공격 ${d.dmg[0]}~${d.dmg[1]}` : '', d.ac ? `방어 +${d.ac}` : ''].filter(Boolean).join(' · '), id, mk(id)]; });
+    const scr = SCROLLS.map(([id, pr]) => [ITEMS[id].name, pr, '+1~2 강화 (+7부터는 +1) · 세 상인 공용 재고 1장', id, mk(id)]);
+    return [['희귀 장비', gear], ['축복 주문서', scr]]; }
+  return { DEF, eqOf, tabs, lineup, slotNow, minsLeft, priceOf,
+    shop: d => ({ id: 'mk_' + d.k, name: '시장 · ' + d.tag, npc: d.name, npcType: d.npcType, market: true, get hello() { return `${d.say[Math.floor(Math.random() * 3)]} 30분마다 물건이 바뀌어요. (다음 교체까지 ${minsLeft()}분 · 먼저 사는 분이 임자!)`; }, get tabs() { return tabs(d.k); } }),
+    sold() { cur(); return { n: SOLD.n, s: SOLD.s }; },
+    merge(o) { if (!o || typeof o !== 'object' || +o.n !== slotNow() || !o.s) return; cur(); let ch = false; for (const k in o.s) if (o.s[k] && !SOLD.s[k]) { SOLD.s[k] = 1; ch = true; } if (ch) { save(); if (SHOP_REFRESH) SHOP_REFRESH(); } } };
+})();
 const TOWN = (() => {
   const N = MAP, VPX = META.S * Math.cos(Math.PI / 6);
   const P = (x, z, y = 0) => { const [px, py] = W2P(x, z); return [px, py - y * VPX]; };
@@ -4015,6 +4055,7 @@ const TOWN = (() => {
   const setDoor = (b, open) => { b.open = open; const [i, j] = b.dIn; TB[j][i] = open ? 0 : 1; };
   [[17, 12], [18, 12], [17, 13], [18, 13]].forEach(([i, j]) => TB[j][i] = 1);      // 창고 소품
   TB[STORE_NPC.j][STORE_NPC.i] = 1; TB[SELL_NPC.j][SELL_NPC.i] = 1;
+  MARKET.DEF.forEach(d => { TB[d.j][d.i] = 1; });   // 시장 상인 자리
   SHOPS.forEach(b => setDoor(b, true));   // 문 없음: 항상 열린 입구
   for (let j = 14; j <= 15; j++) for (let i = 14; i <= 15; i++) TB[j][i] = 1;            // 우물
   // ---- 가장자리 나무·덤불
@@ -4154,6 +4195,7 @@ const TOWN = (() => {
   const KEEPER = { i: STORE_NPC.i, j: STORE_NPC.j, sheet: 'villager_m', name: STORAGE.npc, row: rowFor(0, 1), store: true };
   const TESTER = { i: TEST_NPC.i, j: TEST_NPC.j, sheet: 'villager_f', name: '테스트 상인', row: rowFor(1, 1), test: true };
   const TRADER = { i: SELL_NPC.i, j: SELL_NPC.j, sheet: 'villager_m', name: '아덴상단 로이드', row: rowFor(-1, 1), sell: true };
+  const MERCH = MARKET.DEF.map(d => ({ d, i: d.i, j: d.j, name: d.name, row: rowFor(d.f[0], d.f[1]), market: true, shop: MARKET.shop(d), cd: 2 + Math.random() * 5, chat: null }));
   const insideOf = (i, j) => SHOPS.find(b => i >= b.i && i < b.i + b.w && j >= b.j && j < b.j + b.d);
   const heroIn = () => insideOf(hero.i, hero.j);
   const doorPt = b => b.door === 'i' ? [b.i + b.w, b.j + 3] : [b.i + 3, b.j + b.d];
@@ -4162,7 +4204,7 @@ const TOWN = (() => {
   function hitShop(sx, sy) { if (heroIn()) return null; const [px, py] = worldAt(sx, sy);
     return SHOPS.find(b => { const [cx, cy] = W2P(b.i + 3, b.j + 3); return px > cx - 160 && px < cx + 160 && py > cy - 260 && py < cy + 70 && Math.abs(px - cx) / 170 + Math.abs(py - (cy - 60)) / 230 < 1; }); }
   function hitNPC(sx, sy) { const [px, py] = worldAt(sx, sy), inn = heroIn();
-    return [...SHOPKEEP.filter(n => n.b === inn), KEEPER, TRADER].find(e => { const [x, y] = W2P(e.i + 0.5, e.j + 0.5); return px > x - 13 && px < x + 13 && py > y - 64 && py < y + 4; }); }
+    return [...SHOPKEEP.filter(n => n.b === inn), KEEPER, TRADER, ...(inn ? [] : MERCH)].find(e => { const [x, y] = W2P(e.i + 0.5, e.j + 0.5), hgt = e.market ? 92 : 64; return px > x - 14 && px < x + 14 && py > y - hgt && py < y + 4; }); }
   function hitPortal(sx, sy) { const [px, py] = worldAt(sx, sy), [x, y] = W2P(PORTAL.i + 0.5, PORTAL.j + 0.5); return Math.hypot(px - x, (py - y) * 2) < 30; }
   function go(i, j, act) { hero.target = null; moveGoal = [i, j]; holding = false; pending = { i, j, act }; mark = { t: [i, j], life: 0.5 }; }
   function toggleDoor(b) { const [i, j] = b.dIn; if (b.open && hero.i === i && hero.j === j) { say('문 앞을 비켜야 닫을 수 있습니다.', '#9c9682'); return; }
@@ -4172,11 +4214,13 @@ const TOWN = (() => {
     get ground() { return ground; },
     priceOf(id) { if (!api._pm) { const M = api._pm = {}; const scan = arr => Array.isArray(arr) && arr.forEach(r => { if (!Array.isArray(r)) return; const iid = r[3] || SHOP2ITEM[r[0]]; if (iid && r[1] > 0 && !(iid in M)) M[iid] = r[1]; }); SHOPS.forEach(b => { scan(b.items); (b.tabs || []).forEach(t => scan(t[1])); }); } return api._pm[id] || 0; },
     shop(id) { const b = SHOPS.find(x => x.id === id); if (b) openShop(b); },
-    mapMarks() { return [...SHOPS.filter(b => b.npcT).map(b => ({ i: b.npcT[0], j: b.npcT[1], c: '#7fd0ff' })), ...NPCS.filter(n => n.store).map(n => ({ i: n.i, j: n.j, c: '#7fd0ff' })), { i: SELL_NPC.i, j: SELL_NPC.j, c: '#9fe0a0' }, { i: PORTAL.i, j: PORTAL.j, portal: true }]; },
+    openMarket(k) { const m = MERCH.find(x => x.d.k === k); if (m) openShop(m.shop); },
+    mapMarks() { return [...SHOPS.filter(b => b.npcT).map(b => ({ i: b.npcT[0], j: b.npcT[1], c: '#7fd0ff' })), ...NPCS.filter(n => n.store).map(n => ({ i: n.i, j: n.j, c: '#7fd0ff' })), { i: SELL_NPC.i, j: SELL_NPC.j, c: '#9fe0a0' }, ...MERCH.map(m => ({ i: m.i, j: m.j, c: '#ffd86a' })), { i: PORTAL.i, j: PORTAL.j, portal: true }]; },
     hoverAt(sx, sy) { hoverObj = hitNPC(sx, sy) || hitDoor(sx, sy) && { door: hitDoor(sx, sy) } || hitShop(sx, sy) || (hitPortal(sx, sy) ? PORTAL : null); return hoverObj; },
     click(sx, sy) {
       const n = hitNPC(sx, sy);
-      if (n) { if (n.sell) { go(n.i - 1, n.j + 1, () => SELL.open()); if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; SELL.open(); } return true; }
+      if (n) { if (n.market) { const ti = n.i + n.d.f[0], tj = n.j + n.d.f[1]; if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; openShop(n.shop); } else go(ti, tj, () => openShop(n.shop)); return true; }
+        if (n.sell) { go(n.i - 1, n.j + 1, () => SELL.open()); if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; SELL.open(); } return true; }
         if (n.test) { go(n.i + 1, n.j + 1, () => openShop(TESTSHOP)); if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; openShop(TESTSHOP); } return true; }
         if (n.store) { go(n.i, n.j + 1, () => STORE.open()); if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; STORE.open(); } return true; }
         const [ti, tj] = n.b.stand; if (cheb(hero.i, hero.j, n.i, n.j) <= 2 && heroIn() === n.b) { openShop(n.b); return true; } go(ti, tj, () => openShop(n.b)); return true; }
@@ -4186,6 +4230,7 @@ const TOWN = (() => {
       pending = null; return false;
     },
     update(dt) {
+      for (const m of MERCH) { m.cd -= dt; if (m.cd <= 0) { m.cd = 7 + Math.random() * 7; m.chat = { t: m.d.say[Math.floor(Math.random() * m.d.say.length)], until: time + 4 }; } }   // 시장 상인 외침
       if (pending && hero.t >= 1 && hero.i === pending.i && hero.j === pending.j) { const a = pending.act; pending = null; a(); }
       if (pending && moveGoal == null && hero.t >= 1 && cheb(hero.i, hero.j, pending.i, pending.j) <= 1) { const a = pending.act; pending = null; a(); }
     },
@@ -4208,6 +4253,7 @@ const TOWN = (() => {
       list.push({ d: KEEPER.i + KEEPER.j + 1, f: () => drawKeeper(g, KEEPER) });
       list.push({ d: TRADER.i + TRADER.j + 1, f: () => { drawKeeper(g, TRADER); const [x, y] = W2P(TRADER.i + 0.5, TRADER.j + 0.5); if (hoverObj !== TRADER) label(g, '아덴상단', x, y - 66, '#9fe0a0'); } });
       // 테스트 상점은 없앰 (아이템은 갓 모드 패널의 '아이템 지급'으로)
+      if (!inn) for (const m of MERCH) { list.push({ d: m.i + m.j - 0.4, f: () => drawRug(g, m) }); list.push({ d: m.i + m.j + 1, f: () => drawMerchant(g, m) }); }
       list.push({ d: WELL.x + WELL.z, f: () => { if (wellImg.complete && wellImg.naturalWidth) { const [x, y] = W2P(WELL.x, WELL.z); g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
         { const hv = hero.x + hero.z - WELL.x - WELL.z, hu = hero.x - hero.z - WELL.x + WELL.z; if (hv < 0 && hv > -7 && hu > -2.4 && hu < 2) g.globalAlpha = 0.55; }   // 기사가 우물 뒤(지붕에 가림)면 반투명
         g.drawImage(wellImg,Math.round(x - WELL_AX * S2), Math.round(y - WELL_AY * S2), wellImg.naturalWidth * S2, wellImg.naturalHeight * S2); g.restore(); } else drawWell(g); } });
@@ -4223,6 +4269,16 @@ const TOWN = (() => {
     },
     SPAWN,
   };
+  // 시장: 상인 아래 깔개(상인 색) + 기사·마법사·요정 모습(희귀 장비 차림) + 외침 말풍선
+  function drawRug(g, m) { const c = m.d.c, q = [[m.i - 0.15, m.j - 0.15], [m.i + 1.15, m.j - 0.15], [m.i + 1.15, m.j + 1.15], [m.i - 0.15, m.j + 1.15]].map(([x, z]) => W2P(x, z));
+    g.save(); g.beginPath(); q.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = c; g.globalAlpha = 0.78; g.fill(); g.globalAlpha = 1; g.lineWidth = 2; g.strokeStyle = '#e8c878'; g.stroke();
+    const [cx, cy] = W2P(m.i + 0.5, m.j + 0.5); g.beginPath(); g.ellipse(cx, cy, 12, 6, 0, 0, 7); g.strokeStyle = 'rgba(255,230,160,.55)'; g.lineWidth = 1; g.stroke(); g.restore(); }
+  function drawMerchant(g, m) { const [x, y] = W2P(m.i + 0.5, m.j + 0.5), eq = MARKET.eqOf(m.d);
+    g.save(); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y + 1, 15, 7, 0, 0, 7); g.fill(); g.restore();
+    drawHeroSprite(g, 'idle', Math.floor(time * 6 + m.i) % 8, m.row, x, y, null, m.d.cls, s => eq[s] || null, null);
+    const talking = m.chat && time < m.chat.until;
+    if (talking) CHAT.bubble(g, { x: m.i + 0.5, z: m.j + 0.5, chat: m.chat, pname: m.name });
+    else label(g, hoverObj === m ? m.name : '시장 · ' + m.d.tag, x, y - 88, hoverObj === m ? '#ffffff' : '#ffd86a'); }
   function drawKeeper(g, e) { const [x, y] = W2P(e.i + 0.5, e.j + 0.5), im2 = npcImg[e.sheet + '_idle'];
     if (im2 && im2.complete && im2.naturalWidth) drawSheet(g, im2, SHEET, Math.floor(time * 6 + e.i) % 8, e.row, x, y);
     if (hoverObj === e) label(g, e.name, x, y - 66, '#f2eedf'); }
@@ -4244,26 +4300,34 @@ const TOWN = (() => {
   function portrait(cv2, type) { const g = cv2.getContext('2d'); g.clearRect(0, 0, cv2.width, cv2.height); const im2 = npcImg['villager_' + type + '_idle'];
     if (im2 && im2.complete && im2.naturalWidth) { g.imageSmoothingEnabled = true; g.drawImage(im2, 0, 1 * SHEET.H, SHEET.W, SHEET.H, -40, -38, SHEET.W * 0.62, SHEET.H * 0.62); } }
   function openShop(b) {
-    closeAll(); ['petwin', 'itemwin'].forEach(id => { const w = $(id); if (w) w.hidden = true; }); const p = $('shop'); p.hidden = false; $('shop-title').textContent = b.name; $('shop-npc').textContent = b.npc; $('shop-hello').textContent = b.hello;
+    closeAll(); ['petwin', 'itemwin'].forEach(id => { const w = $(id); if (w) w.hidden = true; }); const p = $('shop'); p.hidden = false; p.classList.toggle('mkt', !!b.market); $('shop-title').textContent = b.name; $('shop-npc').textContent = b.npc; $('shop-hello').textContent = b.hello;
     portrait($('shop-face'), b.npcType); const list = $('shop-list'); list.innerHTML = '';
     if (b.storage) { list.innerHTML = '<div class="slots">' + Array.from({ length: 24 }, () => '<i></i>').join('') + '</div><p class="muted">맡긴 물건이 없습니다. 인벤토리가 생기면 여기서 맡기고 찾을 수 있어요.</p>'; return; }
     const fmt = n => n.toLocaleString();
     const foot = () => { const rows = [...list.querySelectorAll('.item')], tot = rows.reduce((a, r) => a + (r._tot || 0), 0), left = coins - tot;
       $('shop-coins').textContent = fmt(coins);
       $('shop-sum').innerHTML = tot ? `보유 <b>${fmt(coins)}</b> − 합계 <b>${fmt(tot)}</b> = <b class="${left < 0 ? 'neg' : 'ok'}">${left < 0 ? '−' + fmt(-left) + ' (부족)' : fmt(left)}</b>` : '<span class="muted">수량을 정하면 일괄 구매할 수 있어요</span>';
-      const bb = $('shop-buyall'); bb.disabled = !tot || left < 0; bb.onclick = () => { if (!tot || coins < tot) return; let n = 0;
+      const bb = $('shop-buyall'); bb.hidden = !!b.market; if (b.market) $('shop-sum').innerHTML = `<span class="muted">한 사람이 사면 모두에게 품절 · 다음 교체(${MARKET.minsLeft()}분 뒤) 때 새 물건</span>`; bb.disabled = !tot || left < 0; bb.onclick = () => { if (!tot || coins < tot) return; let n = 0;
         rows.forEach(r => { if (r._q > 0) { r._buy(true); n++; } }); say(`일괄 구매: ${n}종 · -${fmt(tot)} 골드`, '#cfe4a8'); upd(); }; };
-    const upd = () => { list.querySelectorAll('.item').forEach(r => r._calc && r._calc(true)); foot(); };
+    const upd = () => { list.querySelectorAll('.item').forEach(r => r._calc && r._calc(true)); foot(); }; SHOP_REFRESH = b.market ? () => { if (!p.hidden) upd(); } : null;
     const shopIcon = n => SHOP2ITEM[n] && ITEMS[SHOP2ITEM[n]] ? ITEMS[SHOP2ITEM[n]].icon : /마법서/.test(n) ? 'book' : /먹이/.test(n) ? 'food' : /목걸이/.test(n) ? 'amulet' : /강아지|늑대/.test(n) ? 'paw' : /물약/.test(n) ? 'pot_bl' : 'scroll';
     const tb = $('shop-tabs'); tb.hidden = !b.tabs; tb.innerHTML = '';
     const rowsFor = items => { list.innerHTML = ''; if (typeof items === 'string') { PET.shopPanel(items, list); foot(); return; } items.forEach(addRow); foot(); };
     if (b.tabs) { b.tab = b.tab || 0; b.tabs.forEach(([nm], k) => { const t = document.createElement('button'); t.type = 'button'; t.className = 'shop-tab'; t.setAttribute('role', 'tab'); t.textContent = nm; t.setAttribute('aria-selected', k === b.tab);
         t.onclick = () => { b.tab = k; tb.querySelectorAll('.shop-tab').forEach((x, q) => x.setAttribute('aria-selected', q === k)); rowsFor(b.tabs[k][1]); }; tb.appendChild(t); }); }
-    const addRow = ([n, price, info, iid]) => { const row = document.createElement('div'); row.className = 'item'; let q = 0; const IID = iid || SHOP2ITEM[n];   // iid: 테스트 상점처럼 아이템 id를 직접 줄 때
+    const addRow = ([n, price, info, iid, mk]) => { const row = document.createElement('div'); row.className = 'item' + (mk ? ' mkt-row' : ''); let q = 0; const IID = iid || SHOP2ITEM[n];   // iid: 테스트 상점처럼 아이템 id를 직접 줄 때
       row.innerHTML = `<span class="ic">${ICON(iid && ITEMS[iid] ? ITEMS[iid].icon : shopIcon(n))}</span><span class="nm" style="color:${IID ? rarC(IID) : '#f2f2f2'}">${n}</span><span class="info">${info}</span><span class="pr">${price.toLocaleString()} 골드</span>
         <span class="qty"><button type="button" class="qb" data-d="-10" aria-label="10개 빼기">−10</button><button type="button" class="qb" data-d="-1" aria-label="1개 빼기">−</button><input type="number" min="0" max="999" value="0" aria-label="${n} 수량"><button type="button" class="qb" data-d="1" aria-label="1개 더하기">+</button><button type="button" class="qb" data-d="10" aria-label="10개 더하기">+10</button></span>
         <span class="calc"></span><button type="button" class="buy">구입</button>`;
       const inp = row.querySelector('input'), calc = row.querySelector('.calc'), buy = row.querySelector('.buy');
+      if (mk) { row.querySelector('.qty').style.visibility = 'hidden';
+        row._calc = quiet => { const L = mk.left(); row._q = 0; row._tot = 0; row.classList.toggle('sold', !L); row.querySelector('.pr').textContent = L ? price.toLocaleString() + ' 골드' : '품절';
+          calc.innerHTML = L ? (coins >= price ? `${fmt(coins)} − ${fmt(price)} = <b class="ok">${fmt(coins - price)}</b>` : `<b class="neg">${fmt(price - coins)} 골드 부족</b>`) : '<span class="muted">다음 교체 때 다시 들어와요</span>'; buy.textContent = L ? '구입' : '품절'; buy.disabled = !L || coins < price; if (!quiet) foot(); };
+        row._buy = bulk => { if (bulk) return false; if (!mk.left()) { say('이미 팔린 물건입니다. 다음 교체 때 다시 들어와요.', '#f0c080'); row._calc(true); return null; } if (coins < price) return false;
+          coins -= price; mk.buy(); TELE.ev('buy', { id: IID || '', q: 1, g: price, mk: 1 }); if (IID) INV.add(IID, 1, true); say(`시장에서 ${n}을(를) 샀습니다. -${fmt(price)} 골드`, '#ffd86a'); return true; };
+        if (IID && ITEMS[IID]) row.onpointerdown = ev => { if (ev.target.closest('button,input')) return; INV.holdStart(ev, { id: IID, n: 1, preview: true }); };
+        buy.onclick = () => { row._calc(true); const r = row._buy(false); if (r) upd(); else if (r === false) say('골드가 부족합니다. (' + n + ')', '#f08a7a'); };
+        list.appendChild(row); row._calc(true); return; }
       row._calc = quiet => { q = Math.max(0, Math.min(999, Math.floor(+inp.value || 0))); const tot = price * q, left = coins - tot; row._q = q; row._tot = tot;
         calc.innerHTML = q ? `${fmt(coins)} − ${fmt(tot)} = <b class="${left < 0 ? 'neg' : 'ok'}">${left < 0 ? '−' + fmt(-left) + ' (부족)' : fmt(left)}</b>` : '<span class="muted">수량 0</span>'; buy.disabled = !q || left < 0; row.classList.toggle('picked', q > 0); if (!quiet) foot(); };
       row._buy = bulk => { const tot = price * q; if (!q || coins < tot) return false; coins -= tot; TELE.ev('buy', { id: IID || '', q, g: tot }); if (IID) INV.add(IID, q, true);
@@ -4851,7 +4915,7 @@ const NET = (() => {
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
   function payload() { const P = { n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
-      e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, bf: myBuffs(), bk: ISLAND.bossKills(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
+      e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
@@ -4915,7 +4979,7 @@ const NET = (() => {
     for (const o of OTH) { const v = view(o); if (o.pr.z === zk()) { const p = proxy(o.peer); p.x = o.pr.x; p.z = o.pr.y; p.i = Math.floor(p.x); p.j = Math.floor(p.z); p.hp = o.pr.hp; p.max = o.pr.hm || 1; p.dead = !(o.pr.hp > 0); }
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt * Math.min(3, Math.max(0.5, +o.pr.hs || 1)); if (v.atkT > 0.75 / GSPD) v.atkT = null; }
-      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } } }
+      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } } }
     if (!initDone && performance.now() - roomAt >= 4000) { initDone = true; say(initL.length ? `[월드] 지금 ${initL.length + 1}명이 접속 중이에요: ${initL.join(', ')}` : '[월드] 지금은 혼자 접속 중이에요.', PCOL); }
     partyTick(); PARTY.length = 0; for (const o of members()) { if (o.pr.z !== zk()) continue; const v = peers.get(o.peer); if (v) PARTY.push({ x: v.x, z: v.z, name: nmOf(o.pr) }); }   // 미니맵 초록 점
     if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } }
@@ -5064,6 +5128,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 110, items: ['마을 남쪽에 [시장]이 열렸어요! 기사·마법사·요정 모습의 상인 셋이 "싸게싸게 팝니다~", "떨이떨이~", "고가 장비 팝니다!"를 외치고 있어요. 상인을 누르면 상점이 열려요.', '시장에서는 평소 드랍으로만 얻던 희귀 장비와 축복받은 갑옷·무기 마법 주문서를 팔아요. 상인마다 자기 직업 희귀 장비 3개 + 공용 희귀 장비 2개, 축복받은 주문서는 세 상인이 함께 1장씩.', '진열은 30분마다 바뀌고, 모든 접속자에게 같은 물건이 보여요. 한 사람이 사면 모두에게 [품절]이 되고, 다음 교체 때 새 물건이 들어와요. (먼저 사는 사람이 임자!)', '시장 가격: 희귀 무기 8만(Lv20)·10만(Lv24) · 갑옷·방패 6.5만·8만 · 투구·장갑·장화·망토 4만·5만 · 반지·목걸이·벨트·티셔츠 3만·4만 · 축복받은 갑옷 마법 주문서 3만 · 축복받은 무기 마법 주문서 5만. (영웅 장비와 보스 대표 장비 — 얼음 여왕의 지팡이·바포메트의 지팡이 — 는 계속 드랍 전용)'] },
     { v: 109, items: ['보스가 강해졌어요: 보스 기본 공격 피해 ×1.5 · 보스 마법(범위 기술) 피해 +50% → +150% · 보스 명중 최저 50% · 바포메트 소환 2~3마리 → 3~4마리.', '체력 물약(빨간·주홍·맑은) 재사용 대기 0.5초 → 1.5초 (펫 1초 → 1.5초). 단축키 칸에 남은 시간이 보여요. 이제 비싼 물약일수록 초당 회복량이 커요. (초당 빨간 약 12 · 주홍 약 23 · 맑은 약 37)', '잡화상점에서 [카운터 매직 주문서]를 팔아요 (500골드). 읽으면 10분 동안 다음에 받는 마법 공격(보스 범위 기술 등) 1번을 무효로 해요. 체력 물약과 재사용 대기 1.5초를 함께 써요. (아이템 정보에서 자동 사용을 켜면 효과가 끝날 때 알아서 읽음 · HP가 낮으면 물약이 먼저)', '몬스터 명중률 계산이 바뀌었어요: (몬스터 레벨×3 + 몬스터 명중) − (내 레벨×2 + 내 방어력) − 40 (%) · 최저 10% (보스 50%) · 최고 95% · 보스 +10%. 레벨을 올려도(1당 −2%), 방어력을 올려도(1당 −1%) 미스가 늘어요. 낮은 사냥터에선 미스가 많이 뜨고, 적정 사냥터·보스는 예전(최저 30% 고정)보다 아파요. (예: Lv36·AC −47 vs 웅골리언트 30% → 39%, 바포메트 30% → 50%)', '자동 물약: 고른 물약이 떨어지면 가방의 다른 체력 물약(빨간 → 주홍 → 맑은 순)을 이어서 마셔요. (예전엔 [없습니다]만 뜨고 안 마셨어요)', '자동사냥 [물약이 N개 이하면 귀환]: 빨간·주홍·맑은 물약 중 체크한 물약 수량만 세요. (처음엔 마을에서 자동 구매하는 물약만 체크) 마을 자동 구매에 맑은 물약(300)도 추가했어요.', '월드맵: 보스가 살아 있는 지역은 아이콘 위에 보스 그림과 [출현]이 떠요.', '본토던전 권장 레벨: 1층 Lv35~40 → Lv30~35 · 2층 Lv40~45 → Lv35~40. (버그베어밭 다음 Lv30~35 사냥터 공백을 메움)', '본토던전·오렌설원 몬스터도 장비를 떨어뜨려요: 고급 장비(아이템마다 0.3%) · 희귀 장비(본토던전 0.04% · 오렌설원 0.05%, 아이템마다) · 영웅 장비(본토던전 2층·오렌설원 2구역, 아주 드묾).', '버그베어밭 1구간 경험치: 좀비 118 → 140 · 해골 궁수 108 → 115. (오크숲 2구간보다 적던 것 보정)', '샤벨타이거 공격 간격 1.1초 → 1.5초. (초당 피해 약 29 → 21, 같은 구역 몬스터 중 여전히 가장 아픔)', 'F4: [주변 1칸 줍기] 켬/끔. 켜 두면 바로 옆(1칸 안)에 떨어진 아이템을 걷지 않고 자동으로 주워요. 몬스터에 둘러싸여도 OK. (단축키 칸 위에 켜짐 표시 · 이 기기에 기억)', '자동사냥이 몬스터를 잡은 뒤 다음 몬스터보다 떨어진 아이템을 먼저 주워요. 몬스터가 나를 때리고 있어도 4칸 안의 아이템은 주우러 가고, 싸우는 중에도 바로 옆 아이템은 자동으로 주워요. (줍기 설정의 등급·종류만)', '버그베어밭의 붉은 안개 속에서 몬스터·보스가 검게 뭉쳐 잘 안 보이던 문제를 고쳤어요. 보이는 몬스터와 내 캐릭터 자리는 안개 색이 덜 씌워져요.'] },
     { v: 108, items: ['안전 강화를 등급 상관없이 무기 +6 · 방어구 +4로 통일했어요. (강화 1당 상승치는 그대로 등급이 높을수록 큼 → 안전 강화까지만 올려도 무기 공격 일반 +6 · 고급 +9 · 희귀 +12 · 영웅 +18)', '장비 기본 수치에 등급 보너스가 붙어요. 기본 공격(무기)·기본 방어(방어구) × 일반 1 · 고급 1.15 · 희귀 1.3 · 영웅 1.5 (반올림 · 아이템 정보에 표시) — 낮은 강화에서도 등급 차이가 바로 보여요.', '장비 강화 미리보기에서 수치를 바꾸면 보고 있는 장비만 바뀌고, 비교창의 착용 장비는 실제 강화 그대로 보여요. (예전엔 착용 장비도 같은 수치로 맞춰 비교)', '몬스터와 같은 칸에 겹쳤을 때 내 캐릭터가 자리를 못 잡고 좌우로 왔다갔다 하던 문제를 고쳤어요. 이제 겹친 상태에서도 그 자리에서 바로 공격해요. (파티·여러 명이 같은 사냥터에 있을 때 주로 생기던 현상)', '파티·같은 사냥터에 다른 유저가 있을 때 내가 건 스턴·슬로우가 다른 사람 화면의 몬스터에는 안 걸려 몬스터가 계속 움직이던 문제를 고쳤어요.', '혼자 사냥할 때 처치 메시지가 [경험치 나 +140]으로 어색하게 나오던 것을 [경험치 +140]으로 고쳤어요. (펫과 나눌 때는 그대로 나 · 펫 따로 표시)'] },
     { v: 107, items: ['플레이어끼리 겹치지 않아요. 다른 유저가 서 있는 칸은 몬스터처럼 막혀서 피해 돌아가요. (쓰러진 유저는 안 막음)', '데스나이트 세트·데스나이트의 불검·설원의 망토·얼음여왕의 지팡이가 일반 등급으로 잘못 표시되던 문제를 고쳤어요. (원래 등급: 데스나이트 방어구 희귀 · 불검 영웅 · 설원의 망토 희귀 · 얼음여왕의 지팡이 영웅)', '장비 강화 개편: 높은 등급일수록 강화 1당 오르는 수치가 커졌어요. 무기 공격 = 일반 +1 · 고급 +1.5 · 희귀 +2 · 영웅 +3, 방어구 방어 = 일반 +1 · 고급 +1.25 · 희귀 +1.5 · 영웅 +2 (소수점 버림 · 예: +9 무기 = 일반 +9 · 고급 +13 · 희귀 +18 · 영웅 +27)', '안전 강화가 등급별로 통일됐어요. 무기·방어구 구분 없이 일반 +6 · 고급 +5 · 희귀 +4 · 영웅 +3. (아이템 정보에 강화 1당 상승치와 안전 강화 표시)', '모든 주문서와 마법서·기술서·정령수정의 무게가 0이 됐어요.', '필드에서 다른 유저를 클릭해도 메뉴 창이 뜨지 않아요. (사냥 중 몬스터를 누르다 잘못 뜨지 않게 · 파티 초대·거래 메뉴는 오른쪽 클릭 · 마을에서는 지금처럼 왼쪽 클릭도 됨)', '마법사 7서클 마법 [이뮨 투 함]이 생겼어요. 20초 동안 받는 모든 피해가 30% 줄어요. 그냥 쓰면 나에게, 파티원에게 마우스를 올리고 쓰면 그 파티원에게 걸려요. (MP 24 · Lv 28 · 리덕션 아머와 함께 적용 · 마법서: 얼음여왕·데스나이트, 드물게 엘모어 마법사)', '콜 라이트닝·콘 오브 콜드·이럽션·선버스트의 이펙트를 작고 덜 눈부시게 줄였어요. (크기 약 60% · 화면 번쩍임·흔들림 줄임 · 몬스터가 덜 가려져요)', '공격 마법에도 치명타가 터져요. (피해 1.5배 · 분홍빛 CRITICAL!) 확률 = 5% + (내 레벨 − 대상 레벨)×0.5% + (지능 − 12)×1% − 대상 마법 방어(MR)×0.1% · 최소 2% · 최대 30%. 캐릭터 창과 단축 슬롯 툴팁에 확률이 보여요.', '마나의 지팡이로 빨아들이는 마나에 한도가 생겼어요. 몬스터마다 가진 마나(레벨 × 종류: 보스 ×5 · 마법형 ×2 · 인간형 ×1 · 짐승·곤충 ×0.6 · 언데드 ×0.5 · 골렘 ×0.3)만큼만 흡수되고, 다 빨면 [마나 고갈]이 떠요. (다시 태어나면 채워짐)', '벨트에 [가방 무게 감소]가 생겼어요. 등급별로 일반 −3% · 고급 −5% · 희귀 −8% · 영웅 −12%. (디크리즈 웨이트와 함께 적용 · 아이템 정보·장비 비교·캐릭터 창 무게에 표시)', '턴 언데드의 성공·실패 연출이 확실히 달라졌어요. 성공하면 큰 금빛 기둥과 십자가가 내리고 몸이 빛으로 흩어져요. 실패하면 가는 빛이 깨져 떨어지고 보랏빛 어둠이 튕겨내요. (소리·글씨도 다름 · 다른 사람 화면에도 구분돼 보여요)', '본토던전이 덜 복잡해졌어요. 1·2층 모두 바닥의 절반 정도가 기둥이 선 넓은 광장이고, 나머지 절반은 골목이에요. (광장 기둥 일부엔 횃불) 2층으로 내려가는 계단은 여전히 입구에서 가장 먼 곳에 있어요.', '던전·밤에 몬스터가 어둠에 묻혀 안 보이던 문제를 고쳤어요. 내 시야 안의 몬스터와 내 캐릭터 주변은 어둠이 걷히고, 몬스터 이름·HP바·피해 숫자는 항상 어둠 위에 또렷하게 보여요.', '몬스터를 클릭하거나 마우스를 올리면 이름 위에 상태 아이콘이 떠요. 붉은 테 = 디버프(스턴·슬로우·출혈·명중 저하 · 아래 숫자는 남은 초), 초록 테 = 버프(체력 회복 중·밤의 힘), 금색 테 = 속성·언데드 정보. 아이콘에 마우스를 올리면 설명이 나와요.', '단축 슬롯(F5~F12)에 마우스를 올리면 이름이 떠요. 마법은 서클·MP와 지금 내 능력치로 들어가는 예상 피해까지, 아이템은 보유 개수를 보여 줘요.', '마법 피해 공식 개편 (리니지 방식): SP = 마법 레벨(마법사 레벨÷4 · 요정 레벨÷8) + 마법 보너스(지능) + 장비 SP. 공격 마법 피해 = 기본 피해 × (1 + (지능 + SP − 12) × 9.4%). 높은 서클 마법일수록 크게 강해져요. (예: Lv40·지능 18·SP+5 지팡이의 콘 오브 콜드 평균 32 → 57) 캐릭터 창에 SP와 마법 피해 배율이 표시돼요.', '파이어볼 범위가 3×3칸에서 대상을 중심으로 가로·세로 6칸으로 넓어졌어요. (범위가 바닥에 표시되고 곳곳에서 폭발 · 던전에서는 벽 너머로 안 퍼져요)', '오렌설원지역 1구역의 엘모어 병사·전사·마법사가 언데드가 됐어요. 턴 언데드가 통하고, 밤에는 강해져요. (공격력 1.5배)', '본토던전 몬스터를 캐릭터 크기에 맞게 줄였어요. 킹 버그베어·켈베로스·네크로맨서, 그리고 데스나이트가 일으키는 스파토이 (이제 데스나이트보다 확실히 작아요)'] },
