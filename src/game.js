@@ -568,7 +568,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 112;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 113;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3713,7 +3713,7 @@ const INV = (() => {
   const blessHit = () => { const W_ = eq.weapon; return W_ && W_.blessed && ITEMS[W_.id].wtype !== 'staff'; };
   const sp = () => { const W_ = eq.weapon; return sum('sp') + (W_ && W_.blessed && ITEMS[W_.id].wtype === 'staff' ? W_.blessSp || 1 : 0); };
   const weight = () => bag.reduce((s, e) => s + (ITEMS[e.id].w || 0) * e.n, 0);
-  const maxW = () => 150 + (STAT.str + STAT.con) * 6;
+  const maxW = () => Math.round((150 + (STAT.str + STAT.con) * 6) * 1.5);   // v113: 가방 최대 무게 +50%
   const beltWR = () => Math.min(50, sum('wr'));   // 벨트: 가방 무게 −%
   const wPct = () => Math.max(0, weight() * (1 - beltWR() / 100) / Math.max(1, maxW()) - (BUFF.decwt > 0 ? 0.1 : 0));   // 벨트 감소 후 · 디크리즈 웨이트: 10% 가볍게
   const $ = id => document.getElementById(id);
@@ -3852,7 +3852,7 @@ const INV = (() => {
     hero.max = hero.baseHP + sum('hp') + Math.max(0, STAT.con - 14); hero.maxmp = hero.baseMP + sum('mp') + Math.max(0, Math.floor((STAT.wis - 9) / 2)); hero.hp = Math.min(hero.hp, hero.max); hero.mp = Math.min(hero.mp, hero.maxmp);
     const grid = $('inv-grid'); if (!grid) return; if (!$('invwin').hidden) renderSkills();
     if (!$('invwin').hidden && !bagDrag) {
-      grid.innerHTML = ''; const N = Math.max(48, Math.ceil((bag.length + 1) / 4) * 4);
+      grid.innerHTML = ''; const N = Math.max(96, Math.ceil((bag.length + 1) / 8) * 8);   // v113: 가방 칸 2배 (8줄 × 12)
       for (let k = 0; k < N; k++) { const e = bag[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
         c.ondragover = ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('dropk'); } }; c.ondragleave = () => c.classList.remove('dropk');
         c.ondrop = ev => { c.classList.remove('dropk'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); moveBag(+a, k); };   // 칸끼리 끌어서 자리 바꾸기
@@ -5155,6 +5155,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 113, items: ['가방 최대 무게가 50% 늘었어요. (예: 힘·체력 합 30이면 330 → 495) 같은 짐이면 무게 %가 훨씬 낮게 나와요.', '인벤토리가 2배로 커졌어요: 한 줄 4칸 → 8칸 · 기본 48칸 → 96칸. 한 화면에 보이는 칸도 2배예요.'] },
     { v: 112, items: ['F4: 켜고 끄는 방식 대신, 누를 때마다 바로 옆(1칸 안)에 떨어진 아이템을 모두 주워요. 누르고 있으면 1초마다 계속 주워요. (재사용 1초 · 화면 표시 없음)', '단축키 F5~F12도 누르고 있는 동안 계속 사용해요. 물약·마법을 꾹 누르고 있으면 재사용 대기가 끝날 때마다 다시 써요. (같은 안내 문구는 3초에 한 번만 떠요)', '혼자 있는 단일 보스(셸로브·거대 여왕개미·오우거·바포메트·데스나이트·얼음여왕)가 강해졌어요: 물리·마법 피해 +40% · 체력 +20%. (무리 지은 카스파 패밀리는 그대로)', '아이템 그림 색이 다른 등급 테두리 색과 같아 헷갈리던 장비 14개의 색을 바꿨어요. (예: 희귀 비늘 갑옷 초록 → 파랑 · 희귀 마력의 티셔츠 보라 → 파랑 · 고급 마법 방어 망토 파랑 → 초록 · 영웅 오우거의 장갑 초록 → 보라 · 일반 천 망토 보라 → 갈색 · 아르카의 마법주머니 보라 → 파랑) 이제 그림 색만 봐도 등급이 헷갈리지 않아요.', '아이템이 떨어질 때 나오던 메시지(희귀 등급까지)와 파티 사냥 때의 "내 우선권" 안내를 없앴어요. 이제 주웠을 때의 획득 메시지만 보여요. (영웅 등급은 그대로 알림)', '파티 사냥 드랍 아이템의 우선권이 5초 → 3초로 줄었어요. 3초가 지나면 누구나 주울 수 있어요.'] },
     { v: 111, items: ['내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치가 5%씩 줄어요 (최대 −50%). 예: Lv35가 켈베로스(Lv27)를 잡으면 −15% · 버그베어(Lv24)는 −30% · Lv36이 좀비(Lv22)를 잡으면 −45%. 줄어들면 경험치 메시지에 (낮은 레벨 −N%)가 보여요. 내 레벨에 맞는 사냥터로 올라갈수록 경험치를 제대로 받아요.', '로그인 화면에서 계정을 입력하고 Tab 키를 누르면 비밀번호 칸으로 넘어가요. (새 계정 만들기에서는 비밀번호 확인 칸까지 · 게임 안에서 Tab은 그대로 인벤토리)'] },
     { v: 110, items: ['마을 남쪽에 [시장]이 열렸어요! 기사·마법사·요정 모습의 상인 셋이 "싸게싸게 팝니다~", "떨이떨이~", "고가 장비 팝니다!"를 외치고 있어요. 상인을 누르면 상점이 열려요.', '시장에서는 평소 드랍으로만 얻던 희귀 장비와 축복받은 갑옷·무기 마법 주문서를 팔아요. 상인마다 자기 직업 희귀 장비 3개 + 공용 희귀 장비 2개, 축복받은 주문서는 세 상인이 함께 1장씩.', '진열은 30분마다 바뀌고, 모든 접속자에게 같은 물건이 보여요. 한 사람이 사면 모두에게 [품절]이 되고, 다음 교체 때 새 물건이 들어와요. (먼저 사는 사람이 임자!)', '시장 가격: 희귀 무기 8만(Lv20)·10만(Lv24) · 갑옷·방패 6.5만·8만 · 투구·장갑·장화·망토 4만·5만 · 반지·목걸이·벨트·티셔츠 3만·4만 · 축복받은 갑옷 마법 주문서 3만 · 축복받은 무기 마법 주문서 5만. (영웅 장비와 보스 대표 장비 — 얼음 여왕의 지팡이·바포메트의 지팡이 — 는 계속 드랍 전용)'] },
