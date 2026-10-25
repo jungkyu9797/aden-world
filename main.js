@@ -30,11 +30,11 @@ function createWindow() {
   win.on('close', (e) => { if (closeOk) return; e.preventDefault(); try { win.webContents.send('app:closing'); } catch (_) {} setTimeout(() => { closeOk = true; if (!win.isDestroyed()) win.close(); }, 4000); });
   win.loadFile('index.html');
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
-  // F11 전체화면, F12 개발자도구
+  // F5~F12는 게임 단축키로 게임에 그대로 넘김 · 전체화면은 Alt+Enter, 개발자도구는 Ctrl+Shift+I
   win.webContents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown') return;
-    if (input.key === 'F11') { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
-    if (input.key === 'F12') { win.webContents.toggleDevTools(); e.preventDefault(); }
+    if (input.alt && input.key === 'Enter') { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
+    if (input.control && input.shift && (input.key === 'I' || input.key === 'i')) { win.webContents.toggleDevTools(); e.preventDefault(); }
   });
 }
 
