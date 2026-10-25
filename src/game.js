@@ -94,8 +94,8 @@ const DN = (() => {
   return { update, draw, seen, isNight, dark: () => dark, label, toggle(){ force = force==null ? (isNight()?0:1) : (force===1?0:1); } };
 })();
 const nightUp = S => S.undead && DN.isNight() && !MAZE();   // 던전은 늘 어두워서 밤 보너스 없음 (수치에 이미 반영)
-const mobDmg = S => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1));
-const mobHit = S => Math.max(0.3, Math.min(0.95, 0.6 + 0.03 * (S.lv - hero.lv) + INV.ac() * 0.01 + (nightUp(S) ? 0.1 : 0)));   // v100: AC 1당 1% · 최저 30%
+const mobDmg = S => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1) * (S.boss ? 1.5 : 1));   // v109: 보스 기본 공격 ×1.5
+const mobHit = S => Math.max(S.boss ? 0.5 : 0.10, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (hero.lv * 2 - INV.ac()) - 40 + (S.boss ? 10 : 0) + (nightUp(S) ? 10 : 0)) / 100));   // v109: (몬스터 레벨×3 + 명중) − (내 레벨×2 + 방어력) − 40 · 최저 10% · 최고 95% · 보스 +10%
 const mobHitM = S => Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * (S.lv - hero.lv) + (nightUp(S) ? 0.05 : 0)));   // 몬스터 마법: AC 무시
 const walkable = (i,j) => i>=0&&j>=0&&i<MAP&&j<MAP&&!blockedT[j][i];
 const DIRV = META.dirs;
@@ -397,7 +397,7 @@ function updateFox(f,dt){
 const webShots = [], webZones = [];
 // 범위 공격(미리 표시 → 후판정): 산성 웅덩이(계속 피해) · 땅 울림(한 번 큰 피해). 나와 펫 모두 맞음
 const AOES = [];
-const BOSS_MAGIC = 1.5;   // v102: 보스 마법(범위 기술) 피해 +50%
+const BOSS_MAGIC = 2.5;   // v109: 보스 마법(범위 기술) 피해 +150% (v102: +50%)
 function aoeTick(dt) { for (let n = AOES.length - 1; n >= 0; n--) { const a = AOES[n]; a.t += dt; const inR = e => Math.hypot(e.x - a.x, e.z - a.z) <= a.r;
     if (!a.landed && a.t >= a.warn) { a.landed = true; const [ax, ay] = W2P(a.x, a.z); if (a.onLand) a.onLand(a);
       if (a.kind === 'mag') { if (AC && SFX_ON) { nz(AC.currentTime, 0.35, 1400, 400, 0.22); tone(AC.currentTime, 'sine', 220, 80, 0.35, 0.1); } }
@@ -446,13 +446,13 @@ const BOSS_SKILL = {
           const m = mkMob('atuba_orc', i, j); m.aggro = true; m.summoned = true; m.home = [i, j]; foxes.push(m); n++; const [mx, my] = W2P(i + 0.5, j + 0.5); impact(mx, my, 'quake', '#4a3a2a'); }
         if (AC && SFX_ON) { const t0 = AC.currentTime; tone(t0, 'sawtooth', 90, 55, 0.9, 0.2); nz(t0, 0.8, 400, 120, 0.3); } } },
   ],
-  // 바포메트: ① 대도끼 휘두르기(주변 큰 붉은 원) ② 지옥불(내 주변 불기둥 세 개, 화상) ③ 소환 — 버그베어·켈베로스 2~3마리 ④ 공포의 울부짖음(가까이 있으면 느려짐)
+  // 바포메트: ① 대도끼 휘두르기(주변 큰 붉은 원) ② 지옥불(내 주변 불기둥 세 개, 화상) ③ 소환 — 버그베어·켈베로스 3~4마리 ④ 공포의 울부짖음(가까이 있으면 느려짐)
   baphomet: [
     { id: 'cleave', cd: [9, 13], range: 4, cast: 1.0, use(f){ say('바포메트가 거대한 도끼를 치켜듭니다! 붉은 원 밖으로 피하세요!', '#ff8a6a'); AOES.push({ kind: 'slam', x: f.x, z: f.z, r: 3.8, warn: 1.2, t: 0, life: 1.7, landed: false, dmg: [18, 30], msg: ['바포메트의 도끼에 휩쓸렸습니다!', '바포메트의 도끼를 피했습니다.'] }); } },
     { id: 'hellfire', cd: [7, 10], range: 9, cast: 0.8, use(f){ say('바포메트가 지옥불을 부릅니다! 붉은 원을 피하세요!', '#ff9a7a'); const grp = Math.random(), a0 = Math.random() * 6.283;
         for (let k = 0; k < 3; k++) { const rr = k ? 1.6 : 0, an = a0 + k * 2.1; AOES.push({ grp, kind: 'slam', fire: true, x: hero.x + Math.cos(an) * rr, z: hero.z + Math.sin(an) * rr, r: 1.4, warn: 1.1, t: 0, life: 1.6, landed: false, dmg: [12, 20], msg: ['지옥불에 휩싸였습니다!', '지옥불을 피했습니다.'] }); } } },
     { id: 'summon', cd: [18, 24], range: 10, cast: 1.1, use(f){ say('바포메트가 지옥의 하수인들을 부릅니다!', '#ffb07a'); shake = Math.max(shake, 0.4); let n = 0;
-        for (let t = 0; t < 40 && n < 2 + (Math.random() < 0.5 ? 1 : 0); t++) { const i = f.i + Math.round((Math.random() * 2 - 1) * 3), j = f.j + Math.round((Math.random() * 2 - 1) * 3); if (!walkable(i, j) || occ(i, j)) continue;
+        const want = 3 + (Math.random() < 0.5 ? 1 : 0); for (let t = 0; t < 60 && n < want; t++) { const i = f.i + Math.round((Math.random() * 2 - 1) * 3), j = f.j + Math.round((Math.random() * 2 - 1) * 3); if (!walkable(i, j) || occ(i, j)) continue;
           const m = mkMob(Math.random() < 0.5 ? 'bugbear' : 'cerberus', i, j); m.aggro = true; m.summoned = true; m.home = [i, j]; foxes.push(m); n++; const [mx, my] = W2P(i + 0.5, j + 0.5); impact(mx, my, 'bolt', '#ff4a2a'); }
         if (AC && SFX_ON) { const t0 = AC.currentTime; tone(t0, 'sawtooth', 70, 40, 1.0, 0.22); nz(t0, 0.9, 300, 90, 0.3); } } },
     { id: 'howl', cd: [22, 28], range: 7, cast: 0.9, use(f){ say('바포메트가 울부짖습니다! 공포에 질려 몸이 굳습니다!', '#c9a0ff'); shake = Math.max(shake, 0.3);
@@ -565,7 +565,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 108;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 109;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1355,8 +1355,12 @@ function goreSprite(p) { if (!ISLE || !(ISLE.def.gore || ISLE.def.maze)) return 
 const GFOG = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d');
   for (let k = 0; k < 18; k++) { const x = 60 + Math.random() * 390, y = 60 + Math.random() * 140, r = 40 + Math.random() * 70; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(150,130,125,.16)'); gr.addColorStop(1, 'rgba(150,130,125,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
   return c; })();
+let GORE_C = null;
 function goreFx(g, vw, vh, ox, oy) { if (!ISLE || !ISLE.def.gore) return; g.save();
-  g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(150,104,96,.42)'; g.fillRect(0, 0, vw, vh);
+  { if (!GORE_C) GORE_C = document.createElement('canvas'); if (GORE_C.width !== vw || GORE_C.height !== vh) { GORE_C.width = vw; GORE_C.height = vh; } const c = GORE_C.getContext('2d'); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, vw, vh); c.fillStyle = 'rgba(150,104,96,.42)'; c.fillRect(0, 0, vw, vh);
+    c.globalCompositeOperation = 'destination-out'; const lit = (wx, wz, hh, hw) => { const [px, py] = W2P(wx, wz), X0 = px + ox, Y0 = py + oy - hh * 0.48, rx = hw + 18, ry = hh * 0.62 + 16; if (X0 < -rx || Y0 < -ry || X0 > vw + rx || Y0 > vh + ry) return; c.save(); c.translate(X0, Y0); c.scale(1, ry / rx); const lg = c.createRadialGradient(0, 0, rx * 0.2, 0, 0, rx); lg.addColorStop(0, 'rgba(0,0,0,.95)'); lg.addColorStop(0.7, 'rgba(0,0,0,.6)'); lg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = lg; c.beginPath(); c.arc(0, 0, rx, 0, 7); c.fill(); c.restore(); };
+    for (const f of foxes) { if (f.dead || f.gone || !DN.seen(f.i, f.j)) continue; const S = MOB[f.kind]; lit(f.x, f.z, S.hh || Math.round(62 * S.sc), S.hw || Math.round(14 * S.sc + 6)); } lit(hero.x, hero.z, 74, 24);
+    g.globalCompositeOperation = 'multiply'; g.drawImage(GORE_C, 0, 0); }   // 안개 색: 보이는 몬스터·나 자리는 구멍
   g.globalCompositeOperation = 'source-over'; for (let q = 0; q < 4; q++) { const sp = 9 + q * 4, W = GFOG.width * (2.2 + q * 0.4), Hh = GFOG.height * (1.6 + q * 0.3), x = ((q * 331 + time * sp - cam[0] * 0.15) % (vw + W)) - W * 0.6, y = (q * 0.27 * vh + Math.sin(time * 0.2 + q) * 30 - cam[1] * 0.08) % vh;
     g.globalAlpha = 0.28 + 0.14 * Math.sin(time * 0.3 + q * 1.7); g.drawImage(GFOG, x, y - Hh * 0.3, W, Hh); g.drawImage(GFOG, x - vw - W * 0.4, y + vh * 0.35, W, Hh); }
   g.globalAlpha = 1; g.fillStyle = '#0a0806';
@@ -1520,9 +1524,12 @@ function announce(t, c = '#ffd86a', kind = '') {
 hero.lv = 1; hero.exp = 0; hero.baseHP = 16; hero.baseMP = 2; hero.hp = hero.max = 16; hero.mp = hero.maxmp = 2; hero.bonusPts = 0; let coins = 100, potions = 20, potCd = 0;
 // 단축키: 브라우저·윈도우 기본 기능(F5 새로고침 등)을 막고 게임 기능으로만 씀
 function usePotion(){ INV.usePotion(); }
+// F4: 주변 1칸 자동 줍기 켬/끔 (켜 두면 몬스터에 둘러싸여도 바로 옆 아이템을 걷지 않고 주움 · 이 기기에 기억)
+let NEAR_PICK = false; try { NEAR_PICK = localStorage.getItem('aden_f4pick') === '1'; } catch (e) {}
+function toggleNearPick(){ NEAR_PICK = !NEAR_PICK; try { localStorage.setItem('aden_f4pick', NEAR_PICK ? '1' : '0'); } catch (e) {} say(`주변 1칸 줍기 ${NEAR_PICK ? '켬 — 바로 옆에 떨어진 아이템을 자동으로 주워요 (F4로 끄기)' : '끔'}`, NEAR_PICK ? '#9fe0a0' : '#9c9682'); if (NEAR_PICK) GROUND.pickNear(null); }
 addEventListener('keydown', ev=>{ const k=ev.key;
   if (/^F([1-9]|1[0-2])$/.test(k) || ((ev.ctrlKey||ev.metaKey) && /^[rRwWsSpPfFgGhHjJdDuUoOnNtT+\-=0]$/.test(k)) || k==='Tab' || k==='Backspace' && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName||'')) { ev.preventDefault(); }
-  const fm=/^F([5-9]|1[0-2])$/.exec(k); if (fm && !ev.repeat) INV.useHot(+fm[1]-5); }, {capture:true});
+  const fm=/^F([5-9]|1[0-2])$/.exec(k); if (fm && !ev.repeat) INV.useHot(+fm[1]-5); if (k==='F4' && !ev.repeat) toggleNearPick(); }, {capture:true});
 addEventListener('help', ev=>ev.preventDefault());
 const needExp = lv => Math.floor(15*Math.pow(lv,1.7)*(lv<10?1:lv<20?1+(lv-9)*0.35:4.5+(lv-19)*0.6));   // v100: Lv10까지는 그대로, 그 뒤로 점점 무겁게 (Lv15 약 55마리 · Lv20 110 · Lv25 210 · Lv30 330마리)
 function gainExp(n){ TELE.xp(n); hero.exp += n; while (hero.exp >= needExp(hero.lv)){ hero.exp -= needExp(hero.lv); hero.lv++; { const C=CLS_DEF[CLASS]; hero.baseHP += rint(C.hpLv); hero.baseMP += rint(C.mpLv); } INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; say('레벨이 올랐습니다. (레벨 '+hero.lv+')', '#f2e6a8'); levelUpFx();
@@ -1667,8 +1674,10 @@ function drawUI(g, vw, vh){
       const cdv=SKCD[sk]||0; if (cdv>0){ g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(x+3,y+2,sw-7,(sw-7)*Math.min(1,cdv/SK[sk].cd)); }
       if (INV.autoSk(sk)){ const bx=x+sw-9, by=y+8, on=!!(SK[sk].buff&&BUFF[SK[sk].buff]>0); g.save(); g.beginPath(); g.arc(bx,by,5.4,0,7); g.fillStyle='rgba(16,10,4,.92)'; g.fill(); g.lineWidth=1.2; g.strokeStyle=on?'#8af08a':'#ffd86a'; g.stroke(); g.font='900 7.5px '+F; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle=on?'#c8ffc0':'#ffe08a'; g.fillText('A',bx,by+0.5); g.restore(); } }
     else if (id){ const im2=iconImg(ITEMS[id].icon, INV.bag().some(x=>x.id===id&&x.blessed)); if (im2.complete&&im2.naturalWidth){ g.save(); g.imageSmoothingEnabled=true; g.drawImage(im2,x+3,y+2,sw-7,sw-7); g.restore(); }
+      if (ITEMS[id].use==='heal'){ const hc=INV.healCd(); if (hc>0){ g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(x+3,y+2,sw-7,(sw-7)*Math.min(1,hc)); } }
       if (ITEMS[id].stack){ const inf=GOD_INF(id), pc=INV.count(id), pt=inf?'∞':String(pc); g.textAlign='right'; g.textBaseline='bottom'; g.font='800 '+(inf?10:8)+'px '+F; g.fillStyle='#000'; g.fillText(pt,x+sw-3,y+sw-3); g.fillStyle=pc||inf?(inf?'#ffd86a':'#fff'):'#f08a7a'; g.fillText(pt,x+sw-4,y+sw-4); } }
     g.font='700 7px '+F; g.textAlign='left'; g.textBaseline='top'; g.fillStyle='#000'; g.fillText('F'+(5+idx),x+4,y+3); g.fillStyle=sel?'#f2d98a':'#a89e86'; g.fillText('F'+(5+idx),x+3,y+2); }
+  if (NEAR_PICK){ g.save(); g.font='800 9px '+F; const t='F4 주변 1칸 줍기 켜짐', tw=g.measureText(t).width+12, bx=rx+(R-6-tw)/2, by=top-15; g.fillStyle='rgba(10,16,8,.85)'; g.fillRect(bx,by,tw,13); g.strokeStyle='#6ad06a'; g.lineWidth=1; g.strokeRect(bx+0.5,by+0.5,tw-1,12); g.fillStyle='#b8ffb0'; g.textAlign='left'; g.textBaseline='top'; g.fillText(t,bx+6,by+2); g.restore(); }
   if (hotDrag&&hotDrag.moved) drawHotGhost(g); else drawHotTip(g, vw);
   g.textBaseline='alphabetic';
   MM.draw(g, vw, y0);
@@ -1743,15 +1752,15 @@ const MOB = {
   gast:         { name: '가스트', lv: 23, hp: 235, dmg: [9, 19], mac: 2, hit: 0.84, exp: 140, coin: [70, 130], walk: 1.0, run: 3.2, cd: 1.5, aggr: 5, art: 'vil', tint: 'sepia(.6) hue-rotate(50deg) saturate(1.2) brightness(.6)', sc: 1.15, atkTxt: '몽둥이' },
   ogre:         { name: '오우거', lv: 28, hp: 3600, dmg: [14, 30], mac: 0, hit: 0.88, exp: 4000, coin: [7000, 12000], walk: 0.9, run: 2.4, cd: 1.9, art: 'vil', tint: 'sepia(.5) saturate(1.3) hue-rotate(-20deg) brightness(.8)', sc: 2.4, boss: true, aggr: 6, hw: 70, hh: 150 },
   // ----- 버그베어밭 (Lv20~30) — 살육의 땅. 1구간: 해골 궁수(활, 선공)·좀비(느리고 질김)·버그베어 / 2구간: 버그베어·켈베로스(불 물기)·킹 버그베어(선공) + 보스 바포메트. 해골·좀비는 언데드(밤에 강해짐)
-  skeleton_archer: { name: '해골 궁수', lv: 21, hp: 140, dmg: [7, 15], mac: 4, hit: 0.84, exp: 108, coin: [55, 110], walk: 1.1, run: 3.0, cd: 1.7, range: 6, aggr: 6, undead: true, art: 'vil', tint: 'grayscale(1) brightness(1.5) contrast(1.2)', sc: 1.0, atkTxt: '활' },
-  zombie:       { name: '좀비', lv: 22, hp: 240, dmg: [8, 16], mac: 5, hit: 0.78, exp: 118, coin: [50, 100], walk: 0.6, run: 1.8, cd: 1.8, undead: true, art: 'vil', tint: 'grayscale(.7) sepia(.5) hue-rotate(35deg) brightness(.6)', sc: 1.05, atkTxt: '할퀴기' },
+  skeleton_archer: { name: '해골 궁수', lv: 21, hp: 140, dmg: [7, 15], mac: 4, hit: 0.84, exp: 115, coin: [55, 110], walk: 1.1, run: 3.0, cd: 1.7, range: 6, aggr: 6, undead: true, art: 'vil', tint: 'grayscale(1) brightness(1.5) contrast(1.2)', sc: 1.0, atkTxt: '활' },
+  zombie:       { name: '좀비', lv: 22, hp: 240, dmg: [8, 16], mac: 5, hit: 0.78, exp: 140, coin: [50, 100], walk: 0.6, run: 1.8, cd: 1.8, undead: true, art: 'vil', tint: 'grayscale(.7) sepia(.5) hue-rotate(35deg) brightness(.6)', sc: 1.05, atkTxt: '할퀴기' },
   bugbear:      { name: '버그베어', lv: 24, hp: 270, dmg: [9, 19], mac: 3, hit: 0.84, exp: 145, coin: [70, 135], walk: 1.2, run: 3.1, cd: 1.5, art: 'vil', tint: 'sepia(.9) saturate(1.4) hue-rotate(-12deg) brightness(.7)', sc: 1.25, atkTxt: '몽둥이' },
   cerberus:     { name: '켈베로스', lv: 27, hp: 310, dmg: [11, 22], mac: 3, hit: 0.86, exp: 178, coin: [80, 150], walk: 1.6, run: 4.0, cd: 1.2, burn: true, art: 'fox', tint: 'sepia(1) saturate(2.6) hue-rotate(-28deg) brightness(.5) contrast(1.5)', sc: 1.6, hw: 30, hh: 46, atkTxt: '물기' },
   king_bugbear: { name: '킹 버그베어', lv: 29, hp: 420, dmg: [13, 26], mac: 2, hit: 0.88, exp: 235, coin: [100, 190], walk: 1.2, run: 3.2, cd: 1.6, aggr: 6, art: 'vil', tint: 'sepia(.6) saturate(1.1) hue-rotate(-25deg) brightness(.5) contrast(1.2)', sc: 1.45, atkTxt: '도끼' },
   baphomet:     { name: '바포메트', lv: 33, hp: 5200, dmg: [16, 34], mac: 0, hit: 0.9, exp: 5600, coin: [9000, 15000], walk: 1.0, run: 2.6, cd: 1.8, art: 'vil', tint: 'sepia(.7) hue-rotate(-38deg) saturate(1.8) brightness(.45)', sc: 2.5, boss: true, aggr: 6, hw: 72, hh: 160 },
   // 펫 그림(임시): 모델이 나오기 전까지 여우 그림을 검정·황갈색 도베르만처럼 물들여 씀
   pet_doberman:{ name: '도베르만', lv: 1, hp: 26, dmg: [1, 4], mac: 8, hit: 0.72, exp: 0, coin: [0, 0], walk: 1.6, run: 3.7, cd: 1.1, art: 'fox', tint: 'sepia(1) saturate(2.1) hue-rotate(-14deg) brightness(.62) contrast(1.9)', sc: 1.22, hw: 24, hh: 40, pet: true },
-  // ----- 본토던전 (Lv35~45) — 모두 선공. 1층: 킹 버그베어·웅골리언트(거미줄 둔화)·구울(독) + 보스 카스파 패밀리(물·불·땅·바람 마법사 넷) / 2층: 킹 버그베어·켈베로스·네크로맨서(저주 폭발) + 보스 데스나이트(헬파이어·스파토이 소환)
+  // ----- 본토던전 (Lv30~40) — 모두 선공. 1층: 킹 버그베어·웅골리언트(거미줄 둔화)·구울(독) + 보스 카스파 패밀리(물·불·땅·바람 마법사 넷) / 2층: 킹 버그베어·켈베로스·네크로맨서(저주 폭발) + 보스 데스나이트(헬파이어·스파토이 소환)
   dg_kbugbear: { name: '킹 버그베어', lv: 35, hp: 500, dmg: [15, 29], mac: 1, hit: 0.88, exp: 300, coin: [120, 220], walk: 1.2, run: 3.2, cd: 1.6, aggr: 6, art: 'vil', tint: 'sepia(.6) saturate(1.1) hue-rotate(-25deg) brightness(.5) contrast(1.2)', sc: 1.45, atkTxt: '도끼' },
   ungoliant:   { name: '웅골리언트', lv: 36, hp: 440, dmg: [14, 27], mac: 2, hit: 0.9, exp: 310, coin: [120, 220], walk: 1.5, run: 3.8, cd: 1.3, aggr: 6, web: 0.2, art: 'spider', sc: 0.6, hw: 40, hh: 46, atkTxt: '독니' },
   ghoul:       { name: '구울', lv: 33, hp: 300, dmg: [11, 21], mac: 3, hit: 0.86, exp: 250, coin: [100, 180], walk: 1.0, run: 3.0, cd: 1.4, aggr: 5, undead: true, poison: 0.35, art: 'vil', tint: 'grayscale(.75) sepia(.35) hue-rotate(55deg) saturate(1.2) brightness(.82) contrast(1.25)', sc: 1.05, atkTxt: '할퀴기' },
@@ -1769,7 +1778,7 @@ const MOB = {
   elmore_mage:    { name: '엘모어 마법사', undead: true, lv: 40, hp: 380, dmg: [14, 24], mac: 3, hit: 0.9, exp: 360, coin: [140, 240], walk: 1.0, run: 2.7, cd: 2.5, range: 6, spell: 'water', mr: 25, el: 'water', art: 'vil', tint: 'hue-rotate(200deg) saturate(1.6)', sc: 1.0, atkTxt: '얼음 마법' },
   ettin:          { name: '에틴', lv: 45, hp: 780, dmg: [20, 36], mac: 0, hit: 0.9, exp: 520, coin: [180, 320], walk: 1.0, run: 2.8, cd: 1.8, aggr: 6, el: 'water', art: 'vil', tint: 'grayscale(.5) hue-rotate(170deg) brightness(.95)', sc: 1.4, atkTxt: '몽둥이' },
   ice_golem:      { name: '아이스 골렘', lv: 44, hp: 900, dmg: [18, 32], mac: -3, hit: 0.86, exp: 500, coin: [160, 300], walk: 0.7, run: 1.9, cd: 2.0, el: 'water', chill: 0.3, art: 'vil', tint: 'grayscale(1) brightness(1.6) hue-rotate(160deg)', sc: 1.3, atkTxt: '얼음 주먹' },
-  sabertooth:     { name: '샤벨타이거', lv: 46, hp: 640, dmg: [19, 34], mac: 0, hit: 0.93, exp: 540, coin: [180, 320], walk: 1.7, run: 4.3, cd: 1.1, aggr: 6, el: 'water', art: 'fox', tint: 'grayscale(1) brightness(1.5)', sc: 1.6, hw: 32, hh: 48, atkTxt: '송곳니' },
+  sabertooth:     { name: '샤벨타이거', lv: 46, hp: 640, dmg: [19, 34], mac: 0, hit: 0.93, exp: 540, coin: [180, 320], walk: 1.7, run: 4.3, cd: 1.5, aggr: 6, el: 'water', art: 'fox', tint: 'grayscale(1) brightness(1.5)', sc: 1.6, hw: 32, hh: 48, atkTxt: '송곳니' },
   ice_queen:      { name: '얼음여왕', lv: 50, hp: 8400, dmg: [20, 34], mac: -2, hit: 0.92, exp: 11000, coin: [14000, 24000], walk: 1.0, run: 2.6, cd: 2.2, range: 6, spell: 'water', el: 'water', mr: 40, boss: true, aggr: 7, art: 'vil', sc: 1.5, hw: 46, hh: 140, atkTxt: '얼음 마법' },
   shelob:     { name: '셸로브', lv: 12, hp: 700, dmg: [6, 15], mac: 2, hit: 0.8, exp: 400, coin: [800, 1500], walk: 1.0, run: 2.6, cd: 1.6, art: 'spider', sc: 1, boss: true, aggr: 6, hw: 46, hh: 58 },
 };
@@ -2546,6 +2555,9 @@ const GROUND = (() => {
     const k = L.indexOf(d); if (k < 0) return; L.splice(k, 1); FADE.push({ d, t: 0 }); want = null; moveGoal = null; const it = ITEMS[d.id];
     INV.add(d.id, d.n, true); if (it.rar && it.rar !== '일반') TELE.ev('pick', { id: d.id, n: d.n, r: it.rar, z: zoneTitle() }); if (it.rar === '영웅') { const m = `${PNAME()}님이 ${zoneTitle()}에서 영웅 아이템 ${JOSA(it.name, '을', '를')} 획득했습니다!`; announce(m, RARITY_C['영웅'] || '#c77dff'); NET.announceAll(m); } say(`${rarTag(d.id)}${d.n > 1 ? it.name + ' ' + d.n + '개를' : JOSA(it.name, '을', '를')} 주웠습니다.`, rarC(d.id));
     if (AC) tone(AC.currentTime, 'triangle', 700, 1180, 0.16, 0.09); if (hov === d) setTip(null); }
+  function pickNear(filter) { if (hero.hp <= 0) return 0; let n = 0; for (const d of here().slice()) { if (cheb(hero.i, hero.j, d.i, d.j) > 1 || prio(d) === 2 || (d.shared && d.pend > time) || (filter && !filter(d.id))) continue;
+      const mg = moveGoal, w = want; pick(d); if (w !== d) { want = w; moveGoal = mg; } n++; } return n; }   // F4 · 자동사냥: 바로 옆(1칸 안) 아이템은 걷지 않고 주움
+  let nearT = 0;
   function go(d) { hero.target = null; holding = false; want = d; if (cheb(hero.i, hero.j, d.i, d.j) <= 1 && hero.t >= 1 && !hero.atk) { pick(d); return; } moveGoal = [d.i, d.j]; mark = { t: [d.i, d.j], life: 0.5 }; }
   function setTip(d, cx, cy) { const tip = document.getElementById('stat-tip'); if (!tip) return; hov = d;
     if (!d) { if (tipOn) { tip.hidden = true; tipOn = false; } return; }
@@ -2555,7 +2567,8 @@ const GROUND = (() => {
     tip.innerHTML = `<b style="color:${rc}">${it.name}${d.n > 1 ? ' (' + d.n + ')' : ''}</b> <span style="color:${rc}">[${it.rar || '일반'}]</span>${pl}`; void eff;   // 바닥 아이템: 이름만 (줍고 나서 가방에서 꾹 누르면 상세)
     tip.hidden = false; tipOn = true; const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, cx + 16)) + 'px'; tip.style.top = Math.max(8, Math.min(innerHeight - h - 8, cy - h - 10)) + 'px'; }
   function hoverAt(sx, sy, cx, cy) { const d = at(sx, sy); setTip(d, cx, cy); return d; }
-  function tick(dt) { for (let k = L.length - 1; k >= 0; k--) { L[k].t += dt; if (L[k].t > LIFE) { if (L[k] === hov) setTip(null); L.splice(k, 1); } }
+  function tick(dt) { if ((nearT -= dt) <= 0) { nearT = 0.25; const au = AUTO.on(); if ((NEAR_PICK || au) && SCENE !== 'town') pickNear(au && !NEAR_PICK ? AUTO.wantLoot : null); }
+    for (let k = L.length - 1; k >= 0; k--) { L[k].t += dt; if (L[k].t > LIFE) { if (L[k] === hov) setTip(null); L.splice(k, 1); } }
     if (want) { if (!here().includes(want)) want = null; else if (hero.t >= 1 && !hero.atk && cheb(hero.i, hero.j, want.i, want.j) <= 1) pick(want); else if (!moveGoal && !hero.target && hero.t >= 1) want = null; } }
   function draw(g) { for (const d of here()) { if (!DN.seen(d.i, d.j)) continue; const it = ITEMS[d.id], m = img(it.icon, d.blessed), rc = rarC(d.id);
       const left = LIFE - d.t; if (left < 30 && Math.floor(time * 4) % 2) continue;
@@ -2578,7 +2591,7 @@ const GROUND = (() => {
       g.fillStyle = rc; for (let q = 0; q < 4; q++) { const ph = (q * 0.25 + time * 0.45 + d.ph * 0.1) % 1; g.globalAlpha = Math.sin(ph * Math.PI) * 0.9 * al; g.fillRect(Math.round(x + Math.sin(q * 2.3 + time) * 4), Math.round(y - 8 - ph * (H_ - 12)), 2, 2); } }
     g.restore(); }
   function fadeTick(dt) { for (let k = FADE.length - 1; k >= 0; k--) { FADE[k].t += dt; if (FADE[k].t >= 0.5) FADE.splice(k, 1); } }
-  return { clear() { const n = L.length; L.length = 0; want = null; setTip(null); return n; }, drop, bossLoot, at, go, pick, tick(dt) { tick(dt); fadeTick(dt); }, draw, drawPillars, hoverAt, list: () => L, here, fade(d) { FADE.push({ d, t: 0 }); },
+  return { clear() { const n = L.length; L.length = 0; want = null; setTip(null); return n; }, drop, bossLoot, at, go, pick, pickNear, tick(dt) { tick(dt); fadeTick(dt); }, draw, drawPillars, hoverAt, list: () => L, here, fade(d) { FADE.push({ d, t: 0 }); },
     capStart() { cap = []; }, capEnd() { const c = cap || []; cap = null; return c; }, setShared, adoptShared, gotShared, unpend, takeFor, blocked: d => prio(d) === 2 };
 })();
 
@@ -2641,7 +2654,7 @@ const PET = (() => {
     if (d.hp < d.maxhp * 0.5) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'heal'); let I = null;
       if (k >= 0) { const it = d.inv[k]; I = ITEMS[it.id]; if (--it.n <= 0) d.inv[k] = null; }   // 예전에 펫 가방에 넣어 둔 체력 물약부터
       else { const id = HEAL_IDS().find(x => INV.count(x) > 0); if (id && INV.take(id, 1)) I = ITEMS[id]; }   // 없으면 내 가방 물약
-      if (I) { const h = Math.min(d.maxhp - d.hp, rint(I.heal)); d.hp += h; p.potCd = 1;
+      if (I) { const h = Math.min(d.maxhp - d.hp, rint(I.heal)); d.hp += h; p.potCd = 1.5;
         const [px, py] = W2P(p.x, p.z); floatText(px, py - 50, `+${h}`, { color: '#8af08a', size: 11 }); spellFx('heal', p); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 520, 880, 0.15, 0.07); refresh(); return; } }
     if (d.haste <= 0) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'haste'); if (k >= 0) { const it = d.inv[k], I = ITEMS[it.id]; d.haste = I.dur; d.hasteLv = I.haste; if (--it.n <= 0) d.inv[k] = null; p.potCd = 1; refresh(); } } }
   let lastHI = null, lastHJ = null;   // 순간이동 감지: 한 프레임에 3칸 넘게 뛰면 텔레포트로 봄
@@ -2773,6 +2786,7 @@ const ICON = (() => {
     scr_earth: '<rect x="8" y="6" width="18" height="22" rx="1.5" fill="#c8a878" stroke="#5a4a2a"/><rect x="6" y="4" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><rect x="6" y="25.5" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><path d="M11 11 L23 11 L17 22 Z" fill="#7a4a1e" stroke="#f0d8a0" stroke-width="1"/><path d="M12.8 15.2 L21.2 15.2" stroke="#f0d8a0" stroke-width="1.1"/>',
     scr_water: '<rect x="8" y="6" width="18" height="22" rx="1.5" fill="#c8a878" stroke="#5a4a2a"/><rect x="6" y="4" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><rect x="6" y="25.5" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><path d="M17 10 C14.5 14.5 12.3 16.6 12.3 19.3 A4.7 4.7 0 0 0 21.7 19.3 C21.7 16.6 19.5 14.5 17 10 Z" fill="#2a6ab8" stroke="#d8f0ff" stroke-width="1"/><path d="M15 19.5 A2 2 0 0 0 17 21.5" stroke="#d8f0ff" stroke-width=".9" fill="none"/>',
     scr_fire: '<rect x="8" y="6" width="18" height="22" rx="1.5" fill="#c8a878" stroke="#5a4a2a"/><rect x="6" y="4" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><rect x="6" y="25.5" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><path d="M17 9.5 C19.2 13 22 14.6 21.6 18.6 C21.2 21.6 19.2 23 17 23 C14.6 23 12.5 21.2 12.5 18.6 C12.5 16 14.4 15 15 12.6 C16 14 16.5 15 17.1 15.6 C17.6 13.6 17.6 11.6 17 9.5 Z" fill="#c8401a" stroke="#ffe0a0" stroke-width="1"/><path d="M17 23 C15.6 23 14.8 21.8 15.2 20.4 C15.6 19.2 16.6 18.6 17 17.4 C17.6 18.8 18.9 19.6 18.8 21.2 C18.7 22.3 17.9 23 17 23 Z" fill="#ffc040"/>',
+    scr_cm: '<rect x="8" y="6" width="18" height="22" rx="1.5" fill="#cdb8e0" stroke="#4a3a5a"/><rect x="6" y="4" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><rect x="6" y="25.5" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><circle cx="17" cy="16.8" r="5.2" fill="none" stroke="#6a2ab8" stroke-width="1.8"/><path d="M13.4 20.4 L20.6 13.2" stroke="#6a2ab8" stroke-width="1.8" stroke-linecap="round"/>',
     scr_wind: '<rect x="8" y="6" width="18" height="22" rx="1.5" fill="#c8a878" stroke="#5a4a2a"/><rect x="6" y="4" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><rect x="6" y="25.5" width="22" height="4.5" rx="2.2" fill="url(#wd)" stroke="#2a1a0c" stroke-width=".6"/><path d="M10.5 14 H19.5 A2.6 2.6 0 1 0 17 11.3 M10.5 17.6 H22 A2.6 2.6 0 1 1 19.4 20.3 M12 21.2 H16.6" fill="none" stroke="#1e7a4a" stroke-width="1.8" stroke-linecap="round"/>',
     crystal: '<path d="M17 3 L25 12 L21 30 L13 30 L9 12 Z" fill="url(#gr)" stroke="#0e3a12" stroke-width="1"/><path d="M17 3 L17 30 M9 12 L25 12 M13 30 L17 12 L21 30" stroke="#d8ffd0" stroke-width=".8" opacity=".7"/><path d="M12 10 L15 6" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>',
     wing_gold: '<path d="M6 26 C8 14 16 6 29 4 C26 10 25 15 20 19 C22 19 24 18 26 17 C23 22 18 25 12 26 C14 24 15 23 16 21 C12 23 9 25 6 26 Z" fill="url(#gd)" stroke="#6a4a10" stroke-width=".9"/><path d="M8 24 C12 18 18 12 26 7 M12 24 C15 21 19 18 23 15" fill="none" stroke="#fff3c0" stroke-width=".8" opacity=".8"/>',
@@ -2864,6 +2878,7 @@ const ITEMS = {
   clear_potion: { name: '맑은 물약', icon: 'pot_wh', use: 'heal', heal: [50, 60], w: 0.5, stack: true },
   antidote: { name: '해독제', icon: 'antidote', use: 'antidote', w: 0.3, stack: true, desc: '독을 바로 치료합니다. (본토던전 구울 대비)' },
   candle: { name: '양초', icon: 'candle', use: 'candle', buff: 'light', w: 0.3, stack: true, desc: '켜면 10분 동안 밤 시야가 넓어져요.' },
+  scroll_counterm: { name: '카운터 매직 주문서', icon: 'scr_cm', use: 'counterm', buff: 'counterm', w: 0, stack: true, desc: '읽으면 10분 동안 다음에 받는 마법 공격(보스 범위 기술·마법 화살 등) 1번을 무효로 합니다. 체력 물약과 재사용 대기(1.5초)를 함께 씁니다. 아이템 정보에서 자동 사용을 켜면 효과가 끝날 때 알아서 읽어요.' },
   mana_potion: { name: '마나 회복 물약', icon: 'pot_bl', use: 'mana', buff: 'mana', w: 0.5, stack: true, desc: '10분 동안 MP 자연 회복이 초당 0.5씩 늘어납니다. (즉시 회복은 없음 · 다시 마시면 남은 시간이 10분으로)' },
   green_potion: { name: '초록 물약', icon: 'pot_gr', use: 'haste', haste: 1, dur: 600, w: 0.5, stack: true },
   brave_potion: { name: '용기의 물약', icon: 'pot_br', use: 'haste', haste: 2, dur: 600, w: 0.5, stack: true },
@@ -3365,7 +3380,7 @@ function cxOpt(txt) { const o = {}; if (!txt || txt === '—' || /롱소드/.tes
   return o; }
 const CX_METAL = /철|판금|사슬|강철|비늘|커츠|데스나이트|지휘관/;   // 기사 그림: 금속 방어구는 판금 그림(p), 나머지는 가죽 그림(l)
 const CX_PRICE = { long_sword: 3000, wood_shield: 300, leather_armor: 400, leather_boots: 150, plate_helm: 3000, plate_armor: 8000, plate_gloves: 2500, plate_boots: 3000, leather_helm: 250, leather_gloves: 200, cloak: 200, leather_belt: 150, silver_ring: 600, amulet: 800, cloth_shirt: 100 };
-const CX_LIST = [], CX_HERO = [], CX_ZONE = { 3: [], 4: [], 5: [], 6: [], 7: [], 8: [] }, CX_ZONE_R = { 6: [], 8: [] }, CX_BOSS = { ice_queen: [], queen_ant: [], shelob: [], ogre: [], baphomet: [], kaspar: [], merkyor: [], balthazar: [], sema: [], deathknight: [] }, CX_SHOP = { weapon: [], armor: [], general: [] };
+const CX_LIST = [], CX_HERO = [], CX_ZONE = { 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: [], 10: [], 11: [], 12: [] }, CX_ZONE_R = { 6: [], 8: [], 9: [], 10: [], 11: [], 12: [] }, CX_ZONE_H = { 10: [], 12: [] }, CX_BOSS = { ice_queen: [], queen_ant: [], shelob: [], ogre: [], baphomet: [], kaspar: [], merkyor: [], balthazar: [], sema: [], deathknight: [] }, CX_SHOP = { weapon: [], armor: [], general: [] };
 const CX_P = { zone: 0.003, dwarf: 0.01, rare: 0.04, hero: 0.007 };
 const HERO_P = { ice_queen: 0.12, shelob: 0.02, queen_ant: 0.08, ogre: 0.08, baphomet: 0.10, kaspar: 0.03, merkyor: 0.03, balthazar: 0.03, sema: 0.03, deathknight: 0.12 };   // 영웅 장비가 나올 확률 (한 번 잡을 때) — 셸로브는 30분마다라 낮게   // 고급: 사막 몬스터 아이템마다 0.3% (한 번에 1개) · 난쟁이 1% · 희귀: 보스 4% · 영웅: 보스 아이템마다 0.7% (한 번에 1개)
 for (const k in ITEMS) { const d = ITEMS[k]; if (/주문서/.test(d.name || '') || /scroll/.test(k) || d.use === 'learn') d.w = 0; }   // v107: 모든 주문서·마법서·기술서·정령수정 무게 0
@@ -3384,12 +3399,12 @@ const BELT_WR = { 일반: 3, 고급: 5, 희귀: 8, 영웅: 12 };   // 벨트 무
     // 얻는 곳
     if (grade === '일반') CX_SHOP[slot === 'weapon' ? 'weapon' : ['ring', 'amulet', 'shirt'].includes(slot) ? 'general' : 'armor'].push(id);
     if (grade === '고급') { if (/상점\(고가\)/.test(src)) CX_SHOP.armor.push(id); if (/사막 1구간|사막 몬스터|사막 드랍/.test(src)) CX_ZONE[3].push(id); if (/사막 2구간|사막 몬스터|사막 드랍/.test(src)) CX_ZONE[4].push(id); }
-    if (grade === '고급' && /사막 2구간 몬스터/.test(src)) { CX_ZONE[5].push(id); CX_ZONE[6].push(id); CX_ZONE[7].push(id); CX_ZONE[8].push(id); d.src = src + ' · 오크숲·버그베어밭 몬스터'; }   // 오크숲: Lv14 고급 장비 (1·2구간)
-    if (grade === '희귀') { if (/여왕개미/.test(src)) CX_BOSS.queen_ant.push(id); if (/셸로브/.test(src)) CX_BOSS.shelob.push(id); CX_BOSS.ogre.push(id); CX_BOSS.baphomet.push(id); for (const b of ['kaspar', 'merkyor', 'balthazar', 'sema', 'deathknight', 'ice_queen']) CX_BOSS[b].push(id); if (lv <= 20) CX_ZONE_R[6].push(id); CX_ZONE_R[8].push(id); }
+    if (grade === '고급' && /사막 2구간 몬스터/.test(src)) { for (const z of [5, 6, 7, 8, 9, 10, 11, 12]) CX_ZONE[z].push(id); d.src = src + ' · 오크숲·버그베어밭·본토던전·오렌설원 몬스터'; }   // 오크숲: Lv14 고급 장비 (1·2구간)
+    if (grade === '희귀') { if (/여왕개미/.test(src)) CX_BOSS.queen_ant.push(id); if (/셸로브/.test(src)) CX_BOSS.shelob.push(id); CX_BOSS.ogre.push(id); CX_BOSS.baphomet.push(id); for (const b of ['kaspar', 'merkyor', 'balthazar', 'sema', 'deathknight', 'ice_queen']) CX_BOSS[b].push(id); if (lv <= 20) CX_ZONE_R[6].push(id); for (const z of [8, 9, 10, 11, 12]) CX_ZONE_R[z].push(id); }
     if (name === '오우거의 장갑' || name === '거인의 벨트') d.src = '오우거 (오크숲 2구간)';
     if (name === '아크메이지의 지팡이' || name === '암살자의 단검') d.src = '바포메트 (버그베어밭 2구간)';
     if (name === '바포메트의 지팡이') d.src = src + ' · 바포메트';
-    if (grade === '영웅') CX_HERO.push(id);
+    if (grade === '영웅') { CX_HERO.push(id); CX_ZONE_H[10].push(id); CX_ZONE_H[12].push(id); }
     // 아이콘 (아이템마다 다른 그림). 그라디언트 id가 공용 정의와 겹치지 않게 접두어
     const sp = CX_SPEC[name]; if (sp) CXI[d.icon] = CXB(sp[0], sp[1]).replace(/id="([\w-]+)"/g, 'id="c_$1"').replace(/url\(#([\w-]+)\)/g, 'url(#c_$1)'); else console.warn('장비 도감: 아이콘 없음', name); }
   // 희귀: 보스 드랍표에 추가 (이미 들어 있는 건 그대로)
@@ -3401,7 +3416,8 @@ const BELT_WR = { 일반: 3, 고급: 5, 희귀: 8, 영웅: 12 };   // 벨트 무
   // 투명 망토: 버프
   const iv = CX_LIST.find(id => ITEMS[id].invis); BUFF.invis = 0; BUFF_DEF.invis = { name: '투명 (투명 망토)', desc: '몬스터가 나를 보지 못함 · 공격하면 풀림', icon: 'ic_' + iv, dur: ITEMS[iv].invis.dur, c: '#bfe0ff' }; }
 // 사막 몬스터(보스 제외)를 잡으면: 그 구간 고급 장비 중 하나가 아주 낮은 확률로 (한 번에 최대 1개)
-function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < 0.0003); if (!hit.length) return false;   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
+const CX_RP = { 6: 0.0003, 8: 0.0003, 9: 0.0004, 10: 0.0004, 11: 0.0005, 12: 0.0005 };
+function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id], LH = CX_ZONE_H[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[ISLE.id] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < 0.00002); if (!hit.length) return false;   // v109: 희귀 — 버그베어밭 2구간 0.03% · 본토던전 0.04% · 오렌설원 0.05% (아이템마다) · 영웅 — 본토던전 2층·오렌설원 2구역 0.002%   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
   const id = hit[Math.floor(Math.random() * hit.length)]; GROUND.drop(id, 1, f.i, f.j); if (!lowRar(id)) say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); return true; }
 const cxClsName = d => d.cls ? d.cls.map(c => CLASS_NAME[c]).join('·') : '공용';
 const cxReq = d => { const okC = !d.cls || d.cls.includes(CLASS), okL = !d.lv || hero.lv >= d.lv; return { okC, okL, ok: okC && okL, txt: `착용 가능: ${cxClsName(d)}${d.lv > 1 ? ` · Lv.${d.lv} 이상` : ''}` }; };
@@ -3513,7 +3529,7 @@ const INV = (() => {
     const s = slotFor(d);
     if (eq[s]) unequip(eq[s], true); eq[s] = e; e.on = s; say(`${nameOf(e)}을(를) 착용했습니다.`, '#e8d8a8'); render(); }
   function unequip(e, quiet) { if (!e.on) return; delete eq[e.on]; e.on = false; if (!quiet) say(`${nameOf(e)}을(를) 벗었습니다.`, '#9c9682'); render(); }
-  let cd = 0;
+  let cd = 0, hcd = 0; const HEAL_CD = 1.5;   // v109: 체력 물약 재사용 1.5초
   const AUTO = { hp: { on: true, id: 'red_potion', pct: 50, warn: 0 }, mp: { on: false, id: 'mana_potion', pct: 30, warn: 0 } };
   const potOK = (k, id) => ITEMS[id] && ITEMS[id].use === (k === 'hp' ? 'heal' : 'mana');
   // 버프 아이템(자동 사용 가능): 가속 물약 + 앞으로 buff 키가 있는 아이템이면 자동으로 포함
@@ -3521,10 +3537,12 @@ const INV = (() => {
   const AUTOBUFF = Object.fromEntries(Object.keys(ITEMS).filter(id => !ITEMS[id].slot && buffKeyOf(ITEMS[id])).map(id => [id, false]));
   function setAutoBuff(id, on) { if (!(id in AUTOBUFF)) return; AUTOBUFF[id] = !!on; say(`자동 사용: ${ITEMS[id].name} ${on ? '켬' : '끔'}`, '#9fd0e8'); const el = document.getElementById('au-' + id); if (el) el.checked = !!on; if (dwE && dwE.id === id && !$('itemwin').hidden) showDetail(dwE); }
   function buffAuto() { if (SCENE === 'town' || hero.hp <= 0 || cd > 0) return;
-    for (const id in AUTOBUFF) { if (!AUTOBUFF[id]) continue; const d = ITEMS[id], k = buffKeyOf(d); if (!k || BUFF[k] > 0) continue; const e = bag.find(x => x.id === id); if (e) { use(e); return; } } }
+    for (const id in AUTOBUFF) { if (!AUTOBUFF[id]) continue; const d = ITEMS[id], k = buffKeyOf(d); if (!k || BUFF[k] > 0) continue; if (d.use === 'counterm' && (hcd > 0 || (AUTO.hp.on && hero.hp / hero.max * 100 <= AUTO.hp.pct + 10))) continue; const e = bag.find(x => x.id === id); if (e) { use(e); return; } } }
   function autoTick(dt) { buffAuto(); skAuto(dt); for (const k of ['hp', 'mp']) { const A = AUTO[k]; A.warn = Math.max(0, A.warn - dt); if (!A.on || !A.id || hero.hp <= 0) continue;
-      const cur = k === 'hp' ? hero.hp / hero.max : hero.mp / Math.max(1, hero.maxmp); if (cur * 100 > A.pct || cd > 0) continue; { const bk = ITEMS[A.id] && ITEMS[A.id].buff; if (bk && BUFF[bk] > 0) continue; }   // 버프식 물약(마나 회복)은 효과가 남아 있으면 안 마심
-      const e = bag.find(x => x.id === A.id); if (!e) { if (!A.warn) { say(`자동 물약: ${ITEMS[A.id].name}이(가) 없습니다.`, '#f08a7a'); A.warn = 15; } continue; }
+      const cur = k === 'hp' ? hero.hp / hero.max : hero.mp / Math.max(1, hero.maxmp); if (cur * 100 > A.pct || cd > 0 || (k === 'hp' && hcd > 0)) continue; { const bk = ITEMS[A.id] && ITEMS[A.id].buff; if (bk && BUFF[bk] > 0) continue; }   // 버프식 물약(마나 회복)은 효과가 남아 있으면 안 마심
+      let e = bag.find(x => x.id === A.id);
+      if (!e && k === 'hp' && ITEMS[A.id] && ITEMS[A.id].use === 'heal') { e = ['red_potion', 'orange_potion', 'clear_potion'].map(id => bag.find(x => x.id === id)).find(Boolean) || bag.find(x => ITEMS[x.id] && ITEMS[x.id].use === 'heal'); if (e && !A.warn) { say(`자동 물약: ${ITEMS[A.id].name}이(가) 떨어져서 ${ITEMS[e.id].name}을(를) 대신 마셔요.`, '#f0c080'); A.warn = 30; } }   // v109: 지정 물약이 떨어지면 다른 체력 물약으로 이어 마심
+      if (!e) { if (!A.warn) { say(`자동 물약: ${ITEMS[A.id].name}이(가) 없습니다.`, '#f08a7a'); A.warn = 15; } continue; }
       use(e); } }
   function autoUI() { const w = document.getElementById('autowin'); if (!w || w.hidden) return;
     for (const k of ['hp', 'mp']) { const A = AUTO[k], sel = document.getElementById('au-' + k + '-id');
@@ -3546,9 +3564,10 @@ const INV = (() => {
   function use(e) { const d = ITEMS[e.id]; if (d && !d.slot) TELE.use(e.id);
     if (d.slot) { e.on ? unequip(e) : equip(e); return; }
     if (cd > 0) return;
-    if (d.use === 'heal') { if (hero.hp >= hero.max) { say('체력이 가득 차 있습니다.', '#9c9682'); return; } const h = Math.max(1, Math.min(Math.ceil(hero.max - hero.hp), rint(d.heal))); hero.hp = Math.min(hero.max, hero.hp + h); take(e.id); cd = 0.5; if (AC) tone(AC.currentTime, 'sine', 520, 880, 0.18, 0.12); return; }
+    if (d.use === 'heal') { if (hero.hp >= hero.max) { say('체력이 가득 차 있습니다.', '#9c9682'); return; } if (hcd > 0) return; const h = Math.max(1, Math.min(Math.ceil(hero.max - hero.hp), rint(d.heal))); hero.hp = Math.min(hero.max, hero.hp + h); take(e.id); cd = 0.5; hcd = HEAL_CD; if (AC) tone(AC.currentTime, 'sine', 520, 880, 0.18, 0.12); return; }
     if (d.use === 'antidote') { if (!(BUFF.poison > 0)) { say('독에 걸려 있지 않습니다.', '#9c9682'); return; } take(e.id); cd = 0.5; BUFF.poison = 0; mxSelf('cure', hero); say('해독제를 마셨습니다. 독이 나았습니다.', '#9ae06a'); return; }
     if (d.use === 'candle') { take(e.id); cd = 0.5; BUFF.light = BUFF_DEF.light.dur; spellFx('light', hero, '#fff2a0'); say('양초를 켰습니다. 10분 동안 밤 시야가 넓어져요.', '#fff2a0'); return; }
+    if (d.use === 'counterm') { if (BUFF.counterm > 0) { say('이미 카운터 매직이 걸려 있습니다. (마법 공격을 한 번 막으면 풀려요)', '#9c9682'); return; } if (hcd > 0) return; take(e.id); cd = 0.5; hcd = HEAL_CD; BUFF.counterm = BUFF_DEF.counterm.dur; mxSelf('counterm', hero); spellSfx('counterm'); say('카운터 매직: 다음에 받는 마법 공격 1번을 막아 줍니다. (10분)', '#d8a8ff'); return; }
     if (d.use === 'mana') { take(e.id); cd = 0.5; BUFF.mana = BUFF_DEF.mana.dur; spellFx('enok', hero, '#8ab8ff'); if (AC) tone(AC.currentTime, 'sine', 440, 760, 0.2, 0.1); return; }
     if (d.use === 'haste') { const k = 'haste' + d.haste; take(e.id); BUFF[k] = d.dur; if (AC) tone(AC.currentTime, 'triangle', 440, 990, 0.25, 0.1); return; }
     if (d.use === 'enchant' || d.use === 'attr' || d.use === 'blessit') { const ok = bag.some(x => canScroll(d, ITEMS[x.id]));
@@ -3881,7 +3900,7 @@ const INV = (() => {
   // 단축키 칸 F5~F12 (휠로 선택, 휠 클릭·F키로 사용)
   const hot = ['red_potion', 'orange_potion', 'return_scroll', 'tele_scroll', null, null, null, null]; let hsel = 0;
   function useHot(i, onto) { const id = hot[i]; hsel = i; if (!id) return; if (id.startsWith('sk:')) { castSkill(id.slice(3), onto); return; } const e = bag.find(x => x.id === id) || (GOD_INF(id) ? { id, n: 0, on: false } : null); if (!e) { say(`${ITEMS[id].name}이(가) 없습니다.`, '#f08a7a'); return; } use(e); }
-  return { tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 8) % 8; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${5 + a} ↔ F${5 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; const id = hot[i]; hot[i] = null; say(`F${5 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${5 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); autoTick(dt); }, auto: k => AUTO[k], blessHit, sp, openAuto, cx: sum, wAttr: () => (eq.weapon && eq.weapon.attr) || null, useInvis,
+  return { tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 8) % 8; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${5 + a} ↔ F${5 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; const id = hot[i]; hot[i] = null; say(`F${5 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${5 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); hcd = Math.max(0, hcd - dt); autoTick(dt); }, healCd: () => hcd / HEAL_CD, auto: k => AUTO[k], blessHit, sp, openAuto, cx: sum, wAttr: () => (eq.weapon && eq.weapon.attr) || null, useInvis,
     godScrolls(on) { for (const id of GOD_SCROLLS) { let e = bag.find(x => x.id === id);   // 켜면 종류별로 1칸씩(없을 때만, 표시는 ∞), 끄면 그 1장만 빼서 원래 수로
         if (on) { if (!e) { bag.push({ id, n: 1, on: false, godTemp: true }); } } else if (e && e.godTemp) { e.n -= 1; delete e.godTemp; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); } } render(); },
     trashAsk, setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, showSkill, holdHot, openHot, setAutoSk, autoSk: id => !!AUTOSK[id], applyScroll, targeting: () => tgtScroll, bag: () => bag, nameOf, wPct, maxW, weightNow: weight, enOf: sl => eq[sl] ? (eq[sl].en || 0) : 0,
@@ -3949,7 +3968,7 @@ const TOWN = (() => {
   const SHOPS = [
     { id: 'general', name: '잡화상점', npc: '잡화상인 판도라', icon: 'potion', i: 3, j: 13, w: 6, d: 6, h: 3.5, door: 'i', roof: [122, 58, 40], npcType: 'f',
       hello: '어서 오세요! 사냥 전에 물약은 넉넉히 챙기셨나요?',
-      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 100, 'HP를 많이 회복'], ['맑은 물약', 300, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 10분'], ['용기의 물약', 500, '2단 가속 1.4배 · 10분'], ['귀환 주문서', 40, '마을로 즉시 귀환'], ['화살', 2, '요정 전용 · 활을 쏠 때마다 1개씩 소모', 'arrow'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['능력치 초기화 주문서', 5000, '보너스 능력치 다시 찍기'], ['마나 회복 물약', 120, 'MP 자연 회복 초당 +0.5 · 10분'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 10000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch']]], ['장신구', CX_SHOP.general.map(cxRow)]] },
+      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 100, 'HP를 많이 회복'], ['맑은 물약', 300, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 10분'], ['용기의 물약', 500, '2단 가속 1.4배 · 10분'], ['귀환 주문서', 40, '마을로 즉시 귀환'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 10분 (체력 물약과 재사용 1.5초 공유)', 'scroll_counterm'], ['화살', 2, '요정 전용 · 활을 쏠 때마다 1개씩 소모', 'arrow'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['능력치 초기화 주문서', 5000, '보너스 능력치 다시 찍기'], ['마나 회복 물약', 120, 'MP 자연 회복 초당 +0.5 · 10분'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 10000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch']]], ['장신구', CX_SHOP.general.map(cxRow)]] },
     { id: 'equip', name: '장비상점', npc: '장비상인 발신', icon: 'sword', i: 3, j: 4, w: 6, d: 6, h: 3.5, door: 'i', roof: [74, 79, 92], npcType: 'm',
       hello: '좋은 무기가 좋은 기사를 만들지. 천천히 둘러보게.',
       get tabs() { return [['무기', [['한손검', 800, '공용 · 공격 1~8 · 처음 쓰기 좋은 검'], ...CX_SHOP.weapon.map(cxRow)]], ['방어구', CX_SHOP.armor.map(cxRow)]]; } },
@@ -4263,17 +4282,25 @@ const TOWN = (() => {
     ['knight_village', '사막필드', '중급', '10~20', 420, 470, '기사마을 남쪽의 뜨거운 사막. 1구간(Lv 10~15): 리자드맨·거대개미, 드물게 먼저 덤비는 스콜피온. 2구간(Lv 15~20): 스콜피온·바실리스크·거대불개미, 그리고 보스 거대 여왕개미(잡으면 3시간~3시간 30분 뒤 다시 등장).'],
     ['orc_forest', '오크숲', '중급', '15~25', 560, 395, '오크 부족이 터를 잡은 울창한 숲. 1구간(Lv 15~20): 로바 오크(주먹)·두다마라 오크(창)·오크 마법사(파이어볼), 드물게 먼저 덤비는 다크엘프(활). 2구간(Lv 20~25): 다크엘프·아투바 오크(검)·먼저 덤비는 꼽추 오크 가스트, 그리고 보스 오우거(잡으면 3시간~3시간 30분 뒤 다시 등장).'],
     ['bugbear_field', '버그베어밭', '중급', '20~30', 470, 300, '시체와 핏자국이 널린 어둡고 끔찍한 살육의 땅. 1구간(Lv 20~25): 먼저 활을 쏘는 해골 궁수·좀비(해골·좀비는 밤에 강해짐)·버그베어. 2구간(Lv 25~30): 버그베어·불을 무는 켈베로스·먼저 덤비는 킹 버그베어, 그리고 보스 바포메트(잡으면 3시간~3시간 30분 뒤 다시 등장). 버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 잘 떨어뜨린다.'],
-    ['dark_knight_field', '본토던전', '상급', '35~45', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 35~40): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 40~45): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
+    ['dark_knight_field', '본토던전', '상급', '30~40', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 30~35): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 35~40): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
     ['dragon_valley', '용의계곡', '상급', 32, 900, 300, '용족이 지배하는 협곡. 하늘과 땅 모두에서 위협이 몰려온다.'],
     ['fire_dragon_nest', '화룡의둥지', '상급', 40, 1070, 230, '용암이 흐르는 화산 지대. 화룡 발라카스가 둥지를 틀고 있다.'],
     ['oren_elmore', '오렌설원지역', '상급', '40~50', 800, 130, '눈보라가 몰아치는 북쪽의 눈 덮인 설원 (수속성 — 불 속성 무기·마법이 잘 듭니다). 1구역(Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다니며 하나를 치면 무리 전체가 반격. 2구역(Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 얼어붙는 아이스 골렘, 그리고 보스 얼음여왕(약 3시간마다, 블리자드·콘 오브 콜드).'],
   ];
+  // v109: 보스가 살아 있는 지역은 아이콘 위에 보스 그림과 '출현' (지도를 연 동안 5초마다 갱신)
+  const REGION_BOSS_K = { talking_island: ['shelob'], knight_village: ['queen_ant'], orc_forest: ['ogre'], bugbear_field: ['baphomet'], dark_knight_field: ['kaspar', 'deathknight'], oren_elmore: ['ice_queen'] };
+  let bossMarkT = 0;
+  function updBossMarks() { const st = $('wm-stage'); if (!st || $('wmap').hidden) { clearInterval(bossMarkT); bossMarkT = 0; return; } const T = ISLAND.bossTimers();
+    st.querySelectorAll('.mk[data-r]').forEach(m => { const ks = (REGION_BOSS_K[m.dataset.r] || []).filter(k => T[k] === 'alive'), key = ks.join(','); let b = m.querySelector('.mk-boss');
+      if ((b ? b.dataset.k : '') === key) return; if (b) b.remove(); if (!ks.length) return;
+      b = document.createElement('span'); b.className = 'mk-boss ' + ({ knight_village: 'left', orc_forest: 'left', dark_knight_field: 'up' }[m.dataset.r] || 'side');   // 이웃 지역 글자를 가리지 않는 쪽 b.dataset.k = key; b.title = ks.map(k => MOB[k].name).join(' · ') + ' 출현';
+      b.innerHTML = ks.map(k => `<canvas width="56" height="56" data-k="${k}"></canvas>`).join('') + '<em>출현</em>'; m.prepend(b); drawPortraits(b); }); }
   let sel = null;
   function openMap() {
     closeAll(); $('wmap').hidden = false; const st = $('wm-stage');
     if (!st.dataset.built) { st.dataset.built = 1;
       REGIONS.forEach(r => { const m = document.createElement('button'); m.type = 'button'; m.className = 'mk g' + ['초보', '중급', '상급'].indexOf(r[2]); m.style.left = r[4] / 12.8 + '%'; m.style.top = r[5] / 7.2 + '%';
-        m.innerHTML = `<i></i><b>${r[1]}</b><small>${r[2]} · 권장 Lv.${r[3]}</small>`; m.onclick = () => pick(r, m); st.appendChild(m); });
+        m.dataset.r = r[0]; m.innerHTML = `<i></i><b>${r[1]}</b><small>${r[2]} · 권장 Lv.${r[3]}</small>`; m.onclick = () => pick(r, m); st.appendChild(m); });
       { const R = Object.fromEntries(REGIONS.map(r => [r[0], [r[4], r[5]]])), TWN = [600, 520], seg = (a, b, k = 0.18, cls = '') => { const mx = (a[0] + b[0]) / 2 - (b[1] - a[1]) * k, my = (a[1] + b[1]) / 2 + (b[0] - a[0]) * k; return `<path class="${cls}" d="M${a[0]} ${a[1]} Q${mx} ${my} ${b[0]} ${b[1]}"/>`; };
         const chain = ['knight_village', 'orc_forest', 'bugbear_field', 'dark_knight_field', 'dragon_valley', 'fire_dragon_nest'].map(id => R[id]); let d = seg(TWN, R.talking_island, -0.12, 'sea') + seg(TWN, chain[0]);
         for (let q = 0; q < chain.length - 1; q++) d += seg(chain[q], chain[q + 1], q % 2 ? 0.15 : -0.15); d += seg(R.dark_knight_field, R.oren_elmore, 0.2);
@@ -4281,6 +4308,7 @@ const TOWN = (() => {
       const t = document.createElement('button'); t.type = 'button'; t.className = 'mk town'; t.style.left = 600 / 12.8 + '%'; t.style.top = 520 / 7.2 + '%'; t.innerHTML = '<i></i><b>아덴 마을</b><small>메인 마을</small>';
       t.onclick = () => askTown(); st.appendChild(t); }
     pick(REGIONS[0], st.querySelector('.mk'));
+    updBossMarks(); clearInterval(bossMarkT); bossMarkT = setInterval(updBossMarks, 5000);
   }
   // 월드맵 오른쪽: 사냥터 도감 (구간별 몬스터 · 보스 · 얻을 수 있는 아이템)
   const REGION_INFO = { talking_island: { zones: [[1, '1구간 · Lv 1~5'], [2, '2구간 · Lv 5~10']], boss: 'shelob', bossTxt: '2구간 어딘가에 수시로 나타남' },
@@ -4288,7 +4316,7 @@ const TOWN = (() => {
     orc_forest: { zones: [[5, '1구간 · Lv 15~20'], [6, '2구간 · Lv 20~25']], boss: 'ogre', bossTxt: '2구간 · 잡으면 3시간~3시간 30분 뒤 다시 나타남' },
     bugbear_field: { zones: [[7, '1구간 · Lv 20~25'], [8, '2구간 · Lv 25~30']], boss: 'baphomet', bossTxt: '2구간 · 잡으면 3시간~3시간 30분 뒤 다시 나타남' },
     oren_elmore: { zones: [[11, '1구역 · Lv 40~45'], [12, '2구역 · Lv 45~50']], boss: 'ice_queen', bossTxt: '2구역 · 약 3시간마다 (블리자드·콘 오브 콜드)' },
-    dark_knight_field: { zones: [[9, '1층 · Lv 35~40'], [10, '2층 · Lv 40~45']], boss: 'deathknight', bossTxt: '', bosses: [['kaspar', '1층 보스 카스파 패밀리 · 넷 모두 쓰러지면 약 2시간 뒤', ['kaspar', 'merkyor', 'balthazar', 'sema']], ['deathknight', '2층 보스 · 약 3시간마다', ['deathknight']]] } };
+    dark_knight_field: { zones: [[9, '1층 · Lv 30~35'], [10, '2층 · Lv 35~40']], boss: 'deathknight', bossTxt: '', bosses: [['kaspar', '1층 보스 카스파 패밀리 · 넷 모두 쓰러지면 약 2시간 뒤', ['kaspar', 'merkyor', 'balthazar', 'sema']], ['deathknight', '2층 보스 · 약 3시간마다', ['deathknight']]] } };
   const RORD = { '영웅': 0, '희귀': 1, '고급': 2, '일반': 3 };
   function zoneKinds(id) { const d = ISLAND.def(id); if (!d) return []; const ks = new Set(); (d.mobs || []).forEach(([k]) => ks.add(k)); (d.groups || []).forEach(([k, mem]) => { ks.add(k); (mem || []).forEach(([m]) => ks.add(m)); }); return [...ks].filter(k => MOB[k] && !MOB[k].boss); }
   function codexHTML(r) { const R_ = REGION_INFO[r[0]]; if (!R_) return '<p class="wc-none">이 사냥터의 몬스터·아이템 도감은 맵이 열리면 채워집니다.</p>';
@@ -4298,7 +4326,7 @@ const TOWN = (() => {
     const zoneIds = R_.zones.map(z => z[0]), kinds = new Set(zoneIds.flatMap(zoneKinds));
     const BX = R_.bosses || [[R_.boss, R_.bossTxt, [R_.boss]]], BK = BX.flatMap(x => x[2]);
     const bossIds = sortIds(BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])));
-    const normIds = sortIds([...BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])).filter(id => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')), ...zoneIds.flatMap(z => CX_ZONE[z] || []), ...zoneIds.flatMap(z => CX_ZONE_R[z] || []), ...[...kinds].flatMap(k => (MOB_DROPS[k] || []).map(x => x[0]))]);
+    const normIds = sortIds([...BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])).filter(id => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')), ...zoneIds.flatMap(z => CX_ZONE[z] || []), ...zoneIds.flatMap(z => CX_ZONE_R[z] || []), ...zoneIds.flatMap(z => CX_ZONE_H[z] || []), ...[...kinds].flatMap(k => (MOB_DROPS[k] || []).map(x => x[0]))]);
     const cnt = ids => ['영웅', '희귀', '고급', '일반'].map(g => [g, ids.filter(id => (ITEMS[id].rar || '일반') === g).length]).filter(x => x[1]).map(([g, n]) => `<span style="color:${g === '일반' ? '#6a5a40' : RARITY_C[g]}">${g} ${n}</span>`).join(' · ');
     return `<h3 class="wc-h">몬스터</h3>` + R_.zones.map(([z, lab]) => `<div class="wc-zone"><span class="wc-zl">${lab}</span><div class="wc-mobs">${zoneKinds(z).map(mobCell).join('')}</div></div>`).join('')
       + BX.map(([, txt, ks]) => `<div class="wc-zone"><span class="wc-zl">보스 · ${txt}</span><div class="wc-mobs">${ks.map(mobCell).join('')}</div></div>`).join('')
@@ -5036,6 +5064,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 109, items: ['보스가 강해졌어요: 보스 기본 공격 피해 ×1.5 · 보스 마법(범위 기술) 피해 +50% → +150% · 보스 명중 최저 50% · 바포메트 소환 2~3마리 → 3~4마리.', '체력 물약(빨간·주홍·맑은) 재사용 대기 0.5초 → 1.5초 (펫 1초 → 1.5초). 단축키 칸에 남은 시간이 보여요. 이제 비싼 물약일수록 초당 회복량이 커요. (초당 빨간 약 12 · 주홍 약 23 · 맑은 약 37)', '잡화상점에서 [카운터 매직 주문서]를 팔아요 (500골드). 읽으면 10분 동안 다음에 받는 마법 공격(보스 범위 기술 등) 1번을 무효로 해요. 체력 물약과 재사용 대기 1.5초를 함께 써요. (아이템 정보에서 자동 사용을 켜면 효과가 끝날 때 알아서 읽음 · HP가 낮으면 물약이 먼저)', '몬스터 명중률 계산이 바뀌었어요: (몬스터 레벨×3 + 몬스터 명중) − (내 레벨×2 + 내 방어력) − 40 (%) · 최저 10% (보스 50%) · 최고 95% · 보스 +10%. 레벨을 올려도(1당 −2%), 방어력을 올려도(1당 −1%) 미스가 늘어요. 낮은 사냥터에선 미스가 많이 뜨고, 적정 사냥터·보스는 예전(최저 30% 고정)보다 아파요. (예: Lv36·AC −47 vs 웅골리언트 30% → 39%, 바포메트 30% → 50%)', '자동 물약: 고른 물약이 떨어지면 가방의 다른 체력 물약(빨간 → 주홍 → 맑은 순)을 이어서 마셔요. (예전엔 [없습니다]만 뜨고 안 마셨어요)', '자동사냥 [물약이 N개 이하면 귀환]: 빨간·주홍·맑은 물약 중 체크한 물약 수량만 세요. (처음엔 마을에서 자동 구매하는 물약만 체크) 마을 자동 구매에 맑은 물약(300)도 추가했어요.', '월드맵: 보스가 살아 있는 지역은 아이콘 위에 보스 그림과 [출현]이 떠요.', '본토던전 권장 레벨: 1층 Lv35~40 → Lv30~35 · 2층 Lv40~45 → Lv35~40. (버그베어밭 다음 Lv30~35 사냥터 공백을 메움)', '본토던전·오렌설원 몬스터도 장비를 떨어뜨려요: 고급 장비(아이템마다 0.3%) · 희귀 장비(본토던전 0.04% · 오렌설원 0.05%, 아이템마다) · 영웅 장비(본토던전 2층·오렌설원 2구역, 아주 드묾).', '버그베어밭 1구간 경험치: 좀비 118 → 140 · 해골 궁수 108 → 115. (오크숲 2구간보다 적던 것 보정)', '샤벨타이거 공격 간격 1.1초 → 1.5초. (초당 피해 약 29 → 21, 같은 구역 몬스터 중 여전히 가장 아픔)', 'F4: [주변 1칸 줍기] 켬/끔. 켜 두면 바로 옆(1칸 안)에 떨어진 아이템을 걷지 않고 자동으로 주워요. 몬스터에 둘러싸여도 OK. (단축키 칸 위에 켜짐 표시 · 이 기기에 기억)', '자동사냥이 몬스터를 잡은 뒤 다음 몬스터보다 떨어진 아이템을 먼저 주워요. 몬스터가 나를 때리고 있어도 4칸 안의 아이템은 주우러 가고, 싸우는 중에도 바로 옆 아이템은 자동으로 주워요. (줍기 설정의 등급·종류만)', '버그베어밭의 붉은 안개 속에서 몬스터·보스가 검게 뭉쳐 잘 안 보이던 문제를 고쳤어요. 보이는 몬스터와 내 캐릭터 자리는 안개 색이 덜 씌워져요.'] },
     { v: 108, items: ['안전 강화를 등급 상관없이 무기 +6 · 방어구 +4로 통일했어요. (강화 1당 상승치는 그대로 등급이 높을수록 큼 → 안전 강화까지만 올려도 무기 공격 일반 +6 · 고급 +9 · 희귀 +12 · 영웅 +18)', '장비 기본 수치에 등급 보너스가 붙어요. 기본 공격(무기)·기본 방어(방어구) × 일반 1 · 고급 1.15 · 희귀 1.3 · 영웅 1.5 (반올림 · 아이템 정보에 표시) — 낮은 강화에서도 등급 차이가 바로 보여요.', '장비 강화 미리보기에서 수치를 바꾸면 보고 있는 장비만 바뀌고, 비교창의 착용 장비는 실제 강화 그대로 보여요. (예전엔 착용 장비도 같은 수치로 맞춰 비교)', '몬스터와 같은 칸에 겹쳤을 때 내 캐릭터가 자리를 못 잡고 좌우로 왔다갔다 하던 문제를 고쳤어요. 이제 겹친 상태에서도 그 자리에서 바로 공격해요. (파티·여러 명이 같은 사냥터에 있을 때 주로 생기던 현상)', '파티·같은 사냥터에 다른 유저가 있을 때 내가 건 스턴·슬로우가 다른 사람 화면의 몬스터에는 안 걸려 몬스터가 계속 움직이던 문제를 고쳤어요.', '혼자 사냥할 때 처치 메시지가 [경험치 나 +140]으로 어색하게 나오던 것을 [경험치 +140]으로 고쳤어요. (펫과 나눌 때는 그대로 나 · 펫 따로 표시)'] },
     { v: 107, items: ['플레이어끼리 겹치지 않아요. 다른 유저가 서 있는 칸은 몬스터처럼 막혀서 피해 돌아가요. (쓰러진 유저는 안 막음)', '데스나이트 세트·데스나이트의 불검·설원의 망토·얼음여왕의 지팡이가 일반 등급으로 잘못 표시되던 문제를 고쳤어요. (원래 등급: 데스나이트 방어구 희귀 · 불검 영웅 · 설원의 망토 희귀 · 얼음여왕의 지팡이 영웅)', '장비 강화 개편: 높은 등급일수록 강화 1당 오르는 수치가 커졌어요. 무기 공격 = 일반 +1 · 고급 +1.5 · 희귀 +2 · 영웅 +3, 방어구 방어 = 일반 +1 · 고급 +1.25 · 희귀 +1.5 · 영웅 +2 (소수점 버림 · 예: +9 무기 = 일반 +9 · 고급 +13 · 희귀 +18 · 영웅 +27)', '안전 강화가 등급별로 통일됐어요. 무기·방어구 구분 없이 일반 +6 · 고급 +5 · 희귀 +4 · 영웅 +3. (아이템 정보에 강화 1당 상승치와 안전 강화 표시)', '모든 주문서와 마법서·기술서·정령수정의 무게가 0이 됐어요.', '필드에서 다른 유저를 클릭해도 메뉴 창이 뜨지 않아요. (사냥 중 몬스터를 누르다 잘못 뜨지 않게 · 파티 초대·거래 메뉴는 오른쪽 클릭 · 마을에서는 지금처럼 왼쪽 클릭도 됨)', '마법사 7서클 마법 [이뮨 투 함]이 생겼어요. 20초 동안 받는 모든 피해가 30% 줄어요. 그냥 쓰면 나에게, 파티원에게 마우스를 올리고 쓰면 그 파티원에게 걸려요. (MP 24 · Lv 28 · 리덕션 아머와 함께 적용 · 마법서: 얼음여왕·데스나이트, 드물게 엘모어 마법사)', '콜 라이트닝·콘 오브 콜드·이럽션·선버스트의 이펙트를 작고 덜 눈부시게 줄였어요. (크기 약 60% · 화면 번쩍임·흔들림 줄임 · 몬스터가 덜 가려져요)', '공격 마법에도 치명타가 터져요. (피해 1.5배 · 분홍빛 CRITICAL!) 확률 = 5% + (내 레벨 − 대상 레벨)×0.5% + (지능 − 12)×1% − 대상 마법 방어(MR)×0.1% · 최소 2% · 최대 30%. 캐릭터 창과 단축 슬롯 툴팁에 확률이 보여요.', '마나의 지팡이로 빨아들이는 마나에 한도가 생겼어요. 몬스터마다 가진 마나(레벨 × 종류: 보스 ×5 · 마법형 ×2 · 인간형 ×1 · 짐승·곤충 ×0.6 · 언데드 ×0.5 · 골렘 ×0.3)만큼만 흡수되고, 다 빨면 [마나 고갈]이 떠요. (다시 태어나면 채워짐)', '벨트에 [가방 무게 감소]가 생겼어요. 등급별로 일반 −3% · 고급 −5% · 희귀 −8% · 영웅 −12%. (디크리즈 웨이트와 함께 적용 · 아이템 정보·장비 비교·캐릭터 창 무게에 표시)', '턴 언데드의 성공·실패 연출이 확실히 달라졌어요. 성공하면 큰 금빛 기둥과 십자가가 내리고 몸이 빛으로 흩어져요. 실패하면 가는 빛이 깨져 떨어지고 보랏빛 어둠이 튕겨내요. (소리·글씨도 다름 · 다른 사람 화면에도 구분돼 보여요)', '본토던전이 덜 복잡해졌어요. 1·2층 모두 바닥의 절반 정도가 기둥이 선 넓은 광장이고, 나머지 절반은 골목이에요. (광장 기둥 일부엔 횃불) 2층으로 내려가는 계단은 여전히 입구에서 가장 먼 곳에 있어요.', '던전·밤에 몬스터가 어둠에 묻혀 안 보이던 문제를 고쳤어요. 내 시야 안의 몬스터와 내 캐릭터 주변은 어둠이 걷히고, 몬스터 이름·HP바·피해 숫자는 항상 어둠 위에 또렷하게 보여요.', '몬스터를 클릭하거나 마우스를 올리면 이름 위에 상태 아이콘이 떠요. 붉은 테 = 디버프(스턴·슬로우·출혈·명중 저하 · 아래 숫자는 남은 초), 초록 테 = 버프(체력 회복 중·밤의 힘), 금색 테 = 속성·언데드 정보. 아이콘에 마우스를 올리면 설명이 나와요.', '단축 슬롯(F5~F12)에 마우스를 올리면 이름이 떠요. 마법은 서클·MP와 지금 내 능력치로 들어가는 예상 피해까지, 아이템은 보유 개수를 보여 줘요.', '마법 피해 공식 개편 (리니지 방식): SP = 마법 레벨(마법사 레벨÷4 · 요정 레벨÷8) + 마법 보너스(지능) + 장비 SP. 공격 마법 피해 = 기본 피해 × (1 + (지능 + SP − 12) × 9.4%). 높은 서클 마법일수록 크게 강해져요. (예: Lv40·지능 18·SP+5 지팡이의 콘 오브 콜드 평균 32 → 57) 캐릭터 창에 SP와 마법 피해 배율이 표시돼요.', '파이어볼 범위가 3×3칸에서 대상을 중심으로 가로·세로 6칸으로 넓어졌어요. (범위가 바닥에 표시되고 곳곳에서 폭발 · 던전에서는 벽 너머로 안 퍼져요)', '오렌설원지역 1구역의 엘모어 병사·전사·마법사가 언데드가 됐어요. 턴 언데드가 통하고, 밤에는 강해져요. (공격력 1.5배)', '본토던전 몬스터를 캐릭터 크기에 맞게 줄였어요. 킹 버그베어·켈베로스·네크로맨서, 그리고 데스나이트가 일으키는 스파토이 (이제 데스나이트보다 확실히 작아요)'] },
     { v: 106, items: ['새 사냥터 [본토던전] (상급 · Lv 35~45)이 열렸어요. 피와 시체가 널린 벽과 골목의 미로이고, 언제나 밤처럼 아주 어두워요. (전용 배경음 · 미니맵은 내가 본 곳만 밝혀져요 · 양초를 켜면 시야가 넓어져요) 월드맵에서는 1층으로만 들어가요.', '본토던전의 모든 몬스터는 먼저 덤비지만, 벽 너머에 있으면 나를 못 봐요. 같은 골목에서 보일 때만 덤벼요. 나도 벽 너머로는 활·마법을 쏠 수 없어요. 내 캐릭터 앞을 가리는 벽은 반투명해지고, 곳곳의 횃불이 길을 비춰요. 자동사냥도 돼요. (미로를 따라 길을 찾아감)', '본토던전 1층 (Lv 35~40): 킹 버그베어 · 웅골리언트(물리면 거미줄에 걸려 둔화) · 구울(할퀴면 독: 5초 동안 초당 최대 HP 1.5% · 큐어 포이즌이나 새 물약 [해독제]로 치료). 보스 [카스파 패밀리]는 물·불·땅·바람 마법사 넷(카스파·메르키오르·발터자르·세마)이 붙어 다니며 원소 마법을 써요. 넷 모두 쓰러지면 약 2시간 뒤 다시 나타나요. (각자 따로 드랍)', '1층 미로 끝(입구에서 가장 먼 곳)에 2층으로 내려가는 계단이 있어요. 미로를 따라가거나 순간이동 주문서로 근처에 떨어지면 이용하세요. 2층 도착 자리 옆에는 1층으로 올라가는 계단이 있어요.', '본토던전 2층 (Lv 40~45): 킹 버그베어 · 켈베로스 · 네크로맨서(보라색 범위로 저주 폭발 — 피하면 안 맞아요). 보스 [데스나이트]는 약 3시간마다 나타나요. 헬파이어(큰 붉은 원 → 지옥불 폭발), 스파토이 일으키기(최대 4마리), 불검 휘두르기를 써요.', '데스나이트 세트(기사 전용): 투구·갑옷·장갑·장화 네 부위를 모두 입으면 데스나이트로 변신해요. (세트 효과 AC -3 · 추가 피해 +2 · 불 저항 +20 · 다른 사람에게도 변신한 모습으로 보여요) 데스나이트의 불검(영웅)도 드물게 떨어져요.', '새 사냥터 [오렌설원지역] (상급 · Lv 40~50 · 수속성)이 열렸어요. 눈보라가 몰아치는 눈 덮인 설원이에요. (전용 배경음 · 가끔 거센 돌풍이 불어요)', '오렌설원지역 1구역 (Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다녀요. 먼저 덤비지 않지만, 하나를 치면 그 무리 전체가 반격해요.', '오렌설원지역 2구역 (Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 몸이 얼어 느려지는 아이스 골렘이 나와요. 보스 [얼음여왕]은 약 3시간마다 나타나 블리자드(넓은 범위에 계속 얼음 피해 + 둔화) · 콘 오브 콜드 · 아이스 골렘 부르기를 써요. 설원의 망토(희귀)·얼음여왕의 지팡이(영웅)를 떨어뜨려요.', '마법 연출을 모두 새로 만들었어요. 마법마다 성향에 맞는 색과 모양의 마법진이 발밑에 펼쳐지고, 마법 이름이 머리 위에 떠요. 에너지 볼트(푸른 비전 구체) · 아이스 대거(얼음 단검과 파편) · 파이어 애로우(불화살) · 파이어볼(큰 폭발과 연기) · 콜 라이트닝(하늘에서 내리치는 번개) · 콘 오브 콜드(솟구치는 얼음 기둥) · 이럽션(갈라지는 땅과 솟는 바위) · 선버스트(모여드는 빛과 대폭발) · 힐(내리는 빛) · 그레이터 힐(빛기둥) · 실드(육각 보호막) · 메디테이션(연꽃 마법진) · 슬로우(보랏빛 시계) 등 정령마법·기사 기술도 각자 다른 이펙트가 생겼어요.', '마법 빛이 어둠 속에서도 밝게 빛나 밤·던전에서도 잘 보여요. 같은 지역 다른 사람이 쓰는 마법도 이펙트가 보여요.', '요정·마법사도 장비를 입으면 겉모습이 바뀌어요. (투구·갑옷·장갑·장화·벨트·망토·방패, 무기는 활·지팡이·칼 모양) 마법사는 마법을 쓸 때 지팡이를 들어 올리는 주문 동작이, 요정은 칼을 들면 베기 동작이 나와요.', '[PC 게임] F11·F12 키가 창 전체화면·개발자 도구로 먹혀 단축키로 쓸 수 없던 문제를 고쳤어요. 이제 F5~F12 모두 게임 단축키예요. (창 전체화면은 Alt+Enter)', '기사 기술 [리덕션 아머]의 받는 피해 25% 감소가 실제로는 적용되지 않던 문제를 고쳤어요.', '마법 개편 (1~6서클): 실드 10분 · 에너지 볼트(무속성) / 2서클 디크리즈 웨이트(10분 무게 -10%)·아이스 대거(수속성 · 요정·마법사 전용) / 3서클 턴 언데드(언데드 한 방 · 성공률 최대 75% · 보스 면역)·파이어 애로우(불속성) / 4서클 파이어볼(3×3 폭발)·슬로우(1.3배 둔화 · 보스 4초)·메디테이션(10분 MP 회복, 가만히 있으면 2배) / 5서클 콜 라이트닝(무속성 번개)·그레이터 힐·카운터 매직(마법 공격 1회 무효) / 6서클 콘 오브 콜드(수속성)·이럽션(땅속성)·선버스트(불속성). 라이트·인챈트 웨폰·블레스드 아머·인챈트 덱스터리·인챈트 마이티·헤이스트·카운터 디텍션·크리에이트 좀비는 없어졌어요.', '속성 마법은 약점 몬스터에게 +50%, 같은 속성 몬스터에게 -50% 피해예요. 공격 마법 피해는 서클이 높을수록 커요. (지능 보너스 추가)', '잡화상점에 [양초](30골드)가 생겼어요. 켜면 10분 동안 밤 시야가 넓어져요. (라이트 마법 대신)', '화면 정리: [자동사냥 중] 표시가 지역 이름·온라인 인원 글자를 덮지 않게 옆으로 비켜요. 왼쪽 [자동사냥 켜짐] 글자가 버튼에 잘리지 않게 했고, 피해 숫자·MISS가 몬스터 이름과 덜 겹치게 조금씩 흩어져 떠요.', '요정 스킬창의 [기술] 탭이 [정령마법] 탭으로 바뀌었어요. (정령마법 5종 · 마법사는 기술 탭이 안 보여요)', '마법사의 기본 공격이 지팡이를 휘둘러 때리는 근거리 공격으로 바뀌었어요. (힘·무기 공격력으로 계산 · 원거리 공격은 마법으로)', '[데모] 갓 모드를 켜도 자동으로 무적·몹 한 방이 되지 않아요. 테스트 패널에서 무적 · 몹 한 방 · 이동 1.5배 · 마나 무제한을 따로 켜고, [모든 스킬 배우기]로 내 직업 스킬을 한 번에 배울 수 있어요.', '월드맵에서 이야기섬으로 가는 건 무료예요. (다른 사냥터는 1,000 골드 · 이동 버튼에 요금 표시)', '속성 시스템이 넓어졌어요. 무기 속성 주문서가 4종(땅·물·불·바람)이 되고, 몬스터마다 속성이 생겼어요. 무기 속성이 몬스터 속성의 반대(불⇄물 · 땅⇄바람)면 속성 추가 피해가 2배, 같은 속성이면 0이에요. (예: 물 3단 무기로 불 몬스터를 치면 +10 · 월드맵 사냥터 정보에 몬스터 속성 표시)', '다른 속성이 붙은 무기에 다른 속성 주문서를 쓰면 바꿀지 먼저 물어봐요. (성공하면 새 속성 1단 · 실패하면 그대로)', '새 주문서 드랍: 셸로브 물 · 거대 여왕개미 불 · 오우거 바람·물 · 바포메트 불·바람·물 (땅 주문서는 그대로)', '속성 몬스터의 공격은 그 속성 저항만큼 줄어들어요. (최대 60%) 저항 장비: 요정족 망토(바람 +10) · 요정족 티셔츠(바람 +5) · 수호의 티셔츠(물 +10) · 오크 족장의 벨트(땅 +10) · 보호의 망토·커츠의 망토(모든 속성 +10) · 지배자의 벨트(모든 속성 +5) · 데스나이트 장비(불) · 캐릭터 창에 땅/물/불/풍 저항 표시', '요정 정령마법 5종이 이제 실제로 효과가 있어요. 레지스트 매직(10분 MR +10) · 레지스트 엘리멘탈(10분 모든 속성 저항 +10) · 클리어 마인드(10분 MP 회복 초당 +0.4) · 바디 투 마인드(HP 10 → MP 5) · 텔레포트 투 마더트리(마을로 순간이동)', '연금술·일괄 강화에 올린 장비 표시가 보라색·파란색 테두리라 영웅·희귀 등급처럼 보이던 문제를 고쳤어요. 이제 점선 테두리(연금술 = 금색 ⚗ · 일괄 강화 = 흰색 ✓)로 보이고, 그 창이 열려 있을 때만 표시돼요.'] },
@@ -5212,14 +5241,16 @@ const ACCOUNT = (() => {
   return { acc: () => acc, openSel, started: () => started, mode: () => srv, keepForUpdate };
 })();
 const AUTO = (() => {
-  const C = { retHp: 30, lowPot: true, lowN: 3, buy: true, buyId: 'red_potion', buyN: 30, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true,
+  const C = { retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true,
     buyHaste: false, hasteId: 'green_potion', hasteN: 5, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
     sell: false, sellPct: 80, sellR: { 일반: true, 고급: false, 희귀: false, 영웅: false } };   // 자동판매: 가방 무게 sellPct% 이상이면 귀환해서 아덴상단에 고른 등급 장비를 일괄 판매
-  const PRICE = { red_potion: 25, orange_potion: 100, return_scroll: 40, arrow: 2, green_potion: 200, brave_potion: 500 };
+  // v109: 물약 귀환은 체크한 물약 수량만 셈 (아무것도 안 고르면 자동 구매 물약)
+  const lowCount = () => { const ids = Object.keys(C.lowIds).filter(id => C.lowIds[id]); return (ids.length ? ids : [C.buyId]).reduce((n, id) => n + INV.count(id), 0); };
+  const PRICE = { red_potion: 25, orange_potion: 100, clear_potion: 300, return_scroll: 40, arrow: 2, green_potion: 200, brave_potion: 500 };
   // 아이템 줍기: 체크한 등급·종류만, 나를 때리는 몬스터가 없을 때 10칸 안의 가장 가까운 것부터 (못 가는 곳은 3번 시도 후 건너뜀)
   const typeOf = d => d.slot === 'weapon' ? 'weapon' : ['ring', 'amulet'].includes(d.slot) ? 'acc' : d.slot ? 'armor' : d.use === 'learn' ? 'book' : d.use ? 'cons' : 'etc';
   const wantLoot = id => { const d = ITEMS[id]; return !!d && !!C.lootR[d.rar || '일반'] && !!C.lootT[typeOf(d)]; };
-  function lootTarget() { if (!C.loot) return null; let b = null, bd = 1e9; for (const d of GROUND.here()) { if ((d._try || 0) >= 3 || GROUND.blocked(d) || !wantLoot(d.id)) continue; const dd = cheb(d.i, d.j, hero.i, hero.j); if (dd > 10 || dd >= bd) continue; bd = dd; b = d; } return b; }
+  function lootTarget(maxD = 10) { if (!C.loot) return null; let b = null, bd = 1e9; for (const d of GROUND.here()) { if ((d._try || 0) >= 3 || GROUND.blocked(d) || !wantLoot(d.id)) continue; const dd = cheb(d.i, d.j, hero.i, hero.j); if (dd > maxD || dd >= bd) continue; bd = dd; b = d; } return b; }
   // 켜면 배경음악·효과음을 끄고, 끄면 원래대로
   let snd = null;
   function muteOn() { if (!C.mute || snd) return; const bb = document.getElementById('btn-bgm'); snd = { bgm: !!bb && bb.getAttribute('aria-pressed') === 'true', sfx: SFX_ON }; if (snd.bgm) bb.click(); SFX_ON = false; if (master) master.gain.value = 0; say('자동사냥 중에는 배경음악·효과음을 끕니다. (끝나면 다시 켜짐)', '#9c9682'); }
@@ -5266,12 +5297,12 @@ const AUTO = (() => {
       if (!inZ1()) { state = 'off'; say('자동사냥은 각 지역의 1·2구간에서만 됩니다. 멈췄습니다.', '#f08a7a'); return; }
       home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id;
       if (pct() <= C.retHp) { goHome(`HP ${pct()}%`); return; }
-      if (C.lowPot && INV.count(C.buyId) <= C.lowN && INV.count('red_potion') + INV.count('orange_potion') <= C.lowN) { goHome('물약 부족'); return; }
+      if (C.lowPot && lowCount() <= C.lowN) { goHome('물약 부족'); return; }
       if (C.sell && wpc() >= C.sellPct) { const L = sellList(), sw = L.reduce((a, e) => a + (ITEMS[e.id].w || 0) * (e.n || 1), 0);   // 팔 장비가 가방 최대 무게의 5% 이상(또는 가방이 꽉 참)일 때만 귀환 — 못 파는 물건 때문에 마을을 계속 오가지 않게
         if (L.length && (sw >= INV.maxW() * 0.05 || wpc() >= 100)) { sellGo = true; goHome(`가방 무게 ${wpc()}% (자동판매)`); return; }
         if ((sellNoT -= dt) <= 0) { sellNoT = 60; say(`자동판매: 가방이 무겁지만(${wpc()}%) 팔 수 있는 장비가 거의 없어 계속 사냥합니다.`, '#9c9682'); } }
       if ((!hero.target || hero.target.dead) && !moveGoal && hero.t >= 1 && !hero.atk) { const threat = foxes.some(f => !f.dead && f.aggro && cheb(f.i, f.j, hero.i, hero.j) <= 2);
-        const it = !threat && lootTarget(); if (it) { it._try = (it._try || 0) + 1; GROUND.go(it); return; }
+        const it = lootTarget(threat ? 4 : 10); if (it) { it._try = (it._try || 0) + 1; GROUND.go(it); return; }   // v109: 처치 후엔 떨어진 아이템 먼저 (둘러싸여도 4칸 안은 주우러 감)
         const p = pick(); if (p) hero.target = p.f; }
       // 가는 중에 더 가까운 몹이 보이면 갈아탐 (지금 대상이 나를 때리는 중이 아니고, 3걸음 이상 더 가까울 때)
       else if (hero.target && !hero.target.dead && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target, threat = !atkMe(T) && foxes.some(f => f !== T && atkMe(f));
@@ -5292,13 +5323,13 @@ const AUTO = (() => {
   function sync() { const w = $h('huntwin'); if (!w) return;
     w.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (el.type === 'checkbox') el.checked = !!C[k]; else el.value = C[k]; const out = w.querySelector(`[data-v="${k}"]`); if (out) out.textContent = C[k] + (el.type === 'range' ? '%' : ''); });
     w.querySelectorAll('[data-lr]').forEach(el => { el.checked = !!C.lootR[el.dataset.lr]; }); w.querySelectorAll('[data-lt]').forEach(el => { el.checked = !!C.lootT[el.dataset.lt]; }); w.querySelectorAll('[data-buff]').forEach(el => { el.checked = !!INV.autoBuff(el.dataset.buff); });
-    w.querySelectorAll('.hw-chips:not(.hw-sell)').forEach(el => el.classList.toggle('off', !C.loot)); w.querySelectorAll('[data-sr]').forEach(el => { el.checked = !!C.sellR[el.dataset.sr]; }); w.querySelectorAll('.hw-sell').forEach(el => el.classList.toggle('off', !C.sell)); }
+    w.querySelectorAll('.hw-chips:not(.hw-sell):not(.hw-pot)').forEach(el => el.classList.toggle('off', !C.loot)); w.querySelectorAll('[data-lp]').forEach(el => { el.checked = !!C.lowIds[el.dataset.lp]; }); w.querySelectorAll('.hw-pot').forEach(el => el.classList.toggle('off', !C.lowPot)); w.querySelectorAll('[data-sr]').forEach(el => { el.checked = !!C.sellR[el.dataset.sr]; }); w.querySelectorAll('.hw-sell').forEach(el => el.classList.toggle('off', !C.sell)); }
   function openSet() { const w = $h('huntwin'); w.hidden = false; sync();
     w.querySelectorAll('[data-k]').forEach(el => { el.oninput = el.onchange = () => { const k = el.dataset.k; C[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' ? el.value : +el.value; if (k === 'mute' && state !== 'off') { if (C.mute) muteOn(); else muteOff(); } sync(); }; });
-    w.querySelectorAll('[data-lr]').forEach(el => { el.onchange = () => { C.lootR[el.dataset.lr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lt]').forEach(el => { el.onchange = () => { C.lootT[el.dataset.lt] = el.checked; sync(); }; }); w.querySelectorAll('[data-sr]').forEach(el => { el.onchange = () => { C.sellR[el.dataset.sr] = el.checked; sync(); }; });
+    w.querySelectorAll('[data-lr]').forEach(el => { el.onchange = () => { C.lootR[el.dataset.lr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lt]').forEach(el => { el.onchange = () => { C.lootT[el.dataset.lt] = el.checked; sync(); }; }); w.querySelectorAll('[data-sr]').forEach(el => { el.onchange = () => { C.sellR[el.dataset.sr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lp]').forEach(el => { el.onchange = () => { C.lowIds[el.dataset.lp] = el.checked; sync(); }; });
     w.querySelectorAll('[data-buff]').forEach(el => { el.onchange = () => { INV.setAutoBuff(el.dataset.buff, el.checked); sync(); }; });
     w.querySelectorAll('select,input').forEach(el => { el.onkeydown = ev => ev.stopPropagation(); }); }
-  return { tick, toggle, openSet, status, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } } };
+  return { tick, toggle, openSet, status, wantLoot, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; } } };
 })();
 
 let last=performance.now(), invT=0;
