@@ -636,7 +636,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 137;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 138;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3857,7 +3857,10 @@ for (const [o, n] of Object.entries(ITEM_MERGE)) { const a = ITEMS[o], d = ITEMS
   const c = ITEMS.snow_cloak; if (c) Object.assign(c, { lv: 45, ac: 3, mr: 10, codex: true, grp: '망토', optTxt: ['물 저항 +20'], src: '얼음여왕', desc: '얼음여왕의 눈보라를 견딘 흰 털 망토.' });   /* v127: 설원의 망토 상향 */
   if (ITEMS.scroll_acc) ITEMS.scroll_acc.sellFix = 250; }   /* v127: 장신구 마법 주문서 되팔기 250골드 (데이·젤 교환 차익 막기) */
 // v136: 콜로세움 입장권 · 골드 뭉치 (ITEMS 맨 뒤 — 네트워크 아이템 번호가 밀리지 않게)
-ITEMS.col_ticket = { name: '콜로세움 입장권', icon: 'ticket', w: 0.1, stack: true, rar: '희귀', desc: '마을 잡화상점 옆 콜로세움 관리인에게서 삽니다(10만 골드 · 계정당 하루 2장). 입장할 때 1장 사용.' };
+ITEMS.col_ticket = { name: '콜로세움 입장권', icon: 'ticket', w: 0.1, stack: true, rar: '희귀', desc: '마을 잡화상점 옆 콜로세움 관리인에게서 삽니다(100골드 · 계정당 하루 2장 · 새벽 5시 초기화). 입장할 때 1장 사용.' };
+// v138: 귀환 부적 — 귀환 주문서 대신 (사용 비용 없음 · 사라지지 않음 · 버리기·팔기·맡기기·교환 불가 · 캐릭터마다 1개)
+ITEMS.return_charm = { name: '귀환 부적', icon: 'charm_home', use: 'home', free: true, bound: true, w: 0, rar: '희귀', desc: '사용하면 언제든 바로 마을로 돌아갑니다. 사용 비용이 없고 사라지지 않아요. (버리기·팔기·창고·교환 불가)' };
+CXI.charm_home = '<path d="M10 3 L24 3 L24 30 L17 27 L10 30 Z" fill="#f0d66a" stroke="#8a6418" stroke-width=".9"/><rect x="11.6" y="5.2" width="10.8" height="19.6" fill="none" stroke="#c0281c" stroke-width="1"/><path d="M17 7.6 L21.4 11.6 L20.2 11.6 L20.2 15.2 L13.8 15.2 L13.8 11.6 L12.6 11.6 Z" fill="#c0281c"/><path d="M14 18 L20 18 M14.8 20.6 L19.2 20.6 M17 16.6 L17 23.2" stroke="#c0281c" stroke-width="1.1" stroke-linecap="round"/><circle cx="17" cy="3.4" r="1.7" fill="#8a6418"/><path d="M17 3.4 L15 0.6 M17 3.4 L19 0.6" stroke="#c0281c" stroke-width=".9"/>';
 ITEMS.gold_pile = { name: '골드', icon: 'goldpile', w: 0, stack: true, desc: '주우면 바로 골드가 됩니다.' };
 // v136: 가호 · 가호조각 — 보스 6종 (카스파 패밀리는 없음) · 가호는 가지고만 있으면 자동 적용 (같은 가호는 가장 높은 것 하나만) · 효과 = 1% + 강화 1%씩(최대 +8) + 축복 1%
 const GAHO_DEF = [['shelob', '셸로브', 'mv', '이동 속도'], ['queen_ant', '거대 여왕개미', 'mp', '최대 MP'], ['ogre', '오우거', 'w', '최대 무게'], ['baphomet', '바포메트', 'hp', '최대 HP'], ['deathknight', '데스나이트', 'dr', '받는 피해 감소'], ['ice_queen', '얼음여왕', 'dmg', '주는 피해 증가']];
@@ -4083,8 +4086,8 @@ const INV = (() => {
     if (d.use === 'revive') { if (NET.reviveNear()) return; PET.useRevive(); return; }
     if (d.use === 'learn') { if (learnSkill(d.learn)) take(e.id); return; }
     if (d.use === 'statreset') { if (resetStats()) take(e.id); return; }
-    if (d.use === 'home' && ARENA()) { askYesNo('콜로세움을 포기하고 나가시겠습니까?', '귀환 주문서 1장을 쓰고 마을로 돌아갑니다.', () => { if (!ARENA() || !take(e.id)) return; say('귀환 주문서를 읽었습니다. (콜로세움 포기)', '#e8d8a8'); TOWN.goTown(); }); return; }   // v136
-    if (d.use === 'home') { take(e.id); say('귀환 주문서를 읽었습니다.', '#e8d8a8'); TOWN.goTown(); return; }
+    if (d.use === 'home' && ARENA()) { askYesNo('콜로세움을 포기하고 나가시겠습니까?', '마을로 돌아갑니다.', () => { if (!ARENA() || (!d.free && !take(e.id))) return; say(`${JOSA(d.name, '을', '를')} 사용했습니다. (콜로세움 포기)`, '#e8d8a8'); TOWN.goTown(); }); return; }   // v136
+    if (d.use === 'home') { if (SCENE === 'town') { say('이미 마을에 있어요.', '#9c9682'); return; } if (!d.free) take(e.id); say(`${JOSA(d.name, '을', '를')} 사용했습니다.`, '#e8d8a8'); TOWN.goTown(); return; }
     if (d.use === 'tele') { if (SCENE === 'town') { say('마을에서는 쓸 수 없습니다.', '#9c9682'); return; } if (ARENA()) { say('콜로세움에서는 순간이동 주문서를 쓸 수 없어요.', '#f08a7a'); return; } const p = freeTile(4); take(e.id); hero.i = hero.fi = p[0]; hero.j = hero.fj = p[1]; hero.x = p[0] + .5; hero.z = p[1] + .5; hero.t = 1; hero.target = null; moveGoal = null; say('순간이동 했습니다.', '#e8d8a8'); return; }
     say(`${d.name}은(는) 지금 쓸 수 없습니다.`, '#9c9682'); }
   // ===== 강화 (리니지식): 안전 강화 = 무기 +6 · 방어구 +4 (등급 상관없음), 넘기면 1/3 확률로 성공·실패 시 증발. 속성(땅)은 무기 1~3단
@@ -4384,13 +4387,13 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   // 시작 장비·소지품
   ['old_sword', 'wood_shield', 'cloth_shirt'].forEach(id => add(id, 1, true));
   bag.slice().forEach(e => { const d = ITEMS[e.id]; eq[slotFor(d)] = e; e.on = slotFor(d); });
-  add('red_potion', 10, true); add('return_scroll', 2, true);
+  add('red_potion', 10, true); add('return_charm', 1, true);
   function toggle(id) { const w = $(id); w.hidden = !w.hidden; render(); }
   function setClass(cls) { const C = CLS_DEF[cls]; Object.assign(BASE, C.st); for (const k in BONUS) BONUS[k] = 0; bag.length = 0; for (const k in eq) delete eq[k]; BK.list = [];
     const idOf = x => ITEMS[x] ? x : Object.keys(ITEMS).find(id => ITEMS[id].name === x);
     C.kit.map(idOf).filter(Boolean).forEach(id => add(id, 1, true)); bag.slice().forEach(e => { const d = ITEMS[e.id]; if (!d.slot) return; const sl = slotFor(d); if (!eq[sl]) { eq[sl] = e; e.on = sl; } });
-    add('red_potion', 10, true); add('return_scroll', 2, true); 
-    [null, null, null, 'act:pick', 'red_potion', 'orange_potion', 'return_scroll', 'tele_scroll', null, null, null, null].forEach((v, k) => { hot[k] = v; }); render(); }
+    add('red_potion', 10, true); add('return_charm', 1, true); 
+    [null, null, null, 'act:pick', 'red_potion', 'orange_potion', 'return_charm', 'tele_scroll', null, null, null, null].forEach((v, k) => { hot[k] = v; }); render(); }
   // 정렬: 착용 장비 → 안 낀 장비 → 소모품 → 기타 (같은 묶음 안에서는 부위 순·이름 순)
   function sortBag() { const so = id => { const d = ITEMS[id], k = SLOTS.findIndex(([s]) => s === d.slot || (d.slot === 'ring' && s.startsWith('ring'))); return k < 0 ? 99 : k; };
     const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : d.use ? 2 : 3; };
@@ -4424,7 +4427,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     $('ask-yes').onclick = () => { close(); yes(); }; $('ask-no').onclick = () => { close(); if (no) no(); }; addEventListener('keydown', key, true); $('ask-yes').focus(); }
   addEventListener('dragend', () => { if (bagDrag) { bagDrag = false; render(); } }, true);
   function trashAsk(e) { if (!e || !bag.includes(e)) return; const d = ITEMS[e.id];
-    if (e.on) { say('착용 중인 아이템은 삭제할 수 없습니다. 먼저 벗어 주세요.', '#f08a7a'); return; } if (e.locked) { say('잠긴 아이템은 삭제할 수 없습니다.', '#f08a7a'); return; } if (e.pet && e.pet.state === 'out') { say('소환 중인 펫의 목걸이는 삭제할 수 없습니다. 먼저 보관해 주세요.', '#f08a7a'); return; }
+    if (d.bound) { say(`${JOSA(d.name, '은', '는')} 삭제할 수 없습니다.`, '#f08a7a'); return; } if (e.on) { say('착용 중인 아이템은 삭제할 수 없습니다. 먼저 벗어 주세요.', '#f08a7a'); return; } if (e.locked) { say('잠긴 아이템은 삭제할 수 없습니다.', '#f08a7a'); return; } if (e.pet && e.pet.state === 'out') { say('소환 중인 펫의 목걸이는 삭제할 수 없습니다. 먼저 보관해 주세요.', '#f08a7a'); return; }
     const nm = nameOf(e) + (d.stack && e.n > 1 ? ` ${e.n}개` : '');
     askYesNo(`${JOSA(nm, '을', '를')} 삭제하시겠습니까?`, e.pet ? `펫(${e.pet.name} Lv.${e.pet.lv})도 함께 사라집니다. 되돌릴 수 없습니다.` : '삭제한 아이템은 되돌릴 수 없습니다.', () => { if (!bag.includes(e) || e.on || e.locked) return; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); if (tgtScroll === e.id && !bag.some(x => x.id === e.id)) tgtScroll = null; render(); say(`${JOSA(nm, '을', '를')} 삭제했습니다.`, '#c9b98a'); }); }
   { const TR = $('inv-trash'); if (TR) { TR.addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; TR.classList.add('over'); } }); TR.addEventListener('dragleave', () => TR.classList.remove('over'));
@@ -4432,7 +4435,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   function moveBag(a, b) { bagDrag = false; if (a === b || !bag[a]) return; if (b >= bag.length) { const [e] = bag.splice(a, 1); bag.push(e); } else { const t = bag[a]; bag[a] = bag[b]; bag[b] = t; } render(); }
   function toggleBoth() { const open = $('invwin').hidden || $('charwin').hidden; $('invwin').hidden = !open; $('charwin').hidden = !open; skKey = ''; render(); renderSkills(); }
   // 단축키 칸 F5~F12 (휠로 선택, 휠 클릭·F키로 사용)
-  const hot = [null, null, null, 'act:pick', 'red_potion', 'orange_potion', 'return_scroll', 'tele_scroll', null, null, null, null]; let hsel = 4;   /* v124: F1~F12 · F4 자리에 줍기 아이콘 */
+  const hot = [null, null, null, 'act:pick', 'red_potion', 'orange_potion', 'return_charm', 'tele_scroll', null, null, null, null]; let hsel = 4;   /* v124: F1~F12 · F4 자리에 줍기 아이콘 */
   function ensurePick() { let seen = false; for (let i = 0; i < 12; i++) if (hot[i] === 'act:pick') { if (seen) hot[i] = null; seen = true; } if (seen) return; const k = hot[3] ? hot.indexOf(null) : 3; hot[k >= 0 ? k : 3] = 'act:pick'; }
   function useHot(i, onto) { const id = hot[i]; if (!id) return; if (id === 'act:pick') { pickTry(!HOLD_Q); return; } if (id.startsWith('sk:')) { castSkill(id.slice(3), onto); return; } const e = bag.find(x => x.id === id) || (GOD_INF(id) ? { id, n: 0, on: false } : null); if (!e) { say(`${ITEMS[id].name}이(가) 없습니다.`, '#f08a7a'); return; } use(e); }
   return { gaho, gahoVal, tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 12) % 12; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${1 + a} ↔ F${1 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; if (hot[i] === 'act:pick') { say('줍기 아이콘은 지울 수 없어요. 다른 칸으로 옮기기만 할 수 있어요.', '#f0c080'); return; } const id = hot[i]; hot[i] = null; say(`F${1 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { if (hot[i] === 'act:pick') { say('줍기 아이콘이 있는 칸이에요. 줍기 아이콘을 다른 칸으로 옮긴 뒤 등록해 주세요.', '#f0c080'); return; } hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${1 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); hcd = Math.max(0, hcd - dt); autoTick(dt); }, healCd: () => hcd / HEAL_CD, er: () => Math.floor(STAT.dex / 3), auto: k => AUTO[k], blessHit, sp, openAuto, cx: k => sum(k) + (k === 'moveSpd' ? gaho('mv') : 0), wAttr: () => (eq.weapon && eq.weapon.attr) || null, useInvis,
@@ -4442,7 +4445,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     dump() { const cl = x => JSON.parse(JSON.stringify(x, (k, v) => k && k[0] === '_' ? undefined : v)); const B = cl(bag.filter(e => !e.godTemp || e.n > 1).map(e => e.godTemp ? Object.assign({}, e, { n: e.n - 1, godTemp: undefined }) : e)); B.forEach(e => { delete e.godTemp; if (e.pet && e.pet.state === 'out') e.pet.state = 'stored'; });
       return { bag: B, bonus: Object.assign({}, BONUS), hot: hot.slice(), auto: cl(AUTO), ab: cl(AUTOBUFF), ask: Object.keys(AUTOSK) }; },
     load(o) { if (!o) return; bag.length = 0; for (const k in eq) delete eq[k]; BK.list = []; for (const e of o.bag || []) { if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (!e || !ITEMS[e.id] || LOW_BOOK.has(e.id)) continue; if (e.on && !eq[e.on]) eq[e.on] = e; else e.on = false; bag.push(e); }
-      for (const k in BONUS) BONUS[k] = (o.bonus && +o.bonus[k]) || 0; if (o.hot) { const old = !(o.hot.length > 8); for (let i = 0; i < 12; i++) hot[i] = null; for (let i = 0; i < (old ? 8 : 12); i++) { const h = o.hot[i], j = old ? i + 4 : i; hot[j] = h && (h === 'act:pick' || (String(h).startsWith('sk:') ? SK[h.slice(3)] : ITEMS[h])) ? h : null; } } ensurePick(); if (false) for (let i = 0; i < 8; i++) { const h = o.hot[i]; }
+      for (const k in BONUS) BONUS[k] = (o.bonus && +o.bonus[k]) || 0; if (o.hot) { const old = !(o.hot.length > 8); for (let i = 0; i < 12; i++) hot[i] = null; for (let i = 0; i < (old ? 8 : 12); i++) { const h = o.hot[i], j = old ? i + 4 : i; hot[j] = h && (h === 'act:pick' || (String(h).startsWith('sk:') ? SK[h.slice(3)] : ITEMS[h])) ? h : null; } } { for (let k = bag.length - 1; k >= 0; k--) if (bag[k].id === 'return_scroll' || (bag[k].id === 'return_charm' && bag.findIndex(x => x.id === 'return_charm') !== k)) bag.splice(k, 1); if (!bag.some(x => x.id === 'return_charm')) bag.push({ id: 'return_charm', n: 1, on: false }); for (let i = 0; i < 12; i++) if (hot[i] === 'return_scroll') hot[i] = 'return_charm'; }   /* v138: 귀환 주문서 → 귀환 부적 1개 */ ensurePick(); if (false) for (let i = 0; i < 8; i++) { const h = o.hot[i]; }
       if (o.auto) for (const k in o.auto) if (AUTO[k]) Object.assign(AUTO[k], o.auto[k]); if (o.ab) for (const k in o.ab) if (k in AUTOBUFF) AUTOBUFF[k] = !!o.ab[k]; for (const k in AUTOSK) delete AUTOSK[k]; if (Array.isArray(o.ask)) for (const k of o.ask) if (skAutoKind(k)) AUTOSK[k] = true; skKey = ''; render(); },
     usePotion() { const e = bag.find(x => x.id === 'red_potion'); if (!e) { say('빨간 물약이 없습니다.', '#f08a7a'); return; } use(e); } };
 })();
@@ -4596,7 +4599,7 @@ const TOWN = (() => {
   const SHOPS = [
     { id: 'general', name: '잡화상점', npc: '잡화상인 판도라', icon: 'potion', i: 3, j: 13, w: 6, d: 6, h: 3.5, door: 'i', roof: [122, 58, 40], npcType: 'f',
       hello: '어서 오세요! 사냥 전에 물약은 넉넉히 챙기셨나요?',
-      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 100, 'HP를 많이 회복'], ['맑은 물약', 300, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 30분'], ['용기의 물약', 500, '2단 가속 1.4배 · 30분'], ['귀환 주문서', 40, '마을로 즉시 귀환'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 10분 (체력 물약과 재사용 1.5초 공유)', 'scroll_counterm'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['마나 회복 물약', 120, 'MP 자연 회복 초당 +0.5 · 30분'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 10000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch']]]] },
+      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 100, 'HP를 많이 회복'], ['맑은 물약', 300, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 30분'], ['용기의 물약', 500, '2단 가속 1.4배 · 30분'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 10분 (체력 물약과 재사용 1.5초 공유)', 'scroll_counterm'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['마나 회복 물약', 120, 'MP 자연 회복 초당 +0.5 · 30분'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 10000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch']]]] },
     { id: 'equip', name: '장비상점', npc: '장비상인 발신', icon: 'sword', i: 3, j: 4, w: 6, d: 6, h: 3.5, door: 'i', roof: [74, 79, 92], npcType: 'm',
       hello: '좋은 무기가 좋은 기사를 만들지. 천천히 둘러보게.',
       get tabs() { return [['무기', [['한손검', 800, '공용 · 공격 1~8 · 처음 쓰기 좋은 검'], ...CX_SHOP.weapon.map(cxRow)]], ['방어구', CX_SHOP.armor.map(cxRow)], ['장신구', CX_SHOP.general.map(cxRow)]]; } },   /* v126: 장신구는 장비상점에서 */
@@ -5050,7 +5053,7 @@ const TOWN = (() => {
   const WM_FEE = 1000, feeOf = r => r && r[1] === '이야기섬' ? 0 : WM_FEE, feeShort = fee => say(`이동 비용 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a');
   $('wm-go').onclick = () => { if (!sel) return; const r = sel, fee = feeOf(r); if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
   $('wm-town').onclick = () => askTown();
-  function askTown() { if (SCENE === 'town') { closeAll(); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 주문서 1장을 사용합니다.', () => { closeAll(); scrollHome(); }); }
+  function askTown() { if (SCENE === 'town') { closeAll(); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
   // ESC: 열린 창을 마지막에 연 것부터 하나씩 닫음 → 다 닫혀 있으면 게임 메뉴
   const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin'], popStack = [];
@@ -5086,7 +5089,7 @@ const TOWN = (() => {
   window.escMenu = escMenu;
   $('quit-back').onclick = () => { $('quitscr').hidden = true; };
   document.querySelectorAll('[data-closewin]').forEach(b => b.onclick = () => { $(b.dataset.closewin).hidden = true; if (b.dataset.closewin === 'itemwin') INV.hideDetail(); if (b.dataset.closewin === 'bulkwin') INV.bulkClose(); });   // 아이템 정보 닫기 → 비교 창도 같이 닫힘
-  $('btn-map').onclick = () => { if (ARENA()) { say('콜로세움 안에서는 월드맵을 쓸 수 없어요. (나가려면 귀환 주문서 · 끝나면 [퇴장])', '#f08a7a'); return; } openMap(); }; $('btn-home').onclick = () => { if (SCENE === 'field') scrollHome(); };
+  $('btn-map').onclick = () => { if (ARENA()) { say('콜로세움 안에서는 월드맵을 쓸 수 없어요. (나가려면 귀환 부적 · 끝나면 [퇴장])', '#f08a7a'); return; } openMap(); }; $('btn-home').onclick = () => { if (SCENE === 'field') scrollHome(); };
 
   // ---- 배경음악
   // 배경음악: 마을 = Village Market Day, 이야기섬 = 이야기섬 테마, 사막 = Desert Pulse, 보스 전투 = 보스 테마
@@ -5189,8 +5192,8 @@ const TOWN = (() => {
     if (name === '소환의 제단') { ISLAND.enter(13, 'town'); fadeTo(0); syncButtons(); return; } ISLE = null; setGeom(30); arrows.length = 0; SCENE = 'field'; ZONE = name; blockedT = FIELD_BLOCKED; PROPS = META.props; foxes = FIELD_FOXES; place(...META.spawn); hero.row = 1; say(`***** ${name}에 입장했습니다 *****`, '#f2e6a8'); say('여우를 클릭하면 공격합니다. R: 마을로 귀환', '#9fd0e8'); fadeTo(0); syncButtons(); }
   function syncButtons() { $('btn-home').hidden = true; }   // 위쪽 '마을로 귀환' 버튼은 쓰지 않음 (귀환 주문서·월드맵으로)
   // 사냥터 → 마을: 귀환 주문서 1장 사용 (없으면 1구간의 마을 포털을 쓰라고 안내)
-  function scrollHome() { if (SCENE === 'town') return true; if (!INV.take('return_scroll')) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 110, '귀환 주문서 없음', { color: '#ff9a8a', size: 13, big: true, life: 1.6 }); say('귀환 주문서가 없습니다. 1구간의 텔레포트(마을로 가는 포털)를 이용하세요.', '#ff8a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'square', 300, 180, 0.18, 0.05); return false; }
-    say('귀환 주문서를 사용했습니다.', '#a0c0f2'); toTown(); return true; }
+  function scrollHome() { if (SCENE === 'town') return true; if (false) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 110, '귀환 주문서 없음', { color: '#ff9a8a', size: 13, big: true, life: 1.6 }); say('귀환 주문서가 없습니다. 1구간의 텔레포트(마을로 가는 포털)를 이용하세요.', '#ff8a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'square', 300, 180, 0.18, 0.05); return false; }
+    say('귀환 부적을 사용했습니다.', '#a0c0f2'); toTown(); return true; }
   api.scrollHome = () => scrollHome();
   api.goTown = () => toTown();
   api.placeAt = (x, z) => { const i = Math.floor(x), j = Math.floor(z); if (walkable(i, j)) place(i, j); };
@@ -5213,7 +5216,7 @@ const SELL = (() => {
   function unit(e) { const d = ITEMS[e.id], r = d.rar || '일반', buy = TOWN.priceOf(e.id) || (d.use === 'learn' && BOOK_PRICE[d.learn]) || (e.id === 'arrow' ? 2 : 0); let p = d.sellFix ? d.sellFix : buy > 0 ? Math.floor(buy * 0.3) : d.slot ? Math.round(BASE[r] * (1 + (d.lv || 1) / 20)) : CONS[r];
     if (d.slot) { const en = e.en || 0; if (en > 0) p = Math.round(p * (1 + en * 0.25 + Math.max(0, en - 6) * 0.5)); if (e.blessed) p = Math.round(p * 1.5); if (e.attr) p = Math.round(p * (1 + e.attr.lv * 0.2)); }
     return Math.max(1, p); }
-  const why = e => e.on ? '착용 중' : e.locked ? '잠김' : GOD_INF(e.id) ? '갓 모드 무한' : e.pet ? '펫 목걸이' : '';
+  const why = e => ITEMS[e.id] && ITEMS[e.id].bound ? '팔 수 없음' : e.on ? '착용 중' : e.locked ? '잠김' : GOD_INF(e.id) ? '갓 모드 무한' : e.pet ? '펫 목걸이' : '';
   const sellable = () => INV.bag().filter(e => ITEMS[e.id] && !why(e));
   const st = { tab: 'one', pick: new Map(), g: new Set(['일반']), k: new Set(['weapon', 'armor']), noen: true, nobl: true };
   function bulkList() { return sellable().filter(e => { const d = ITEMS[e.id]; return st.g.has(d.rar || '일반') && st.k.has(kindOf(d)) && !(st.noen && d.slot && (e.en || 0) > 0) && !(st.nobl && e.blessed); }); }
@@ -5260,7 +5263,7 @@ const STORE = (() => {
   function goldMove(dir) { const inp = $('st-gin'); let q = Math.floor(+(inp && inp.value) || 0); const have = dir > 0 ? Math.floor(coins) : gold; if (q <= 0) q = have; q = Math.min(q, have); if (dir > 0) q = Math.min(q, GMAX - gold);
     if (q <= 0) { say(dir > 0 ? (have > 0 ? '창고 골드가 가득 찼습니다.' : '맡길 골드가 없습니다.') : '창고에 맡긴 골드가 없습니다.', '#f08a7a'); return; }
     if (dir > 0) { coins -= q; gold += q; } else { coins += q; gold -= q; } if (inp) inp.value = ''; say(`창고${dir > 0 ? '에 맡김' : '에서 찾음'}: 골드 ${q.toLocaleString()} (창고 ${gold.toLocaleString()})`, '#f2d060'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }
-  const why = e => e.on ? '착용 중인 장비는 맡길 수 없습니다. 먼저 벗어 주세요.' : GOD_INF(e.id) ? '갓 모드 무한 주문서는 맡길 수 없습니다.' : e.pet && e.pet.state === 'out' ? '소환 중인 펫의 목걸이는 맡길 수 없습니다.' : '';
+  const why = e => ITEMS[e.id] && ITEMS[e.id].bound ? `${JOSA(ITEMS[e.id].name, '은', '는')} 맡길 수 없습니다.` : e.on ? '착용 중인 장비는 맡길 수 없습니다. 먼저 벗어 주세요.' : GOD_INF(e.id) ? '갓 모드 무한 주문서는 맡길 수 없습니다.' : e.pet && e.pet.state === 'out' ? '소환 중인 펫의 목걸이는 맡길 수 없습니다.' : '';
   const label = e => INV.nameOf(e) + (ITEMS[e.id].stack && e.n > 1 ? ' ×' + e.n : '');
   function deposit(e, q) { if (!e || !ITEMS[e.id]) return false; const w = why(e); if (w) { say(w, '#f08a7a'); return false; } const d = ITEMS[e.id], same = d.stack ? box.find(x => x.id === e.id) : null;
     if (!same && box.length >= CAP) { say(`창고가 가득 찼습니다. (${CAP}칸)`, '#f08a7a'); return false; }
@@ -5301,7 +5304,7 @@ const STORE = (() => {
       I.addEventListener('drop', ev => { const k = ev.dataTransfer.getData('text/x-store'); if (k === '') return; ev.preventDefault(); withdraw(+k); }); }
     { const gd = $('st-gdep'), gw = $('st-gwd'), gi = $('st-gin'); if (gd) gd.onclick = () => goldMove(1); if (gw) gw.onclick = () => goldMove(-1); if (gi) gi.onkeydown = ev => ev.stopPropagation(); }
     const sb = $('st-sort'); if (sb) sb.onclick = () => { box.sort((a, b) => { const A = ITEMS[a.id], B = ITEMS[b.id]; return (!!B.slot - !!A.slot) || (RO[B.rar || '일반'] - RO[A.rar || '일반']) || A.name.localeCompare(B.name, 'ko'); }); render(); }; }
-  return { open, render, deposit, depositAsk, goldMove, gold: () => gold, list: () => (gold > 0 ? box.concat([{ id: 'stored_gold', n: gold }]) : box).concat(window.__COLO ? window.__COLO.recOut() : []), load(L) { box.length = 0; gold = 0; if (window.__COLO) window.__COLO.recIn(null); for (const e of L || []) { if (e && e.id === 'col_buy') { if (window.__COLO) window.__COLO.recIn(e); continue; } if (e && e.id === 'stored_gold') { gold = Math.max(0, Math.min(GMAX, Math.floor(+e.n || 0))); continue; } if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (e && ITEMS[e.id] && !LOW_BOOK.has(e.id)) box.push(e); } } };
+  return { open, render, deposit, depositAsk, goldMove, gold: () => gold, list: () => (gold > 0 ? box.concat([{ id: 'stored_gold', n: gold }]) : box).concat(window.__COLO ? window.__COLO.recOut() : []), load(L) { box.length = 0; gold = 0; if (window.__COLO) window.__COLO.recIn(null); for (const e of L || []) { if (e && e.id === 'col_buy') { if (window.__COLO) window.__COLO.recIn(e); continue; } if (e && e.id === 'stored_gold') { gold = Math.max(0, Math.min(GMAX, Math.floor(+e.n || 0))); continue; } if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (e && (e.id === 'return_scroll' || e.id === 'return_charm')) continue; if (e && ITEMS[e.id] && !LOW_BOOK.has(e.id)) box.push(e); } } };
 })();
 
 addEventListener('keydown', ev => { if (ev.key === 'Alt' && !ev.ctrlKey && !ev.shiftKey) ev.preventDefault(); });   // v129: Alt = 몬스터 무시하고 이동
@@ -5894,7 +5897,7 @@ const ADMIN = (() => {
 // 진행은 그 지역 호스트(같은 지역에서 peer 이름이 가장 앞선 사람)가 맡고 presence(co)로 모두에게 알림 — 호스트가 나가면 다음 사람이 이어받음
 let COLO_LOCK = false;   // 입장 대기 중: 채팅만 가능
 const COLO = (() => {
-  const $ = id => document.getElementById(id), ZID = 14, ZK = 'isle14', PRICE = 100000, DAY_MAX = 2;
+  const $ = id => document.getElementById(id), ZID = 14, ZK = 'isle14', PRICE = 100, DAY_MAX = 2;
   const WAVES = { 1: [[1, 2], [3, 4], [5, 6]], 2: [[7, 8], [9, 10], [11, 12]] }, REG = { 1: '이야기섬', 3: '사막필드', 5: '오크숲', 7: '버그베어밭', 9: '본토던전', 11: '오렌설원' };
   const WAVE_N = 15, ROUND_T = 300, CD_T = 10, CLEAR_T = 5, END_T = 10, AUTO_OUT = 70, BOSSES = ['deathknight', 'ice_queen'], GATES = [Math.PI, Math.PI * 1.25, Math.PI * 1.5];
   let rec = { n: 0, d: '' }, wait = false, pend = null, csOut = null, csClearAt = 0, S = null, lastKey = '', lastW = 0, coRef = null, deadAll = 0, banner = null, cheerT = 0, lockT = 0, uiT = 0, aggT = 0;
@@ -5930,7 +5933,7 @@ const COLO = (() => {
       coins -= PRICE; rec = { n: bought() + 1, d: dayKey() }; INV.add('col_ticket', 1, true); TELE.ev('buy', { id: 'col_ticket', q: 1, g: PRICE }); say(`콜로세움 입장권을 샀습니다. (-${PRICE.toLocaleString()} 골드 · 오늘 ${rec.n} / ${DAY_MAX}장)`, '#ffd86a'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }); }
   // ----- 입장 대기 · 입장
   function queue() { if (SCENE !== 'town' || wait) return; if (DEATH) { deadSay(); return; } if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
-    if (!tickets()) { say('콜로세움 입장권이 없어요. (관리인에게서 10만 골드에 살 수 있어요)', '#f08a7a'); return; }
+    if (!tickets()) { say('콜로세움 입장권이 없어요. (관리인에게서 100골드에 살 수 있어요)', '#f08a7a'); return; }
     if (AUTO.on()) AUTO.toggle(); wait = true; COLO_LOCK = true; pend = null; hero.target = null; moveGoal = null; NET.setExtra('cq', 1);
     say('콜로세움 입장 대기를 시작했습니다. 2명 이상 모이면 누구든 [입장]을 눌러 다 함께 들어가요. (대기 중에는 채팅만 할 수 있어요)', '#ffd86a'); render(); }
   function cancel(quiet) { if (!wait) return; wait = false; COLO_LOCK = false; pend = null; NET.setExtra('cq', null); if (!quiet) say('콜로세움 입장 대기를 취소했습니다.', '#9c9682'); render(); badge(); }
@@ -6084,7 +6087,7 @@ const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; 
   const partner = () => S && NET.others().find(o => o.peer === S.peer);
   const ptd = () => { const o = partner(), t = o && o.pr.td; return t && S && t.id === S.id && t.to === NET.me() ? t : null; };
   const clean = e => { const c = JSON.parse(JSON.stringify(e, (k, v) => k && k[0] === '_' ? undefined : v)); delete c.on; delete c.locked; delete c.godTemp; return c; };
-  const tradable = e => !e.on && !e.locked && !e.godTemp && !GOD_INF(e.id) && !(e.pet && e.pet.state === 'out') && ITEMS[e.id];
+  const tradable = e => !(ITEMS[e.id] && ITEMS[e.id].bound) && !e.on && !e.locked && !e.godTemp && !GOD_INF(e.id) && !(e.pet && e.pet.state === 'out') && ITEMS[e.id];
   function push() { if (!S) { NET.setExtra('td', null); return; } NET.setExtra('td', { id: S.id, to: S.peer, st: S.st, v: ver, pv: S.pv == null ? -1 : S.pv, g: gold, it: offer.map(x => Object.assign(clean(x.e), { n: x.n })) }); }
   const hideTip = () => { const st = document.getElementById('stat-tip'); if (st) st.hidden = true; };
   function end(msg, c) { hideTip(); if (msg) say(msg, c || '#9c9682'); if (S && S.st !== 'done' && S.st !== 'cancel') { S.st = 'cancel'; push(); } setTimeout(() => { if (!S || S.st === 'cancel' || S.st === 'done') { S = null; offer = []; gold = 0; push(); } }, 2500); $('tradewin').hidden = true; asked = false; }
@@ -6191,6 +6194,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 138, items: ['귀환 주문서가 없어지고 [귀환 부적]으로 바뀌었어요. 쓰면 바로 마을로 돌아가고, 사용 비용이 없고 사라지지 않아요. (버리기·팔기·창고·교환 불가) 모든 캐릭터에게 1개씩 지급 · 가지고 있던 귀환 주문서는 정리돼요.', '상점의 귀환 주문서 · 자동사냥 설정의 [귀환 주문서 2장까지 구매]가 없어졌어요. (자동사냥 귀환도 귀환 부적으로 무료)', '콜로세움 입장권 가격이 100골드로 내려갔어요. (계정당 하루 2장 · 새벽 5시 초기화는 그대로)'] },
     { v: 137, items: ['게임 설정이 캐릭터와 함께 계정 서버에 저장돼요. 어느 PC에서 접속해도 상점 [고정] 수량 · 휠 고정 · 미니맵(켜기·투명도) · 창 위치가 그대로예요. (소리 · 자동사냥 · 자동 물약 · 단축키 설정은 예전부터 함께 저장)', '다시 접속하면(다른 PC · 중복 접속 포함) 마지막으로 있던 사냥터의 그 자리에서 이어서 시작해요. (콜로세움 안이었거나 쓰러진 채였으면 마을)', '콜로세움 · 제작 창도 위쪽을 끌어서 옮길 수 있어요.'] },
     { v: 136, items: ['콜로세움이 열렸어요! 마을 잡화상점 왼쪽 공터의 콜로세움 관리인에게서 입장권(10만 골드 · 계정당 하루 2장 · 매일 새벽 5시 초기화)을 사서 [입장 대기] → 2명 이상 모이면 누구든 [입장]을 눌러 다 함께 들어가요. (한 번에 한 팀 · 대기 중엔 채팅만)', '1라운드 이야기섬·사막필드·오크숲 → 2라운드 버그베어밭·본토던전·오렌설원 몬스터가 0·1·2분에 15마리씩 몰려와요. 5분 버티면 생존 클리어, 모두 잡으면 퍼펙트 클리어(보상 1.5배 · 바로 다음 라운드). 무리를 다 잡으면 다음 무리가 바로 나와요. 3라운드는 데스나이트 또는 얼음여왕 (5분 안에).', '콜로세움 보상: 1라운드 골드 25~30만(뭉치로 흩어짐) · 2라운드 무기·갑옷·장신구 마법 주문서·축복 부여 주문서 25~30뭉치(낮은 확률로 축복받은 무기·갑옷 주문서) · 3라운드 보스 전리품. 바닥 보상은 누구나 주울 수 있어요.', '콜로세움 안: 죽어도 손실 없음(라운드가 끝나면 그 자리에서 부활 · 부활 주문서 가능 · 모두 쓰러지면 실패) · 몬스터는 경험치만(골드·아이템 없음) · 순간이동 주문서 불가 · 귀환 주문서는 포기하고 나가기 · 펫 가능 · 끝나면 10초 뒤 [퇴장] 버튼(1분 뒤 자동 퇴장).', '영웅 장비를 입으면 강화와 상관없이 캐릭터 모습에 보라색 빛이 나요. 안전 강화를 넘으면 단계마다 점점 더 진한 보라색.', '마법사 영웅 지팡이(아크메이지·흑장로·얼음여왕의 지팡이)에 모두 [타격 시 MP 1~2 흡수]가 붙었어요.', '자동사냥: [자동 사용]과 [가속 물약 자동 구매]를 켜 둔 가속 물약이 다 떨어지면 마을에 가서 사 오고 다시 사냥해요.', '초록 물약 · 용기의 물약 · 마나 회복 물약(파란 물약) 지속 시간 10분 → 30분.', '채팅 기록 창에 시간이 다시 표시돼요.', '콜로세움 전용 배경음악이 생겼어요. (보스 라운드도 같은 음악)', 'F4 줍기는 한 번에 한 개씩 주워요. (누르고 있으면 0.25초마다 하나씩)', '제작 장인이 생겼어요! (마을 분수 오른쪽 아래) 보스(셸로브·거대 여왕개미·오우거·바포메트·데스나이트·얼음여왕)를 쓰러뜨리면 그 보스의 가호조각이 반드시 1개 떨어지고, 5개를 모아 [가호 제작]을 하면 40% 확률로 가호가 만들어져요. (실패하면 조각 5개가 사라짐)', '가호는 가방에 가지고만 있으면 자동 적용돼요: 셸로브 이동 속도 · 거대 여왕개미 최대 MP · 오우거 최대 무게 · 바포메트 최대 HP · 데스나이트 받는 피해 감소 · 얼음여왕 주는 피해 증가 (각 +1%). 같은 가호는 가장 높은 것 하나만 적용돼요.', '같은 가호 2개로 [가호 조합]을 하면 40% 확률로 +1 강화(+1%씩, 최대 +8) · 실패하면 재료로 쓴 가호 1개만 사라져요. 축복 부여 주문서로 축복하면 +1%.'] },
     { v: 135, items: ['보스 영웅 장비 확률을 조정했어요. (1회 처치당 영웅 장비가 하나라도 나올 확률 · 전용 장비 + 무작위 영웅 포함) 셸로브 1% · 거대 여왕개미 · 오우거 · 바포메트 5% · 카스파 패밀리 각 3% · 데스나이트 · 얼음여왕 20%'] },
@@ -6434,9 +6438,9 @@ const AUTO = (() => {
   let home = '이야기섬', homeId = 1;   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
-  function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; if (INV.count('return_scroll')) INV.take('return_scroll'); TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
+  function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
   function buyAll() { const want = (id, n) => { const p = PRICE[id], k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); } if (k) say(`자동사냥: ${ITEMS[id].name} ${k}개 구입 (-${k * p} 골드)`, '#cfe4a8'); else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
-    if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyScroll) want('return_scroll', 2); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) { want(id, C.hasteQ[id]); if (!INV.count(id)) hasteSkip[id] = true; } }   /* v125: 종류마다 정한 개수까지 */
+    if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) { want(id, C.hasteQ[id]); if (!INV.count(id)) hasteSkip[id] = true; } }   /* v125: 종류마다 정한 개수까지 */
   // 실제 걸음 수(나무·바위·물을 돌아가는 길) — 직선으로만 가까운 몹을 가깝다고 착각하지 않게 (22걸음 안)
   function pathDist(R) { const W = 2 * R + 1, D = new Int16Array(W * W).fill(-1), i0 = hero.i - R, j0 = hero.j - R, q = [hero.i, hero.j]; D[R * W + R] = 0;
     for (let h = 0; h < q.length; h += 2) { const i = q[h], j = q[h + 1], d = D[(j - j0) * W + (i - i0)]; if (d >= R) continue;
