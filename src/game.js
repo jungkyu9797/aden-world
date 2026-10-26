@@ -644,7 +644,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 140;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 141;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -6294,6 +6294,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     busy = true; $('lg-update').disabled = true; msg('최신 버전을 확인하는 중…');
     let r; try { r = await n.update(); } catch (e) { r = { ok: false, err: String(e && e.message || e) }; }
     if (r.ok && !r.latest) { msg(`v${r.ver} 업데이트 완료! (${r.n}개 파일) ${r.restart ? '게임을 다시 시작합니다…' : '다시 불러옵니다…'}`, '#9fd08a'); setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 1000); return; }
+    if (r.ok && r.latest && r.ver > GAME_VER) { msg(`v${r.ver} 파일은 이미 받아져 있어요. 다시 불러옵니다…`, '#9fd08a'); setTimeout(() => location.reload(), 800); return; }   // v141: 파일은 최신인데 실행 중인 게임이 예전 버전
     busy = false; $('lg-update').disabled = false;
     if (r.ok) { msg(`이미 최신 버전이에요. (v${Math.max(r.ver, GAME_VER)})`, '#9fd08a'); btn('업데이트', false); }
     else if (r.err === 'nobase') msg('업데이트 서버가 아직 연결되지 않았어요.', '#f0c080');
@@ -6307,8 +6308,10 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
   async function runIn() { const n = N(), b = $('btn-upd'); if (!n || !n.update || gBusy) return; gBusy = true; b.disabled = true; b.textContent = '업데이트 중…'; say('업데이트를 받는 중입니다… (캐릭터를 먼저 저장해요)', '#ffd86a');
     ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {}
     let r; try { r = await n.update(); } catch (e) { r = { ok: false, err: String(e && e.message || e) }; }
-    if (!r.ok || r.latest) { try { localStorage.removeItem('aden_resume'); } catch (e) {} }
+    const stale = r.ok && r.latest && r.ver > GAME_VER;   // v141: 파일은 이미 새 버전인데 실행 중인 게임만 예전 버전 → 다시 불러오기
+    if (!r.ok || (r.latest && !stale)) { try { localStorage.removeItem('aden_resume'); } catch (e) {} }
     if (!r.ok) { gBusy = false; b.disabled = false; b.textContent = `⬇ 업데이트 (v${newVer})`; say(updErr(r.err), '#f08a7a'); return; }
+    if (stale) { say(`v${r.ver} 파일은 이미 받아져 있어요. 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => location.reload(), 800); return; }
     if (r.latest) { gBusy = false; b.hidden = true; b.disabled = false; say('이미 최신 버전이에요.', '#9fd08a'); return; }
     say(`v${r.ver} 업데이트 완료! 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 800); }
   // v122: 웹(아티팩트)도 게임 중 5분마다 새 버전 확인 → [업데이트] → 저장 후 다시 불러와 같은 자리·파티·자동사냥 그대로 (PC와 같은 이어하기)
@@ -6326,6 +6329,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 141, items: ['업데이트 파일이 이미 받아져 있는데 실행 중인 게임이 예전 버전일 때 [업데이트]를 누르면 "이미 최신 버전"이라고만 나오고 그대로였던 문제를 고쳤어요. 이제는 바로 다시 불러와서 새 버전으로 이어져요.'] },
     { v: 140, items: ['Lv49부터 레벨업에 필요한 경험치가 3배가 됐어요. (49→50: 252,119 → 756,357 · 50 이후도 같은 무게로 이어짐) 오렌설원 2구역 몬스터 기준으로 49→50이 약 300마리 → 약 900마리예요.', '그만큼 Lv49 이후에 사망하면 잃는 경험치(레벨 필요 경험치의 5%)도 3배가 돼요.'] },
     { v: 139, items: ['마법사·요정 장비 39종이 새로 생겼어요. (리니지 클래식 장비 이름 · 기사 전용 장비가 있던 부위·등급을 채움 · 영웅은 Lv30·Lv35 두 가지) 마법사: 마법사 모자·카스파의 모자·발터자르의 모자·고대의 로브·흑장로의 로브·마나 망토·시어의 심안 등 · 요정: 엘름의 축복·정화의 머리띠·고대의 가죽 갑옷·풍룡 비늘 갑옷·보호 장갑·세피아의 부츠·메두사 방패 등', '마법사는 방패 칸에 마법서·수정구를 낄 수 있어요. (저주받은 마법서·마력서·마나 수정구·시어의 심안·흑장로의 마도서)', '카스파·발터자르·세마·메르키오르의 이름이 붙은 장비는 그 보스에게서 더 잘 나와요. (보스의 영웅 장비 전체 확률은 그대로)', '아이템 도감에서 직업별로 볼 수 있어요. (모든 직업 · 기사 · 요정 · 마법사 · 공용)', '사망하면 알림 안에 큰 [🏠 마을로] 버튼이 나와요. 2분을 기다리지 않고 바로 마을에서 부활할 수 있어요.', '내가 때리는 몬스터가 잘 보이게: 발밑에 굵은 붉은 고리 + 도는 금색 표시(나무·다른 몬스터에 가려도 보임) + 머리 위 화살표', '같이 보스를 잡을 때 화면이 달라 보이던 문제를 고쳤어요. 보스 범위 마법(헬파이어·지옥불·얼음 폭풍 등)이 친구 화면에도 같은 자리에 보이고 각자 피할 수 있어요. 호스트가 멀리 있어도 보스가 가까이 있는 친구에게 기술을 써요. 스턴·슬로우 표시가 머리 위에 계속 남던 문제도 고쳤어요.', '보스 재등장을 잡은 시각부터 세도록 바꿨어요. (예전에는 시계 구간 기준이라 늦게 잡으면 금방 다시 나왔음) 셸로브 20~40분 · 여왕개미·오우거·바포메트 3시간~3시간 30분 · 카스파 패밀리 2시간~2시간 15분 · 데스나이트·얼음여왕 3시간~3시간 20분 · 보스 기록이 캐릭터 저장에도 남아서 다른 PC에서 접속해도 이어져요.'] },
     { v: 138, items: ['귀환 주문서가 없어지고 [귀환 부적]으로 바뀌었어요. 쓰면 바로 마을로 돌아가고, 사용 비용이 없고 사라지지 않아요. (버리기·팔기·창고·교환 불가) 모든 캐릭터에게 1개씩 지급 · 가지고 있던 귀환 주문서는 정리돼요.', '상점의 귀환 주문서 · 자동사냥 설정의 [귀환 주문서 2장까지 구매]가 없어졌어요. (자동사냥 귀환도 귀환 부적으로 무료)', '콜로세움 입장권 가격이 100골드로 내려갔어요. (계정당 하루 2장 · 새벽 5시 초기화는 그대로)'] },
