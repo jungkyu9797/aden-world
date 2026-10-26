@@ -634,7 +634,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 133;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 134;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1651,13 +1651,31 @@ function drawWorld(g, vw, vh){
   if (hero.chat && time < hero.chat.until) CHAT.bubble(g, hero);
   if (!DEATH) { const [hx,hy]=W2P(hero.x,hero.z); g.fillStyle='#000'; g.fillRect(Math.round(hx)-14,Math.round(hy)-90,28,4); g.fillStyle='#c8302a'; g.fillRect(Math.round(hx)-13,Math.round(hy)-89,Math.round(26*hero.hp/hero.max),2); }
   const tg0 = hover&&!hover.dead ? hover : (T&&!T.dead?T:null), tg = tg0&&DN.seen(tg0.i,tg0.j)?tg0:null;
-  if (tg){ const S=MOB[tg.kind], [x,y]=W2P(tg.x,tg.z), hh=(S.hh||Math.round(62*S.sc))+4, nm=(tg.dispName||S.name)+(tg.reaper?` (${rpLeft(tg)}분)`:S.boss?(S.duo?' (보스 · 2인 이상)':' (보스)'):'')+(tg.enraged?' · 광폭화':''), bw=S.boss?60:30;
+  if (tg){ const S=MOB[tg.kind], [x,y]=W2P(tg.x,tg.z), hh=(S.hh||Math.round(62*S.sc))+4, nm=(tg.dispName||S.name)+(tg.reaper?` (${rpLeft(tg)}분)`:S.boss?' (보스)':'')+(tg.enraged?' · 광폭화':''), bw=S.boss?60:30;
     g.font='700 10px "Noto Sans KR",sans-serif'; g.textAlign='center'; g.fillStyle='rgba(0,0,0,.8)'; g.fillText(nm,x+1,y-hh+1); g.fillStyle=S.boss?'#ff7060':tg.aggro?'#f08a7a':'#f2eedf'; g.fillText(nm,x,y-hh);
     g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(x-bw/2,y-hh+4,bw,3); g.fillStyle='#b8352b'; g.fillRect(x-bw/2,y-hh+4,bw*Math.max(0,tg.hp)/tg.max,3); drawMobStatus(g, tg, x, y-hh-20); }
   g.restore(); mxDrawFlash(g, vw, vh); AMB.drawFlies(g, ox, oy);
   const vg=g.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*0.35,vw/2,vh/2,Math.max(vw,vh)*0.75); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.45)'); g.fillStyle=vg; g.fillRect(0,0,vw,vh);
-  drawBigFx(g, vw, vh, ox, oy);
+  drawBigFx(g, vw, vh, ox, oy); drawBossBar(g, vw, vh, ox, oy);
 }
+// v134: 화면 안에 보스가 있으면 위쪽 가운데에 이름·레벨·HP 바 (화면 밖으로 나가면 사라짐 · 가까운 2마리까지)
+let BOSSBAR_B = 0;   // 보스 바 아래 끝 (화면 px) — 사망 안내가 겹치지 않게
+function drawBossBar(g, vw, vh, ox, oy) { BOSSBAR_B = 0; if (SCENE !== 'field') return; const L = [];
+  for (const f of foxes) { if (f.dead || f.gone || !(f.max > 0)) continue; const S = MOB[f.kind]; if (!S || !S.boss || S.dummy) continue; const [x, y] = W2P(f.x, f.z), sx = x + ox, sy = y + oy;
+    if (sx < 0 || sx > vw || sy < 0 || sy > vh - PH) continue; if (ISLE && !DN.seen(f.i, f.j)) continue; L.push([Math.max(Math.abs(f.i - hero.i), Math.abs(f.j - hero.j)), f, S]); }
+  if (!L.length) return; L.sort((a, b) => a[0] - b[0]);
+  let top = 46; try { const tb = document.querySelector('.topbar'), r = cv.getBoundingClientRect(); if (tb) top = (tb.getBoundingClientRect().bottom - r.top) / curZ + 6; } catch (e) {}
+  const W = Math.min(340, vw - 40), X = Math.round(vw / 2 - W / 2); g.save();
+  L.slice(0, 2).forEach(([, f, S], k) => { const y0 = Math.round(top + k * 34), p = Math.max(0, Math.min(1, f.hp / f.max)), en = f.enraged, pu = 0.5 + 0.5 * Math.sin(time * 6);
+    const nm = (f.dispName || S.name) + (f.reaper ? ` (${S.name}의 모습)` : ''), tag = [S.lv ? 'Lv.' + S.lv : '', f.reaper ? `${rpLeft(f)}분 남음` : '', en ? '광폭화' : ''].filter(Boolean).join(' · ');
+    g.fillStyle = 'rgba(8,6,6,.62)'; g.fillRect(X - 6, y0 - 2, W + 12, 30); g.strokeStyle = en ? `rgba(255,70,50,${0.6 + 0.4 * pu})` : 'rgba(200,160,90,.55)'; g.lineWidth = 1; g.strokeRect(X - 5.5, y0 - 1.5, W + 11, 29);
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.font = '800 11px "Noto Sans KR",sans-serif'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.9)'; g.strokeText(nm, X, y0 + 10); g.fillStyle = f.reaper ? '#d8a8ff' : f.soulBoss ? '#c890ff' : '#ff8a6a'; g.fillText(nm, X, y0 + 10);
+    g.textAlign = 'right'; g.font = '700 9.5px "Noto Sans KR",sans-serif'; g.strokeText(tag, X + W, y0 + 10); g.fillStyle = en ? '#ff6a50' : '#e8d8b0'; g.fillText(tag, X + W, y0 + 10);
+    const by = y0 + 14; g.fillStyle = 'rgba(0,0,0,.75)'; g.fillRect(X, by, W, 10); const gr = g.createLinearGradient(X, 0, X + W, 0); gr.addColorStop(0, en ? '#ff3a20' : '#d0302a'); gr.addColorStop(1, en ? '#ff8a40' : '#8a1a16'); g.fillStyle = gr; g.fillRect(X + 1, by + 1, Math.round((W - 2) * p), 8);
+    g.strokeStyle = 'rgba(232,200,120,.7)'; g.strokeRect(X + 0.5, by + 0.5, W - 1, 9); g.textAlign = 'center'; g.font = '700 8.5px "Noto Sans KR",sans-serif'; const ht = `${Math.max(0, Math.ceil(f.hp)).toLocaleString()} / ${f.max.toLocaleString()} (${Math.round(p * 100)}%)`; g.lineWidth = 2.5; g.strokeText(ht, X + W / 2, by + 8.5); g.fillStyle = '#fff'; g.fillText(ht, X + W / 2, by + 8.5); });
+  try { const r = cv.getBoundingClientRect(); BOSSBAR_B = r.top + (top + Math.min(2, L.length) * 34 + (L.length > 2 ? 10 : 0)) * curZ; } catch (e) {}
+  if (L.length > 2) { g.textAlign = 'center'; g.font = '700 9px "Noto Sans KR",sans-serif'; g.fillStyle = '#e8d8b0'; g.fillText(`보스 ${L.length - 2}마리 더 있음`, vw / 2, top + 2 * 34 + 6); }
+  g.restore(); }
 // ---------- classic bottom UI (original design) ----------
 const HOTRECT=[], AUTORECT=[], HUNTRECT=[], STATRECT=[], ZONERECT=[]; const ICONIMG={};
 function iconImg(k, bl){ const key=k+(bl?'|b':''); if (ICONIMG[key]) return ICONIMG[key]; const i=new Image(); i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(ICON(k, bl).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" ')); return ICONIMG[key]=i; }
@@ -2090,12 +2108,14 @@ let stunSaidT = 0; function stunSay() { if (time - stunSaidT < 1.2) return; stun
 // v131: 사망 — 그 자리에 무덤 · 채팅만 가능 · 2분 뒤 마을에서 부활(경험치 5%·골드 10% 손실) · 다른 사람의 부활 주문서로 제자리 부활(HP·MP 50% · 골드 5%만 손실)
 let DEATH = null, deadSayT = 0; const DEATH_SEC = 120;
 const deathLeft = () => DEATH ? Math.max(0, DEATH_SEC - (Date.now() - DEATH.at) / 1000) : 0;
-const deadSay = () => { if (time - deadSayT < 1.2) return; deadSayT = time; say('사망한 상태에서는 채팅 말고는 아무것도 할 수 없어요.', '#f08a7a'); };
+const deadSay = () => { if (time - deadSayT < 5) return; deadSayT = time; say('사망한 상태에서는 채팅 말고는 아무것도 할 수 없어요.', '#f08a7a'); };
 const mmss = v => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, '0')}`;
 function deathPenalty(scroll) { const ex = scroll ? 0 : Math.min(hero.exp, Math.floor(needExp(hero.lv) * 0.05)), g = Math.floor(coins * (scroll ? 0.05 : 0.10)); hero.exp = Math.max(0, hero.exp - ex); coins = Math.max(0, coins - g); return { ex, g }; }
-function deathUI() { let b = document.getElementById('deathban'); if (!DEATH) { if (b) b.hidden = true; return; }
+function deathUI() { let b = document.getElementById('deathban'), tb = document.getElementById('death-town'); if (!DEATH) { if (b) b.hidden = true; if (tb) tb.hidden = true; return; }
   if (!b) { b = document.createElement('div'); b.id = 'deathban'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
-  const L = deathLeft(); b.innerHTML = `<b>💀 사망했습니다</b><span>${mmss(L)} 뒤 마을에서 부활 · 경험치 5% · 골드 10% 손실</span><small>근처 사람이 부활 주문서를 쓰면 그 자리에서 부활해요 (HP·MP 50% · 골드 5%만 손실) · 채팅은 할 수 있어요</small>`; b.hidden = false; }
+  if (!tb) { tb = document.createElement('button'); tb.type = 'button'; tb.id = 'death-town'; tb.innerHTML = '🏠 마을로 <small>지금 바로 부활 · 경험치 5% · 골드 10% 손실</small>'; tb.addEventListener('pointerdown', ev => ev.stopPropagation()); tb.onclick = () => reviveTown(); document.body.appendChild(tb); }
+  try { const r = cv.getBoundingClientRect(), z = curZ; if (CHATRECT[2] > 0) { tb.style.left = (r.left + CHATRECT[0] * z) + 'px'; tb.style.top = (r.top + CHATRECT[1] * z - tb.offsetHeight - 3) + 'px'; } } catch (e) {} tb.hidden = false;
+  b.style.top = BOSSBAR_B ? (BOSSBAR_B + 6) + 'px' : ''; const L = deathLeft(), sec = Math.ceil(L); if (b.dataset.s === String(sec) && !b.hidden) return; b.dataset.s = sec; b.innerHTML = `<b>💀 사망했습니다</b><span>${mmss(L)} 뒤 마을에서 부활 · 경험치 5% · 골드 10% 손실</span><small>근처 사람이 부활 주문서를 쓰면 그 자리에서 부활해요 (HP·MP 50% · 골드 5%만 손실) · 채팅은 할 수 있어요</small>`; b.hidden = false; }
 function heroDie(src, kind, d) { if (DEATH) return; TELE.ev('death', { by: src && src.kind || kind || '?', z: zoneTitle(), lv: hero.lv, d }); DEATH = { at: Date.now() };
   hero.hp = 0; hero.target = null; hero.atk = null; moveGoal = null; holding = false; for (const f of foxes) if (!f.tgt) f.aggro = false; if (OFFL_HOOK) OFFL_HOOK.died();
   say('당신은 쓰러졌습니다... 2분 뒤 마을에서 부활해요. (경험치 5% · 골드 10% 손실) 근처 사람이 부활 주문서를 쓰면 그 자리에서 부활할 수 있어요.', '#f08a7a'); deathUI(); try { SAVE.now(false, true); } catch (e) {} }
@@ -5827,6 +5847,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 134, items: ['화면 안에 보스가 있으면 위쪽 가운데에 보스 이름 · 레벨 · HP 바가 떠요. (HP 숫자·% · 광폭화하면 테두리가 붉게 깜빡임 · 감시자 리퍼는 남은 시간 · 가까운 2마리까지 · 화면 밖으로 나가면 사라짐)', '쓰러졌을 때 대화창 위 [마을로]를 누르면 기다리지 않고 바로 마을에서 부활해요. (손실은 같음 · 경험치 5% · 골드 10%)', '자동사냥으로 마을에 왔을 때 [물약 자동 구매]가 꺼져 있거나 개수가 0이라 물약을 안 샀으면 안내가 떠요.'] },
     { v: 133, items: ['채팅 기록 창이 생겼어요. 미니맵 바로 옆에 일반·파티·전체 채팅만 따로 계속 남아서, 알림 메시지에 밀려 사라지지 않아요. (평소엔 흐리고 새 채팅이 오면 잠깐 진해짐 · 클릭은 그대로 게임으로 통과 · 글씨는 대화창과 같은 크기)', '왼쪽 아래 골드 표시 밑에 지금 게임 버전이 작게 표시돼요.'] },
     { v: 132, items: ['인벤토리를 [전체] · [장비] · [물약] · [주문서] 탭으로 나눠 볼 수 있어요. (탭 옆 숫자 = 그 종류 개수 · 탭에서도 끌어서 단축키 등록·창고·휴지통 그대로 가능)'] },
     { v: 131, items: ['쓰러지면 바로 마을로 가지 않고, 그 자리에 무덤이 생겨요. 쓰러진 동안은 채팅 말고는 아무것도 할 수 없고, 2분이 지나면 마을에서 부활해요. (경험치 5% · 골드 10% 손실 · HP·MP 50%)', '다른 사람이 부활 주문서를 쓰러진 사람에게 쓰면 "부활하시겠습니까?"가 떠요. [네]를 누르면 그 자리에서 HP·MP 50%로 부활해요. (경험치 손실 없음 · 골드 5%만 손실 · 주문서는 수락했을 때만 사용 · 무덤을 누르거나 근처에서 주문서를 쓰면 돼요)'] },
@@ -6063,7 +6084,7 @@ const AUTO = (() => {
   const pct = () => Math.round(hero.hp / hero.max * 100);
   function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; if (INV.count('return_scroll')) INV.take('return_scroll'); TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
   function buyAll() { const want = (id, n) => { const p = PRICE[id], k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); } if (k) say(`자동사냥: ${ITEMS[id].name} ${k}개 구입 (-${k * p} 골드)`, '#cfe4a8'); else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
-    if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (C.buyScroll) want('return_scroll', 2); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) want(id, C.hasteQ[id]); }   /* v125: 종류마다 정한 개수까지 */
+    if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyScroll) want('return_scroll', 2); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) want(id, C.hasteQ[id]); }   /* v125: 종류마다 정한 개수까지 */
   // 실제 걸음 수(나무·바위·물을 돌아가는 길) — 직선으로만 가까운 몹을 가깝다고 착각하지 않게 (22걸음 안)
   function pathDist(R) { const W = 2 * R + 1, D = new Int16Array(W * W).fill(-1), i0 = hero.i - R, j0 = hero.j - R, q = [hero.i, hero.j]; D[R * W + R] = 0;
     for (let h = 0; h < q.length; h += 2) { const i = q[h], j = q[h + 1], d = D[(j - j0) * W + (i - i0)]; if (d >= R) continue;
