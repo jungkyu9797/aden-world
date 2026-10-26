@@ -634,7 +634,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 131;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 132;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4066,7 +4066,8 @@ const INV = (() => {
   const beltWR = () => Math.min(50, sum('wr'));   // 벨트: 가방 무게 −%
   const wPct = () => Math.max(0, weight() * (1 - beltWR() / 100) / Math.max(1, maxW()) - (BUFF.decwt > 0 ? 0.1 : 0));   // 벨트 감소 후 · 디크리즈 웨이트: 10% 가볍게
   const $ = id => document.getElementById(id);
-  const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) => k === d.slot) || [0, '장비'])[1]) : d.use === 'learn' ? ({ magic: '마법서', skill: '기술서', spirit: '정령수정' })[SK[d.learn].kind] : /scroll/.test(d.icon) || /^scr_/.test(d.icon) ? '주문서' : /^pot_/.test(d.icon) ? '물약' : '기타';
+  let invTab = 'all'; const invCat = d => d.slot ? 'eq' : (d.use === 'heal' || d.use === 'haste' || d.use === 'mana' || d.use === 'cure' || d.use === 'antidote' || /^pot_/.test(d.icon || '') || /물약|해독제/.test(d.name)) ? 'pot' : (/scroll/.test(d.icon || '') || /^scr_/.test(d.icon || '') || /주문서/.test(d.name)) ? 'scr' : 'etc';   // v132: 인벤토리 탭
+const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) => k === d.slot) || [0, '장비'])[1]) : d.use === 'learn' ? ({ magic: '마법서', skill: '기술서', spirit: '정령수정' })[SK[d.learn].kind] : /scroll/.test(d.icon) || /^scr_/.test(d.icon) ? '주문서' : /^pot_/.test(d.icon) ? '물약' : '기타';
   function infoLines(e) { const d = ITEMS[e.id], L = [], en = e.en || 0;
     if (d.dmg) { const a = enBonus(d, en) + (e.attr ? ATTR_DMG[e.attr.lv] : 0); L.push(`공격 ${d.dmg[0] + a}~${d.dmg[1] + a}` + (a || d.dmg0 ? ` (기본 ${d.dmg[0]}~${d.dmg[1]}${d.dmg0 ? ` · ${d.rar} 보너스 ×${d.baseMul}` : ''})` : '')); }
     const acv = (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? enBonus(d, en) + (e.blessed ? 1 : 0) : 0); if (d.slot && acv) L.push(`방어 AC -${acv}` + (d.ac0 ? ` (기본 ${d.ac0} → ${d.ac} · ${d.rar} 보너스 ×${d.baseMul})` : ''));
@@ -4215,15 +4216,17 @@ const INV = (() => {
     if ($('itemwin') && !$('itemwin').hidden) { ev.preventDefault(); ev.stopImmediatePropagation(); hideDetail(); } else if (PET.cancelRevive()) { ev.preventDefault(); ev.stopImmediatePropagation(); } else if (tgtScroll) { ev.preventDefault(); ev.stopImmediatePropagation(); cancelTarget(); } }, true);
   addEventListener('contextmenu', ev => { if (!tgtScroll) return; ev.preventDefault(); ev.stopImmediatePropagation(); cancelTarget(); }, true);
   const recentApply = () => performance.now() - lastApplyT < 600;
+  { const tb = document.getElementById('inv-tabs'); if (tb) tb.onclick = ev => { const b = ev.target.closest('button[data-t]'); if (!b) return; invTab = b.dataset.t; render(); }; }
   function render() {
     if (dwRef && dwE === dwRef && (!bag.includes(dwRef) || (dwRef.en || 0) !== dwRefEn)) { const r_ = dwRef; dwRef = null; setTimeout(() => { const w_ = $('itemwin'); if (!w_ || w_.hidden) return; w_.dataset.h = ''; if (bag.includes(r_)) showDetail(r_); else hideDetail(); }, 0); }
     hero.max = hero.baseHP + sum('hp') + Math.max(0, STAT.con - 14); hero.maxmp = hero.baseMP + sum('mp') + Math.max(0, Math.floor((STAT.wis - 9) / 2)); hero.hp = Math.min(hero.hp, hero.max); hero.mp = Math.min(hero.mp, hero.maxmp);
     const grid = $('inv-grid'); if (!grid) return; if (!$('invwin').hidden) renderSkills();
     if (!$('invwin').hidden && !bagDrag) {
-      grid.innerHTML = ''; const N = Math.max(96, Math.ceil((bag.length + 1) / 8) * 8);   // v113: 가방 칸 2배 (8줄 × 12)
-      for (let k = 0; k < N; k++) { const e = bag[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
+      grid.innerHTML = ''; const FL = invTab === 'all' ? bag : bag.filter(x => invCat(ITEMS[x.id]) === invTab), N = Math.max(96, Math.ceil((FL.length + 1) / 8) * 8);   // v113: 가방 칸 2배 (8줄 × 12) · v132: 탭이면 그 종류만
+      { const tb = $('inv-tabs'); if (tb) { const cnt = { all: bag.length, eq: 0, pot: 0, scr: 0 }; for (const x of bag) { const c_ = invCat(ITEMS[x.id]); if (c_ in cnt) cnt[c_]++; } tb.querySelectorAll('button[data-t]').forEach(b => { b.setAttribute('aria-selected', b.dataset.t === invTab); const sp = b.querySelector('small'); if (sp) sp.textContent = cnt[b.dataset.t] || ''; }); } }
+      for (let k = 0; k < N; k++) { const e = FL[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
         c.ondragover = ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('dropk'); } }; c.ondragleave = () => c.classList.remove('dropk');
-        c.ondrop = ev => { c.classList.remove('dropk'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); moveBag(+a, k); };   // 칸끼리 끌어서 자리 바꾸기
+        c.ondrop = ev => { c.classList.remove('dropk'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); if (invTab !== 'all') { const to = e ? bag.indexOf(e) : -1; if (to >= 0) moveBag(+a, to); else render(); return; } moveBag(+a, k); };   // 칸끼리 끌어서 자리 바꾸기
         if (e) { c.draggable = true; c.ondragstart = ev => { bagDrag = true; ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.setData('text/x-bag', String(bag.indexOf(e))); }; c.innerHTML = ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.on ? '<i class="on">ON</i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (ITEMS[e.id].stack ? `<b>${GOD_INF(e.id) ? '∞' : e.n}</b>` : ''); c.dataset.itip = tip(e) + (e.locked ? '\n잠김 — 강화·판매 불가' : ''); c.dataset.ic = rarC(e.id); { const rr = ITEMS[e.id].rar || '일반'; c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); c.classList.add('rar', 'r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } if (e.blessed) c.classList.add('blessed'); { const t_ = enTierOf(e.id, e.en); if (t_) c.classList.add('eg' + t_); } if (e.locked) c.insertAdjacentHTML('beforeend', '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>');
           c.onpointerdown = ev => holdStart(ev, e); c.onclick = () => { if (tgtScroll) { lastApplyT = performance.now(); applyScroll(e); } else if ($('bulkwin') && !$('bulkwin').hidden) { lastApplyT = performance.now(); bulkToggle(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } }; if (BK.list.includes(e) && document.getElementById('bulkwin') && !document.getElementById('bulkwin').hidden) c.classList.add('bk-on'); if (window.ALCH && ALCH.open() && ALCH.has(e)) c.classList.add('al-on'); c.ondblclick = () => { if (!recentApply()) use(e); }; c.oncontextmenu = ev => { ev.preventDefault(); if ($('storewin') && !$('storewin').hidden) { lastApplyT = performance.now(); STORE.depositAsk(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } else use(e); }; }   // 창고가 열려 있으면 우클릭 = 창고로
         else { c.classList.add('empty'); c.tabIndex = -1; c.setAttribute('aria-disabled', 'true'); }
@@ -5814,6 +5817,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 132, items: ['인벤토리를 [전체] · [장비] · [물약] · [주문서] 탭으로 나눠 볼 수 있어요. (탭 옆 숫자 = 그 종류 개수 · 탭에서도 끌어서 단축키 등록·창고·휴지통 그대로 가능)'] },
     { v: 131, items: ['쓰러지면 바로 마을로 가지 않고, 그 자리에 무덤이 생겨요. 쓰러진 동안은 채팅 말고는 아무것도 할 수 없고, 2분이 지나면 마을에서 부활해요. (경험치 5% · 골드 10% 손실 · HP·MP 50%)', '다른 사람이 부활 주문서를 쓰러진 사람에게 쓰면 "부활하시겠습니까?"가 떠요. [네]를 누르면 그 자리에서 HP·MP 50%로 부활해요. (경험치 손실 없음 · 골드 5%만 손실 · 주문서는 수락했을 때만 사용 · 무덤을 누르거나 근처에서 주문서를 쓰면 돼요)'] },
     { v: 130, items: ['마법·기술·아이템 정보 말풍선이 화면에 그대로 남아 있던 문제를 고쳤어요. (창을 닫거나 목록이 바뀌어도 바로 사라짐)', '사냥터의 감시자 리퍼가 가끔 [영혼석 보스]로 잘못 바뀌던 문제를 고쳤어요. (리퍼인데 이름이 영혼석으로 나오고 · 보스 전리품을 떨어뜨리고 · "소환의 제단에서 쓰러뜨렸다"고 공지되던 것) 이제 리퍼는 항상 리퍼로 나오고 영혼석만 떨어뜨려요.'] },
     { v: 129, items: ['후반 보스 보상이 올랐어요. 경험치·골드는 바포메트(혼자 잡는 보스)보다 같은 체력당 1.5배로 맞췄고, 전리품은 2번 굴려서 약 2배 떨어지며, 영웅 장비 확률도 1.5배예요. (예: 데스나이트 경험치 23,328 · 골드 37,000~62,000 · 감시자 리퍼·영혼석 보스도 같음)', '[Alt]를 누른 채 클릭하면 몬스터를 때리지 않고 그 자리로 이동해요. (몬스터 사이를 지나갈 때)', '감시자 리퍼가 더 드물게 나와요. (처치당 0.1% → 0.03%)', '후반 보스(카스파 패밀리 · 데스나이트 · 얼음여왕)의 공격이 더 세졌어요. (공격 1.3배 → 1.7배 · 근접·마법·범위 기술 모두 · HP 2배·경험치·골드 2배는 그대로) 혼자서는 맑은 물약을 계속 마셔야 버틸 정도라, 2명 이상이 함께 잡는 걸 추천해요.'] },
