@@ -634,7 +634,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 134;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 135;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3780,6 +3780,13 @@ for (const [o, n] of Object.entries(ITEM_MERGE)) { const a = ITEMS[o], d = ITEMS
   const r = CX_LIST.find(x => ITEMS[x].name === '얼음 여왕의 지팡이'); if (r) ITEMS[r].name = '서리 지팡이';   /* 희귀 Lv20 판은 이름 변경 (같은 이름 둘 정리) */
   const c = ITEMS.snow_cloak; if (c) Object.assign(c, { lv: 45, ac: 3, mr: 10, codex: true, grp: '망토', optTxt: ['물 저항 +20'], src: '얼음여왕', desc: '얼음여왕의 눈보라를 견딘 흰 털 망토.' });   /* v127: 설원의 망토 상향 */
   if (ITEMS.scroll_acc) ITEMS.scroll_acc.sellFix = 250; }   /* v127: 장신구 마법 주문서 되팔기 250골드 (데이·젤 교환 차익 막기) */
+// v135: 보스 영웅 장비 '하나라도 나올 확률'(1회 처치당 · 전용 장비 + 무작위 영웅 포함)을 목표에 맞춤 — 전용·무작위 비율은 그대로 두고 함께 줄이거나 늘림
+{ const TGT = { shelob: 0.01, queen_ant: 0.05, ogre: 0.05, baphomet: 0.05, kaspar: 0.03, merkyor: 0.03, balthazar: 0.03, sema: 0.03, deathknight: 0.20, ice_queen: 0.20 };
+  const isHeroEq = id => ITEMS[id] && ITEMS[id].rar === '영웅' && ITEMS[id].slot;
+  for (const k in TGT) { const S = MOB[k]; if (!S) continue; const rows = (DROP_TABLE[k] || []).filter(r => isHeroEq(r[0])), rolls = S.duo ? 2 : 1, hm = S.duo ? 1.5 : 1, h0 = HERO_P[k] || 0;
+    const anyAt = x => 1 - rows.reduce((a, r) => a * Math.pow(1 - Math.min(1, r[1] * x), rolls), 1) * (1 - Math.min(1, h0 * hm * x));
+    let lo = 0, hi = 30; for (let t = 0; t < 60; t++) { const m = (lo + hi) / 2; if (anyAt(m) < TGT[k]) lo = m; else hi = m; } const x = (lo + hi) / 2;
+    for (const r of rows) r[1] = +(r[1] * x).toFixed(5); HERO_P[k] = +(h0 * x).toFixed(5); } }
 // 사막 몬스터(보스 제외)를 잡으면: 그 구간 고급 장비 중 하나가 아주 낮은 확률로 (한 번에 최대 1개)
 const CX_RP = { 6: 0.0003, 8: 0.0003, 9: 0.0004, 10: 0.0004, 11: 0.0005, 12: 0.0005 };
 function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id], LH = CX_ZONE_H[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[ISLE.id] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < 0.00002); if (!hit.length) return false;   // v109: 희귀 — 버그베어밭 2구간 0.03% · 본토던전 0.04% · 오렌설원 0.05% (아이템마다) · 영웅 — 본토던전 2층·오렌설원 2구역 0.002%   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
@@ -5847,6 +5854,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 135, items: ['보스 영웅 장비 확률을 조정했어요. (1회 처치당 영웅 장비가 하나라도 나올 확률 · 전용 장비 + 무작위 영웅 포함) 셸로브 1% · 거대 여왕개미 · 오우거 · 바포메트 5% · 카스파 패밀리 각 3% · 데스나이트 · 얼음여왕 20%'] },
     { v: 134, items: ['화면 안에 보스가 있으면 위쪽 가운데에 보스 이름 · 레벨 · HP 바가 떠요. (HP 숫자·% · 광폭화하면 테두리가 붉게 깜빡임 · 감시자 리퍼는 남은 시간 · 가까운 2마리까지 · 화면 밖으로 나가면 사라짐)', '쓰러졌을 때 대화창 위 [마을로]를 누르면 기다리지 않고 바로 마을에서 부활해요. (손실은 같음 · 경험치 5% · 골드 10%)', '자동사냥으로 마을에 왔을 때 [물약 자동 구매]가 꺼져 있거나 개수가 0이라 물약을 안 샀으면 안내가 떠요.'] },
     { v: 133, items: ['채팅 기록 창이 생겼어요. 미니맵 바로 옆에 일반·파티·전체 채팅만 따로 계속 남아서, 알림 메시지에 밀려 사라지지 않아요. (평소엔 흐리고 새 채팅이 오면 잠깐 진해짐 · 클릭은 그대로 게임으로 통과 · 글씨는 대화창과 같은 크기)', '왼쪽 아래 골드 표시 밑에 지금 게임 버전이 작게 표시돼요.'] },
     { v: 132, items: ['인벤토리를 [전체] · [장비] · [물약] · [주문서] 탭으로 나눠 볼 수 있어요. (탭 옆 숫자 = 그 종류 개수 · 탭에서도 끌어서 단축키 등록·창고·휴지통 그대로 가능)'] },
