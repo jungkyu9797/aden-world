@@ -369,6 +369,7 @@ button.cs-card{font:inherit;cursor:pointer;align-items:center;width:172px} butto
 #mpwin{left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100vw - 32px));padding:16px 18px 12px;font-size:14px}
 #codexwin{left:50%;top:50%;transform:translate(-50%,-50%);width:min(1000px,calc(100vw - 24px));height:min(86vh,860px);display:flex;flex-direction:column;gap:8px;padding:14px 16px 12px;font-size:13px;z-index:18}
 .cdx-tabs{display:flex;gap:4px;flex-wrap:wrap} .cdx-tab{flex:1 1 auto;background-image:linear-gradient(#2a2016,#16110b);border:1px solid #5a4a2e;color:#b8ad92;font:700 13px "Noto Sans KR",sans-serif;padding:7px 10px;cursor:pointer;border-radius:4px;white-space:nowrap} .cdx-tab small{color:#8a8068;font-weight:600} .cdx-tab[aria-selected=true]{background-image:linear-gradient(#5a4628,#2e2414);color:#ffe08a;border-color:#c9a24a}
+.cdx-sub{display:flex;gap:4px;flex-wrap:wrap;padding:6px 6px 0;border-top:1px solid #3a3326} .cdx-sub[hidden]{display:none} .cdx-subt{background:#1c1913;border:1px solid #4a3e28;color:#bfb6a0;font:700 12px "Noto Sans KR",sans-serif;padding:4px 10px;border-radius:12px;cursor:pointer} .cdx-subt small{color:#8a8068} .cdx-subt[aria-selected=true]{background:#4a3a20;color:#ffe08a;border-color:#c9a24a}
 .cdx-flt{display:flex;gap:8px;align-items:center;flex-wrap:wrap} .cdx-flt input[type=search]{flex:1 1 220px;min-width:0;background:#0e0c0a;border:1px solid #5a4e38;color:#f2eedf;font:13px "Noto Sans KR",sans-serif;padding:6px 8px;border-radius:2px} .cdx-flt select{background:#0e0c0a;border:1px solid #5a4e38;color:#f2eedf;font:13px "Noto Sans KR",sans-serif;padding:5px 6px} .cdx-mine{display:inline-flex;gap:4px;align-items:center;color:#e6dcc4;cursor:pointer} .cdx-n{color:#bfb6a0;margin-left:auto}
 .cdx-list{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px;align-content:start;padding-right:4px}
 .cdx-card{display:grid;grid-template-columns:46px 1fr;gap:4px 10px;align-items:center;background:linear-gradient(180deg,#221f1b,#181614);border:1px solid #4a4232;border-left:3px solid var(--rc);padding:8px 10px;border-radius:3px}
@@ -390,6 +391,7 @@ button.cs-card{font:inherit;cursor:pointer;align-items:center;width:172px} butto
 .st-grid.drop{outline:2px dashed #7ab8e8;outline-offset:2px}
 .qty-row{display:flex;gap:4px;justify-content:center;margin:0 0 12px} .qty-row input{width:70px;text-align:center;background:#0e0b08;border:1px solid #7a5a2a;color:#fff;font:800 16px "Noto Sans KR",sans-serif;padding:5px;border-radius:3px} .qty-row button{min-width:34px;background-image:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;color:#f0e2bc;font:700 13px "Noto Sans KR",sans-serif;border-radius:3px;cursor:pointer}
 #qty-all{background:#5a2a1c;border-color:#d2a94c;color:#ffe6b0}
+.st-gold{display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 8px;background:rgba(0,0,0,.3);border:1px solid #4a3b22;border-radius:3px;font-size:12px;color:#bdb39a} .st-gold .st-gl{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .st-gold b{color:#f2d060} .st-gold input{width:118px;min-width:0;height:24px;padding:0 6px;background:#14100a;border:1px solid #5a4828;border-radius:2px;color:#f2e6c8;font:inherit} .st-gold input::-webkit-inner-spin-button{display:none}
 .st-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#bdb39a} .st-foot b{color:#e8d080}
 .cw-look{grid-column:1/-1;width:150px;height:190px;margin:6px auto 0;display:block;cursor:pointer;background:radial-gradient(ellipse at 50% 80%,rgba(80,64,40,.45),rgba(14,11,8,.2) 70%);border:1px solid #4a3a22;border-radius:4px;box-shadow:inset 0 0 14px #000}
 
@@ -597,6 +599,7 @@ body.title-on .fullscr{background:transparent}
 <div class="gw" id="storewin" hidden role="dialog" aria-label="창고"><span class="gw-plate">창고</span><button class="x" type="button" data-closewin="storewin">닫기</button>
  <p class="st-help">인벤토리 물건을 <b>우클릭</b>하거나 이 칸들로 <b>끌어다 놓으면</b> 맡겨져요(물약처럼 겹치는 물건은 수량을 물어요). 찾을 때는 <b>더블클릭</b>·인벤토리로 끌어가기, 수량을 정하려면 <b>우클릭</b>.</p>
  <div class="st-grid" id="st-grid"></div>
+ <div class="st-gold"><span class="st-gl">창고 골드 <b id="st-gold">0</b></span><input id="st-gin" type="number" min="1" inputmode="numeric" placeholder="금액 (비우면 전부)" aria-label="골드 금액"><button type="button" id="st-gdep" class="inv-sort">맡기기</button><button type="button" id="st-gwd" class="inv-sort">찾기</button></div>
  <div class="st-foot"><span>보관 <b id="st-count">0 / 80</b></span><button type="button" id="st-sort" class="inv-sort">정렬</button></div></div>
 <div class="gw" id="sellwin" hidden role="dialog" aria-label="아덴상단"><span class="gw-plate">아덴상단</span><button class="x" type="button" data-closewin="sellwin">닫기</button>
  <div class="sl-tabs" role="tablist" aria-label="판매 방식"><button type="button" role="tab" data-t="one" aria-selected="true">개별 판매</button><button type="button" role="tab" data-t="bulk" aria-selected="false">일괄 판매</button></div>
@@ -623,6 +626,7 @@ body.title-on .fullscr{background:transparent}
  <p class="al-rates">성공 확률 — 일반 → 고급 <b>30%</b> · 고급 → 희귀 <b>10%</b> · 희귀 → 영웅 <b>3%</b><br>촉매(무기·갑옷 마법 주문서): 고급 → 희귀 5장당 +1%p (최대 +5%p) · 희귀 → 영웅 10장당 +1%p (최대 +3%p) · 조합하면 성공·실패와 상관없이 사라져요<br>가방 장비를 클릭(또는 우클릭)하거나 끌어다 놓으면 올라가요 · 올린 칸을 누르면 빠져요</p></div>
 <div class="gw" id="codexwin" hidden role="dialog" aria-label="아이템 도감"><span class="gw-plate">아이템 도감</span><button class="x" type="button" data-closewin="codexwin">닫기</button>
  <div class="cdx-tabs" id="cdx-tabs" role="tablist" aria-label="분류"></div>
+ <div class="cdx-sub" id="cdx-sub" role="tablist" aria-label="부위" hidden></div>
  <div class="cdx-flt"><input type="search" id="cdx-q" placeholder="이름 · 옵션 · 얻는 곳으로 찾기" aria-label="아이템 찾기"><select id="cdx-rar" aria-label="등급"><option value="">모든 등급</option><option>일반</option><option>고급</option><option>희귀</option><option>영웅</option></select><label class="cdx-mine"><input type="checkbox" id="cdx-mine"> 내 직업만</label><span id="cdx-n" class="cdx-n"></span></div>
  <div class="cdx-list" id="cdx-list"></div></div>
 <div class="gw" id="mpwin" hidden role="dialog" aria-label="접속자"><span class="gw-plate">월드 서버</span><button class="x" type="button" data-closewin="mpwin">닫기</button>

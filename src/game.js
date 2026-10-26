@@ -317,9 +317,9 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
-function killCheck(f){ const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.');
+function killCheck(f){ const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.');
   const D=NET.distribute(f,S); if (!D){ shareExp(f,S); if (!f.reaper){ const c=rint(S.coin); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (f.reaper) reaperDown(f, S); else if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S); }
+  GROUND.capStart(); if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 function dmgMob(f, d, who){ if (f && f.bindUntil > time) return; if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
@@ -392,21 +392,33 @@ function drawAltar(g, A, part) { const [x, y] = W2P(A.i + 0.5, A.j + 0.5), pu = 
   const cy = top - 22 - 4 * Math.sin(time * 1.8); g.globalCompositeOperation = 'lighter'; const gl = g.createRadialGradient(x, cy, 2, x, cy, 26); gl.addColorStop(0, `rgba(210,150,255,${0.7 + 0.2 * pu})`); gl.addColorStop(1, 'rgba(120,40,220,0)'); g.fillStyle = gl; g.beginPath(); g.arc(x, cy, 26, 0, 7); g.fill(); g.globalCompositeOperation = 'source-over';
   g.fillStyle = '#9a5aff'; g.strokeStyle = '#2a0e4a'; g.beginPath(); g.moveTo(x, cy - 12); g.lineTo(x + 7, cy); g.lineTo(x, cy + 12); g.lineTo(x - 7, cy); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#e8d0ff'; g.beginPath(); g.moveTo(x, cy - 12); g.lineTo(x + 7, cy); g.lineTo(x, cy - 1); g.lineTo(x - 7, cy); g.closePath(); g.fill(); g.restore(); }
 // v126: 감시자 리퍼 — 사냥터 잡몹이 쓰러질 때 0.1%로 그 지역 보스의 모습·능력치로 되살아남 (20분) · 잡으면 영혼석만 100%
-const REAPER_P = 0.001, REAPER_LIFE = 1200, REAPER_OF = { 1: 'shelob', 2: 'shelob', 3: 'queen_ant', 4: 'queen_ant', 5: 'ogre', 6: 'ogre', 7: 'baphomet', 8: 'baphomet', 9: ['kaspar', 'merkyor', 'balthazar', 'sema'], 10: 'deathknight', 11: 'ice_queen', 12: 'ice_queen' };
-function spawnReaper(i, j) { const L = ISLE && REAPER_OF[ISLE.id]; if (!L || SCENE !== 'field') return null; const bk = Array.isArray(L) ? L[Math.floor(Math.random() * L.length)] : L, at = spotNear(i, j, 2) || [i, j];
-  const m = mkMob(bk, at[0], at[1]); m.reaper = true; m.dispName = '감시자 리퍼'; m.reaperUntil = time + REAPER_LIFE; m.home = at; foxes.push(m);
+const REAPER_P = 0.001, REAPER_LIFE = 1200, REAPER_GAP = 10, REAPER_OF = { 1: 'shelob', 2: 'shelob', 3: 'queen_ant', 4: 'queen_ant', 5: 'ogre', 6: 'ogre', 7: 'baphomet', 8: 'baphomet', 9: ['kaspar', 'merkyor', 'balthazar', 'sema'], 10: 'deathknight', 11: 'ice_queen', 12: 'ice_queen' };
+// v127: 리퍼 기록 — 불러낸 사람이 떠나거나 죽어도, 지역 호스트가 바뀌어도 잡히기 전까지(최대 20분) 그 자리에 남음. 같은 월드 사람들끼리 기록을 주고받음
+const REAPERS = new Map(), RP_UID0 = 95000, isRpUid = u => u >= RP_UID0 && u < RP_UID0 + 5000, rpLive = r => !!r && !r.dead && !r.gone && Date.now() < r.until;
+const rpOf = f => f && (f.rp || (f.uid != null ? REAPERS.get(f.uid) : null)) || null, rpLeft = f => { const r = rpOf(f); return r ? Math.max(0, Math.ceil((r.until - Date.now()) / 60000)) : 20; };
+function rpZoneLive(z) { for (const r of REAPERS.values()) if (r.z === z && rpLive(r)) return r; return null; }
+function rpTag(m, r) { m.reaper = true; m.dispName = '감시자 리퍼'; if (r) { m.rp = r; m.uid = r.uid; } if (!m.home) m.home = [m.i, m.j]; return m; }
+function rpEnsure() { if (SCENE !== 'field' || !ISLE) return; for (const r of REAPERS.values()) { if (r.z !== ISLE.id || !rpLive(r) || !MOB[r.bk]) continue; const f = foxes.find(q => q.uid === r.uid && !q.gone); if (f) { if (!f.rp) rpTag(f, r); continue; }
+    const at = spotNear(r.i, r.j, 2) || [r.i, r.j], m = rpTag(mkMob(r.bk, at[0], at[1]), r); m.home = at; m.hp = Math.max(1, Math.round(m.max * Math.min(1, r.hp || 1))); foxes.push(m); } }
+function spawnReaper(i, j, who) { const L = ISLE && REAPER_OF[ISLE.id]; if (!L || SCENE !== 'field') return null; const bk = Array.isArray(L) ? L[Math.floor(Math.random() * L.length)] : L, at = spotNear(i, j, 2) || [i, j];
+  let uid; do uid = RP_UID0 + Math.floor(Math.random() * 5000); while (REAPERS.has(uid)); const r = { uid, z: ISLE.id, bk, until: Date.now() + REAPER_LIFE * 1000, hp: 1, i: at[0], j: at[1], t: Date.now(), own: performance.now() }; REAPERS.set(uid, r);
+  const m = rpTag(mkMob(bk, at[0], at[1]), r); m.home = at; foxes.push(m);
   const [x, y] = W2P(m.x, m.z); floatText(x, y - headY(m) - 30, '감시자 리퍼 출현!', { color: '#c890ff', size: 20, big: true, life: 2.4, rise: 34 }); mxFlash('110,40,200', 0.16, 0.7); mxAdd('ring', m, { gnd: 1, c: '170,90,255', r0: 8, r1: 120, w: 6, life: 1.1 }); shake = Math.max(shake, 0.2);
   if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.9, 300, 80, 0.32); tone(t0, 'sawtooth', 90, 45, 1.0, 0.12); tone(t0 + 0.2, 'triangle', 440, 220, 0.6, 0.06); }
-  const msg = `${PNAME()}님이 사냥하던 ${zoneTitle()}에 [감시자 리퍼]가 나타났습니다! (${MOB[bk].name}의 모습 · 20분 뒤 사라져요)`; announce(msg, '#c890ff'); NET.announceAll(msg); TELE.ev('reaper', { b: bk, z: zoneTitle() }); return m; }
-function reaperTry(f, S) { if (S.boss || S.dummy || f.summoned || f.reaper || f.soulBoss || SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id] || NET.guestMob(f)) return; if (Math.random() >= REAPER_P) return; if (foxes.some(x => x.reaper && !x.dead && !x.gone)) return; spawnReaper(f.i, f.j); }
-function reaperDown(f, S) { const id = 'soul_' + f.kind; if (ITEMS[id]) GROUND.drop(id, 1, f.i, f.j); say(`감시자 리퍼를 쓰러뜨렸습니다! [영혼석: ${S.name}]이(가) 떨어졌습니다.`, '#c890ff'); }
+  const msg = `${who || PNAME()}님이 사냥하던 ${zoneTitle()}에 [감시자 리퍼]가 나타났습니다! (${MOB[bk].name}의 모습 · 잡히지 않으면 20분 뒤 사라져요)`; announce(msg, '#c890ff'); NET.announceAll(msg); TELE.ev('reaper', { b: bk, z: zoneTitle() }); return m; }
+function reaperTry(f, S, D) { if (S.boss || S.dummy || f.summoned || f.reaper || f.soulBoss || SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id] || NET.guestMob(f)) return; let top = null; try { if (D && D.shares && D.shares.size) top = [...D.shares.entries()].sort((a, b) => b[1] - a[1])[0][0]; } catch (e) {} const lv = top != null ? NET.lvOf(top) : hero.lv;
+  if (lv - ((S && S.lv) || 1) >= REAPER_GAP) return;   // v127: 내 레벨보다 10 이상 낮은 몬스터는 리퍼로 바뀌지 않음 (높은 레벨이 초보 사냥터를 빠르게 쓸어 영혼석을 모으지 못하게)
+  if (Math.random() >= REAPER_P) return; if (rpZoneLive(ISLE.id) || foxes.some(x => x.reaper && !x.dead && !x.gone)) return; spawnReaper(f.i, f.j, top != null ? NET.nameOf(top) : PNAME()); }
+function reaperDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Date.now(); } const id = 'soul_' + f.kind; if (ITEMS[id]) GROUND.drop(id, 1, f.i, f.j); say(`감시자 리퍼를 쓰러뜨렸습니다! [영혼석: ${S.name}]이(가) 떨어졌습니다.`, '#c890ff');
+  let who = PNAME(); try { if (D && D.shares && D.shares.size) who = NET.nameOf([...D.shares.entries()].sort((a, b) => b[1] - a[1])[0][0]) || who; } catch (e) {}
+  const msg = `${who}님이 ${zoneTitle()}의 [감시자 리퍼](${S.name}의 모습)를 쓰러뜨렸습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); TELE.ev('reaperDown', { b: f.kind, z: zoneTitle() }); }
 function soulDown(f, S) { say(`[영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`, '#ffd86a'); }
 window.__reaperNow = () => { if (SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id]) { say('감시자 리퍼는 사냥터(1·2구간)에서만 나타나요.', '#f08a7a'); return; } spawnReaper(hero.i + 2, hero.j); };   // 갓 모드 테스트
 function updateFox(f,dt){
   if (NET.guestMob(f)) { NET.follow(f, dt); return; }
   if (f.hitT>0) f.hitT=Math.max(0,f.hitT-dt);
   const S=MOB[f.kind];
-  if (f.reaper && !f.dead && time > f.reaperUntil){ f.gone = true; if (hero.target === f) hero.target = null; say('감시자 리퍼가 어둠 속으로 사라졌습니다...', '#9c8ab8'); return; }
+  if (f.reaper && !f.dead){ const r = rpOf(f); if (r && Date.now() > r.until){ r.gone = 1; f.gone = true; if (hero.target === f) hero.target = null; say('감시자 리퍼가 어둠 속으로 사라졌습니다...', '#9c8ab8'); return; } if (r && f.max > 0){ if (!(performance.now() - (r.own || -1e9) < 3000) && r.hp < f.hp / f.max) f.hp = Math.max(1, Math.round(f.max * r.hp)); r.hp = Math.max(0.001, f.hp / f.max); r.i = f.i; r.j = f.j; r.t = Date.now(); r.own = performance.now(); } }
   if (S.boss && !f.dead && !f.enraged && f.max > 0 && f.hp > 0 && f.hp <= f.max * (f.enrAt || (f.enrAt = 0.3 + Math.random() * 0.2))) bossEnrage(f, S);
   if (S.dummy){ f.flash=Math.max(0,(f.flash||0)-dt); f.kx=0; f.ky=0; f.aggro=false; f.stunT=Math.max(0,(f.stunT||0)-dt); f.slowT=Math.max(0,(f.slowT||0)-dt); if (f.dlog){ while (f.dlog.length && time-f.dlog[0][0]>10) f.dlog.shift(); if (!f.dlog.length || time-f.dlog[f.dlog.length-1][0]>4){ f.hp=f.max; f.ttk0=0; } } return; }   // 허수아비: 가만히 서서 맞기만
   if (f.dead){ f.deadT+=dt; if (S.boss||f.summoned){ if (f.deadT>(S.boss?3:1.6)) f.gone=true; return; }
@@ -618,7 +630,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 126;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 127;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1579,10 +1591,11 @@ function drawWorld(g, vw, vh){
   if (ISLE && ISLE.def.altar){ const A=ISLE.def.altar; list.push({d:A.i+A.j-4, f:()=>drawAltar(g,A,0)}); list.push({d:A.i+A.j+1, f:()=>drawAltar(g,A,1)}); }   /* v126: 소환의 제단 */
   for (const f of foxes){ if (f.dead&&f.deadT>1.4) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>{ const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
     const sheetAtk = S.art==='sheet' && !f.dead && f.atkT!=null; mobPose(f, sheetAtk?0.5:1);
-    const al=f.dead?Math.max(0,1-f.deadT/1.4):1, fl=f.flash>0?'brightness(2.6) saturate(0)':(MP.red||(f.enraged&&!f.dead&&Math.sin(time*7)>0.1))?'sepia(.55) saturate(2.4) hue-rotate(-38deg) brightness(1.08)':null;
+    const al=f.dead?Math.max(0,1-f.deadT/1.4):1, fl=f.flash>0?'brightness(2.6) saturate(0)':MP.red?'sepia(.55) saturate(2.4) hue-rotate(-38deg) brightness(1.08)':null;
     g.save(); g.translate(Math.round(x+MP.lx), Math.round(y+MP.ly)); if (MP.rot) g.rotate(MP.rot); if (MP.sx!==1||MP.sy!==1) g.scale(MP.sx,MP.sy);
     const SI=MIMG[f.kind], ART=S.art==='sheet'&&!(SI&&SI.idle.naturalWidth&&SI.walk.naturalWidth&&SI.attack.naturalWidth)?S.art0:S.art;   // 렌더 그림이 아직(또는 못) 불러와졌으면 원래 그림
-    if (f.enraged&&!f.dead){ g.save(); g.globalCompositeOperation='lighter'; const pr=0.5+0.5*Math.sin(time*6), rr=(S.hw||30)*1.25; g.scale(1,0.5); const gr=g.createRadialGradient(0,0,rr*0.2,0,0,rr*(1.05+0.15*pr)); gr.addColorStop(0,'rgba(255,60,30,.55)'); gr.addColorStop(1,'rgba(255,30,10,0)'); g.fillStyle=gr; g.beginPath(); g.arc(0,0,rr*(1.05+0.15*pr),0,7); g.fill(); g.restore(); }   /* v126: 광폭화 붉은 기운 */
+    if (f.enraged&&!f.dead){ g.save(); g.globalCompositeOperation='lighter'; const pr=0.5+0.5*Math.sin(time*6), rr=(S.hw||30)*1.25; g.scale(1,0.5); const gr=g.createRadialGradient(0,0,rr*0.2,0,0,rr*(1.05+0.15*pr)); gr.addColorStop(0,'rgba(255,60,30,.55)'); gr.addColorStop(1,'rgba(255,30,10,0)'); g.fillStyle=gr; g.beginPath(); g.arc(0,0,rr*(1.05+0.15*pr),0,7); g.fill(); g.restore();
+      g.filter=`drop-shadow(0 0 ${(2+1.5*pr).toFixed(1)}px rgba(255,40,20,.95)) drop-shadow(0 0 ${(6+5*pr).toFixed(1)}px rgba(255,20,0,${(0.55+0.3*pr).toFixed(2)}))`; }   /* v126: 광폭화 붉은 기운 · v127: 몸 둘레 붉은 테두리 오로라 */
     if (ART==='dummy'){ g.globalAlpha=al; drawDummy(g,0,0,f); g.restore(); return; }
     if (ART==='cdummy'){ g.globalAlpha=al; const E=CDUM[S.cls].eq; g.fillStyle='#5a3a1e'; g.beginPath(); g.ellipse(0,3,19,8,0,0,7); g.fill(); g.fillStyle='#8a5c30'; g.beginPath(); g.ellipse(0,0,19,8,0,0,7); g.fill(); g.strokeStyle='#3a2410'; g.lineWidth=1.5; g.stroke(); drawHeroSprite(g,'idle',Math.floor(time*6+(f.hi||0))%8,1,0,0,fl,S.cls,sl=>E[sl]||null,null); g.save(); g.font='800 10px "Noto Sans KR",sans-serif'; g.textAlign='center'; const nm=S.name; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(nm,0,-90); g.fillStyle='#9fd0ff'; g.fillText(nm,0,-90); g.restore(); dummyDps(g,f); g.restore(); return; }
     if (ART==='spider'){ g.globalAlpha=al; drawSpider(g,0,0,f); g.restore(); return; }
@@ -1632,7 +1645,7 @@ function drawWorld(g, vw, vh){
   if (hero.chat && time < hero.chat.until) CHAT.bubble(g, hero);
   { const [hx,hy]=W2P(hero.x,hero.z); g.fillStyle='#000'; g.fillRect(Math.round(hx)-14,Math.round(hy)-90,28,4); g.fillStyle='#c8302a'; g.fillRect(Math.round(hx)-13,Math.round(hy)-89,Math.round(26*hero.hp/hero.max),2); }
   const tg0 = hover&&!hover.dead ? hover : (T&&!T.dead?T:null), tg = tg0&&DN.seen(tg0.i,tg0.j)?tg0:null;
-  if (tg){ const S=MOB[tg.kind], [x,y]=W2P(tg.x,tg.z), hh=(S.hh||Math.round(62*S.sc))+4, nm=(tg.dispName||S.name)+(tg.reaper?` (${Math.max(0,Math.ceil((tg.reaperUntil-time)/60))}분)`:S.boss?' (보스)':'')+(tg.enraged?' · 광폭화':''), bw=S.boss?60:30;
+  if (tg){ const S=MOB[tg.kind], [x,y]=W2P(tg.x,tg.z), hh=(S.hh||Math.round(62*S.sc))+4, nm=(tg.dispName||S.name)+(tg.reaper?` (${rpLeft(tg)}분)`:S.boss?' (보스)':'')+(tg.enraged?' · 광폭화':''), bw=S.boss?60:30;
     g.font='700 10px "Noto Sans KR",sans-serif'; g.textAlign='center'; g.fillStyle='rgba(0,0,0,.8)'; g.fillText(nm,x+1,y-hh+1); g.fillStyle=S.boss?'#ff7060':tg.aggro?'#f08a7a':'#f2eedf'; g.fillText(nm,x,y-hh);
     g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(x-bw/2,y-hh+4,bw,3); g.fillStyle='#b8352b'; g.fillRect(x-bw/2,y-hh+4,bw*Math.max(0,tg.hp)/tg.max,3); drawMobStatus(g, tg, x, y-hh-20); }
   g.restore(); mxDrawFlash(g, vw, vh); AMB.drawFlies(g, ox, oy);
@@ -2662,7 +2675,7 @@ const ISLAND = (() => {
     else say('무리 중 하나를 때리면 무리 전체가 덤빕니다. 보스 셸로브를 조심하세요!', '#f0c080'); }
   // 보스 등장: 자리도 모든 PC가 같게 (구간 번호로 정한 무작위) · 막 등장한 순간 근처(12칸)에 있으면 극적인 연출
   function spawnBoss(kind, n, fresh) { const B = BOSS[kind], z = get(B.zone);
-    const ex = z.mobs.find(m => m.kind === kind && !m.dead && !m.gone && !m.summoned); if (ex) { B.ent = ex; return; }   // 호스트에게서 받은 보스가 이미 있으면 그대로
+    const ex = z.mobs.find(m => m.kind === kind && !m.dead && !m.gone && !m.summoned && !m.reaper && !m.soulBoss && !(m.uid != null && isRpUid(m.uid))); if (ex) { B.ent = ex; return; }   // 호스트에게서 받은 보스가 이미 있으면 그대로
     const R = rngOf(hsh(kind + ':pos:' + n)); let p = null; const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6);
     for (let t = 0; t < 800 && !p; t++) { const i = 2 + Math.floor(R() * (z.N - 4)), j = 2 + Math.floor(R() * (z.N - 4)); if (ok(i, j)) p = [i, j]; } if (!p) p = [z.N >> 1, z.N >> 1];
     if (z.hall) p = [z.hall[0], z.hall[1]];   // 던전 보스: 보스 방 가운데
@@ -2722,7 +2735,7 @@ const DROP_TABLE = {
   // 얼음여왕: 최소 3개 · 물 주문서 넉넉히 · 설원의 망토(희귀) · 얼음여왕의 지팡이(영웅)
   ice_queen: [['scroll_acc', 0.25], ['book_immune', 0.06], ['scroll_water', 0.45, 1, 5], ['scroll_armor', 0.45], ['scroll_weapon', 0.40], ['bscroll_armor', 0.15], ['bscroll_weapon', 0.10], ['bless_scroll', 0.30, 1, 3], ['gold_wing', 0.10], ['book_coc', 0.08], ['book_clight', 0.05], ['snow_cloak', 0.12], ['iq_staff', 0.04]],
   // 데스나이트: 최소 3개 · 데스나이트 세트(기사 전용) · 불검(영웅) · 주문서 넉넉히
-  deathknight: [['scroll_acc', 0.2], ['book_immune', 0.06], ['dk_helm', 0.10], ['dk_armor', 0.07], ['dk_gloves', 0.10], ['dk_boots', 0.10], ['dk_sword', 0.04], ['scroll_armor', 0.45], ['scroll_weapon', 0.40], ['bscroll_armor', 0.15], ['bscroll_weapon', 0.10], ['scroll_fire', 0.30, 1, 5], ['bless_scroll', 0.30, 1, 3], ['gold_wing', 0.10], ['book_clight', 0.05], ['book_gheal', 0.05]],
+  deathknight: [['scroll_acc', 0.2], ['book_immune', 0.06], ['dk_helm', 0.05], ['dk_armor', 0.035], ['dk_gloves', 0.05], ['dk_boots', 0.05], ['dk_sword', 0.03], ['scroll_armor', 0.45], ['scroll_weapon', 0.40], ['bscroll_armor', 0.15], ['bscroll_weapon', 0.10], ['scroll_fire', 0.30, 1, 5], ['bless_scroll', 0.30, 1, 3], ['gold_wing', 0.10], ['book_clight', 0.05], ['book_gheal', 0.05]],
   };
 // 일반 몬스터 드랍 (아주 낮은 확률, 바닥에 기둥빛과 함께): 기사 상위 기술서는 몬스터 드랍 전용
 const MOB_DROPS = { // 버그베어·킹 버그베어: 갑옷·무기 마법 주문서를 다른 몬스터보다 잘 떨어뜨림 (다른 몬스터는 지역 드랍으로만 약 2%)
@@ -3595,7 +3608,7 @@ const CODEX_ROWS = [
 ['반지','희귀','힘의 반지','공용',20,'',1,0,0,0,'힘 +1',1,0,'거대 여왕개미',0],
 ['반지','희귀','민첩의 반지','공용',24,'',1,0,0,0,'민첩 +1',1,0,'셸로브',0],
 ['반지','영웅','용의 반지','공용',30,'',1,0,0,5,'모든 능력치 +1 · HP +30',1,0,'상위 보스 (추후)',0],
-['반지','영웅','군주의 반지','공용',35,'',1,0,0,0,'모든 능력치 +1',1,0,'상위 보스 (추후)',0],
+['반지','영웅','군주의 반지','공용',35,'',1,0,0,10,'모든 능력치 +1 · HP +40',1,0,'상위 보스 (추후)',0],
 ['반지','희귀','지식의 반지','공용',24,'',1,0,0,0,'지능 +1',1,0,'셸로브',0],
 // 목걸이
 ['목걸이','일반','수호의 목걸이','공용',1,'',1,0,0,0,'—',1,0,'잡화 상점',1],
@@ -3699,6 +3712,17 @@ const BELT_WR = { 일반: 3, 고급: 5, 희귀: 8, 영웅: 12 };   // 벨트 무
   MOB_DROPS.dwarf = (MOB_DROPS.dwarf || []).concat(CX_LIST.filter(id => /^난쟁이족/.test(ITEMS[id].name)).map(id => [id, CX_P.dwarf]));
   // 투명 망토: 버프
   const iv = CX_LIST.find(id => ITEMS[id].invis); BUFF.invis = 0; BUFF_DEF.invis = { name: '투명 (투명 망토)', desc: '몬스터가 나를 보지 못함 · 공격하면 풀림', icon: 'ic_' + iv, dur: ITEMS[iv].invis.dur, c: '#bfe0ff' }; }
+// v127: 중복 정리 — 데스나이트 장비는 데스나이트만 떨어뜨리는 dk_* 하나로 (도감판 능력치 · 영웅 Lv35 · 4부위 세트 효과 유지) · 옛 도감판은 숨기고 가진 것은 불러올 때 바꿈
+const ITEM_MERGE = { cx_sw7: 'dk_sword', cx_hm6: 'dk_helm', cx_ar5: 'dk_armor', cx_gl6: 'dk_gloves', cx_bt6: 'dk_boots' };
+for (const [o, n] of Object.entries(ITEM_MERGE)) { const a = ITEMS[o], d = ITEMS[n]; if (!a || !d) continue;
+  for (const k of ['dmg', 'ac', 'mr', 'hit', 'xdmg', 'proc', 'fireRes', 'lv', 'cls', 'rar', 'price', 'optTxt', 'w', 'grp']) if (a[k] != null) d[k] = Array.isArray(a[k]) ? a[k].slice() : a[k] && typeof a[k] === 'object' ? { ...a[k] } : a[k];
+  d.name = a.name; d.codex = true; d.only = 'knight'; d.src = '데스나이트'; a.hidden = true;
+  const out = L => { if (!Array.isArray(L)) return; for (let q = L.length - 1; q >= 0; q--) if (L[q] === o || (Array.isArray(L[q]) && L[q][0] === o)) L.splice(q, 1); };
+  out(CX_LIST); out(CX_HERO); for (const T of [CX_ZONE, CX_ZONE_R, CX_ZONE_H, CX_BOSS, CX_SHOP, DROP_TABLE, MOB_DROPS]) for (const k in T) out(T[k]); }
+{ const q = ITEMS.iq_staff; if (q) Object.assign(q, { cls: ['wizard'], lv: 45, dmg: [7, 19], sp: 5, mr: 5, coldMagic: 15, codex: true, grp: '지팡이', optTxt: ['SP +5', '냉기 마법 피해 +15%'], src: '얼음여왕', desc: '서리꽃이 피어나는 얼음여왕의 수정 지팡이. 냉기가 마력을 키운다.' });   /* v127: 얼음여왕 전용 지팡이 상향 */
+  const r = CX_LIST.find(x => ITEMS[x].name === '얼음 여왕의 지팡이'); if (r) ITEMS[r].name = '서리 지팡이';   /* 희귀 Lv20 판은 이름 변경 (같은 이름 둘 정리) */
+  const c = ITEMS.snow_cloak; if (c) Object.assign(c, { lv: 45, ac: 3, mr: 10, codex: true, grp: '망토', optTxt: ['물 저항 +20'], src: '얼음여왕', desc: '얼음여왕의 눈보라를 견딘 흰 털 망토.' });   /* v127: 설원의 망토 상향 */
+  if (ITEMS.scroll_acc) ITEMS.scroll_acc.sellFix = 250; }   /* v127: 장신구 마법 주문서 되팔기 250골드 (데이·젤 교환 차익 막기) */
 // 사막 몬스터(보스 제외)를 잡으면: 그 구간 고급 장비 중 하나가 아주 낮은 확률로 (한 번에 최대 1개)
 const CX_RP = { 6: 0.0003, 8: 0.0003, 9: 0.0004, 10: 0.0004, 11: 0.0005, 12: 0.0005 };
 function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id], LH = CX_ZONE_H[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[ISLE.id] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < 0.00002); if (!hit.length) return false;   // v109: 희귀 — 버그베어밭 2구간 0.03% · 본토던전 0.04% · 오렌설원 0.05% (아이템마다) · 영웅 — 본토던전 2층·오렌설원 2구역 0.002%   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
@@ -3752,7 +3776,7 @@ const RARITY_C = { 일반: '#f2f2f2', 고급: '#5ee05e', 희귀: '#3f9bff', 영�
 // 모든 아이템에 희귀도 (정해 둔 것 + 종류별 기본값, 나머지는 일반)
 (() => { const R = { long_sword: '고급', leather_helm: '고급', leather_armor: '고급', leather_boots: '고급', leather_gloves: '고급', silver_ring: '고급', amulet: '고급', scroll_weapon: '고급', scroll_armor: '고급', cscroll_weapon: '고급', cscroll_armor: '고급',
     plate_helm: '희귀', plate_armor: '희귀', plate_gloves: '희귀', plate_boots: '희귀', scale_armor: '희귀', scimitar: '희귀', scroll_earth: '희귀', bscroll_weapon: '희귀', bscroll_armor: '희귀',
-    gold_wing: '영웅', silver_wing: '영웅', bless_scroll: '영웅', book_tornado: '영웅', book_eruption: '영웅', book_immune: '영웅', book_healall: '영웅' };
+    gold_wing: '영웅', silver_wing: '영웅', bless_scroll: '희귀', book_tornado: '영웅', book_eruption: '영웅', book_immune: '영웅', book_healall: '영웅' };
   for (const [id, d] of Object.entries(ITEMS)) { if (d.codex) continue; if (R[id]) { d.rar = R[id]; continue; } if (d.use === 'learn') { const k = SK[d.learn]; d.rar = k.kind === 'magic' ? (k.circle >= 3 ? '희귀' : '일반') : k.shop === '몬스터 드랍' ? '희귀' : '고급'; continue; } if (d.rar) continue; d.rar = '일반'; } })();   // v107: 아이템에 직접 적어 둔 등급(데스나이트 세트·설원 장비 등)은 그대로
 // v108: 기본 공격(무기)·기본 방어(방어구)에 등급 보너스 — 일반 ×1 · 고급 ×1.15 · 희귀 ×1.3 · 영웅 ×1.5 (반올림 · 한 번만)
 const BASE_MUL = { 일반: 1, 고급: 1.15, 희귀: 1.3, 영웅: 1.5 };
@@ -4230,7 +4254,7 @@ const INV = (() => {
     trashAsk, setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, showSkill, holdHot, openHot, setAutoSk, autoSk: id => !!AUTOSK[id], applyScroll, targeting: () => tgtScroll, bag: () => bag, nameOf, wPct, maxW, weightNow: weight, enOf: sl => eq[sl] ? (eq[sl].en || 0) : 0,
     dump() { const cl = x => JSON.parse(JSON.stringify(x, (k, v) => k && k[0] === '_' ? undefined : v)); const B = cl(bag.filter(e => !e.godTemp || e.n > 1).map(e => e.godTemp ? Object.assign({}, e, { n: e.n - 1, godTemp: undefined }) : e)); B.forEach(e => { delete e.godTemp; if (e.pet && e.pet.state === 'out') e.pet.state = 'stored'; });
       return { bag: B, bonus: Object.assign({}, BONUS), hot: hot.slice(), auto: cl(AUTO), ab: cl(AUTOBUFF), ask: Object.keys(AUTOSK) }; },
-    load(o) { if (!o) return; bag.length = 0; for (const k in eq) delete eq[k]; BK.list = []; for (const e of o.bag || []) { if (!e || !ITEMS[e.id] || LOW_BOOK.has(e.id)) continue; if (e.on && !eq[e.on]) eq[e.on] = e; else e.on = false; bag.push(e); }
+    load(o) { if (!o) return; bag.length = 0; for (const k in eq) delete eq[k]; BK.list = []; for (const e of o.bag || []) { if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (!e || !ITEMS[e.id] || LOW_BOOK.has(e.id)) continue; if (e.on && !eq[e.on]) eq[e.on] = e; else e.on = false; bag.push(e); }
       for (const k in BONUS) BONUS[k] = (o.bonus && +o.bonus[k]) || 0; if (o.hot) { const old = !(o.hot.length > 8); for (let i = 0; i < 12; i++) hot[i] = null; for (let i = 0; i < (old ? 8 : 12); i++) { const h = o.hot[i], j = old ? i + 4 : i; hot[j] = h && (h === 'act:pick' || (String(h).startsWith('sk:') ? SK[h.slice(3)] : ITEMS[h])) ? h : null; } } ensurePick(); if (false) for (let i = 0; i < 8; i++) { const h = o.hot[i]; }
       if (o.auto) for (const k in o.auto) if (AUTO[k]) Object.assign(AUTO[k], o.auto[k]); if (o.ab) for (const k in o.ab) if (k in AUTOBUFF) AUTOBUFF[k] = !!o.ab[k]; for (const k in AUTOSK) delete AUTOSK[k]; if (Array.isArray(o.ask)) for (const k of o.ask) if (skAutoKind(k)) AUTOSK[k] = true; skKey = ''; render(); },
     usePotion() { const e = bag.find(x => x.id === 'red_potion'); if (!e) { say('빨간 물약이 없습니다.', '#f08a7a'); return; } use(e); } };
@@ -4288,7 +4312,10 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
   return { open: isOpen, toggle, put, fill, has: e => S.includes(e), render, rates: () => Object.assign({}, RATE) }; })();
 
 // ============================================================ v126: 아이템 도감 — 게임 데이터(ITEMS·상점·드랍표·주머니)에서 바로 만들어서 아이템이 바뀌면 자동으로 맞춰짐
-window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0, built = null;
+window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0, sub = 0, built = null;
+  const SUB = { 1: [['전체', null], ['한손검', d => (d.wtype || 'sword') === 'sword'], ['활', d => d.wtype === 'bow'], ['지팡이', d => d.wtype === 'staff'], ['단검', d => d.wtype === 'dagger']],   /* v127: 부위별 */
+    2: [['전체', null], ['투구', d => d.slot === 'helm'], ['갑옷', d => d.slot === 'armor'], ['티셔츠', d => d.slot === 'shirt'], ['망토', d => d.slot === 'cloak'], ['장갑', d => d.slot === 'gloves'], ['장화', d => d.slot === 'boots'], ['방패', d => d.slot === 'shield']],
+    3: [['전체', null], ['목걸이', d => d.slot === 'amulet'], ['반지', d => d.slot === 'ring'], ['벨트', d => d.slot === 'belt']] };
   const TABS = [['전체', () => true], ['무기', d => d.slot === 'weapon'], ['방어구', d => ARMOR_SLOTS.has(d.slot)], ['장신구', d => ['ring', 'amulet', 'belt'].includes(d.slot)],
     ['물약·소모품', d => !d.slot && !isScroll(d) && !!d.use && !['learn', 'pet', 'petevo', 'pouch', 'bpouch'].includes(d.use)], ['주문서', d => !d.slot && isScroll(d)], ['펫·주머니·기타', d => !d.slot && !isScroll(d) && (!d.use || ['learn', 'pet', 'petevo', 'pouch', 'bpouch'].includes(d.use))]];
   const isScroll = d => /주문서/.test(d.name || '') || /^scr_/.test(d.icon || '');
@@ -4316,13 +4343,15 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   function render() { const w = $('codexwin'); if (!w || w.hidden) return; built = built || build();
     $('cdx-tabs').innerHTML = TABS.map(([n, f], k) => `<button type="button" role="tab" class="cdx-tab" aria-selected="${k === tab}" data-k="${k}">${n} <small>${built.filter(x => f(x.d)).length}</small></button>`).join('');
-    const q = ($('cdx-q').value || '').trim().toLowerCase(), rar = $('cdx-rar').value, mine = $('cdx-mine').checked, f = TABS[tab][1];
-    const L = built.filter(x => f(x.d) && (!rar || x.rar === rar) && (!mine || !x.d.cls || x.d.cls.includes(CLASS)) && (!q || q.split(/\s+/).every(t => x.txt.includes(t))));
+    const q = ($('cdx-q').value || '').trim().toLowerCase(), rar = $('cdx-rar').value, mine = $('cdx-mine').checked, f = TABS[tab][1], SL = SUB[tab], sf = SL && SL[sub] && SL[sub][1];
+    { const sb = $('cdx-sub'); if (sb) { sb.hidden = !SL; sb.innerHTML = SL ? SL.map(([n, g_], k) => `<button type="button" class="cdx-subt" aria-selected="${k === sub}" data-s="${k}">${n} <small>${built.filter(x => f(x.d) && (!g_ || g_(x.d))).length}</small></button>`).join('') : ''; } }
+    const L = built.filter(x => f(x.d) && (!sf || sf(x.d)) && (!rar || x.rar === rar) && (!mine || !x.d.cls || x.d.cls.includes(CLASS)) && (!q || q.split(/\s+/).every(t => x.txt.includes(t))));
     $('cdx-n').textContent = `${L.length}개`;
     $('cdx-list').innerHTML = L.length ? L.map(x => { const rc = RARITY_C[x.rar] || '#f2f2f2', d = x.d, meta = [x.rar, d.slot ? cxClsName(d) : '', d.lv ? `Lv.${d.lv}+` : '', d.w ? `무게 ${d.w}` : ''].filter(Boolean).join(' · ');
       return `<div class="cdx-card" style="--rc:${rc}"><span class="cdx-ic">${ICON(d.icon)}</span><div><div class="cdx-nm">${esc(d.name)}</div><div class="cdx-meta">${esc(meta)}</div></div>${x.st.length ? `<div class="cdx-st">${x.st.map(esc).join('<br>')}</div>` : ''}${d.desc ? `<div class="cdx-desc">${esc(d.desc)}</div>` : ''}<div class="cdx-src"><b>얻는 곳</b> ${x.where && x.where.length ? x.where.map(esc).join('<br>') : '—'}</div></div>`; }).join('') : '<p class="muted cdx-empty">찾는 아이템이 없어요.</p>'; }
   function open() { const w = $('codexwin'); if (!w) return; if (!w.hidden) { w.hidden = true; return; } built = null; w.hidden = false; render(); $('cdx-list').scrollTop = 0; }
-  { const b = $('btn-codex'); if (b) b.onclick = open; const tb = $('cdx-tabs'); if (tb) tb.onclick = ev => { const x = ev.target.closest('[data-k]'); if (!x) return; tab = +x.dataset.k; render(); $('cdx-list').scrollTop = 0; };
+  { const b = $('btn-codex'); if (b) b.onclick = open; const tb = $('cdx-tabs'); if (tb) tb.onclick = ev => { const x = ev.target.closest('[data-k]'); if (!x) return; tab = +x.dataset.k; sub = 0; render(); $('cdx-list').scrollTop = 0; };
+    const sb = $('cdx-sub'); if (sb) sb.onclick = ev => { const x = ev.target.closest('[data-s]'); if (!x) return; sub = +x.dataset.s; render(); $('cdx-list').scrollTop = 0; };
     for (const id of ['cdx-q', 'cdx-rar', 'cdx-mine']) { const el = $(id); if (el) { el.oninput = el.onchange = () => render(); el.onkeydown = ev => ev.stopPropagation(); } } }
   return { open, render, list: () => (built = built || build()) }; })();
 
@@ -4393,6 +4422,7 @@ const TOWN = (() => {
   ];
   const STORAGE = { id: 'storage', name: '창고', npc: '창고지기 하딘', icon: 'chest',  door: 'i', roof: [107, 82, 50], npcType: 'm',
       hello: '맡길 물건이 있나? 여기 두면 다른 캐릭터도 꺼내 쓸 수 있다네.', storage: true };
+  if (window.DEMO_MODE) { const g = SHOPS.find(b => b.id === 'general'); if (g) g.tabs.push(['테스트: 영혼석', Object.keys(ITEMS).filter(k => k.startsWith('soul_')).map(k => [ITEMS[k].name, 1, '테스트 전용 · 소환의 제단에서 사용', k])]); }   // 테스트 페이지 전용
   // 상점 칸 좌표: u = 문에서 안쪽으로 0..5, v = 옆으로 0..5 (문은 u=0, v=3)
   const L2T = (b, u, v) => b.door === 'i' ? [b.i + 5 - u, b.j + v] : [b.i + v, b.j + 5 - u];
   SHOPS.forEach(b => { [b.di, b.dj] = L2T(b, -1, 3); b.dIn = L2T(b, 0, 3); b.npcT = L2T(b, 4, 3); b.stand = L2T(b, 2, 3); b.open = false;
@@ -4673,10 +4703,10 @@ const TOWN = (() => {
     const p = document.createElement('p'); p.className = 'muted exch-lead'; p.textContent = '남는 강화 주문서를 다른 주문서로 바꿔요. (무기 = 데이 · 갑옷 = 젤)'; list.appendChild(p);
     const maxOf = x => Math.min(...x.cost.map(([id, n]) => Math.floor((id === 'any' ? cnt(DW) + cnt(DA) : cnt(id)) / n)));
     for (const x of EXCH) { const d = ITEMS[x.out], row = document.createElement('div'); row.className = 'item exch'; row._q = 0; row._tot = 0;
-      row.innerHTML = `<span class="ic">${ICON(d.icon)}</span><span class="nm" style="color:${rarC(x.out)}">${d.name}</span><span class="info">${x.txt} → 1장</span><span class="pr">교환</span><span class="qty"><button type="button" class="qb" data-d="-1">−</button><input type="number" min="1" max="999" value="1" aria-label="${d.name} 교환 수"><button type="button" class="qb" data-d="1">+</button><button type="button" class="qb" data-d="max">최대</button></span><span class="calc"></span><button type="button" class="buy">교환</button>`;
+      row.innerHTML = `<span class="ic">${ICON(d.icon)}</span><span class="nm" style="color:${rarC(x.out)}">${d.name}</span><span class="info">${x.txt} → 1장</span><span class="pr">교환</span><span class="qty"><button type="button" class="qb" data-d="min">최소</button><button type="button" class="qb" data-d="-1">−</button><input type="number" min="1" max="999" value="1" aria-label="${d.name} 교환 수"><button type="button" class="qb" data-d="1">+</button><button type="button" class="qb" data-d="max">최대</button></span><span class="calc"></span><button type="button" class="buy">교환</button>`;
       const inp = row.querySelector('input'), calc = row.querySelector('.calc'), bt = row.querySelector('.buy');
       const upd = () => { const q = Math.max(1, Math.floor(+inp.value || 1)), mx = maxOf(x); calc.innerHTML = `${haveTxt()} · <b class="${mx >= q ? 'ok' : 'neg'}">${mx}장까지 교환 가능</b>`; bt.disabled = mx < q; };
-      row.querySelectorAll('.qb').forEach(b => b.onclick = () => { inp.value = b.dataset.d === 'max' ? Math.max(1, maxOf(x)) : Math.max(1, (Math.floor(+inp.value) || 1) + +b.dataset.d); upd(); });
+      row.querySelectorAll('.qb').forEach(b => b.onclick = () => { inp.value = b.dataset.d === 'max' ? Math.max(1, maxOf(x)) : b.dataset.d === 'min' ? 1 : Math.max(1, (Math.floor(+inp.value) || 1) + +b.dataset.d); upd(); });
       inp.oninput = upd; inp.onkeydown = ev => ev.stopPropagation();
       if (ITEMS[x.out]) row.onpointerdown = ev => { if (ev.target.closest('button,input')) return; INV.holdStart(ev, { id: x.out, n: 1, preview: true }); };
       bt.onclick = () => { const q = Math.max(1, Math.floor(+inp.value || 1)); if (maxOf(x) < q) { say('교환할 주문서가 모자랍니다.', '#f08a7a'); return; }
@@ -4965,7 +4995,7 @@ const SELL = (() => {
   const kindOf = d => d.slot === 'weapon' ? 'weapon' : d.slot === 'ring' || d.slot === 'amulet' ? 'acc' : d.slot ? 'armor' : ['heal', 'mana', 'haste'].includes(d.use) ? 'potion' : ['enchant', 'attr', 'blessit', 'tele', 'home', 'statreset', 'revive'].includes(d.use) ? 'scroll' : d.use === 'learn' ? 'book' : 'etc';
   const BASE = { 일반: 40, 고급: 400, 희귀: 3000, 영웅: 15000 }, CONS = { 일반: 6, 고급: 40, 희귀: 250, 영웅: 1200 };
   const BOOK_PRICE = { heal: 300, shieldm: 400, ebolt: 500, decwt: 800, icedagger: 1500, cure: 1000, xheal: 3500, turnund: 3000, farrow: 4000, fball: 3000, slow: 3000, medit: 3000, clight: 6000, gheal: 6000, counterm: 6000, coc: 10000, sunburst: 10000, eruption: 12000, stun: 500, reduction: 2000, resist_magic: 1000, body_mind: 1000, tele_tree: 1500, clear_mind: 3000, resist_elem: 3000 };   // v118: 예전 상점가 (남은 책을 팔 때 30%)
-  function unit(e) { const d = ITEMS[e.id], r = d.rar || '일반', buy = TOWN.priceOf(e.id) || (d.use === 'learn' && BOOK_PRICE[d.learn]) || (e.id === 'arrow' ? 2 : 0); let p = buy > 0 ? Math.floor(buy * 0.3) : d.slot ? Math.round(BASE[r] * (1 + (d.lv || 1) / 20)) : CONS[r];
+  function unit(e) { const d = ITEMS[e.id], r = d.rar || '일반', buy = TOWN.priceOf(e.id) || (d.use === 'learn' && BOOK_PRICE[d.learn]) || (e.id === 'arrow' ? 2 : 0); let p = d.sellFix ? d.sellFix : buy > 0 ? Math.floor(buy * 0.3) : d.slot ? Math.round(BASE[r] * (1 + (d.lv || 1) / 20)) : CONS[r];
     if (d.slot) { const en = e.en || 0; if (en > 0) p = Math.round(p * (1 + en * 0.25 + Math.max(0, en - 6) * 0.5)); if (e.blessed) p = Math.round(p * 1.5); if (e.attr) p = Math.round(p * (1 + e.attr.lv * 0.2)); }
     return Math.max(1, p); }
   const why = e => e.on ? '착용 중' : e.locked ? '잠김' : GOD_INF(e.id) ? '갓 모드 무한' : e.pet ? '펫 목걸이' : '';
@@ -5011,7 +5041,10 @@ const SELL = (() => {
 
 // ============================================================ 창고: 인벤토리와 같이 열림 · 끌어다 놓아 맡기기 / 더블클릭·끌어서 찾기
 const STORE = (() => {
-  const $ = id => document.getElementById(id), CAP = 80, box = [], RO = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 };
+  const $ = id => document.getElementById(id), CAP = 80, box = [], RO = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }, GMAX = 2e9; let gold = 0;   // v127: 창고 골드 (계정 공유)
+  function goldMove(dir) { const inp = $('st-gin'); let q = Math.floor(+(inp && inp.value) || 0); const have = dir > 0 ? Math.floor(coins) : gold; if (q <= 0) q = have; q = Math.min(q, have); if (dir > 0) q = Math.min(q, GMAX - gold);
+    if (q <= 0) { say(dir > 0 ? (have > 0 ? '창고 골드가 가득 찼습니다.' : '맡길 골드가 없습니다.') : '창고에 맡긴 골드가 없습니다.', '#f08a7a'); return; }
+    if (dir > 0) { coins -= q; gold += q; } else { coins += q; gold -= q; } if (inp) inp.value = ''; say(`창고${dir > 0 ? '에 맡김' : '에서 찾음'}: 골드 ${q.toLocaleString()} (창고 ${gold.toLocaleString()})`, '#f2d060'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }
   const why = e => e.on ? '착용 중인 장비는 맡길 수 없습니다. 먼저 벗어 주세요.' : GOD_INF(e.id) ? '갓 모드 무한 주문서는 맡길 수 없습니다.' : e.pet && e.pet.state === 'out' ? '소환 중인 펫의 목걸이는 맡길 수 없습니다.' : '';
   const label = e => INV.nameOf(e) + (ITEMS[e.id].stack && e.n > 1 ? ' ×' + e.n : '');
   function deposit(e, q) { if (!e || !ITEMS[e.id]) return false; const w = why(e); if (w) { say(w, '#f08a7a'); return false; } const d = ITEMS[e.id], same = d.stack ? box.find(x => x.id === e.id) : null;
@@ -5042,7 +5075,7 @@ const STORE = (() => {
         c.dataset.itip = INV.tipOf(e).split('\n').filter(l => !/더블클릭|꾹 누르고/.test(l)).concat('더블클릭·인벤토리로 끌어가기: 전부 찾기 · 우클릭: 수량 정해서 찾기').join('\n'); c.dataset.ic = rarC(e.id);
         c.draggable = true; c.ondragstart = ev => { ev.dataTransfer.setData('text/x-store', String(k)); ev.dataTransfer.effectAllowed = 'move'; }; c.ondblclick = () => withdraw(k); c.oncontextmenu = ev => { ev.preventDefault(); withdrawAsk(k); }; }
       else c.disabled = true; G.appendChild(c); }
-    $('st-count').textContent = `${box.length} / ${CAP}`; }
+    $('st-count').textContent = `${box.length} / ${CAP}`; const sg = $('st-gold'); if (sg) sg.textContent = gold.toLocaleString(); }
   function open() { const w = $('storewin'); if (!w) return; w.hidden = false; const iw = $('invwin'); if (iw && iw.hidden) INV.toggle('invwin'); else INV.render(); render();
     say('창고지기 하딘: 맡길 물건은 인벤토리에서 이 창으로 끌어다 놓게나. 찾을 땐 더블클릭하거나 인벤토리로 끌어가면 되네.', '#e8d8a8'); }
   { const G = $('st-grid'), I = $('inv-grid');
@@ -5051,8 +5084,9 @@ const STORE = (() => {
       G.addEventListener('drop', ev => { G.classList.remove('drop'); const k = ev.dataTransfer.getData('text/x-bag'); if (k === '') return; ev.preventDefault(); const e = INV.bag()[+k]; if (e) depositAsk(e); }); }
     if (I) { I.addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('text/x-store')) ev.preventDefault(); });
       I.addEventListener('drop', ev => { const k = ev.dataTransfer.getData('text/x-store'); if (k === '') return; ev.preventDefault(); withdraw(+k); }); }
+    { const gd = $('st-gdep'), gw = $('st-gwd'), gi = $('st-gin'); if (gd) gd.onclick = () => goldMove(1); if (gw) gw.onclick = () => goldMove(-1); if (gi) gi.onkeydown = ev => ev.stopPropagation(); }
     const sb = $('st-sort'); if (sb) sb.onclick = () => { box.sort((a, b) => { const A = ITEMS[a.id], B = ITEMS[b.id]; return (!!B.slot - !!A.slot) || (RO[B.rar || '일반'] - RO[A.rar || '일반']) || A.name.localeCompare(B.name, 'ko'); }); render(); }; }
-  return { open, render, deposit, depositAsk, list: () => box, load(L) { box.length = 0; for (const e of L || []) if (e && ITEMS[e.id] && !LOW_BOOK.has(e.id)) box.push(e); } };
+  return { open, render, deposit, depositAsk, goldMove, gold: () => gold, list: () => gold > 0 ? box.concat([{ id: 'stored_gold', n: gold }]) : box, load(L) { box.length = 0; gold = 0; for (const e of L || []) { if (e && e.id === 'stored_gold') { gold = Math.max(0, Math.min(GMAX, Math.floor(+e.n || 0))); continue; } if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (e && ITEMS[e.id] && !LOW_BOOK.has(e.id)) box.push(e); } } };
 })();
 
 // 캐릭터 창: 장비 칸 아래 캐릭터 미리보기 (지금 착용한 장비 그대로 · 천천히 숨쉬는 대기 동작 · 클릭하면 방향 바꾸기)
@@ -5355,6 +5389,12 @@ const NET = (() => {
     sendT = 0; }
   // ----- 보낼 내 상태
   function eqIds() { const e = {}; for (const L in KL_SLOT) { const id = INV.equipped(KL_SLOT[L]); if (id) e[KL_SLOT[L]] = id; } return e; }
+  const rpOut = () => { const L = []; for (const r of REAPERS.values()) if (Date.now() < r.until && KINDS.includes(r.bk)) L.push([r.uid, r.z, KINDS.indexOf(r.bk), r.until, Math.round((r.hp || 1) * 1000), r.i, r.j, r.dead || r.gone ? 1 : 0]); return L.length ? L.slice(-4) : null; };
+  function rpMerge(o) { const L = o.pr.rp; if (!Array.isArray(L)) return; const now = Date.now();
+    for (const x of L.slice(0, 6)) { if (!Array.isArray(x)) continue; const [uid, z, k, until, hp, i, j, dn] = x, bk = KINDS[k]; if (!isRpUid(uid) || !MOB[bk] || !REAPER_OF[z] || !(until > now) || until > now + 1500e3) continue; let r = REAPERS.get(uid);
+      if (!r) { r = { uid, z, bk, until, hp: Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)), i: i | 0, j: j | 0, t: now }; REAPERS.set(uid, r); }
+      if (dn) { if (!r.dead && !r.gone) { r.dead = 1; const f = foxes.find(q => q.uid === uid && !q.dead && !q.gone); if (f && !guestMob(f)) { f.gone = true; if (hero.target === f) hero.target = null; } } continue; }
+      if (o.pr.z === 'isle' + z && !(performance.now() - (r.own || -1e9) < 3000)) { r.hp = Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)); r.i = i | 0; r.j = j | 0; } } }
   function mobsOut() { const pos = [[hero.x, hero.z], ...othersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
       L.push([f.uid, KINDS.indexOf(f.kind), Math.round(f.x * 10), Math.round(f.z * 10), f.row, Math.max(0, Math.round(f.hp / f.max * 100)), (f.dead ? 1 : 0) | (f.atkT != null ? 2 : 0) | (f.t < 1 ? 4 : 0)]); }
     const dn = r => Math.min(...pos.map(([x, z]) => Math.max(Math.abs(r[2] / 10 - x), Math.abs(r[3] / 10 - z)))); return L.sort((a, b) => dn(a) - dn(b)); }
@@ -5362,14 +5402,14 @@ const NET = (() => {
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
-      e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null };
+      e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut() };
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
   // ----- 게스트: 호스트 몬스터·바닥 아이템 반영
   function applyHost(o) { const list = o.pr.m; const seen = new Set();
     for (const [uid, k, x10, z10, row, pct, fl] of list) { seen.add(uid); let f = foxes.find(q => q.uid === uid);
-      if (!f) { const kind = KINDS[k]; if (!MOB[kind]) continue; f = mkMob(kind, Math.floor(x10 / 10), Math.floor(z10 / 10)); f.uid = uid; f.home = [f.i, f.j]; f.x = x10 / 10; f.z = z10 / 10; f.netNew = true; foxes.push(f); }
+      if (!f) { const kind = KINDS[k]; if (!MOB[kind]) continue; f = mkMob(kind, Math.floor(x10 / 10), Math.floor(z10 / 10)); f.uid = uid; f.home = [f.i, f.j]; f.x = x10 / 10; f.z = z10 / 10; f.netNew = true; if (isRpUid(uid)) rpTag(f, REAPERS.get(uid) || null); foxes.push(f); }
       f.nx = x10 / 10; f.nz = z10 / 10; f.row = row; f.netMove = !!(fl & 4); const dead = !!(fl & 1);
       if (dead && !f.dead) netDeath(f); else if (!dead && f.dead) { f.dead = false; f.deadT = 0; f.hp = f.max; f.flash = 0; f.x = f.nx; f.z = f.nz; f.atkT = null; }
       if (!dead) { const hh = Math.max(1, Math.round(f.max * pct / 100)); f.hp = f.predUntil > time ? Math.min(f.hp, hh) : hh; }
@@ -5428,10 +5468,10 @@ const NET = (() => {
     for (const o of OTH) { const v = view(o); if (o.pr.z === zk()) { const p = proxy(o.peer); p.x = o.pr.x; p.z = o.pr.y; p.i = Math.floor(p.x); p.j = Math.floor(p.z); p.hp = o.pr.hp; p.max = o.pr.hm || 1; p.dead = !(o.pr.hp > 0); }
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt * Math.min(3, Math.max(0.5, +o.pr.hs || 1)); if (v.atkT > 0.75 / GSPD) v.atkT = null; }
-      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } } }
+      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } } }
     if (!initDone && performance.now() - roomAt >= 4000) { initDone = true; say(initL.length ? `[월드] 지금 ${initL.length + 1}명이 접속 중이에요: ${initL.join(', ')}` : '[월드] 지금은 혼자 접속 중이에요.', PCOL); }
     partyTick(); PARTY.length = 0; for (const o of members()) { if (o.pr.z !== zk()) continue; const v = peers.get(o.peer); if (v) PARTY.push({ x: v.x, z: v.z, name: nmOf(o.pr) }); }   // 미니맵 초록 점
-    if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } }
+    if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } rpEnsure(); }
     else { const h = hostData(); hostCache = h; if (h) { wasGuest = true; applyHost(h); } else if (wasGuest) { wasGuest = false; GROUND.adoptShared(); } }
     if (hero.atk && hero.atk !== lastAtk) { atkSeq++; myAct = performance.now(); } lastAtk = hero.atk;
     uiT -= dt; if (uiT <= 0) { uiT = 0.25; renderParty(); }
@@ -5466,7 +5506,7 @@ const NET = (() => {
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
   return { mx, setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
-    guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), inParty: () => !!partyId,
+    guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t) { anSeq++; anText = String(t).slice(0, 90); anL.push([anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH };
 })();
@@ -5586,6 +5626,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 127, items: ['같은 이름의 아이템이 둘씩 있던 것을 정리했어요. 데스나이트의 불검·투구·갑옷·장갑·장화는 데스나이트만 떨어뜨리는 하나로 합쳤어요. (영웅 · 기사 Lv35 · 4부위 세트 효과 그대로 · 가지고 있던 것은 강화·축복·속성 그대로 자동으로 바뀜 · 드랍률은 장비마다 3~5%) 희귀 Lv20 [얼음 여왕의 지팡이]는 [서리 지팡이]로 이름이 바뀌었어요.', '아이템 밸런스: 얼음여왕의 지팡이(얼음여왕 전용) → 마법사 Lv45 · 공격 11~29 · SP +5 · MR +5 · 냉기 마법 피해 +15%. 군주의 반지 → HP +40 · MR +10 추가. 설원의 망토 → Lv45 · AC 4 · MR 10 · 물 저항 +20. 축복 부여 주문서는 희귀 등급으로. 장신구 마법 주문서 되팔기 가격 250 골드.', '진화한 펫이 [전투견] 모습이 됐어요. 징 박힌 가죽 목걸이 · 등 가죽 마구 · 어깨 철판을 두르고 대기·걷기·공격 모두 그 모습으로 움직여요.', '특별상점 주문서 교환 칸에 [최소] 버튼이 생겼어요. (1개로)', '아이템 도감에서 무기(한손검·활·지팡이·단검) · 방어구(투구·갑옷·티셔츠·망토·장갑·장화·방패) · 장신구(목걸이·반지·벨트)를 부위별로 나눠 볼 수 있어요.', '광폭화한 보스는 몸 둘레에 붉은 테두리 오로라가 일렁여요.', '감시자 리퍼는 불러낸 사람이 화면 밖으로 가거나 · 쓰러지거나 · 다른 맵으로 가도 잡히기 전까지 20분 동안 그 자리에 남아요. 같은 월드의 다른 사람이 찾아가도 보여요. (이전엔 불러낸 사람 화면에만 보이던 문제 수정)', '감시자 리퍼가 쓰러지면 누가 어디서 잡았는지 전체 공지가 떠요.', '감시자 리퍼는 내 레벨보다 10 이상 낮은 몬스터에서는 나오지 않아요. (높은 레벨이 초보 사냥터를 빠르게 쓸어 영혼석을 모으던 것 막기)', '창고에 골드도 맡길 수 있어요. 창고 아래 칸에 금액을 적고 [맡기기]·[찾기] (비워 두면 전부) · 계정 공유라 다른 캐릭터로도 찾을 수 있어요.'] },
     { v: 126, items: ['진화한 펫의 왕관과 금빛 효과를 없앴어요. (징 박힌 목걸이·가죽 마구·어깨 철판을 두른 [전투견] 모습은 다음 업데이트에 들어가요)', '커츠의 검의 번개 이펙트가 노란색으로 바뀌었어요.', '[감시자 리퍼]가 나타나요. 사냥터(각 지역 1·2구간)에서 몬스터를 쓰러뜨리면 0.1% 확률로 감시자 리퍼로 되살아나요. 이름은 감시자 리퍼지만 모습과 능력치는 그 지역 보스와 같아요(이야기섬=셸로브 · 사막=여왕개미 · 오크숲=오우거 · 버그베어밭=바포메트 · 본토던전 1층=카스파 패밀리 중 하나 · 2층=데스나이트 · 오렌설원=얼음여왕). 나타나면 전체 공지가 뜨고, 20분 안에 잡지 못하면 사라져요. 쓰러뜨리면 다른 아이템·골드 없이 [영혼석: 보스 이름]만 100% 떨어져요.', '[소환의 제단]이 생겼어요. (월드맵) 제단 가까이에서 영혼석을 쓰면 [영혼석: 보스 이름] 보스가 나타나요. 원래 보스와 같은 능력치·드랍이고, 한 번에 한 마리만 불러낼 수 있어요. (보스 등장 시간표에는 영향 없음)', '오렌설원지역이 본토던전보다 경험치·골드 효율이 낮던 문제를 고쳤어요. 1구역(엘모어 군단): 경험치 +30% · 골드 +50%. 2구역: 에틴·아이스 골렘·샤벨타이거의 방어와 체력을 낮추고(아이스 골렘 방어 -3 → 1 · 얼림 확률 절반) 경험치 약 +50% · 골드 약 +100%.', '버프칸의 초록·용기·마나 회복 물약과 양초 아이콘 오른쪽 아래에 가방에 남은 개수가 작게 표시돼요. (0개면 빨간색)', '모든 보스에 [광폭화]가 생겼어요. 보스의 HP가 30~50%(나올 때마다 무작위) 아래로 떨어지면 광폭화해서 공격 속도 +50% · 모든 공격 피해 +20%가 돼요. 붉은 기운이 일렁이고 몸이 붉게 깜빡이며, 채팅창에 알림이 떠요.', '화면 위 메뉴에 [아이템 도감]이 생겼어요. 게임 안의 모든 아이템을 분류(무기·방어구·장신구·물약·주문서·기타)별로 그림 · 등급 · 직업·레벨 · 능력치 · 얻는 곳까지 볼 수 있고, 이름·옵션·얻는 곳으로 찾을 수 있어요.', '마법상점이 [특별상점](특별상인 엘리스)으로 바뀌었어요. 장신구 마법 주문서(10,000 골드) · 장신구 변경 주문서 · 능력치 초기화 주문서 · 카운터 매직 주문서를 팔고, [주문서 교환]도 여기서 해요. 마나 회복 물약은 잡화상점에서, 반지·목걸이·벨트 같은 장신구는 장비상점 [장신구] 탭에서 사요.', '남는 데이·젤(무기·갑옷 마법 주문서) 소모처가 생겼어요. 특별상점 [주문서 교환] 탭: 데이·젤 섞어서 5장 → 장신구 마법 주문서 1장 · 데이 50장 또는 젤 50장 → [축복 주문서 주머니] 1개. 주머니를 열면 축복받은 무기·갑옷 마법 주문서, 축복 부여 주문서(각 30%), 축복받은 장신구 마법 주문서(10%, 전체 공지) 중 하나가 나와요. 축복받은 장신구 마법 주문서는 성공하면 +1~2(최대 +8)예요.', '연금술에 촉매를 넣을 수 있어요. 데이·젤을 함께 넣으면 성공 확률이 올라가요. (고급 → 희귀 5장당 +1%p, 최대 15% · 희귀 → 영웅 10장당 +1%p, 최대 6%) 촉매는 성공·실패와 상관없이 사라져요.'] },
     { v: 125, items: ['장신구 강화가 생겼어요. [장신구 마법 주문서]로 힘·민첩·지능·모든 능력치가 붙은 반지·목걸이를 강화할 수 있어요. 강화 1당 그 능력치 +1 (영웅 장신구는 모든 능력치 +1) · 방어와 다른 옵션은 그대로 · 최대 +8. 안전 강화가 없어 +1부터 실패하면 증발해요. (성공 확률 +1 90% · +2 80% · +3 70% · +4 50% · +5 40% · +6 30% · +7 20% · +8 10%) +7 이상은 전체 공지가 떠요. 주문서는 보스(거대 여왕개미·셸로브·오우거·바포메트 등)와 아르카의 마법주머니에서 나와요.', '스탯 장신구를 반지 2개 + 목걸이 1개로 통일했어요. 힘(힘의 반지·새 힘의 목걸이) · 민첩(민첩의 반지·민첩의 목걸이) · 지능(새 지식의 반지·지식의 목걸이). 힘의 벨트는 [용사의 벨트](HP +20)로, 거인의 벨트는 힘 +2 대신 HP +50으로 바뀌었어요.', '영웅 반지·목걸이(용의 반지·군주의 반지·용의 목걸이·신성한 목걸이)는 모두 [모든 능력치 +1]이 기본으로 붙어요.', '지능 밸런스: 지능이 26을 넘는 부분은 마법 보너스(SP)에 더 들어가지 않고 지능 자체로만 계산돼요. (지능 27부터 1당 마법 피해 약 +2% · 기사 힘·요정 민첩과 같은 성장) 마법 성공률·치명타 확률은 그대로 1당 +1%예요.', '마법 쿨타임이 공용이 됐어요. 마법을 하나 쓰면 그 마법의 쿨타임 동안 다른 마법도 쓸 수 없어요. (예: 이럽션을 쓰면 쿨타임이 끝날 때까지 선버스트도 대기) 단축키 칸의 마법들에 함께 쿨타임이 표시돼요. 기사 기술·요정 정령마법은 지금처럼 각자 쿨타임이에요.', '자동사냥 설정에서 물약 자동 구매 개수를 종류마다 따로 정할 수 있어요. (예: 빨간 물약 100 · 주홍 물약 50 · 맑은 물약 30, 0이면 안 삼) 가속 물약(초록·용기)도 마찬가지예요.', '상점 수량 칸 옆에 [고정] 체크가 생겼어요. 체크하면 상점을 언제 열어도 그 개수로 고정되고, [일괄 구매]를 누르면 가방에 부족한 만큼만 채워서 사요. (물약·주문서처럼 겹쳐지는 물건 · 캐릭터마다 기억)', '[장신구 변경 주문서]가 생겼어요. (잡화상점 장신구 탭 · 1장 100,000 골드) 다른 직업의 힘·민첩·지식 반지·목걸이에 쓰면 같은 부위의 내 직업 장신구로 바뀌어요. (기사=힘 · 요정=민첩 · 마법사=지식) 강화된 장신구도 바꿀 수 있고 강화 수치는 그대로예요.'] },
     { v: 124, items: ['마법사 MP가 덜 모자라요. 이제 레벨이 오를수록 MP 자연 회복이 빨라지고(마법사 레벨당 초당 +0.01 · 40레벨이면 약 2.5배), 레벨업할 때 MP가 1씩 더 올라요. 이미 레벨을 올린 마법사도 접속하면 소급해서 받아요. 기사(레벨당 +0.003)·요정(레벨당 +0.006)도 MP 회복이 조금 빨라져요.', '요정 정령마법이 새로 생기고 바뀌었어요. 10레벨: 트리플 애로우(화살 3발 연사 · 쏠 때마다 머리 위에 1·2·3) · 윈드 샷(활 명중 +5% · 10레벨마다 +1%) · 요정의 시야(텔레포트 투 마더트리 대신 · 20분 동안 필드·마을의 밤에도 낮처럼 밝게 · MP 5) / 20레벨: 스톰 샷(활 피해 +3 · 40레벨 +4) / 30레벨: 스트라이커 게일(붉은 과녁 · 대상에게 쏘는 활 명중 +50% · 12초) · 어스 바인드(노란 바위로 1~5초 꽁꽁 묶기 · 풀린 뒤 6초 면역) · 폴루트 워터(칙칙한 초록 물을 뒤집어씌워 받는 회복 50% 감소 · 8초 · PvP용) · 네이쳐스 블레싱(나와 8칸 안 파티원 HP를 각자 최대 HP의 1/3 회복 · MP 10 · 재사용 8초 · 파란 빛이 회복받은 모두에게 보여요). 30레벨 방해 마법의 성공 확률은 기사 스턴처럼 레벨 차이로 정해져요.', '바디 투 마인드가 블러드 투 소울(20레벨)로 바뀌었어요. 최대 HP의 10%를 소모해 그 절반만큼 MP를 회복해요. (재사용 6초 · HP 30% 이하에서는 못 씀) 레지스트 엘리멘탈은 MP 10 → 5로 줄었어요.', '트리플 애로우 · 블러드 투 소울 · 네이쳐스 블레싱도 자동 사용을 켤 수 있어요. (스킬을 꾹 누르거나 단축키 칸 오른쪽 클릭 → 자동 사용) 블러드 투 소울은 MP 50% 이하 · HP 60% 이상일 때, 네이쳐스 블레싱은 HP 50% 이하일 때 써요.', '이제 요정은 화살 없이 활을 쏴요. 잡화상점·자동 구매·오프라인 사냥에서도 화살이 빠졌어요. 가지고 있던 화살은 상점에 팔 수 있어요. (1개 1골드)', '대상에게 거는 모든 마법·정령마법(힐·이뮨 포함)과 요정의 활 사정거리가 8칸으로 늘었어요. 대신 나와 대상 사이에 나무·바위·집·천막 같은 지형지물이 있으면 마법은 "장애물이 있습니다."라고 뜨며 나가지 않고, 활은 쏘더라도 장애물에 막혀 피해가 들어가지 않아요. (자동사냥은 막히지 않는 자리로 알아서 움직여요 · 던전은 벽이 막아요) 이뮨 투 함과 네이쳐스 블레싱만 지형지물에 막히지 않아요. (던전 벽은 막힘)', '어스 바인드에 걸린 대상은 공격도 못 하고, 어떤 공격·마법에도 피해를 받지 않아요. (자동사냥은 바인드된 몹을 건너뛰어요)', '요정 활 소리를 바꿨어요. 쏠 때 띵 소리 대신 낮은 툭 소리와 화살이 날아가는 휙 소리가 나요. 스트라이커 게일·어스 바인드·폴루트 워터는 효과음을 크고 묵직하게 바꿨어요. 갓 모드 허수아비는 맞는 소리가 나지 않아요. 윈드 샷·스톰 샷은 발밑부터 머리까지 바람이 휘몰아치고, 스톰 샷은 더 크게 휘몰아쳐요.', '테스트 모드(웹 테스트 버전) 마을 우물 옆에 허수아비 Lv40·50과 기사·요정·마법사 허수아비(Lv40·50, 직업 모습 그대로 · 기본 장비 상태의 실제 HP·방어)가 늘 서 있어요. 직업 허수아비를 쓰러뜨리면 걸린 시간이 떠요. 펫상인은 테스트용 50레벨 펫도 팔아요.', '갓 모드 테스트 패널에 [쿨타임 자동 초기화]를 넣었어요. 켜 두면 모든 스킬의 재사용 대기가 바로 풀려요. [이동 1.5배]는 공격 속도도 1.5배가 돼요.', '단축키 칸이 3줄 12칸(F1~F12)으로 늘었어요. F4에 고정돼 있던 줍기는 줍기 아이콘(땅에서 아이템을 줍는 손)으로 바뀌어 원하는 칸으로 옮겨 쓸 수 있어요. (지울 수는 없어요) 휠로 고른 칸은 금빛으로 깜빡이는 테두리와 ▼ 표시로 잘 보이고, 아래 [휠 고정]을 체크하면 휠을 굴려도 움직이지 않아요. 키보드로 다른 칸을 써도 휠 위치는 그대로예요. 휠 버튼을 누르고 있으면 그 칸을 계속 써요.', '이제 한 번 로그인하면 다음부터는 게임을 켜거나 새 버전으로 열어도 로그인 없이 바로 캐릭터 선택창이 떠요. (30일 동안 · 캐릭터 선택창의 [로그아웃]을 누르면 해제)', '펫 진화가 생겼어요. 펫상인 루피에게서 [펫 진화의 열매](50만 골드)를 사서 50레벨 이상 펫에게 쓰면 진화해요. 진화하면 Lv.1부터 다시 시작하고 HP·공격력은 50레벨 때의 절반에서 시작하지만, 명중·회피는 50레벨 수준을 유지하고(레벨업마다 조금씩 오름) 방어가 AC 6이 돼요. 레벨업 성장은 진화 전보다 커서(HP 레벨당 10 · 공격력 성장 1.5배) 진화 후 20레벨 초반이면 진화 전 50레벨을 넘어서요. 대신 진화한 펫은 레벨업에 필요한 경험치가 2배예요. 진화한 펫은 금빛 왕관과 금빛 광택이 생기고 이름 앞에 ★이 붙어요.', '이제 모든 직업이 40레벨부터 펫을 2마리까지 데리고 다닐 수 있어요. (40레벨 전에는 1마리) 카리스마는 펫 마릿수 대신 펫 능력치를 올려요. 12를 넘는 1포인트마다 펫 체력·공격력이 2%씩 올라요.'] },
