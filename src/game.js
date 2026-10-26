@@ -636,7 +636,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 136;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 137;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -5397,6 +5397,15 @@ const CLOUD = (() => {
   return { ping, signUp, signIn, get, set, create, del, beacon, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
 })();
 // ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
+// v137: 게임 설정도 캐릭터 저장(계정 서버)에 함께 — 어느 PC에서 접속하든 같은 설정 (상점 고정 수량 · 휠 고정 · 미니맵 · 창 위치 · 소리는 예전부터)
+const CFGSYNC = (() => { const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const BASE = ['aden_wlock', 'mm_on', 'mm_op'], fixK = () => 'aden_shopfix:' + PNAME();
+  function dump() { const o = {}; for (const k of BASE) { const v = get(k); if (v != null) o[k] = v; } { const v = get(fixK()); if (v != null && v !== '{}') o.fix = v; }
+    const wp = {}, ks = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('winpos_')) ks.push(k); } } catch (e) {} ks.sort().forEach(k => { wp[k.slice(7)] = get(k); }); if (ks.length) o.wp = wp; return o; }
+  function load(o) { if (!o || typeof o !== 'object') return; for (const k of BASE) if (typeof o[k] === 'string') set(k, o[k]); if (typeof o.fix === 'string') set(fixK(), o.fix);
+    if (o.wp && typeof o.wp === 'object') for (const id in o.wp) if (/^[a-z]{2,12}$/.test(id) && typeof o.wp[id] === 'string') set('winpos_' + id, o.wp[id]);
+    WHEEL_LOCK = get('aden_wlock') === '1'; { const a = get('mm_on'); if (a != null) MM.setOn(a === '1'); const b = parseFloat(get('mm_op')); if (isFinite(b)) MM.setOp(b); } }
+  return { dump, load }; })();
 const SAVE = (() => {
   let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0, offUT = null, nowUT = null, startP = null;   /* v120: offUT = 불러온 캐릭터 저장의 서버 수정 시각(=지난 종료) · nowUT = 이번 접속 기록의 서버 시각 */   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
   const hex = s => [...new TextEncoder().encode(String(s).toLowerCase())].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -5404,11 +5413,12 @@ const SAVE = (() => {
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
   function snap() { const b = {}; for (const k in BUFF) if (BUFF[k] > 0) b[k] = Math.round(BUFF[k]);
     return { v: 1, ver: GAME_VER, cls: CLASS, name: PNAME(), lv: hero.lv, exp: hero.exp, bhp: hero.baseHP, bmp: hero.baseMP, bp: hero.bonusPts, hp: Math.ceil(hero.hp), mp: Math.floor(hero.mp), coins: Math.floor(coins),
-      learned: [...LEARNED], buff: b, dd: DEATH && !DEATH.arena ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined }; }
+      learned: [...LEARNED], buff: b, dd: DEATH && !DEATH.arena ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined, cfg: CFGSYNC.dump(),
+      pos: SCENE === 'town' ? { t: 1, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : ISLE ? { z: ISLE.id, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : null }; }   /* v137: 설정 · 마지막 위치 */
   function apply(s) { if (!s || s.cls !== CLASS) return false;
     hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1;   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0);
     LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0; setTimeout(() => wizAutoLearn(), 1200);
-    INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); if (OFFL_HOOK) OFFL_HOOK.load(s.ofl); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); DEATH = null; deathUI();
+    INV.load(s.inv); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); if (s.cfg) CFGSYNC.load(s.cfg); if (OFFL_HOOK) OFFL_HOOK.load(s.ofl); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); DEATH = null; deathUI();
     if (s.dd) { const P = deathPenalty(false); hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); setTimeout(() => say(`쓰러진 채로 접속을 끊어서 마을에서 부활했어요. (경험치 −${P.ex.toLocaleString()} · 골드 −${P.g.toLocaleString()})`, '#f2e6a8'), 1500); }
     INV.render(); return true; }
   const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
@@ -6181,6 +6191,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 137, items: ['게임 설정이 캐릭터와 함께 계정 서버에 저장돼요. 어느 PC에서 접속해도 상점 [고정] 수량 · 휠 고정 · 미니맵(켜기·투명도) · 창 위치가 그대로예요. (소리 · 자동사냥 · 자동 물약 · 단축키 설정은 예전부터 함께 저장)', '다시 접속하면(다른 PC · 중복 접속 포함) 마지막으로 있던 사냥터의 그 자리에서 이어서 시작해요. (콜로세움 안이었거나 쓰러진 채였으면 마을)', '콜로세움 · 제작 창도 위쪽을 끌어서 옮길 수 있어요.'] },
     { v: 136, items: ['콜로세움이 열렸어요! 마을 잡화상점 왼쪽 공터의 콜로세움 관리인에게서 입장권(10만 골드 · 계정당 하루 2장 · 매일 새벽 5시 초기화)을 사서 [입장 대기] → 2명 이상 모이면 누구든 [입장]을 눌러 다 함께 들어가요. (한 번에 한 팀 · 대기 중엔 채팅만)', '1라운드 이야기섬·사막필드·오크숲 → 2라운드 버그베어밭·본토던전·오렌설원 몬스터가 0·1·2분에 15마리씩 몰려와요. 5분 버티면 생존 클리어, 모두 잡으면 퍼펙트 클리어(보상 1.5배 · 바로 다음 라운드). 무리를 다 잡으면 다음 무리가 바로 나와요. 3라운드는 데스나이트 또는 얼음여왕 (5분 안에).', '콜로세움 보상: 1라운드 골드 25~30만(뭉치로 흩어짐) · 2라운드 무기·갑옷·장신구 마법 주문서·축복 부여 주문서 25~30뭉치(낮은 확률로 축복받은 무기·갑옷 주문서) · 3라운드 보스 전리품. 바닥 보상은 누구나 주울 수 있어요.', '콜로세움 안: 죽어도 손실 없음(라운드가 끝나면 그 자리에서 부활 · 부활 주문서 가능 · 모두 쓰러지면 실패) · 몬스터는 경험치만(골드·아이템 없음) · 순간이동 주문서 불가 · 귀환 주문서는 포기하고 나가기 · 펫 가능 · 끝나면 10초 뒤 [퇴장] 버튼(1분 뒤 자동 퇴장).', '영웅 장비를 입으면 강화와 상관없이 캐릭터 모습에 보라색 빛이 나요. 안전 강화를 넘으면 단계마다 점점 더 진한 보라색.', '마법사 영웅 지팡이(아크메이지·흑장로·얼음여왕의 지팡이)에 모두 [타격 시 MP 1~2 흡수]가 붙었어요.', '자동사냥: [자동 사용]과 [가속 물약 자동 구매]를 켜 둔 가속 물약이 다 떨어지면 마을에 가서 사 오고 다시 사냥해요.', '초록 물약 · 용기의 물약 · 마나 회복 물약(파란 물약) 지속 시간 10분 → 30분.', '채팅 기록 창에 시간이 다시 표시돼요.', '콜로세움 전용 배경음악이 생겼어요. (보스 라운드도 같은 음악)', 'F4 줍기는 한 번에 한 개씩 주워요. (누르고 있으면 0.25초마다 하나씩)', '제작 장인이 생겼어요! (마을 분수 오른쪽 아래) 보스(셸로브·거대 여왕개미·오우거·바포메트·데스나이트·얼음여왕)를 쓰러뜨리면 그 보스의 가호조각이 반드시 1개 떨어지고, 5개를 모아 [가호 제작]을 하면 40% 확률로 가호가 만들어져요. (실패하면 조각 5개가 사라짐)', '가호는 가방에 가지고만 있으면 자동 적용돼요: 셸로브 이동 속도 · 거대 여왕개미 최대 MP · 오우거 최대 무게 · 바포메트 최대 HP · 데스나이트 받는 피해 감소 · 얼음여왕 주는 피해 증가 (각 +1%). 같은 가호는 가장 높은 것 하나만 적용돼요.', '같은 가호 2개로 [가호 조합]을 하면 40% 확률로 +1 강화(+1%씩, 최대 +8) · 실패하면 재료로 쓴 가호 1개만 사라져요. 축복 부여 주문서로 축복하면 +1%.'] },
     { v: 135, items: ['보스 영웅 장비 확률을 조정했어요. (1회 처치당 영웅 장비가 하나라도 나올 확률 · 전용 장비 + 무작위 영웅 포함) 셸로브 1% · 거대 여왕개미 · 오우거 · 바포메트 5% · 카스파 패밀리 각 3% · 데스나이트 · 얼음여왕 20%'] },
     { v: 134, items: ['화면 안에 보스가 있으면 위쪽 가운데에 보스 이름 · 레벨 · HP 바가 떠요. (HP 숫자·% · 광폭화하면 테두리가 붉게 깜빡임 · 감시자 리퍼는 남은 시간 · 가까운 2마리까지 · 화면 밖으로 나가면 사라짐)', '쓰러졌을 때 대화창 위 [마을로]를 누르면 기다리지 않고 바로 마을에서 부활해요. (손실은 같음 · 경험치 5% · 골드 10%)', '자동사냥으로 마을에 왔을 때 [물약 자동 구매]가 꺼져 있거나 개수가 0이라 물약을 안 샀으면 안내가 떠요.'] },
@@ -6363,7 +6374,7 @@ const ACCOUNT = (() => {
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
     const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
     if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
-    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); if (got && sv && sv.pos && !sv.dd) resumePos(sv.pos); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살 없이도 쏠 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 가까이에서 때리고, 멀리서는 마법으로 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
@@ -6384,6 +6395,8 @@ const ACCOUNT = (() => {
         if (srv === 'cloud') CLOUD.get(`users/${CLOUD.uid()}`).then(d => { if (d && d.chars) { try { chars = JSON.parse(d.chars) || chars; } catch (e) {} if (!started) render(); saveAuto(); } }).catch(() => { if (started) return; try { localStorage.removeItem('aden_auto'); } catch (e) {} location.reload(); });
         return; } }
     const w = $('loginscr'); if (!w) return; w.hidden = false; { const sv = $('lg-srv'); if (sv) { if (window.ADEN_DEMO) { sv.textContent = '○ 데모 전용 계정 — 실제 계정 서버와 분리돼 이 데모 페이지에만 저장돼요'; sv.className = 'lg-srv no'; } else { sv.textContent = '계정 서버 확인 중…'; CLOUD.ping().then(ok => { sv.textContent = ok ? '● 계정 서버 연결됨 — 어느 PC에서든 이어서 플레이' : '○ 계정 서버에 연결되지 않음 — 이 기기에만 저장돼요'; sv.className = 'lg-srv ' + (ok ? 'ok' : 'no'); }); } } } const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }, 120);
+  // v137: 다시 접속하면(다른 PC · 중복 접속 포함) 마지막으로 있던 곳에서 이어서 — 콜로세움이었거나 쓰러진 채였으면 마을
+  function resumePos(p) { try { const d = p.z && ISLAND.def(p.z); if (d && !d.arena) { TOWN.toZone(p.z, p.x, p.y); say(`마지막 위치(${d.name})에서 이어서 시작합니다.`, '#9fd08a'); } else if (p.t && p.x != null) TOWN.placeAt(p.x, p.y); } catch (e) {} }
   function keepForUpdate() { if (!started) return false; const pos = { scene: SCENE, isle: ISLE ? ISLE.id : null, x: +hero.x.toFixed(2), z: +hero.z.toFixed(2) };
     const pets = INV.bag().filter(e => e.pet && e.pet.state === 'out').map(e => (e.pet.rid = e.pet.rid || 'p' + Math.random().toString(36).slice(2, 9)));
     try { localStorage.setItem('aden_resume', JSON.stringify({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), pets, exp: Date.now() + 180000 })); return true; } catch (e) { return false; } }
@@ -6708,7 +6721,7 @@ function frame(now){
     const end = () => { if (st && st.moved && remember && st.last) save(id, st.last); st = null; el.classList.remove('dragging'); }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
     if (hd) hd.style.cursor = 'move'; }
   const $ = id => document.getElementById(id);
-  for (const id of ['charwin', 'invwin', 'autowin', 'huntwin', 'petwin', 'godpanel', 'bulkwin', 'sellwin', 'storewin']) setup($(id), id, 'fixed', null, true);
+  for (const id of ['charwin', 'invwin', 'autowin', 'huntwin', 'petwin', 'godpanel', 'bulkwin', 'sellwin', 'storewin', 'colowin', 'craftwin']) setup($(id), id, 'fixed', null, true);
   setup($('itemwin'), 'itemwin', 'fixed', null, false);
   setup(document.querySelector('#shop .pn'), 'shop', 'off', 'h2', true);
   setup(document.querySelector('#wmap .pn'), 'wmap', 'off', '.wm-side h2', true);
