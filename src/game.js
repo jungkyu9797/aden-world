@@ -644,7 +644,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 142;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 143;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3998,7 +3998,7 @@ const CX139 = {};
     if (d.rar === '희귀') for (const b in CX_BOSS) if (CX_BOSS[b].includes(id) && DROP_TABLE[b] && !DROP_TABLE[b].some(x => x[0] === id)) DROP_TABLE[b].push([id, RP[b] || (b === 'ogre' || b === 'baphomet' ? 0.025 : CX_P.rare)]); }
   for (const [nm, b] of [['카스파의 모자', 'kaspar'], ['발터자르의 모자', 'balthazar'], ['세마의 티셔츠', 'sema'], ['메르키오르의 장갑', 'merkyor']]) if (DROP_TABLE[b] && CX139[nm]) DROP_TABLE[b].push([CX139[nm], 0.03]); }   // 이름이 붙은 보스에게서 더 잘 나옴
 // v136: 마법사 영웅 지팡이는 모두 '타격 시 MP 1~2 흡수'
-for (const k in ITEMS) { const d = ITEMS[k]; if (!d || d.wtype !== 'staff' || d.rar !== '영웅' || d.hidden) continue; if (d.cls && !(Array.isArray(d.cls) ? d.cls : [d.cls]).includes('wizard')) continue;
+for (const k in ITEMS) { const d = ITEMS[k]; if (!d || d.wtype !== 'staff' || d.hidden) continue;   // v143: 영웅만 → 모든 지팡이 if (d.cls && !(Array.isArray(d.cls) ? d.cls : [d.cls]).includes('wizard')) continue;
   d.mpDrain = [1, 2]; d.optTxt = (d.optTxt || []).filter(t => !/MP \d+~\d+ 흡수/.test(t)).concat('타격 시 MP 1~2 흡수'); }
 // v135: 보스 영웅 장비 '하나라도 나올 확률'(1회 처치당 · 전용 장비 + 무작위 영웅 포함)을 목표에 맞춤 — 전용·무작위 비율은 그대로 두고 함께 줄이거나 늘림
 { const TGT = { shelob: 0.01, queen_ant: 0.05, ogre: 0.05, baphomet: 0.05, kaspar: 0.03, merkyor: 0.03, balthazar: 0.03, sema: 0.03, deathknight: 0.20, ice_queen: 0.20 };
@@ -6329,6 +6329,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 143, items: ['마법사의 모든 지팡이(일반·고급·희귀·영웅)에 [타격 시 MP 1~2 흡수]가 붙었어요. (전에는 영웅 지팡이와 마나의 지팡이만)'] },
     { v: 142, items: ['자동사냥 설정의 [가속 물약 자동 구매]·[자동 사용]에 파란 물약(마나 회복 물약 · 120골드)이 추가됐어요. 자동 사용을 켜고 구매 개수를 정해 두면, 다 떨어지고 효과가 끝났을 때 마을에 가서 사 와요.', '감시자 리퍼가 이제 각 사냥터의 1구간·1구역에서는 나오지 않고 2구간·2구역에서만 나와요. (본토던전은 1층 카스파 패밀리 · 2층 데스나이트 그대로)', '연금술 촉매(데이·젤) 장수가 최대치(고급 25장 · 희귀 30장)와 가진 장수를 넘어서 계속 올라가던 문제를 고쳤어요.'] },
     { v: 141, items: ['업데이트 파일이 이미 받아져 있는데 실행 중인 게임이 예전 버전일 때 [업데이트]를 누르면 "이미 최신 버전"이라고만 나오고 그대로였던 문제를 고쳤어요. 이제는 바로 다시 불러와서 새 버전으로 이어져요.'] },
     { v: 140, items: ['Lv49부터 레벨업에 필요한 경험치가 3배가 됐어요. (49→50: 252,119 → 756,357 · 50 이후도 같은 무게로 이어짐) 오렌설원 2구역 몬스터 기준으로 49→50이 약 300마리 → 약 900마리예요.', '그만큼 Lv49 이후에 사망하면 잃는 경험치(레벨 필요 경험치의 5%)도 3배가 돼요.'] },
