@@ -394,15 +394,15 @@ function drawAltar(g, A, part) { const [x, y] = W2P(A.i + 0.5, A.j + 0.5), pu = 
 // v126: 감시자 리퍼 — 사냥터 잡몹이 쓰러질 때 0.1%로 그 지역 보스의 모습·능력치로 되살아남 (20분) · 잡으면 영혼석만 100%
 const REAPER_P = 0.0003, REAPER_LIFE = 1200, REAPER_GAP = 10, REAPER_OF = { 1: 'shelob', 2: 'shelob', 3: 'queen_ant', 4: 'queen_ant', 5: 'ogre', 6: 'ogre', 7: 'baphomet', 8: 'baphomet', 9: ['kaspar', 'merkyor', 'balthazar', 'sema'], 10: 'deathknight', 11: 'ice_queen', 12: 'ice_queen' };
 // v127: 리퍼 기록 — 불러낸 사람이 떠나거나 죽어도, 지역 호스트가 바뀌어도 잡히기 전까지(최대 20분) 그 자리에 남음. 같은 월드 사람들끼리 기록을 주고받음
-const REAPERS = new Map(), RP_UID0 = 95000, SOUL_UID0 = 98000, isRpUid = u => u >= RP_UID0 && u < RP_UID0 + 5000, isSoulUid = u => u >= SOUL_UID0 && u < SOUL_UID0 + 2000, SOUL_LIFE = 3600, rpLive = r => !!r && !r.dead && !r.gone && Date.now() < r.until;
+const REAPERS = new Map(), RP_UID0 = 95000, SOUL_UID0 = 98000, isRpUid = u => u >= RP_UID0 && u < RP_UID0 + 5000, isSoulUid = u => u >= SOUL_UID0 && u < SOUL_UID0 + 2000, SOUL_LIFE = 3600, SOUL_Z = 13, isSoulRec = (u, z) => isSoulUid(u) && z === SOUL_Z, rpLive = r => !!r && !r.dead && !r.gone && Date.now() < r.until;
 const rpOf = f => f && (f.rp || (f.uid != null ? REAPERS.get(f.uid) : null)) || null, rpLeft = f => { const r = rpOf(f); return r ? Math.max(0, Math.ceil((r.until - Date.now()) / 60000)) : 20; };
-function rpZoneLive(z) { for (const r of REAPERS.values()) if (r.z === z && !isSoulUid(r.uid) && rpLive(r)) return r; return null; }
-const soulLive = () => { for (const r of REAPERS.values()) if (isSoulUid(r.uid) && rpLive(r)) return r; return null; };
-function rpTag(m, r) { const soul = isSoulUid(r ? r.uid : m.uid); if (soul) { m.soulBoss = true; m.aggro = true; m.dispName = '영혼석: ' + MOB[m.kind].name; } else { m.reaper = true; m.dispName = '감시자 리퍼'; } if (r) { m.rp = r; m.uid = r.uid; } if (!m.home) m.home = [m.i, m.j]; return m; }
+function rpZoneLive(z) { for (const r of REAPERS.values()) if (r.z === z && !isSoulRec(r.uid, r.z) && rpLive(r)) return r; return null; }
+const soulLive = () => { for (const r of REAPERS.values()) if (isSoulRec(r.uid, r.z) && rpLive(r)) return r; return null; };
+function rpTag(m, r) { const soul = isSoulRec(r ? r.uid : m.uid, r ? r.z : (ISLE && ISLE.id)); if (soul) { m.soulBoss = true; m.aggro = true; m.dispName = '영혼석: ' + MOB[m.kind].name; } else { m.reaper = true; m.dispName = '감시자 리퍼'; } if (r) { m.rp = r; m.uid = r.uid; } if (!m.home) m.home = [m.i, m.j]; return m; }
 function rpEnsure() { if (SCENE !== 'field' || !ISLE) return; for (const r of REAPERS.values()) { if (r.z !== ISLE.id || !rpLive(r) || !MOB[r.bk]) continue; const f = foxes.find(q => q.uid === r.uid && !q.gone); if (f) { if (!f.rp) rpTag(f, r); continue; }
     const at = spotNear(r.i, r.j, 2) || [r.i, r.j], m = rpTag(mkMob(r.bk, at[0], at[1]), r); m.home = at; m.hp = Math.max(1, Math.round(m.max * Math.min(1, r.hp || 1))); foxes.push(m); } }
 function spawnReaper(i, j, who) { const L = ISLE && REAPER_OF[ISLE.id]; if (!L || SCENE !== 'field') return null; const bk = Array.isArray(L) ? L[Math.floor(Math.random() * L.length)] : L, at = spotNear(i, j, 2) || [i, j];
-  let uid; do uid = RP_UID0 + Math.floor(Math.random() * 5000); while (REAPERS.has(uid)); const r = { uid, z: ISLE.id, bk, until: Date.now() + REAPER_LIFE * 1000, hp: 1, i: at[0], j: at[1], t: Date.now(), own: performance.now() }; REAPERS.set(uid, r);
+  let uid; do uid = RP_UID0 + Math.floor(Math.random() * 3000); while (REAPERS.has(uid)); /* v130: 영혼석 보스 번호(98000~)와 겹치지 않게 */ const r = { uid, z: ISLE.id, bk, until: Date.now() + REAPER_LIFE * 1000, hp: 1, i: at[0], j: at[1], t: Date.now(), own: performance.now() }; REAPERS.set(uid, r);
   const m = rpTag(mkMob(bk, at[0], at[1]), r); m.home = at; foxes.push(m);
   const [x, y] = W2P(m.x, m.z); floatText(x, y - headY(m) - 30, '감시자 리퍼 출현!', { color: '#c890ff', size: 20, big: true, life: 2.4, rise: 34 }); mxFlash('110,40,200', 0.16, 0.7); mxAdd('ring', m, { gnd: 1, c: '170,90,255', r0: 8, r1: 120, w: 6, life: 1.1 }); shake = Math.max(shake, 0.2);
   if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.9, 300, 80, 0.32); tone(t0, 'sawtooth', 90, 45, 1.0, 0.12); tone(t0 + 0.2, 'triangle', 440, 220, 0.6, 0.06); }
@@ -632,7 +632,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 129;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 130;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4055,15 +4055,16 @@ const INV = (() => {
   { let cur = null; const T = () => document.getElementById('stat-tip');   // 아이템 툴팁: 마우스를 올리면 바로 (브라우저 title 지연 없이)
     const place = (x, y) => { const t = T(); const w = t.offsetWidth, h = t.offsetHeight; t.style.left = Math.max(8, Math.min(innerWidth - w - 8, x + 16)) + 'px'; t.style.top = Math.max(8, Math.min(innerHeight - h - 8, y + 14)) + 'px'; };
     document.addEventListener('mouseover', ev => { const el = ev.target.closest ? ev.target.closest('[data-itip]') : null; if (el === cur) return; cur = el; const t = T(); if (!t) return;
-      if (!el || ev.buttons) { t.hidden = true; return; } const L = el.dataset.itip.split('\n'); t.innerHTML = `<b style="color:${el.dataset.ic || '#f2d98a'}">${esc_(L[0])}</b>`; t.hidden = false; place(ev.clientX, ev.clientY); });   // 올리면 이름만
+      if (!el || ev.buttons) { t.hidden = true; return; } const L = el.dataset.itip.split('\n'); t.innerHTML = `<b style="color:${el.dataset.ic || '#f2d98a'}">${esc_(L[0])}</b>`; t.hidden = false; t._own = el; place(ev.clientX, ev.clientY); });   // 올리면 이름만
     document.addEventListener('mousemove', ev => { if (cur && T() && !T().hidden) place(ev.clientX, ev.clientY); });
     document.addEventListener('pointerdown', () => { if (cur && T()) { T().hidden = true; cur = null; } }, true);
     // 꾹 누르고 있으면(0.45초) 전체 정보 — 가방·장비 칸처럼 자체 상세 정보창이 뜨는 곳은 그 창으로
     let lpT = 0, lpOn = false; const lpEnd = () => { clearTimeout(lpT); lpT = 0; if (lpOn && T()) { T().hidden = true; lpOn = false; } };
     document.addEventListener('pointerdown', ev => { lpEnd(); if (ev.button !== 0) return; const el = ev.target.closest ? ev.target.closest('[data-itip]') : null; if (!el) return; const x = ev.clientX, y = ev.clientY;
       lpT = setTimeout(() => { lpT = 0; const iw = document.getElementById('itemwin'); if ((iw && !iw.hidden) || !el.isConnected) return; const t = T(); if (!t) return; const L = el.dataset.itip.split('\n');
-        t.innerHTML = `<b style="color:${el.dataset.ic || '#f2d98a'}">${esc_(L[0])}</b>` + (L.length > 1 ? '<br>' + L.slice(1).map(esc_).join('<br>') : ''); t.hidden = false; lpOn = true; place(x, y); }, 450); });
-    for (const ev of ['pointerup', 'pointercancel', 'dragstart', 'scroll']) document.addEventListener(ev, lpEnd, true); }
+        t.innerHTML = `<b style="color:${el.dataset.ic || '#f2d98a'}">${esc_(L[0])}</b>` + (L.length > 1 ? '<br>' + L.slice(1).map(esc_).join('<br>') : ''); t.hidden = false; t._own = el; lpOn = true; place(x, y); }, 450); });
+    for (const ev of ['pointerup', 'pointercancel', 'dragstart', 'scroll']) document.addEventListener(ev, lpEnd, true);
+    setInterval(() => { const t = T(); if (!t || t.hidden || !t._own) return; const o = t._own; let hov = true; try { hov = o.matches(':hover'); } catch (e) {} if (!o.isConnected || o.offsetParent === null || (!hov && !lpOn)) { t.hidden = true; t._own = null; if (cur === o) cur = null; } }, 250); }   // v130: 마법·아이템 정보 말풍선이 남아 있던 문제
   function tip(e) { const d = ITEMS[e.id]; const a = [nameOf(e) + (d.stack && e.n > 1 ? ` (${e.n})` : '') + ` [${d.rar || '일반'}]`, ...infoLines(e)]; if (d.desc) a.push(d.desc); if (d.codex) { const R = cxReq(d); a.splice(1, 0, R.txt + (R.ok || GOD ? '' : ' — 착용 불가')); }
     a.push(d.slot ? (e.on ? '더블클릭: 벗기' : '더블클릭: 착용') : d.use ? '더블클릭: 사용 · 아래 단축키 칸으로 끌어다 놓으면 등록' : '', '꾹 누르고 있기: 상세 정보'); return a.filter(Boolean).join('\n'); }
   // ===== 아이템 상세 정보창: 아이템을 꾹 누르고 있으면(0.42초) 뜸. 버프 아이템은 여기서 자동 사용 켜기
@@ -4241,7 +4242,7 @@ const INV = (() => {
       for (const id of ids) { const k = SK[id], has = LEARNED.has(id), c = document.createElement('div'); c.className = 'sk' + (has ? ' learned' : ' lock');
         c.innerHTML = ICON('sk_' + id) + (has ? '' : `<b>${k.lv}</b>`) + (AUTOSK[id] ? '<i class="sk-auto" title="자동 사용 중">A</i>' : ''); c.onpointerdown = ev => holdSkill(ev, id); if (has) { c.draggable = true; c.ondragstart = ev => ev.dataTransfer.setData('text/plain', 'sk:' + id); c.ondblclick = () => castSkill(id); }
         const tipH = `<b>${k.name} · ${k.kind === 'magic' ? k.circle + '서클 마법' : k.kind === 'spirit' ? '정령마법' : '기사 기술'}</b>${k.desc}<br>MP ${k.mp} · 재사용 ${k.cd}초<br><span style="color:${has ? '#9fd08a' : '#f08a7a'}">${has ? '배움 · 더블클릭 사용 · 단축키 칸으로 끌어 등록 · 꾹 누르면 상세·자동 사용' : `Lv.${k.lv} 이상 · ${k.book}으로 배움 (${k.shop || (k.kind === 'magic' ? (k.circle <= 3 ? '마법상점' : '판매처 추후') : '장비상점')})`}</span>`;
-        c.onmouseenter = () => { const tip = $('stat-tip'); tip.innerHTML = tipH; tip.hidden = false; };
+        c.onmouseenter = () => { const tip = $('stat-tip'); tip.innerHTML = tipH; tip.hidden = false; tip._own = c; };
         c.onmousemove = ev => { const tip = $('stat-tip'), w = tip.offsetWidth, h2 = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, ev.clientX - w - 12)) + 'px'; tip.style.top = Math.min(innerHeight - h2 - 8, ev.clientY + 12) + 'px'; };
         c.onmouseleave = () => { $('stat-tip').hidden = true; }; box.appendChild(c); }
       gEl.appendChild(r); } }
@@ -4913,7 +4914,7 @@ const TOWN = (() => {
   const fadeTo = () => syncBGM();
   $('inv-sort').onclick = () => INV.sortBag(); if ($('inv-bulk')) $('inv-bulk').onclick = () => INV.bulkOpen();
   { const tip = $('stat-tip'); document.querySelectorAll('#charwin dt[data-tip]').forEach(dt => {   // 능력치 설명 말풍선
-      dt.onmouseenter = () => { tip.innerHTML = `<b>${dt.textContent}</b>${dt.dataset.tip}`; tip.hidden = false; };
+      dt.onmouseenter = () => { tip.innerHTML = `<b>${dt.textContent}</b>${dt.dataset.tip}`; tip.hidden = false; tip._own = dt; };
       dt.onmousemove = ev => { const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.min(innerWidth - w - 8, ev.clientX + 16) + 'px'; tip.style.top = Math.min(innerHeight - h - 8, ev.clientY + 14) + 'px'; };
       dt.onmouseleave = () => { tip.hidden = true; }; }); }
   window.__godBtn = () => { $('btn-god').hidden = false; $('btn-god').onclick = () => { GOD = !GOD; INV.godScrolls(GOD); { const gp = $('godpanel'); if (gp) gp.hidden = !GOD; } $('btn-god').setAttribute('aria-pressed', GOD); $('btn-god').textContent = GOD ? '갓 모드 켜짐' : '갓 모드 (테스트)'; if (GOD) { coins += 50000; say('갓 모드: 50,000 골드를 받았습니다.', '#ffd86a'); say('갓 모드: 순간이동·귀환·강화·축복·속성 주문서를 무한으로 쓸 수 있습니다. (테스트 패널 열림)', '#ffd86a'); } if (!GOD) { GOD_INV = GOD_OHK = GOD_FAST = GOD_MP = false; } window.godSync && godSync(); say(GOD ? '갓 모드: 테스트 패널에서 무적·몹 한 방·빠른 이동을 따로 켤 수 있어요.' : '갓 모드를 껐습니다. (무적·몹 한 방·빠른 이동도 꺼짐)', '#f2d98a'); }; };
@@ -5413,7 +5414,7 @@ const NET = (() => {
   function eqIds() { const e = {}; for (const L in KL_SLOT) { const id = INV.equipped(KL_SLOT[L]); if (id) e[KL_SLOT[L]] = id; } return e; }
   const rpOut = () => { const L = []; for (const r of REAPERS.values()) if (Date.now() < r.until && KINDS.includes(r.bk)) L.push([r.uid, r.z, KINDS.indexOf(r.bk), r.until, Math.round((r.hp || 1) * 1000), r.i, r.j, r.dead || r.gone ? 1 : 0]); return L.length ? L.slice(-4) : null; };
   function rpMerge(o) { const L = o.pr.rp; if (!Array.isArray(L)) return; const now = Date.now();
-    for (const x of L.slice(0, 6)) { if (!Array.isArray(x)) continue; const [uid, z, k, until, hp, i, j, dn] = x, bk = KINDS[k]; const soul = isSoulUid(uid); if (!isRpUid(uid) || !MOB[bk] || !(soul ? MOB[bk].boss : REAPER_OF[z]) || !(until > now) || until > now + (soul ? SOUL_LIFE + 300 : 1500) * 1000) continue; let r = REAPERS.get(uid);
+    for (const x of L.slice(0, 6)) { if (!Array.isArray(x)) continue; const [uid, z, k, until, hp, i, j, dn] = x, bk = KINDS[k]; const soul = isSoulRec(uid, z); if (!isRpUid(uid) || !MOB[bk] || !(soul ? MOB[bk].boss : REAPER_OF[z]) || !(until > now) || until > now + (soul ? SOUL_LIFE + 300 : 1500) * 1000) continue; let r = REAPERS.get(uid);
       if (!r) { r = { uid, z, bk, until, hp: Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)), i: i | 0, j: j | 0, t: now }; REAPERS.set(uid, r); }
       if (dn) { if (!r.dead && !r.gone) { r.dead = 1; const f = foxes.find(q => q.uid === uid && !q.dead && !q.gone); if (f && !guestMob(f)) { f.gone = true; if (hero.target === f) hero.target = null; } } continue; }
       if (o.pr.z === 'isle' + z && !(performance.now() - (r.own || -1e9) < 3000)) { r.hp = Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)); r.i = i | 0; r.j = j | 0; } } }
@@ -5768,6 +5769,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 130, items: ['마법·기술·아이템 정보 말풍선이 화면에 그대로 남아 있던 문제를 고쳤어요. (창을 닫거나 목록이 바뀌어도 바로 사라짐)', '사냥터의 감시자 리퍼가 가끔 [영혼석 보스]로 잘못 바뀌던 문제를 고쳤어요. (리퍼인데 이름이 영혼석으로 나오고 · 보스 전리품을 떨어뜨리고 · "소환의 제단에서 쓰러뜨렸다"고 공지되던 것) 이제 리퍼는 항상 리퍼로 나오고 영혼석만 떨어뜨려요.'] },
     { v: 129, items: ['후반 보스 보상이 올랐어요. 경험치·골드는 바포메트(혼자 잡는 보스)보다 같은 체력당 1.5배로 맞췄고, 전리품은 2번 굴려서 약 2배 떨어지며, 영웅 장비 확률도 1.5배예요. (예: 데스나이트 경험치 23,328 · 골드 37,000~62,000 · 감시자 리퍼·영혼석 보스도 같음)', '[Alt]를 누른 채 클릭하면 몬스터를 때리지 않고 그 자리로 이동해요. (몬스터 사이를 지나갈 때)', '감시자 리퍼가 더 드물게 나와요. (처치당 0.1% → 0.03%)', '후반 보스(카스파 패밀리 · 데스나이트 · 얼음여왕)의 공격이 더 세졌어요. (공격 1.3배 → 1.7배 · 근접·마법·범위 기술 모두 · HP 2배·경험치·골드 2배는 그대로) 혼자서는 맑은 물약을 계속 마셔야 버틸 정도라, 2명 이상이 함께 잡는 걸 추천해요.'] },
     { v: 128, items: ['아이템 상세 창에서 바로 강화할 수 있어요. [강화]를 누르면 가지고 있는 그 장비용 주문서(일반·축복·저주)가 나오고, 골라서 누르면 강화돼요. (현재 수치 · 안전 강화 · 다음 성공 확률 표시 · 안전 강화를 넘으면 "강화하시겠습니까?"를 한 번 더 물어요)', '민첩의 [회피 ER]이 실제로 작동해요. 몬스터의 화살(원거리 물리 공격)을 ER %만큼 피해요. (민첩 ÷ 3 · 최대 30% · 마법은 해당 없음 · 이전엔 캐릭터 창에 숫자만 나오던 문제 수정)', '후반 보스가 강해졌어요. 카스파 패밀리 · 데스나이트 · 얼음여왕은 HP 2배 · 공격(근접·마법·범위 기술) 1.3배로, 2명 이상이 함께 잡도록 바뀌었어요. 대신 경험치·골드도 2배라 둘이 나눠도 이전만큼 받아요. (감시자 리퍼·영혼석으로 부른 보스도 같음 · 이름 옆에 [2인 이상] 표시 · 바포메트까지는 지금처럼 혼자 잡을 수 있어요)', '영혼석으로 부른 보스가 다른 사람이 가까이 오면 모습이 사라지던 문제를 고쳤어요. 이제 제단에 있는 모두에게 보이고, 쓰러뜨리면 보스와 똑같이 전리품을 떨어뜨려요. (불러낸 사람이 떠나도 60분 동안 남음 · 쓰러뜨리면 전체 공지)', '일반 채팅이 파티·위치와 상관없이 접속한 모두에게 보여요. (다른 지역 사람이면 이름 옆에 지역 표시)', '체력이 HP 회복량을 올려요. 전투 밖 HP 회복이 체력 12를 넘는 1포인트당 초당 +0.08 늘어요. (예: 체력 18 → 초당 +0.48 · 이전엔 툴팁과 달리 레벨로만 계산되던 문제 수정)'] },
     { v: 127, items: ['같은 이름의 아이템이 둘씩 있던 것을 정리했어요. 데스나이트의 불검·투구·갑옷·장갑·장화는 데스나이트만 떨어뜨리는 하나로 합쳤어요. (영웅 · 기사 Lv35 · 4부위 세트 효과 그대로 · 가지고 있던 것은 강화·축복·속성 그대로 자동으로 바뀜 · 드랍률은 장비마다 3~5%) 희귀 Lv20 [얼음 여왕의 지팡이]는 [서리 지팡이]로 이름이 바뀌었어요.', '아이템 밸런스: 얼음여왕의 지팡이(얼음여왕 전용) → 마법사 Lv45 · 공격 11~29 · SP +5 · MR +5 · 냉기 마법 피해 +15%. 군주의 반지 → HP +40 · MR +10 추가. 설원의 망토 → Lv45 · AC 4 · MR 10 · 물 저항 +20. 축복 부여 주문서는 희귀 등급으로. 장신구 마법 주문서 되팔기 가격 250 골드.', '진화한 펫이 [전투견] 모습이 됐어요. 징 박힌 가죽 목걸이 · 등 가죽 마구 · 어깨 철판을 두르고 대기·걷기·공격 모두 그 모습으로 움직여요.', '특별상점 주문서 교환 칸에 [최소] 버튼이 생겼어요. (1개로)', '아이템 도감에서 무기(한손검·활·지팡이·단검) · 방어구(투구·갑옷·티셔츠·망토·장갑·장화·방패) · 장신구(목걸이·반지·벨트)를 부위별로 나눠 볼 수 있어요.', '광폭화한 보스는 몸 둘레에 붉은 테두리 오로라가 일렁여요.', '감시자 리퍼는 불러낸 사람이 화면 밖으로 가거나 · 쓰러지거나 · 다른 맵으로 가도 잡히기 전까지 20분 동안 그 자리에 남아요. 같은 월드의 다른 사람이 찾아가도 보여요. (이전엔 불러낸 사람 화면에만 보이던 문제 수정)', '감시자 리퍼가 쓰러지면 누가 어디서 잡았는지 전체 공지가 떠요.', '감시자 리퍼는 내 레벨보다 10 이상 낮은 몬스터에서는 나오지 않아요. (높은 레벨이 초보 사냥터를 빠르게 쓸어 영혼석을 모으던 것 막기)', '창고에 골드도 맡길 수 있어요. 창고 아래 칸에 금액을 적고 [맡기기]·[찾기] (비워 두면 전부) · 계정 공유라 다른 캐릭터로도 찾을 수 있어요.'] },
