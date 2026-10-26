@@ -644,7 +644,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 139;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 140;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1764,7 +1764,7 @@ addEventListener('keydown', ev=>{ const k=ev.key;
   if (/^F([1-9]|1[0-2])$/.test(k) || ((ev.ctrlKey||ev.metaKey) && /^[rRwWsSpPfFgGhHjJdDuUoOnNtT+\-=0]$/.test(k)) || k==='Tab' && !tabNav() || k==='Backspace' && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName||'')) { ev.preventDefault(); }
   if (/^F([1-9]|1[0-2])$/.test(k) && !ev.repeat && !HELD.has(k)) { holdTry(k, true); HELD.set(k, performance.now() + 400); } }, {capture:true});
 addEventListener('help', ev=>ev.preventDefault());
-const needExp = lv => Math.floor(15*Math.pow(lv,1.7)*(lv<10?1:lv<20?1+(lv-9)*0.35:4.5+(lv-19)*0.6));   // v100: Lv10까지는 그대로, 그 뒤로 점점 무겁게 (Lv15 약 55마리 · Lv20 110 · Lv25 210 · Lv30 330마리)
+const needExp = lv => Math.floor(15*Math.pow(lv,1.7)*(lv<10?1:lv<20?1+(lv-9)*0.35:4.5+(lv-19)*0.6)) * (lv>=49?3:1);   // v140: Lv49부터 3배 (49→50 정체 구간 · 그 뒤로도 같은 무게)   // v100: Lv10까지는 그대로, 그 뒤로 점점 무겁게 (Lv15 약 55마리 · Lv20 110 · Lv25 210 · Lv30 330마리)
 function gainExp(n){ TELE.xp(n); if (OFFL_HOOK) OFFL_HOOK.exp(n); hero.exp += n; while (hero.exp >= needExp(hero.lv)){ hero.exp -= needExp(hero.lv); hero.lv++; { const C=CLS_DEF[CLASS]; hero.baseHP += rint(C.hpLv); hero.baseMP += rint(C.mpLv); } INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; say('레벨이 올랐습니다. (레벨 '+hero.lv+')', '#f2e6a8'); levelUpFx(); wizAutoLearn();
     if (hero.lv % 5 === 0){ hero.bonusPts++; say('보너스 능력치 1개를 받았습니다. 캐릭터 정보창에서 찍어 주세요.', '#f2d98a'); const cw=document.getElementById('charwin'); if (cw && cw.hidden){ cw.hidden=false; INV.render(); } } } }
 const LEATHER = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#1e1813'; g.fillRect(0, 0, 128, 128);
@@ -6326,6 +6326,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 140, items: ['Lv49부터 레벨업에 필요한 경험치가 3배가 됐어요. (49→50: 252,119 → 756,357 · 50 이후도 같은 무게로 이어짐) 오렌설원 2구역 몬스터 기준으로 49→50이 약 300마리 → 약 900마리예요.', '그만큼 Lv49 이후에 사망하면 잃는 경험치(레벨 필요 경험치의 5%)도 3배가 돼요.'] },
     { v: 139, items: ['마법사·요정 장비 39종이 새로 생겼어요. (리니지 클래식 장비 이름 · 기사 전용 장비가 있던 부위·등급을 채움 · 영웅은 Lv30·Lv35 두 가지) 마법사: 마법사 모자·카스파의 모자·발터자르의 모자·고대의 로브·흑장로의 로브·마나 망토·시어의 심안 등 · 요정: 엘름의 축복·정화의 머리띠·고대의 가죽 갑옷·풍룡 비늘 갑옷·보호 장갑·세피아의 부츠·메두사 방패 등', '마법사는 방패 칸에 마법서·수정구를 낄 수 있어요. (저주받은 마법서·마력서·마나 수정구·시어의 심안·흑장로의 마도서)', '카스파·발터자르·세마·메르키오르의 이름이 붙은 장비는 그 보스에게서 더 잘 나와요. (보스의 영웅 장비 전체 확률은 그대로)', '아이템 도감에서 직업별로 볼 수 있어요. (모든 직업 · 기사 · 요정 · 마법사 · 공용)', '사망하면 알림 안에 큰 [🏠 마을로] 버튼이 나와요. 2분을 기다리지 않고 바로 마을에서 부활할 수 있어요.', '내가 때리는 몬스터가 잘 보이게: 발밑에 굵은 붉은 고리 + 도는 금색 표시(나무·다른 몬스터에 가려도 보임) + 머리 위 화살표', '같이 보스를 잡을 때 화면이 달라 보이던 문제를 고쳤어요. 보스 범위 마법(헬파이어·지옥불·얼음 폭풍 등)이 친구 화면에도 같은 자리에 보이고 각자 피할 수 있어요. 호스트가 멀리 있어도 보스가 가까이 있는 친구에게 기술을 써요. 스턴·슬로우 표시가 머리 위에 계속 남던 문제도 고쳤어요.', '보스 재등장을 잡은 시각부터 세도록 바꿨어요. (예전에는 시계 구간 기준이라 늦게 잡으면 금방 다시 나왔음) 셸로브 20~40분 · 여왕개미·오우거·바포메트 3시간~3시간 30분 · 카스파 패밀리 2시간~2시간 15분 · 데스나이트·얼음여왕 3시간~3시간 20분 · 보스 기록이 캐릭터 저장에도 남아서 다른 PC에서 접속해도 이어져요.'] },
     { v: 138, items: ['귀환 주문서가 없어지고 [귀환 부적]으로 바뀌었어요. 쓰면 바로 마을로 돌아가고, 사용 비용이 없고 사라지지 않아요. (버리기·팔기·창고·교환 불가) 모든 캐릭터에게 1개씩 지급 · 가지고 있던 귀환 주문서는 정리돼요.', '상점의 귀환 주문서 · 자동사냥 설정의 [귀환 주문서 2장까지 구매]가 없어졌어요. (자동사냥 귀환도 귀환 부적으로 무료)', '콜로세움 입장권 가격이 100골드로 내려갔어요. (계정당 하루 2장 · 새벽 5시 초기화는 그대로)'] },
     { v: 137, items: ['게임 설정이 캐릭터와 함께 계정 서버에 저장돼요. 어느 PC에서 접속해도 상점 [고정] 수량 · 휠 고정 · 미니맵(켜기·투명도) · 창 위치가 그대로예요. (소리 · 자동사냥 · 자동 물약 · 단축키 설정은 예전부터 함께 저장)', '다시 접속하면(다른 PC · 중복 접속 포함) 마지막으로 있던 사냥터의 그 자리에서 이어서 시작해요. (콜로세움 안이었거나 쓰러진 채였으면 마을)', '콜로세움 · 제작 창도 위쪽을 끌어서 옮길 수 있어요.'] },
