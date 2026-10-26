@@ -644,7 +644,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 144;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 145;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4559,7 +4559,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     { const st = document.querySelector('.sk-tab[data-tab="skill"]'); if (st) { st.textContent = CLASS === 'elf' ? '정령마법' : '기술'; st.hidden = CLASS === 'wizard'; } if (CLASS === 'wizard' && skTab === 'skill') skTab = 'magic'; }
     document.querySelectorAll('.sk-tab').forEach(b => { b.setAttribute('aria-selected', b.dataset.tab === skTab); b.onclick = () => { skTab = b.dataset.tab; skKey = ''; renderSkills(); }; });
     const maxC = MAGIC_MAX[CLASS], rows = [];
-    if (skTab === 'magic') { for (let c = 1; c <= 10; c++) rows.push([`${c}서클`, MAGIC_LIST.filter(m => m[0] === c).map(m => m[1]), c > maxC]); }
+    if (skTab === 'magic') { for (let c = 1; c <= 10; c++) rows.push([`${c}서클`, [...MAGIC_LIST.filter(m => m[0] === c).map(m => m[1]), ...Object.keys(SK).filter(id => SK[id].kind === 'magic' && SK[id].circle === c && !MAGIC_LIST.some(m => m[1] === id) && (!SK[id].cls || SK[id].cls.includes(CLASS)))], c > maxC]); }   /* v145: 서먼 몬스터처럼 목록 밖 마법도 그 서클 줄에 */
     else if (CLASS === 'elf') { const sp = Object.keys(SK).filter(id => SK[id].kind === 'spirit').sort((a, b) => SK[a].lv - SK[b].lv); for (const lv of [...new Set(sp.map(id => SK[id].lv))]) rows.push([`Lv.${lv}`, sp.filter(id => SK[id].lv === lv), false]); }
     else rows.push(['기사', ['stun', 'reduction', 'bounce', 'solid', 'counter'], CLASS !== 'knight']);
     $('sk-cls').textContent = skTab === 'magic' ? `${CLASS_NAME[CLASS]}: ${maxC}서클까지 (4레벨마다 1서클)` : CLASS === 'elf' ? '요정 전용 · 정령수정으로 배움 (마법상점)' : '기사 전용 · 기술서로 배움';
@@ -6375,6 +6375,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 145, items: ['스킬창(마법)의 6서클 줄에 [서먼 몬스터]가 안 보이던 문제를 고쳤어요. (Lv24 이상 마법사는 바로 단축키에 끌어다 쓸 수 있어요)'] },
     { v: 144, items: ['마법사 6서클 마법 [서먼 몬스터]가 생겼어요. (Lv24에 자동으로 배움 · MP 30) 카리스마 4마다 1마리(최대 3) 몬스터를 불러내 함께 싸워요. 레벨이 오를수록 강한 몬스터가 나와요. (Lv24 버그베어 · 30 켈베로스 · 36 킹 버그베어 · 42 아이스 골렘 · 48 에틴)', '소환수는 귀환·텔레포트·사냥터 이동해도 따라오고 시간 제한이 없어요. 내가 쓰러지거나 소환수가 쓰러지면 사라지고, 다 나와 있을 때 다시 쓰면 돌려보낼 수 있어요. 소환수가 잡은 경험치·골드·드랍은 모두 나에게 와요. (자동 사용을 켜면 모자란 만큼 자동으로 다시 불러요)', '내 펫과 소환수가 같은 지역에 있는 다른 사람 화면에도 보여요. (보이기만 하고, 다른 사람 화면의 몬스터와 싸우지는 않아요)'] },
     { v: 143, items: ['마법사의 모든 지팡이(일반·고급·희귀·영웅)에 [타격 시 MP 1~2 흡수]가 붙었어요. (전에는 영웅 지팡이와 마나의 지팡이만)'] },
     { v: 142, items: ['자동사냥 설정의 [가속 물약 자동 구매]·[자동 사용]에 파란 물약(마나 회복 물약 · 120골드)이 추가됐어요. 자동 사용을 켜고 구매 개수를 정해 두면, 다 떨어지고 효과가 끝났을 때 마을에 가서 사 와요.', '감시자 리퍼가 이제 각 사냥터의 1구간·1구역에서는 나오지 않고 2구간·2구역에서만 나와요. (본토던전은 1층 카스파 패밀리 · 2층 데스나이트 그대로)', '연금술 촉매(데이·젤) 장수가 최대치(고급 25장 · 희귀 30장)와 가진 장수를 넘어서 계속 올라가던 문제를 고쳤어요.'] },
