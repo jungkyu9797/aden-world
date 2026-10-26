@@ -317,9 +317,9 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
-function killCheck(f){ const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.');
+function killCheck(f){ const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.');
   const D=NET.distribute(f,S); if (!D){ shareExp(f,S); if (!f.reaper){ const c=rint(S.coin); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
+  GROUND.capStart(); if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 function dmgMob(f, d, who){ if (f && f.bindUntil > time) return; if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
@@ -365,7 +365,7 @@ function heavyCheck() { const wp = INV.wPct(), lv = wp >= 1 ? 2 : wp >= 0.8 ? 1 
 function updateHero(dt){
   if (BUFF.poison>0){ hero.psnAcc=(hero.psnAcc||0)+dt; if (hero.psnAcc>=1){ hero.psnAcc=0; if (!GOD_INV&&hero.hp>1){ const pd=Math.min(hero.hp-1, Math.max(1, Math.ceil(hero.max*0.015))); hero.hp-=pd; const [hx,hy]=W2P(hero.x,hero.z); floatText(hx+10,hy-92,String(pd),{color:'#8ae05a',size:11}); mxP(hx+mxR(-10,10),hy-mxR(20,60),{k:'bubble',c:'140,230,90',s:mxR(2,3.5),vy:-mxR(20,40),life:0.8}); } } }   // 독: 초당 최대 HP 1.5% (죽지는 않음)
   if (hero.burnT>0){ hero.burnT-=dt; hero.burnAcc=(hero.burnAcc||0)+dt; if (hero.burnAcc>=1){ hero.burnAcc=0; if (!GOD_INV&&hero.hp>1){ hero.hp-=1; const [hx,hy]=W2P(hero.x,hero.z); floatText(hx,hy-96,'1',{color:'#ff9a3a',size:11}); } } }
-  const sp=heroSpd(), AS=sp*(1+INV.cx('atkSpd')/100)*(GOD_FAST?1.5:1); buffTick(dt); if (GOD_MP) hero.mp=hero.maxmp; if (GOD_CD) for (const k in SKCD) SKCD[k]=0; hero.cool=Math.max(0,hero.cool-dt*AS); hurt=Math.max(0,hurt-dt); if (!foxes.some(f=>f.aggro&&!f.dead)) hero.hp=Math.min(hero.max,hero.hp+dt*(0.25+hero.lv*0.05)); hero.mp=Math.min(hero.maxmp,hero.mp+dt*(0.12+hero.lv*(CLASS==='wizard'?0.01:CLASS==='elf'?0.006:0.003)+INV.stat().wis*0.01+INV.cx('mpRegen')*0.1+(BUFF.mana>0?0.5:0)+Math.max(BUFF.cmind>0?0.4:0, BUFF.medit>0?(hero.t>=1?1.0:0.5):0)));
+  const sp=heroSpd(), AS=sp*(1+INV.cx('atkSpd')/100)*(GOD_FAST?1.5:1); buffTick(dt); if (GOD_MP) hero.mp=hero.maxmp; if (GOD_CD) for (const k in SKCD) SKCD[k]=0; hero.cool=Math.max(0,hero.cool-dt*AS); hurt=Math.max(0,hurt-dt); if (!foxes.some(f=>f.aggro&&!f.dead)) hero.hp=Math.min(hero.max,hero.hp+dt*(0.25+hero.lv*0.05+Math.max(0,INV.stat().con-12)*0.08)); hero.mp=Math.min(hero.maxmp,hero.mp+dt*(0.12+hero.lv*(CLASS==='wizard'?0.01:CLASS==='elf'?0.006:0.003)+INV.stat().wis*0.01+INV.cx('mpRegen')*0.1+(BUFF.mana>0?0.5:0)+Math.max(BUFF.cmind>0?0.4:0, BUFF.medit>0?(hero.t>=1?1.0:0.5):0)));
   stepMove(hero,dt,BUFF.stun>0?0:3.2*GSPD*sp*(GOD_FAST?1.5:1)*(1+INV.cx('moveSpd')/100)*heavyK());
   if (hero.lockT>time) moveGoal=null;   /* v124: 트리플 애로우 시전 중에는 이동 안 함 */
   if (BUFF.stun>0){ hero.atk=null; return; }   // v118: 기절 — 움직이지도 공격하지도 못함
@@ -394,10 +394,11 @@ function drawAltar(g, A, part) { const [x, y] = W2P(A.i + 0.5, A.j + 0.5), pu = 
 // v126: 감시자 리퍼 — 사냥터 잡몹이 쓰러질 때 0.1%로 그 지역 보스의 모습·능력치로 되살아남 (20분) · 잡으면 영혼석만 100%
 const REAPER_P = 0.001, REAPER_LIFE = 1200, REAPER_GAP = 10, REAPER_OF = { 1: 'shelob', 2: 'shelob', 3: 'queen_ant', 4: 'queen_ant', 5: 'ogre', 6: 'ogre', 7: 'baphomet', 8: 'baphomet', 9: ['kaspar', 'merkyor', 'balthazar', 'sema'], 10: 'deathknight', 11: 'ice_queen', 12: 'ice_queen' };
 // v127: 리퍼 기록 — 불러낸 사람이 떠나거나 죽어도, 지역 호스트가 바뀌어도 잡히기 전까지(최대 20분) 그 자리에 남음. 같은 월드 사람들끼리 기록을 주고받음
-const REAPERS = new Map(), RP_UID0 = 95000, isRpUid = u => u >= RP_UID0 && u < RP_UID0 + 5000, rpLive = r => !!r && !r.dead && !r.gone && Date.now() < r.until;
+const REAPERS = new Map(), RP_UID0 = 95000, SOUL_UID0 = 98000, isRpUid = u => u >= RP_UID0 && u < RP_UID0 + 5000, isSoulUid = u => u >= SOUL_UID0 && u < SOUL_UID0 + 2000, SOUL_LIFE = 3600, rpLive = r => !!r && !r.dead && !r.gone && Date.now() < r.until;
 const rpOf = f => f && (f.rp || (f.uid != null ? REAPERS.get(f.uid) : null)) || null, rpLeft = f => { const r = rpOf(f); return r ? Math.max(0, Math.ceil((r.until - Date.now()) / 60000)) : 20; };
-function rpZoneLive(z) { for (const r of REAPERS.values()) if (r.z === z && rpLive(r)) return r; return null; }
-function rpTag(m, r) { m.reaper = true; m.dispName = '감시자 리퍼'; if (r) { m.rp = r; m.uid = r.uid; } if (!m.home) m.home = [m.i, m.j]; return m; }
+function rpZoneLive(z) { for (const r of REAPERS.values()) if (r.z === z && !isSoulUid(r.uid) && rpLive(r)) return r; return null; }
+const soulLive = () => { for (const r of REAPERS.values()) if (isSoulUid(r.uid) && rpLive(r)) return r; return null; };
+function rpTag(m, r) { const soul = isSoulUid(r ? r.uid : m.uid); if (soul) { m.soulBoss = true; m.aggro = true; m.dispName = '영혼석: ' + MOB[m.kind].name; } else { m.reaper = true; m.dispName = '감시자 리퍼'; } if (r) { m.rp = r; m.uid = r.uid; } if (!m.home) m.home = [m.i, m.j]; return m; }
 function rpEnsure() { if (SCENE !== 'field' || !ISLE) return; for (const r of REAPERS.values()) { if (r.z !== ISLE.id || !rpLive(r) || !MOB[r.bk]) continue; const f = foxes.find(q => q.uid === r.uid && !q.gone); if (f) { if (!f.rp) rpTag(f, r); continue; }
     const at = spotNear(r.i, r.j, 2) || [r.i, r.j], m = rpTag(mkMob(r.bk, at[0], at[1]), r); m.home = at; m.hp = Math.max(1, Math.round(m.max * Math.min(1, r.hp || 1))); foxes.push(m); } }
 function spawnReaper(i, j, who) { const L = ISLE && REAPER_OF[ISLE.id]; if (!L || SCENE !== 'field') return null; const bk = Array.isArray(L) ? L[Math.floor(Math.random() * L.length)] : L, at = spotNear(i, j, 2) || [i, j];
@@ -412,13 +413,14 @@ function reaperTry(f, S, D) { if (S.boss || S.dummy || f.summoned || f.reaper ||
 function reaperDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Date.now(); } const id = 'soul_' + f.kind; if (ITEMS[id]) GROUND.drop(id, 1, f.i, f.j); say(`감시자 리퍼를 쓰러뜨렸습니다! [영혼석: ${S.name}]이(가) 떨어졌습니다.`, '#c890ff');
   let who = PNAME(); try { if (D && D.shares && D.shares.size) who = NET.nameOf([...D.shares.entries()].sort((a, b) => b[1] - a[1])[0][0]) || who; } catch (e) {}
   const msg = `${who}님이 ${zoneTitle()}의 [감시자 리퍼](${S.name}의 모습)를 쓰러뜨렸습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); TELE.ev('reaperDown', { b: f.kind, z: zoneTitle() }); }
-function soulDown(f, S) { say(`[영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`, '#ffd86a'); }
+function soulDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Date.now(); } say(`[영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`, '#ffd86a');
+  let who = PNAME(); try { if (D && D.shares && D.shares.size) who = NET.nameOf([...D.shares.entries()].sort((a, b) => b[1] - a[1])[0][0]) || who; } catch (e) {} const msg = `${who}님이 소환의 제단에서 [영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); }
 window.__reaperNow = () => { if (SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id]) { say('감시자 리퍼는 사냥터(1·2구간)에서만 나타나요.', '#f08a7a'); return; } spawnReaper(hero.i + 2, hero.j); };   // 갓 모드 테스트
 function updateFox(f,dt){
   if (NET.guestMob(f)) { NET.follow(f, dt); return; }
   if (f.hitT>0) f.hitT=Math.max(0,f.hitT-dt);
   const S=MOB[f.kind];
-  if (f.reaper && !f.dead){ const r = rpOf(f); if (r && Date.now() > r.until){ r.gone = 1; f.gone = true; if (hero.target === f) hero.target = null; say('감시자 리퍼가 어둠 속으로 사라졌습니다...', '#9c8ab8'); return; } if (r && f.max > 0){ if (!(performance.now() - (r.own || -1e9) < 3000) && r.hp < f.hp / f.max) f.hp = Math.max(1, Math.round(f.max * r.hp)); r.hp = Math.max(0.001, f.hp / f.max); r.i = f.i; r.j = f.j; r.t = Date.now(); r.own = performance.now(); } }
+  if ((f.reaper || f.soulBoss) && !f.dead){ const r = rpOf(f); if (r && Date.now() > r.until){ r.gone = 1; f.gone = true; if (hero.target === f) hero.target = null; say(f.reaper ? '감시자 리퍼가 어둠 속으로 사라졌습니다...' : `${f.dispName}이(가) 제단으로 돌아갔습니다...`, '#9c8ab8'); return; } if (r && f.max > 0){ if (!(performance.now() - (r.own || -1e9) < 3000) && r.hp < f.hp / f.max) f.hp = Math.max(1, Math.round(f.max * r.hp)); r.hp = Math.max(0.001, f.hp / f.max); r.i = f.i; r.j = f.j; r.t = Date.now(); r.own = performance.now(); } }
   if (S.boss && !f.dead && !f.enraged && f.max > 0 && f.hp > 0 && f.hp <= f.max * (f.enrAt || (f.enrAt = 0.3 + Math.random() * 0.2))) bossEnrage(f, S);
   if (S.dummy){ f.flash=Math.max(0,(f.flash||0)-dt); f.kx=0; f.ky=0; f.aggro=false; f.stunT=Math.max(0,(f.stunT||0)-dt); f.slowT=Math.max(0,(f.slowT||0)-dt); if (f.dlog){ while (f.dlog.length && time-f.dlog[0][0]>10) f.dlog.shift(); if (!f.dlog.length || time-f.dlog[f.dlog.length-1][0]>4){ f.hp=f.max; f.ttk0=0; } } return; }   // 허수아비: 가만히 서서 맞기만
   if (f.dead){ f.deadT+=dt; if (S.boss||f.summoned){ if (f.deadT>(S.boss?3:1.6)) f.gone=true; return; }
@@ -630,7 +632,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 127;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 128;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1645,7 +1647,7 @@ function drawWorld(g, vw, vh){
   if (hero.chat && time < hero.chat.until) CHAT.bubble(g, hero);
   { const [hx,hy]=W2P(hero.x,hero.z); g.fillStyle='#000'; g.fillRect(Math.round(hx)-14,Math.round(hy)-90,28,4); g.fillStyle='#c8302a'; g.fillRect(Math.round(hx)-13,Math.round(hy)-89,Math.round(26*hero.hp/hero.max),2); }
   const tg0 = hover&&!hover.dead ? hover : (T&&!T.dead?T:null), tg = tg0&&DN.seen(tg0.i,tg0.j)?tg0:null;
-  if (tg){ const S=MOB[tg.kind], [x,y]=W2P(tg.x,tg.z), hh=(S.hh||Math.round(62*S.sc))+4, nm=(tg.dispName||S.name)+(tg.reaper?` (${rpLeft(tg)}분)`:S.boss?' (보스)':'')+(tg.enraged?' · 광폭화':''), bw=S.boss?60:30;
+  if (tg){ const S=MOB[tg.kind], [x,y]=W2P(tg.x,tg.z), hh=(S.hh||Math.round(62*S.sc))+4, nm=(tg.dispName||S.name)+(tg.reaper?` (${rpLeft(tg)}분)`:S.boss?(S.duo?' (보스 · 2인 이상)':' (보스)'):'')+(tg.enraged?' · 광폭화':''), bw=S.boss?60:30;
     g.font='700 10px "Noto Sans KR",sans-serif'; g.textAlign='center'; g.fillStyle='rgba(0,0,0,.8)'; g.fillText(nm,x+1,y-hh+1); g.fillStyle=S.boss?'#ff7060':tg.aggro?'#f08a7a':'#f2eedf'; g.fillText(nm,x,y-hh);
     g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(x-bw/2,y-hh+4,bw,3); g.fillStyle='#b8352b'; g.fillRect(x-bw/2,y-hh+4,bw*Math.max(0,tg.hp)/tg.max,3); drawMobStatus(g, tg, x, y-hh-20); }
   g.restore(); mxDrawFlash(g, vw, vh); AMB.drawFlies(g, ox, oy);
@@ -1985,7 +1987,10 @@ for (const k in MOB) { const S = MOB[k]; if (S.pet || (S.lv || 0) < 15) continue
 // v112: 혼자 있는 단일 보스(무리 지은 카스파 패밀리 제외) — 물리·마법 피해 +40% · 체력 +20%
 const BOSS_GROUP = ['kaspar', 'merkyor', 'balthazar', 'sema'];
 for (const k in MOB) { const S = MOB[k]; if (!S.boss || BOSS_GROUP.includes(k)) continue; S.solo = true; S.hp = Math.round(S.hp * 1.2); }
-for (const k of ['shelob', 'queen_ant', 'ogre', 'baphomet']) if (MOB[k]) { MOB[k].pdr = 0.3; MOB[k].atkMul = 1.25; }   // v118: 필드 보스 — 물리 피해(근접·화살) 30% 덜 받음 · 물리·마법 공격력 1.25배
+for (const k of ['shelob', 'queen_ant', 'ogre', 'baphomet']) if (MOB[k]) { MOB[k].pdr = 0.3; MOB[k].atkMul = 1.25; }
+// v128: 후반 보스(카스파 패밀리·데스나이트·얼음여왕)는 2명 이상이 함께 잡도록 — HP 2배 · 공격(근접·마법·범위 기술) 1.3배 · 경험치·골드 2배 (감시자 리퍼·영혼석 보스도 같은 능력치)
+const DUO_BOSS = ['kaspar', 'merkyor', 'balthazar', 'sema', 'deathknight', 'ice_queen'];
+for (const k of DUO_BOSS) if (MOB[k]) { const S = MOB[k]; S.hp = Math.round(S.hp * 2); S.atkMul = (S.atkMul || 1) * 1.3; S.exp = Math.round(S.exp * 2); S.coin = S.coin.map(v => v * 2); S.duo = true; }   // v118: 필드 보스 — 물리 피해(근접·화살) 30% 덜 받음 · 물리·마법 공격력 1.25배
 // v114: 테스트용 허수아비 (갓 모드) — 10레벨 구간별 (방어는 그 구간 몬스터 평균) · 공격·이동·경험치·드랍 없음 · 맞으면 DPS 표시 · 4초 안 맞으면 체력 회복
 const DUMMY = { 10: { mac: 5, c: '#5fd35f' }, 20: { mac: 3, c: '#62c8ff' }, 30: { mac: 2, c: '#c77dff' }, 40: { mac: 0, c: '#ffab4a' }, 50: { mac: -2, c: '#ff5a4a' } };
 for (const L in DUMMY) MOB['dummy' + L] = { name: `허수아비 Lv${L}`, lv: +L, hp: 999999, dmg: [0, 0], mac: DUMMY[L].mac, hit: 0, exp: 0, coin: [0, 0], walk: 0, run: 0, cd: 99, art: 'dummy', dummy: true, dc: DUMMY[L].c, hh: 72, hw: 16, sc: 1 };
@@ -2086,7 +2091,7 @@ function hurtHero(d, src, kind) { if (src && typeof src === 'object') src.hitMeT
   if (BUFF.counter > 0 && src && !src.dead) { const rd = Math.max(1, Math.round(d * 0.3)); setTimeout(() => mobHurt(src, rd, '#c9a0ff'), 120); }
   hero.hp -= d; TELE.hurt(src && src.kind || kind || 'etc', d); { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 96, String(d), { color: '#ff5a4a', size: 12 }); } hurt = 0.25; sfx.bite(); hitstop = Math.max(hitstop, 0.04);
   if (hero.hp <= 0) { TELE.ev('death', { by: src && src.kind || kind || '?', z: zoneTitle(), lv: hero.lv, d }); hero.hp = Math.ceil(hero.max * 0.5); hero.target = null; say('당신은 쓰러졌습니다... 마을에서 깨어납니다.', '#f08a7a'); if (OFFL_HOOK) OFFL_HOOK.died(); AUTO.died(); TOWN.goTown(); } }
-function shoot(f, S, TG) { TG = TG || hero; if (TG === hero) f.hitMeT = time; const [x0, y0] = W2P(f.x, f.z), [x1, y1] = W2P(TG.x, TG.z); arrows.push({ kind: S.fireball ? 'fireball' : 'arrow', x0, y0: y0 - (S.fireball ? 44 : 30), x1, y1: y1 - (TG === hero ? 30 : 16), t: 0, dur: (S.fireball ? 0.22 : 0.12) + cheb(f.i, f.j, TG.i, TG.j) * (S.fireball ? 0.1 : 0.07), dmg: mobDmg(S, f), hit: (S.fireball ? mobHitM(S) : mobHit(S)) - (f.hitDn > 0 ? 0.03 * (f.hitDnV || 2) : 0), src: f, tg: TG === hero ? null : TG }); }
+function shoot(f, S, TG) { TG = TG || hero; if (TG === hero) f.hitMeT = time; const [x0, y0] = W2P(f.x, f.z), [x1, y1] = W2P(TG.x, TG.z); arrows.push({ kind: S.fireball ? 'fireball' : 'arrow', x0, y0: y0 - (S.fireball ? 44 : 30), x1, y1: y1 - (TG === hero ? 30 : 16), t: 0, dur: (S.fireball ? 0.22 : 0.12) + cheb(f.i, f.j, TG.i, TG.j) * (S.fireball ? 0.1 : 0.07), dmg: mobDmg(S, f), hit: (S.fireball ? mobHitM(S) : mobHit(S)) - (f.hitDn > 0 ? 0.03 * (f.hitDnV || 2) : 0) - (TG === hero && !S.fireball ? Math.min(30, INV.er()) / 100 : 0), src: f, tg: TG === hero ? null : TG }); }
 function spotNear(ci, cj, r) { for (let t = 0; t < 60; t++) { const i = ci + Math.round((Math.random() * 2 - 1) * r), j = cj + Math.round((Math.random() * 2 - 1) * r); if (walkable(i, j) && !occ(i, j) && cheb(i, j, hero.i, hero.j) >= 6) return [i, j]; } return null; }
 // 몬스터 그림: 정식 모델이 나오기 전까지 주민·여우 그림을 색만 바꿔 임시로 씀
 const TINT = {};
@@ -2235,7 +2240,7 @@ function dgStairs(g, x, y, p) { const down = p.stairs === 'down', pulse = 0.5 + 
   if (MXLIT.length < 40) MXLIT.push({ x, y: y - 10, r: 110, a: 0.6 }); }
 
 // ---------- 몬스터 마법 (카스파 패밀리·네크로맨서): 연출은 마법 연출(mx)로, 피해는 맞을 때 (AC 무시 · MR·속성 저항으로 감소)
-function mobSpellHit(f, S, T, mul = 1, extra) { mul *= enrMul(f); if (T === hero) { if (hero.hp <= 0 || SCENE === 'town') return; if (Math.random() < mobHitM(S)) { hurtHero(Math.round(rint(S.dmg) * mul), f, 'magic'); if (extra) extra(); } else heroMiss(); }
+function mobSpellHit(f, S, T, mul = 1, extra) { mul *= enrMul(f) * ((S && S.atkMul) || 1); if (T === hero) { if (hero.hp <= 0 || SCENE === 'town') return; if (Math.random() < mobHitM(S)) { hurtHero(Math.round(rint(S.dmg) * mul), f, 'magic'); if (extra) extra(); } else heroMiss(); }
   else if (T.isRemote) NET.hitRemote(T, f, S); else if (T.isPet && !T.dead) PET.hurt(T, Math.round(rint(S.dmg) * mul), f); }
 function mobCast(f, S, T) { T = T || hero; const [x0, y0] = W2P(f.x, f.z), d = Math.max(1, Math.hypot(T.x - f.x, T.z - f.z)), sp = S.spell;
   const bolt = (id, kind, k = 1, onHit) => BOLTS.push({ x0, y0: y0 - Math.min(80, mxH(f) * 0.7), f: T, t: 0, dur: (0.24 + d * 0.05) * k, kind, id, cos: true, onHit });
@@ -3891,8 +3896,10 @@ const INV = (() => {
     if (d.use === 'soul') { const A = ISLE && ISLE.def && ISLE.def.altar;   /* v126: 영혼석 — 소환의 제단에서만 */
       if (SCENE !== 'field' || !A) { say('영혼석은 [소환의 제단]에서만 쓸 수 있어요. (월드맵 → 소환의 제단)', '#f08a7a'); return; }
       if (Math.max(Math.abs(hero.i - A.i), Math.abs(hero.j - A.j)) > 6) { say('제단 가까이(6칸 안)에서 써 주세요.', '#f08a7a'); return; }
-      if (foxes.some(x => x.soulBoss && !x.dead && !x.gone)) { say('이미 불러낸 보스가 있어요. 먼저 쓰러뜨려 주세요.', '#f08a7a'); return; }
-      const S0 = MOB[d.boss]; if (!S0) return; take(e.id); cd = 0.8; const at = spotNear(A.i, A.j - 3, 1) || [A.i, A.j - 3], m = mkMob(d.boss, at[0], at[1]); m.soulBoss = true; m.dispName = '영혼석: ' + S0.name; m.home = at; m.aggro = true; foxes.push(m);
+      if (soulLive() || foxes.some(x => x.soulBoss && !x.dead && !x.gone)) { say('이미 불러낸 보스가 있어요. 먼저 쓰러뜨려 주세요.', '#f08a7a'); return; }
+      const S0 = MOB[d.boss]; if (!S0) return; take(e.id); cd = 0.8; const at = spotNear(A.i, A.j - 3, 1) || [A.i, A.j - 3];
+      let uid; do uid = SOUL_UID0 + Math.floor(Math.random() * 2000); while (REAPERS.has(uid)); const r = { uid, z: ISLE.id, bk: d.boss, until: Date.now() + SOUL_LIFE * 1000, hp: 1, i: at[0], j: at[1], t: Date.now(), own: performance.now() }; REAPERS.set(uid, r);
+      const m = rpTag(mkMob(d.boss, at[0], at[1]), r); m.home = at; m.aggro = true; foxes.push(m);
       mxFlash('150,60,255', 0.18, 0.7); mxAdd('ring', m, { gnd: 1, c: '190,120,255', r0: 10, r1: 130, w: 6, life: 1.2 }); shake = Math.max(shake, 0.25); if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 1.0, 260, 70, 0.34); tone(t0, 'sawtooth', 80, 40, 1.2, 0.14); }
       const msg = `${PNAME()}님이 소환의 제단에서 [영혼석: ${S0.name}]을(를) 불러냈습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); TELE.ev('soul', { b: d.boss }); render(); return; }
     if (d.use === 'bpouch') { const T_ = [['bscroll_weapon', 30], ['bscroll_armor', 30], ['bless_scroll', 30], ['bscroll_acc', 10]]; let x = Math.random() * 100; const id = (T_.find(q => (x -= q[1]) < 0) || T_[0])[0], it = ITEMS[id]; take(e.id); cd = 0.6; add(id, 1, true); TELE.ev('bpouch', { id });   /* v126: 축복 주문서 주머니 */
@@ -4000,7 +4007,7 @@ const INV = (() => {
         if (Math.random() >= p) { enchantFx(t, 'boom', '증발…'); if (t.on) unequip(t, true); const k = bag.indexOf(t); if (k >= 0) bag.splice(k, 1); say(`${JOSA(before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다. (성공 확률 ${Math.round(p * 100)}%)`, '#ff6a5a'); enFx('#ff6a5a', '증발!'); render(); return; }
         const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = Math.min(8, cur + add); if (t.en >= 7) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 8 ? '#ff9a3a' : '#9fe0ff');
         say(`${JOSA(before, '이', '가')} 한순간 ${t.en - cur > 1 ? '은빛으로 ' + (t.en - cur) + '번' : '파랗게'} 빛납니다. → ${nameOf(t)} (${stn} +${t.en})`, t.en - cur > 1 ? '#e8e0ff' : '#8ad0ff'); enFx(t.en - cur > 1 ? '#e8e0ff' : '#8ad0ff', '+' + t.en); render(); enchantFx(t, t.en - cur > 1 ? 'bless' : 'ok', `+${t.en} 강화 성공!`); };
-      askYesNo(`${nameOf(t)}에 ${sd.name}을(를) 읽으시겠습니까?`, `+${cur + 1} 성공 확률 ${Math.round(p * 100)}% · 성공하면 ${stn} +1. 장신구는 안전 강화가 없어 실패하면 증발합니다.`, go); return; }
+      askYesNo(`${nameOf(t)}을(를) 강화하시겠습니까?`, `${sd.name} 사용 · +${cur + 1} 성공 확률 ${Math.round(p * 100)}% · 성공하면 ${stn} +1. 장신구는 안전 강화가 없어 실패하면 증발합니다.`, go); return; }
     const safe = SAFE_EN(td), cur = t.en || 0;
     const go = () => { if (!take(sid)) return; const before = nameOf(t);
       if (cur >= safe && Math.random() >= 1 / 3) { enchantFx(t, 'boom', '증발…'); if (t.on) unequip(t, true); const k = bag.indexOf(t); if (k >= 0) bag.splice(k, 1);
@@ -4009,7 +4016,7 @@ const INV = (() => {
       say(`${JOSA(before, '이', '가')} 한순간 ${add > 1 ? '은빛으로 ' + add + '번' : '파랗게'} 빛납니다. → ${nameOf(t)}`, add > 1 ? '#e8e0ff' : '#8ad0ff'); enFx(add > 1 ? '#e8e0ff' : '#8ad0ff', '+' + t.en);
       render(); enchantFx(t, add > 1 ? 'bless' : 'ok', `+${t.en} 강화 성공!`); };
     cancelTarget(true);
-    if (cur >= safe) askYesNo(`${nameOf(t)}에 ${sd.name}을(를) 읽으시겠습니까?`, `${safe ? `안전 강화(+${safe})를 넘었습니다.` : '안전 강화가 없는 장비입니다. (안전 +0)'} 실패하면 장비가 증발할 수 있습니다. (성공 1/3)`, go); else go(); }
+    if (cur >= safe) askYesNo(`${nameOf(t)}을(를) 강화하시겠습니까?`, `${sd.name} 사용 · ${safe ? `안전 강화(+${safe})를 넘었습니다.` : '안전 강화가 없는 장비입니다. (안전 +0)'} 실패하면 장비가 증발할 수 있습니다. (성공 1/3)`, go); else go(); }
   // 계산 수치
   const dkSet = () => ['helm', 'armor', 'gloves', 'boots'].every(sl => eq[sl] && ITEMS[eq[sl].id].set === 'dk');
   const sum = k => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id][k] || 0), 0) + (DK_SET_BONUS[k] && dkSet() ? DK_SET_BONUS[k] : 0);   // 데스나이트 세트 효과
@@ -4060,7 +4067,7 @@ const INV = (() => {
   function tip(e) { const d = ITEMS[e.id]; const a = [nameOf(e) + (d.stack && e.n > 1 ? ` (${e.n})` : '') + ` [${d.rar || '일반'}]`, ...infoLines(e)]; if (d.desc) a.push(d.desc); if (d.codex) { const R = cxReq(d); a.splice(1, 0, R.txt + (R.ok || GOD ? '' : ' — 착용 불가')); }
     a.push(d.slot ? (e.on ? '더블클릭: 벗기' : '더블클릭: 착용') : d.use ? '더블클릭: 사용 · 아래 단축키 칸으로 끌어다 놓으면 등록' : '', '꾹 누르고 있기: 상세 정보'); return a.filter(Boolean).join('\n'); }
   // ===== 아이템 상세 정보창: 아이템을 꾹 누르고 있으면(0.42초) 뜸. 버프 아이템은 여기서 자동 사용 켜기
-  let dwE = null, dwPos = [0, 0], holdT = 0, holdP = null, lastApplyT = -1e9, cdTimer = 0;
+  let dwE = null, dwPos = [0, 0], holdT = 0, holdP = null, lastApplyT = -1e9, cdTimer = 0, dwEnch = null, dwRef = null, dwRefEn = 0;   // v128: 상세 창 강화 (주문서 고르기)
   // ===== 스킬 상세 정보창 + 자동 사용 (단축키 칸·스킬창에서 꾹 누르기 / 단축키 칸 오른쪽 클릭)
   const AUTOSK = {}; let dwSk = null, skTimer = 0, skT = 0;
   const ATK_SPELL = new Set(['ebolt', 'icedagger', 'farrow', 'turnund', 'fball', 'clight', 'coc', 'eruption', 'sunburst', 'blizzard', 'disint', 'meteor', 'tornado', 'quake', 'fstorm']);   // v114: 모든 공격 마법 자동 사용 가능 (턴 언데드는 언데드에게만)
@@ -4103,6 +4110,11 @@ const INV = (() => {
     const ve = pvEn != null && canPv(d) ? Object.assign({}, e, { en: pvEn }) : e;   // 미리보기면 강화 수치만 바꾼 가상 장비
     const rc = rarC(e.id), A = AUTO, ctl = [];
     if (d.slot) ctl.push(`<button type="button" data-act="use">${e.on ? '벗기' : '착용하기'}</button>`);
+    if (!e.preview && (canPv(d) || accKey(d))) { const acc = !!accKey(d), L = Object.keys(ITEMS).filter(id => ITEMS[id].use === 'enchant' && count(id) > 0 && canScroll(ITEMS[id], d)).sort((a, b) => (ITEMS[a].curse ? 2 : ITEMS[a].bless ? 1 : 0) - (ITEMS[b].curse ? 2 : ITEMS[b].bless ? 1 : 0));   // v128: 상세 창에서 바로 강화
+      ctl.push(`<button type="button" data-act="ench" class="iw-ench-b">${dwEnch === e ? '강화 닫기' : '강화'}</button>`);
+      if (dwEnch === e) { const cur = e.en || 0, safe = acc ? 0 : SAFE_EN(d), p = acc ? (cur >= 8 ? 0 : ACC_P[cur]) : cur >= safe ? 1 / 3 : 1;
+        ctl.push(`<div class="iw-ench"><p>현재 ${cur > 0 ? '+' : ''}${cur} · ${acc ? '장신구 (안전 강화 없음 · 최대 +8)' : '안전 강화 +' + safe} · 다음 강화 성공 <b>${Math.round(p * 100)}%</b>${p < 1 ? ' · 실패하면 증발' : ''}</p>${e.locked ? '<p class="no">잠긴 아이템이에요. 아래 잠금을 풀어야 강화할 수 있어요.</p>' : ''}`
+          + (L.length ? L.map(id => { const sd = ITEMS[id]; return `<button type="button" data-act="es-${id}" class="${sd.curse ? 'cu' : sd.bless ? 'bl' : ''}"><b>${sd.curse ? '저주' : sd.bless ? '축복' : '일반'}</b> ${esc_(sd.name)} <small>×${count(id)} · ${sd.curse ? '강화 −1' : sd.bless ? '+1~2 (+7부터 +1)' : '+1'}</small></button>`; }).join('') : '<p class="no">이 장비에 쓸 수 있는 강화 주문서가 없어요.</p>') + '</div>'); } }
     ctl.push(`<label class="iw-chk iw-lock"><input type="checkbox" data-act="lock"${e.locked ? ' checked' : ''}><span>아이템 잠금 <small>${e.locked ? '잠김 · 강화·축복·속성 부여와 판매를 막는 중' : '켜면 실수로 강화·판매되지 않게 막습니다'}</small></span></label>`);
     if (d.invis) { const left = (e.invisAt || 0) - time; ctl.push(!e.on ? '<p class="iw-st">착용하면 투명 기능을 쓸 수 있습니다.</p>' : left > 0 ? `<button type="button" disabled>투명 재사용 대기 ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}</button>` : `<button type="button" data-act="invis" class="iw-invis">투명 사용 (${d.invis.dur}초)</button>`);
       clearTimeout(cdTimer); if (e.on && left > 0) cdTimer = setTimeout(() => { if (dwE === e && !$('itemwin').hidden) showDetail(e); }, 1000); }
@@ -4127,11 +4139,13 @@ const INV = (() => {
       else if (act === 'pet-summon') el.onclick = () => { PET.summon(e); w.dataset.h = ''; showDetail(e); };
       else if (act === 'pet-store') el.onclick = () => { PET.store(e); w.dataset.h = ''; showDetail(e); };
       else if (act === 'pet-revive') el.onclick = () => { PET.revive(e); w.dataset.h = ''; showDetail(e); };
+      else if (act === 'ench') el.onclick = () => { dwEnch = dwEnch === e ? null : e; w.dataset.h = ''; showDetail(e); };
+      else if (act.startsWith('es-')) el.onclick = () => { const sid = act.slice(3); if (!count(sid)) return; dwRef = e; dwRefEn = e.en || 0; tgtScroll = sid; applyScroll(e); setTimeout(() => { w.dataset.h = ''; if (bag.includes(e)) showDetail(e); else hideDetail(); }, 30); };
       else if (act.startsWith('pv-')) el.onclick = () => { const v = act.slice(3), cur = pvEn != null ? pvEn : (e.en || 0); pvEn = v === 'real' ? null : v === 'up' ? Math.min(15, cur + 1) : v === 'dn' ? Math.max(0, cur - 1) : +v; w.dataset.h = ''; showDetail(e); };
       else el.onclick = () => { if (act === 'use') { const keep = !(d.use === 'enchant' || d.use === 'attr' || d.use === 'accchg'); use(e); if (keep && bag.includes(e)) showDetail(e); else hideDetail(); } else { setAuto(act.slice(5), e.id); showDetail(e); } }; });
     w.hidden = false; if (!wasHidden && x == null) { showCompare(e, pvEn); return; } const W_ = w.offsetWidth, H_ = w.offsetHeight; let L_ = dwPos[0] + 18, T_ = dwPos[1] - 20; if (L_ + W_ > innerWidth - 8) L_ = dwPos[0] - W_ - 18; L_ = Math.max(8, L_); T_ = Math.max(8, Math.min(innerHeight - H_ - 8, T_));
     w.style.left = L_ + 'px'; w.style.top = T_ + 'px'; w.style.right = 'auto'; showCompare(e, pvEn); }
-  function hideDetail() { const w = $('itemwin'); if (w) w.hidden = true; const c = $('cmpwin'); if (c) c.hidden = true; dwE = null; dwSk = null; }
+  function hideDetail() { dwRef = null; const w = $('itemwin'); if (w) w.hidden = true; const c = $('cmpwin'); if (c) c.hidden = true; dwE = null; dwSk = null; }
   // 안 낀 장비를 꾹 누르면 옆에 지금 낀 장비와 비교 (초록=좋아짐, 빨강=나빠짐)
   function statOf(e) { const d = ITEMS[e.id], en = e.en || 0, at = e.attr ? ATTR_DMG[e.attr.lv] : 0; const eb = enBonus(d, en); return { dmg: d.dmg ? [d.dmg[0] + eb + at, d.dmg[1] + eb + at] : null, ac: (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? eb + (e.blessed ? 1 : 0) : 0), hp: d.hp || 0, mp: d.mp || 0, hit: d.hit || 0, xdmg: d.xdmg || 0, mr: d.mr || 0, wr: d.wr || 0, en, attr: e.attr ? e.attr.lv : 0, blessed: !!e.blessed, w: d.w || 0, x: Object.fromEntries(CMP_X.map(([k]) => [k, d[k] || 0])), fx: cmpFx(d, en) }; }
   // v116: 비교창 추가 옵션 — 능력치·SP·공속·이속·치명타·피해 감소·저항·MP 회복·특수 효과까지
@@ -4169,6 +4183,7 @@ const INV = (() => {
   addEventListener('contextmenu', ev => { if (!tgtScroll) return; ev.preventDefault(); ev.stopImmediatePropagation(); cancelTarget(); }, true);
   const recentApply = () => performance.now() - lastApplyT < 600;
   function render() {
+    if (dwRef && dwE === dwRef && (!bag.includes(dwRef) || (dwRef.en || 0) !== dwRefEn)) { const r_ = dwRef; dwRef = null; setTimeout(() => { const w_ = $('itemwin'); if (!w_ || w_.hidden) return; w_.dataset.h = ''; if (bag.includes(r_)) showDetail(r_); else hideDetail(); }, 0); }
     hero.max = hero.baseHP + sum('hp') + Math.max(0, STAT.con - 14); hero.maxmp = hero.baseMP + sum('mp') + Math.max(0, Math.floor((STAT.wis - 9) / 2)); hero.hp = Math.min(hero.hp, hero.max); hero.mp = Math.min(hero.mp, hero.maxmp);
     const grid = $('inv-grid'); if (!grid) return; if (!$('invwin').hidden) renderSkills();
     if (!$('invwin').hidden && !bagDrag) {
@@ -4188,7 +4203,7 @@ const INV = (() => {
       s('cw-lv', hero.lv); s('cw-exp', (hero.exp / needExp(hero.lv) * 100).toFixed(2) + '%'); s('cw-hp', `${Math.ceil(hero.hp)}/${hero.max}`); s('cw-mp', `${Math.ceil(hero.mp)}/${hero.maxmp}`);
       s('cw-ac', ac()); s('cw-w', Math.round(wPct() * 100) + '%' + [beltWR() ? `벨트 −${beltWR()}%` : '', BUFF.decwt > 0 ? '디크리즈' : ''].filter(Boolean).map(t => ' (' + t + ')').join('')); s('cw-food', '100%'); const d = dmg(); s('cw-dmg', `${d[0]} ~ ${d[1]}`);
       for (const k in BASE) { const el = $('cw-' + k); if (el) { const h = `${STAT[k]}${BONUS[k] ? ` <small>(+${BONUS[k]})</small>` : ''}${hero.bonusPts > 0 ? ` <button type="button" class="sp" data-st="${k}" aria-label="${NAMES_ST[k]} 올리기">+</button>` : ''}`; if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; } } }
-      s('cw-bp', hero.bonusPts); const cw = $('charwin'); if (!cw.dataset.sp) { cw.dataset.sp = 1; cw.addEventListener('click', ev => { const b = ev.target.closest('button.sp'); if (b) askYesNo(`${NAMES_ST[b.dataset.st]}을(를) 올리시겠습니까?`, `보너스 포인트 1개를 사용합니다. (남은 포인트 ${hero.bonusPts})`, () => addStat(b.dataset.st)); }); } s('cw-er', Math.floor(STAT.dex / 3)); s('cw-mb', intMB(STAT.int)); s('cw-ml', magicLv()); s('cw-sp', heroSP()); s('cw-mm', '×' + spellMul().toFixed(2)); s('cw-mc', Math.round(spellCritP({ lv: hero.lv }) * 100) + '%'); s('cw-mr', sum('mr') + (BUFF.rmagic > 0 ? 10 : 0)); s('cw-res', `${sum('earthRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('waterRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('fireRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('windRes') + (BUFF.relem > 0 ? 10 : 0)}`);
+      s('cw-bp', hero.bonusPts); const cw = $('charwin'); if (!cw.dataset.sp) { cw.dataset.sp = 1; cw.addEventListener('click', ev => { const b = ev.target.closest('button.sp'); if (b) askYesNo(`${NAMES_ST[b.dataset.st]}을(를) 올리시겠습니까?`, `보너스 포인트 1개를 사용합니다. (남은 포인트 ${hero.bonusPts})`, () => addStat(b.dataset.st)); }); } s('cw-er', Math.min(30, Math.floor(STAT.dex / 3)) + '%'); s('cw-mb', intMB(STAT.int)); s('cw-ml', magicLv()); s('cw-sp', heroSP()); s('cw-mm', '×' + spellMul().toFixed(2)); s('cw-mc', Math.round(spellCritP({ lv: hero.lv }) * 100) + '%'); s('cw-mr', sum('mr') + (BUFF.rmagic > 0 ? 10 : 0)); s('cw-res', `${sum('earthRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('waterRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('fireRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('windRes') + (BUFF.relem > 0 ? 10 : 0)}`);
       if (window.LOOKPV) LOOKPV.kick();
       SLOTS.forEach(([k]) => { const el = $('eq-' + k); if (!el) return; const e = eq[k]; el.innerHTML = e ? ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (e.locked ? '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>' : '') : ''; { const rr = e ? ITEMS[e.id].rar || '일반' : null; el.classList.toggle('rar', !!e); el.classList.remove('r-0', 'r-1', 'r-2', 'r-3'); if (e) { el.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); el.classList.add('r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } } el.dataset.itip = e ? tip(e) : el.dataset.label; el.dataset.ic = e ? rarC(e.id) : '#d9cfb5'; el.removeAttribute('title'); el.classList.toggle('has', !!e); { const t_ = e ? enTierOf(e.id, e.en) : 0; for (let q = 1; q <= 4; q++) el.classList.toggle('eg' + q, t_ === q); } el.ondblclick = () => e && !recentApply() && unequip(e);
         el.onclick = () => { if (tgtScroll && e) { lastApplyT = performance.now(); applyScroll(e); } }; el.onpointerdown = ev => e && holdStart(ev, e); });
@@ -4248,7 +4263,7 @@ const INV = (() => {
   const hot = [null, null, null, 'act:pick', 'red_potion', 'orange_potion', 'return_scroll', 'tele_scroll', null, null, null, null]; let hsel = 4;   /* v124: F1~F12 · F4 자리에 줍기 아이콘 */
   function ensurePick() { let seen = false; for (let i = 0; i < 12; i++) if (hot[i] === 'act:pick') { if (seen) hot[i] = null; seen = true; } if (seen) return; const k = hot[3] ? hot.indexOf(null) : 3; hot[k >= 0 ? k : 3] = 'act:pick'; }
   function useHot(i, onto) { const id = hot[i]; if (!id) return; if (id === 'act:pick') { pickTry(!HOLD_Q); return; } if (id.startsWith('sk:')) { castSkill(id.slice(3), onto); return; } const e = bag.find(x => x.id === id) || (GOD_INF(id) ? { id, n: 0, on: false } : null); if (!e) { say(`${ITEMS[id].name}이(가) 없습니다.`, '#f08a7a'); return; } use(e); }
-  return { tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 12) % 12; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${1 + a} ↔ F${1 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; if (hot[i] === 'act:pick') { say('줍기 아이콘은 지울 수 없어요. 다른 칸으로 옮기기만 할 수 있어요.', '#f0c080'); return; } const id = hot[i]; hot[i] = null; say(`F${1 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { if (hot[i] === 'act:pick') { say('줍기 아이콘이 있는 칸이에요. 줍기 아이콘을 다른 칸으로 옮긴 뒤 등록해 주세요.', '#f0c080'); return; } hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${1 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); hcd = Math.max(0, hcd - dt); autoTick(dt); }, healCd: () => hcd / HEAL_CD, auto: k => AUTO[k], blessHit, sp, openAuto, cx: sum, wAttr: () => (eq.weapon && eq.weapon.attr) || null, useInvis,
+  return { tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 12) % 12; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${1 + a} ↔ F${1 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; if (hot[i] === 'act:pick') { say('줍기 아이콘은 지울 수 없어요. 다른 칸으로 옮기기만 할 수 있어요.', '#f0c080'); return; } const id = hot[i]; hot[i] = null; say(`F${1 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { if (hot[i] === 'act:pick') { say('줍기 아이콘이 있는 칸이에요. 줍기 아이콘을 다른 칸으로 옮긴 뒤 등록해 주세요.', '#f0c080'); return; } hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${1 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); hcd = Math.max(0, hcd - dt); autoTick(dt); }, healCd: () => hcd / HEAL_CD, er: () => Math.floor(STAT.dex / 3), auto: k => AUTO[k], blessHit, sp, openAuto, cx: sum, wAttr: () => (eq.weapon && eq.weapon.attr) || null, useInvis,
     godScrolls(on) { for (const id of GOD_SCROLLS) { let e = bag.find(x => x.id === id);   // 켜면 종류별로 1칸씩(없을 때만, 표시는 ∞), 끄면 그 1장만 빼서 원래 수로
         if (on) { if (!e) { bag.push({ id, n: 1, on: false, godTemp: true }); } } else if (e && e.godTemp) { e.n -= 1; delete e.godTemp; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); } } render(); },
     trashAsk, setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, showSkill, holdHot, openHot, setAutoSk, autoSk: id => !!AUTOSK[id], applyScroll, targeting: () => tgtScroll, bag: () => bag, nameOf, wPct, maxW, weightNow: weight, enOf: sl => eq[sl] ? (eq[sl].en || 0) : 0,
@@ -4901,8 +4916,8 @@ const TOWN = (() => {
       dt.onmouseenter = () => { tip.innerHTML = `<b>${dt.textContent}</b>${dt.dataset.tip}`; tip.hidden = false; };
       dt.onmousemove = ev => { const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.min(innerWidth - w - 8, ev.clientX + 16) + 'px'; tip.style.top = Math.min(innerHeight - h - 8, ev.clientY + 14) + 'px'; };
       dt.onmouseleave = () => { tip.hidden = true; }; }); }
-  if (window.DEMO_MODE) { $('btn-dn').hidden = false; $('btn-dn').onclick = () => DN.toggle();
-    $('btn-god').hidden = false; $('btn-god').onclick = () => { GOD = !GOD; INV.godScrolls(GOD); { const gp = $('godpanel'); if (gp) gp.hidden = !GOD; } $('btn-god').setAttribute('aria-pressed', GOD); $('btn-god').textContent = GOD ? '갓 모드 켜짐' : '갓 모드 (테스트)'; if (GOD) { coins += 50000; say('갓 모드: 50,000 골드를 받았습니다.', '#ffd86a'); say('갓 모드: 순간이동·귀환·강화·축복·속성 주문서를 무한으로 쓸 수 있습니다. (테스트 패널 열림)', '#ffd86a'); } if (!GOD) { GOD_INV = GOD_OHK = GOD_FAST = GOD_MP = false; } window.godSync && godSync(); say(GOD ? '갓 모드: 테스트 패널에서 무적·몹 한 방·빠른 이동을 따로 켤 수 있어요.' : '갓 모드를 껐습니다. (무적·몹 한 방·빠른 이동도 꺼짐)', '#f2d98a'); }; }
+  window.__godBtn = () => { $('btn-god').hidden = false; $('btn-god').onclick = () => { GOD = !GOD; INV.godScrolls(GOD); { const gp = $('godpanel'); if (gp) gp.hidden = !GOD; } $('btn-god').setAttribute('aria-pressed', GOD); $('btn-god').textContent = GOD ? '갓 모드 켜짐' : '갓 모드 (테스트)'; if (GOD) { coins += 50000; say('갓 모드: 50,000 골드를 받았습니다.', '#ffd86a'); say('갓 모드: 순간이동·귀환·강화·축복·속성 주문서를 무한으로 쓸 수 있습니다. (테스트 패널 열림)', '#ffd86a'); } if (!GOD) { GOD_INV = GOD_OHK = GOD_FAST = GOD_MP = false; } window.godSync && godSync(); say(GOD ? '갓 모드: 테스트 패널에서 무적·몹 한 방·빠른 이동을 따로 켤 수 있어요.' : '갓 모드를 껐습니다. (무적·몹 한 방·빠른 이동도 꺼짐)', '#f2d98a'); }; };
+  if (window.DEMO_MODE) { $('btn-dn').hidden = false; $('btn-dn').onclick = () => DN.toggle(); window.__godBtn(); }
   // 갓 모드 테스트 패널: 레벨 정하기 · 체력/마나 가득 · 골드 · 낮/밤
   { const gp = $('godpanel');
     if (gp) { const inp = $('gp-lv'), clampL = v => Math.max(1, Math.min(99, Math.round(+v || 1)));
@@ -5265,7 +5280,7 @@ const SESS = (() => {
   function kick(why) { if (kicked) return; kicked = true; window.__gameOn = false;
     try { SAVE.stop(); } catch (e) {} try { if (AUTO.on()) AUTO.toggle(); } catch (e) {} try { NET.setRoom(null); } catch (e) {} try { MPP.leave(); } catch (e) {}
     const w = document.createElement('div'); w.id = 'dupkick'; w.setAttribute('role', 'alertdialog');
-    w.innerHTML = '<div class="dk-box"><b>다른 곳에서 같은 계정으로 접속했어요</b><p>같은 계정은 한 곳에서만 플레이할 수 있어서 이 창의 접속을 끊었어요.<br>진행 상황은 새로 접속한 쪽에서 이어서 저장돼요. (이 창은 더 이상 저장하지 않아요)</p><button type="button" id="dk-re">다시 접속하기</button></div>';
+    w.innerHTML = why === 'admin' ? '<div class="dk-box"><b>운영자에 의해 접속이 종료되었어요</b><p>진행 상황은 저장했어요.</p><button type="button" id="dk-re">다시 접속하기</button></div>' : '<div class="dk-box"><b>다른 곳에서 같은 계정으로 접속했어요</b><p>같은 계정은 한 곳에서만 플레이할 수 있어서 이 창의 접속을 끊었어요.<br>진행 상황은 새로 접속한 쪽에서 이어서 저장돼요. (이 창은 더 이상 저장하지 않아요)</p><button type="button" id="dk-re">다시 접속하기</button></div>';
     document.body.appendChild(w); const b = document.getElementById('dk-re'); if (b) b.onclick = () => location.reload();
     try { TELE.ev('dupkick', { why }); } catch (e) {} }
   // 월드 서버에서 같은 계정의 다른 접속이 보이면: 내가 먼저 들어온 쪽이면 나감 · 나중이면 알림만
@@ -5274,6 +5289,12 @@ const SESS = (() => {
       if (!noted.has(p.sd)) { noted.add(p.sd); say('[알림] 같은 계정으로 다른 곳에 남아 있던 접속을 끊었어요. (이 창에서 이어서 저장돼요)', '#f0c080'); } } }
   return { id, begin, kick, scan, ah, t0: () => t0, kicked: () => kicked };
 })();
+// v128: 운영자 명령 서명 확인용 공개 키 (비밀 키는 운영자 PC의 admin_key.js에만 있음)
+const ADMIN_PUB = { kty: 'EC', crv: 'P-256', x: 'RjJrzb6A_uTVx0j3EbnS1TGuKb1iFphMHo2SIrhQwh0', y: 'FjW_pD6fZGHlsq_mFWhLUVKRwFZcLcbZIvchaO4aojA' };
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const ub64u = s => { s = String(s || '').replace(/-/g, '+').replace(/_/g, '/'); s += '='.repeat((4 - s.length % 4) % 4); return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+let ADM_PUBK = null; const admPub = async () => ADM_PUBK || (ADM_PUBK = await crypto.subtle.importKey('jwk', ADMIN_PUB, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']));
+async function admVerify(msg, sig) { try { if (!(window.crypto && crypto.subtle) || !sig) return false; return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, await admPub(), ub64u(sig), new TextEncoder().encode(msg)); } catch (e) { return false; } }
 const NET = (() => {
   const KINDS = Object.keys(MOB), RCOL = '#a8d8ff', PCOL = '#8fe08a', TE = new TextEncoder();
   const esc_ = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -5320,8 +5341,8 @@ const NET = (() => {
   const others = () => { const out = []; if (!room) return out; let L; try { L = room.peers(); } catch (e) { return out; } for (const p of L) { if (p.isMe && p.sameTab) { myPeer = p.peer; continue; } if (p.kind === 'agent') continue; const pr = p.presence || {}; if (!pr.n) continue; out.push({ peer: p.peer, pr }); } return out; };
   const prOf = p => p === myPeer ? null : (OTH.find(o => o.peer === p) || {}).pr;
   // 지역 호스트: 같은 지역에 있는 사람(나 포함) 중 peer 이름이 가장 앞선 사람
-  const hostOf = z => { let h = myPeer && zk() === z ? myPeer : null; for (const o of OTH) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; return h; };
-  const isHost = () => !room || !myPeer || hostOf(zk()) === myPeer;
+  const hostOf = z => { let h = myPeer && zk() === z && !ADMIN.on() ? myPeer : null; for (const o of OTH) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; return h; };
+  const isHost = () => !room || !myPeer || hostOf(zk()) === myPeer || (ADMIN.on() && !hostOf(zk()));
   const othersInZone = () => OTH.filter(o => o.pr.z === zk());
   function hostData() { if (!ISLE || isHost()) return null; const h = hostOf(zk()), o = OTH.find(q => q.peer === h); return o && o.pr.m && o.pr.mz === zk() ? o : null; }
   const guest = () => !!hostCache;
@@ -5391,10 +5412,21 @@ const NET = (() => {
   function eqIds() { const e = {}; for (const L in KL_SLOT) { const id = INV.equipped(KL_SLOT[L]); if (id) e[KL_SLOT[L]] = id; } return e; }
   const rpOut = () => { const L = []; for (const r of REAPERS.values()) if (Date.now() < r.until && KINDS.includes(r.bk)) L.push([r.uid, r.z, KINDS.indexOf(r.bk), r.until, Math.round((r.hp || 1) * 1000), r.i, r.j, r.dead || r.gone ? 1 : 0]); return L.length ? L.slice(-4) : null; };
   function rpMerge(o) { const L = o.pr.rp; if (!Array.isArray(L)) return; const now = Date.now();
-    for (const x of L.slice(0, 6)) { if (!Array.isArray(x)) continue; const [uid, z, k, until, hp, i, j, dn] = x, bk = KINDS[k]; if (!isRpUid(uid) || !MOB[bk] || !REAPER_OF[z] || !(until > now) || until > now + 1500e3) continue; let r = REAPERS.get(uid);
+    for (const x of L.slice(0, 6)) { if (!Array.isArray(x)) continue; const [uid, z, k, until, hp, i, j, dn] = x, bk = KINDS[k]; const soul = isSoulUid(uid); if (!isRpUid(uid) || !MOB[bk] || !(soul ? MOB[bk].boss : REAPER_OF[z]) || !(until > now) || until > now + (soul ? SOUL_LIFE + 300 : 1500) * 1000) continue; let r = REAPERS.get(uid);
       if (!r) { r = { uid, z, bk, until, hp: Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)), i: i | 0, j: j | 0, t: now }; REAPERS.set(uid, r); }
       if (dn) { if (!r.dead && !r.gone) { r.dead = 1; const f = foxes.find(q => q.uid === uid && !q.dead && !q.gone); if (f && !guestMob(f)) { f.gone = true; if (hero.target === f) hero.target = null; } } continue; }
       if (o.pr.z === 'isle' + z && !(performance.now() - (r.own || -1e9) < 3000)) { r.hp = Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)); r.i = i | 0; r.j = j | 0; } } }
+  // ----- v128 운영자: 서명이 맞는 운영자는 목록·화면에서 빠짐 (확인 중에도 숨김 · 'p'(준비 중) 표시는 15초까지만 인정)
+  const admOK = new Map(), admPend = new Map(), admSeen = new Map(), arSeen = new Set(); let ADMS = [], arOut = [], admTok = null, admBusy = false;
+  function admFilter() { ADMS = []; OTH = OTH.filter(o => { const a = o.pr.adm; if (!a || !a.s) return true;
+      if (a.s === 'p') { const t0 = admPend.get(o.peer) || (admPend.set(o.peer, Date.now()), Date.now()); return Date.now() - t0 > 15000; }
+      const k = o.peer + '|' + a.t; let v = admOK.get(k); if (v === undefined) { admOK.set(k, 'wait'); admVerify(`adm|${o.peer}|${a.t}`, a.s).then(ok => admOK.set(k, !!ok)); v = 'wait'; }
+      if (v === false) return true; if (v === true) ADMS.push(o); return false; });
+    for (const o of ADMS) admCmds(o); if (ADMIN.on()) admResps(); }
+  function admCmds(o) { const L = Array.isArray(o.pr.ac) ? o.pr.ac : [], mx = L.length ? Math.max(...L.map(x => +x[0] || 0)) : 0; if (!admSeen.has(o.peer)) { admSeen.set(o.peer, mx); return; } const last = admSeen.get(o.peer); if (mx <= last) return; admSeen.set(o.peer, mx);
+    for (const x of L) { if (!Array.isArray(x)) continue; const [sq, t, to, cmd, a, sig] = x; if (!(sq > last) || (to !== myPeer && to !== '*')) continue; admVerify(`${sq}|${t}|${to}|${cmd}|${a}|${o.peer}`, sig).then(ok => { if (ok) ADMIN.apply(cmd, a, o.peer, sq); }); } }
+  function admResps() { for (const o of OTH) { const L = o.pr.ar; if (!Array.isArray(L)) continue; for (const x of L) { if (!Array.isArray(x) || x[1] !== myPeer) continue; const k = o.peer + '|' + x[0] + '|' + x[2]; if (arSeen.has(k)) continue; arSeen.add(k); let d = null; try { d = JSON.parse(x[3]); } catch (e) {} ADMIN.onResp(o.peer, x[2], d, nmOf(o.pr)); } } }
+  function admRespond(to, sq, cmd, data) { arOut.push([sq, to, cmd, JSON.stringify(data || {}), Date.now()]); if (arOut.length > 3) arOut.shift(); sendT = 0; }
   function mobsOut() { const pos = [[hero.x, hero.z], ...othersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
       L.push([f.uid, KINDS.indexOf(f.kind), Math.round(f.x * 10), Math.round(f.z * 10), f.row, Math.max(0, Math.round(f.hp / f.max * 100)), (f.dead ? 1 : 0) | (f.atkT != null ? 2 : 0) | (f.t < 1 ? 4 : 0)]); }
     const dn = r => Math.min(...pos.map(([x, z]) => Math.max(Math.abs(r[2] / 10 - x), Math.abs(r[3] / 10 - z)))); return L.sort((a, b) => dn(a) - dn(b)); }
@@ -5403,6 +5435,8 @@ const NET = (() => {
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= 40) break; } return { gi: L, go: ow }; }
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
       e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut() };
+    if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
+    { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && othersInZone().length) { P.m = mobsOut(); P.mz = zk(); const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
@@ -5457,10 +5491,10 @@ const NET = (() => {
   function view(o) { let v = peers.get(o.peer); const pr = o.pr; if (!v) { v = { pl: true, x: pr.x, z: pr.y, dist: 0, as: pr.as, atkT: null, chI: pr.ch ? pr.ch.i : 0, chat: null, zone: pr.z }; peers.set(o.peer, v); }
     v.pr = pr; if (pr.as !== v.as) { v.as = pr.as; v.atkT = 0; v.atkV = pr.a; }
     if (pr.ch && pr.ch.i !== v.chI) { v.chI = pr.ch.i; let ct = String(pr.ch.t || '').slice(0, 80); const all = ct[0] === '!' && ct.length > 1; if (all) ct = ct.slice(1).trim(); v.chat = { t: ct, until: time + 5 }; const pm = !!(pr.pt && pr.pt === partyId), same = pr.z === zk();
-      if (all) say(`[전체] ${nmOf(pr)}: ${ct}`, '#ffd28a', 1); else if (pm) say(`[파티]${same ? '' : '(' + zoneTitle(pr.z) + ')'} ${nmOf(pr)}: ${ct}`, PCOL, 1); else if (same) say(`${nmOf(pr)}: ${ct}`, RCOL, 1); }
+      if (all) say(`[전체] ${nmOf(pr)}: ${ct}`, '#ffd28a', 1); else if (pm) say(`[파티]${same ? '' : '(' + zoneTitle(pr.z) + ')'} ${nmOf(pr)}: ${ct}`, PCOL, 1); else say(`${nmOf(pr)}${same ? '' : '(' + zoneTitle(pr.z) + ')'}: ${ct}`, RCOL, 1); }
     return v; }
   function tick(dt) { if (!room) return;
-    OTH = others(); const ids = new Set(OTH.map(o => o.peer));
+    OTH = others(); admFilter(); const ids = new Set(OTH.map(o => o.peer));
     for (const o of OTH) if (!known.has(o.peer)) { known.add(o.peer); seenHit.set(o.peer, maxSeq(o.pr.h)); spUsed.set(o.peer, o.pr.sp || 0); seenSu.set(o.peer, maxSeq(o.pr.su)); seenPk.set(o.peer, maxSeq(o.pr.pk)); seenEf.set(o.peer, maxSeq(o.pr.ef)); seenInv.set(o.peer, o.pr.pi ? o.pr.pi.s : 0); seenAns.set(o.peer, o.pr.pa ? o.pr.pa.id + ':' + o.pr.pa.s : ''); if (ready) { const nm = nmOf(o.pr), back = (goneAt.get(nm) || 0) > Date.now() - 60000; if (!initDone && performance.now() - roomAt < 4000) initL.push(nm); else if (back) say(`[접속] ${nm}님이 다시 연결되었습니다.`, '#9c9682'); else announce(`${nm}님이 접속했습니다. (${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1})`, PCOL); } }
     for (const k of [...known]) if (!ids.has(k)) { known.delete(k); const v = peers.get(k); if (v && v.pr) goneAt.set(nmOf(v.pr), Date.now()); say(`[접속 종료] ${v && v.pr ? nmOf(v.pr) : '다른 플레이어'}님이 나갔습니다.`, '#9c9682'); peers.delete(k); proxies.delete(k); seenHit.delete(k); delete toRemote[k]; delete rwOut[k]; delete gvOut[k]; }
     SESS.scan(OTH); if (SESS.kicked()) return;
@@ -5475,6 +5509,7 @@ const NET = (() => {
     else { const h = hostData(); hostCache = h; if (h) { wasGuest = true; applyHost(h); } else if (wasGuest) { wasGuest = false; GROUND.adoptShared(); } }
     if (hero.atk && hero.atk !== lastAtk) { atkSeq++; myAct = performance.now(); } lastAtk = hero.atk;
     uiT -= dt; if (uiT <= 0) { uiT = 0.25; renderParty(); }
+    if (ADMIN.on() && myPeer && (!admTok || admTok.p !== myPeer) && !admBusy) { admBusy = true; const t = Date.now(), p = myPeer; ADMIN.sign(`adm|${p}|${t}`).then(s => { admTok = { t, s, p }; admBusy = false; sendT = 0; }).catch(() => { admBusy = false; }); }
     sendT -= dt; if (sendT <= 0) { sendT = 0.1; try { room.presence(payload()).catch(() => {}); } catch (e) {} } }
   // ----- 파티 창 (화면 왼쪽): 파티원 HP·MP
   const myBuffs = () => { const o = {}; let n = 0; for (const k in BUFF) if (BUFF[k] > 0 && BUFF_DEF[k]) { o[k] = Math.ceil(BUFF[k]); n++; } return n ? o : null; };
@@ -5508,7 +5543,107 @@ const NET = (() => {
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
     guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
-    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t) { anSeq++; anText = String(t).slice(0, 90); anL.push([anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH };
+    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t) { anSeq++; anText = String(t).slice(0, 90); anL.push([anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, admRespond, poke: () => { sendT = 0; } };
+})();
+// ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
+// 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지
+// 명령은 운영자 키로 서명해서 보내고, 받는 쪽은 게임에 들어 있는 공개 키로 확인한 뒤에만 실행 (다른 사람이 운영자인 척할 수 없음)
+const ADMIN = (() => {
+  const ADMC = '#ff86e0', $ = id => document.getElementById(id), enc = new TextEncoder();
+  let on = false, priv = null, seq = Date.now(), sel = null, uiT = 0; const out = [], insp = new Map(), acks = [];
+  const K = () => window.ADEN_ADMIN;
+  const mine = () => { const k = K(); try { return !!(k && k.acc && k.jwk && String(ACCOUNT.acc() || '').toLowerCase() === String(k.acc).toLowerCase()); } catch (e) { return false; } };
+  async function sign(msg) { return b64u(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, priv, enc.encode(msg))); }
+  async function tryOn() { if (on || !mine() || !(window.crypto && crypto.subtle)) return false;
+    try { priv = await crypto.subtle.importKey('jwk', K().jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']); if (!(await admVerify('adm-test', await sign('adm-test')))) throw new Error('key'); }
+    catch (e) { priv = null; say('운영자 키가 이 게임 버전과 맞지 않아요. (운영자 모드 꺼짐)', '#f08a7a'); return false; }
+    on = true; BUFF.invis = Math.max(BUFF.invis || 0, 5); build(); say('***** 운영자 모드가 켜졌습니다. 다른 유저와 몬스터에게 보이지 않아요. (상단 [운영자] 버튼) *****', ADMC);
+    try { window.__godBtn && window.__godBtn(); } catch (e) {} return true; }
+  async function send(to, cmd, args) { if (!on) return false; const me = NET.me(); if (!me) { say('아직 월드에 연결되지 않았어요.', '#f08a7a'); return false; }
+    seq = Math.max(seq + 1, Date.now()); const sq = seq, t = Date.now(), a = JSON.stringify(args || {}); const sig = await sign(`${sq}|${t}|${to}|${cmd}|${a}|${me}`);
+    out.push([sq, t, to, cmd, a, sig]); if (out.length > 6) out.shift(); NET.poke(); return true; }
+  // ---------- 받는 쪽(일반 유저): 서명 확인이 끝난 명령만 여기로 옴
+  function respond(to, sq, cmd, data) { NET.admRespond(to, sq, cmd, data); }
+  function inspData() { const st = INV.stat(), eq = INV.bag().filter(e => e.on).map(e => [e.id, e.en || 0, e.blessed ? 1 : 0]); let bag = INV.bag().filter(e => !e.on).map(e => [e.id, e.n, e.en || 0, e.blessed ? 1 : 0]);
+    const D = { n: PNAME(), c: CLASS, lv: hero.lv, ex: +(hero.exp / Math.max(1, needExp(hero.lv)) * 100).toFixed(1), hp: [Math.ceil(hero.hp), hero.max], mp: [Math.floor(hero.mp), hero.maxmp], ac: INV.ac(), mr: mrTotal(),
+      st: { str: st.str, dex: st.dex, con: st.con, int: st.int, wis: st.wis, cha: st.cha }, bp: hero.bonusPts | 0, g: Math.floor(coins), z: zoneTitle(), w: Math.round((INV.wPct ? INV.wPct() : 0) * 100), eq, bag };
+    while (JSON.stringify(D).length > 1800 && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
+  function setLv(L) { L = Math.max(1, Math.min(99, L | 0)); const CD = CLS_DEF[CLASS]; let bh = CD.hp, bm = CD.mp, sd = L * 977 + 13; const R0 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+    for (let l = 2; l <= L; l++) { bh += CD.hpLv[0] + Math.floor(R0() * (CD.hpLv[1] - CD.hpLv[0] + 1)); bm += CD.mpLv[0] + Math.floor(R0() * (CD.mpLv[1] - CD.mpLv[0] + 1)); }
+    hero.lv = L; hero.exp = 0; hero.baseHP = bh; hero.baseMP = bm; INV.setLevelPts(Math.floor(L / 5)); INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; return L; }
+  function goTo(z, x, y) { if (z === 'town') { TOWN.goTown(); setTimeout(() => TOWN.placeAt(x + 1, y), 250); return true; } const m = /^isle(\d+)$/.exec(z || ''); if (m) { TOWN.toZone(+m[1], x + 1, y); return true; } return false; }
+  const zkey = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
+  function apply(cmd, a, from, sq) { let A = {}; try { A = JSON.parse(a || '{}') || {}; } catch (e) {} const ok = m => respond(from, sq, cmd, { ok: 1, m }), no = m => respond(from, sq, cmd, { ok: 0, m });
+    switch (cmd) {
+      case 'insp': respond(from, sq, 'insp', inspData()); return;
+      case 'notice': announce(`[운영자] ${String(A.t || '').slice(0, 80)}`, ADMC); return;
+      case 'msg': say(`[운영자 → ${PNAME()}] ${String(A.t || '').slice(0, 80)}`, ADMC, 1); ok('메시지 전달'); return;
+      case 'give': { const d = ITEMS[A.id]; if (!d) return no('없는 아이템'); const n = Math.max(1, Math.min(d.stack ? 99999 : 20, A.n | 0 || 1));
+        if (d.stack) INV.add(A.id, n, true); else for (let k = 0; k < n; k++) { INV.add(A.id, 1, true); const e = INV.bag().filter(x => x.id === A.id && !x.on).pop(); if (e) { if (A.en) e.en = Math.max(-7, Math.min(15, A.en | 0)); if (A.bl) e.blessed = true; } }
+        INV.render(); say(`[운영자] ${A.en ? '+' + A.en + ' ' : ''}${d.name} ×${n}을(를) 받았습니다.`, ADMC); ok(`${d.name} ×${n} 지급`); break; }
+      case 'take': { const d = ITEMS[A.id]; if (!d) return no('없는 아이템'); let n = Math.max(1, A.n | 0 || 1), got = 0;
+        for (const e of INV.bag().filter(x => x.id === A.id && !x.on)) { if (n <= 0) break; if (d.stack) { const q = Math.min(n, e.n); e.n -= q; n -= q; got += q; if (e.n <= 0) INV.removeEntry(e); } else { INV.removeEntry(e); n--; got++; } }
+        INV.render(); if (got) say(`[운영자] ${d.name} ×${got}이(가) 회수되었습니다.`, ADMC); ok(`${d.name} ×${got} 회수`); break; }
+      case 'gold': { const v = Math.floor(+A.v || 0), was = Math.floor(coins); coins = Math.max(0, A.op === 'set' ? v : coins + v); INV.render(); say(`[운영자] 골드 ${was.toLocaleString()} → ${Math.floor(coins).toLocaleString()}`, ADMC); ok(`골드 ${Math.floor(coins).toLocaleString()}`); break; }
+      case 'lv': { const L = setLv(A.lv); say(`[운영자] 레벨이 ${L}(으)로 바뀌었습니다.`, ADMC); ok(`레벨 ${L}`); break; }
+      case 'heal': if (hero.hp <= 0) return no('쓰러진 상태'); hero.hp = hero.max; hero.mp = hero.maxmp; say('[운영자] 체력·마나가 가득 찼습니다.', ADMC); ok('회복'); break;
+      case 'town': TOWN.goTown(); say('[운영자] 마을로 이동되었습니다.', ADMC); ok('마을로 보냄'); break;
+      case 'pull': if (!goTo(A.z, +A.x || 0, +A.y || 0)) return no('이동할 수 없는 곳'); say('[운영자] 운영자에게 불려 왔습니다.', ADMC); ok('불러옴'); break;
+      case 'save': ok('저장'); break;
+      case 'kick': ok('추방'); (async () => { try { await SAVE.now(true, true); } catch (e) {} SESS.kick('admin'); })(); return;
+      default: return; }
+    try { SAVE.now(false, true); } catch (e) {} }
+  // ---------- 운영자 쪽: 응답 받기
+  function onResp(peer, cmd, data, nm) { if (cmd === 'insp') { insp.set(peer, { at: Date.now(), d: data }); if (sel === peer) drawDet(); return; } acks.unshift(`${nm}: ${data && data.m || cmd} ${data && data.ok ? '✔' : '✖'}`); if (acks.length > 6) acks.pop(); say(`[운영자] ${nm} — ${data && data.m || cmd}${data && data.ok ? '' : ' (실패)'}`, ADMC); drawDet(); }
+  // ---------- 창
+  const CLS_N = { knight: '기사', elf: '요정', wizard: '마법사' };
+  const zoneName = z => { try { return zoneTitle(z); } catch (e) { return z || '-'; } };
+  const nmOf = id => ITEMS[id] ? ITEMS[id].name : id;
+  function build() { if ($('admwin')) return; const tb = document.querySelector('.topbar'); if (tb) { const b = document.createElement('button'); b.type = 'button'; b.id = 'btn-adm'; b.textContent = '운영자'; b.style.cssText = 'color:#ffb8ee;border-color:#a0507f'; b.onclick = () => { const w = $('admwin'); w.hidden = !w.hidden; drawList(); drawDet(); }; tb.appendChild(b); }
+    const st = document.createElement('style'); st.textContent = `#admwin{position:fixed;z-index:40;right:calc(16px + 1vw);top:calc(64px + env(safe-area-inset-top,0px));width:580px;max-width:calc(100vw - 24px);max-height:calc(100vh - 90px);overflow:auto;padding:10px 12px 12px;background:rgba(20,13,18,.97);border:1px solid #a0507f;border-radius:4px;color:#eadcc8;font:12px "Noto Sans KR",sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#admwin h4{margin:10px 0 4px;color:#ffb8ee;font-size:12px} #admwin .row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin:3px 0} #admwin input{background:#140d10;border:1px solid #6a3a58;color:#f2e6d8;height:22px;padding:0 5px;font:inherit;min-width:0}
+#admwin button{background:#3a1f30;border:1px solid #8a4a70;color:#f6dcea;font:inherit;padding:2px 7px;border-radius:2px;cursor:pointer} #admwin button:hover{background:#55304a} #admwin table{width:100%;border-collapse:collapse} #admwin td{padding:3px 4px;border-bottom:1px solid #3a2632;vertical-align:middle}
+#admwin tr.sel td{background:#3a2032} #admwin .muted{color:#a8948a} #admwin .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 10px} #admwin .it{display:inline-block;margin:1px 6px 1px 0} #admwin .x{position:absolute;right:8px;top:6px}`;
+    document.head.appendChild(st);
+    const w = document.createElement('div'); w.id = 'admwin'; w.hidden = true; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', '운영자');
+    w.innerHTML = `<b style="color:#ffb8ee;font-size:13px">운영자</b> <span class="muted">· 숨김 중 (다른 유저·몬스터에게 안 보임)</span><button type="button" class="x" id="adm-x">닫기</button>
+      <h4>전체 공지</h4><div class="row"><input id="adm-nt" style="flex:1" maxlength="80" placeholder="모든 접속자 화면에 공지"><button type="button" id="adm-nts">보내기</button></div>
+      <h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><datalist id="adm-items"></datalist>`;
+    document.body.appendChild(w);
+    $('adm-x').onclick = () => { w.hidden = true; }; w.addEventListener('keydown', ev => ev.stopPropagation());
+    $('adm-nts').onclick = () => { const t = $('adm-nt').value.trim(); if (!t) return; send('*', 'notice', { t }); announce(`[운영자] ${t}`, ADMC); $('adm-nt').value = ''; };
+    $('adm-items').innerHTML = Object.keys(ITEMS).filter(id => !ITEMS[id].hidden).sort((a, b) => ITEMS[a].name.localeCompare(ITEMS[b].name, 'ko')).map(id => `<option value="${ITEMS[id].name.replace(/"/g, '')}">`).join('');
+    $('adm-list').onclick = ev => { const b = ev.target.closest('button[data-a]'), tr = ev.target.closest('tr[data-p]'); if (!tr) return; const peer = tr.dataset.p, o = NET.others().find(q => q.peer === peer); if (!o) return;
+      if (!b || b.dataset.a === 'insp') { sel = peer; send(peer, 'insp'); drawList(); drawDet(); return; }
+      if (b.dataset.a === 'go') { if (goTo(o.pr.z, +o.pr.x || 0, +o.pr.y || 0)) say(`[운영자] ${o.pr.n}님 옆으로 이동했습니다.`, ADMC); else say('그 위치로는 이동할 수 없어요.', '#f08a7a'); }
+      if (b.dataset.a === 'pull') send(peer, 'pull', { z: zkey(), x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) }); }; }
+  function drawList() { const w = $('admwin'); if (!w || w.hidden) return; const L = NET.others(); $('adm-cnt').textContent = `${L.length}명`;
+    $('adm-list').innerHTML = L.length ? L.map(o => { const pr = o.pr, hp = pr.hm ? Math.round((pr.hp || 0) / pr.hm * 100) : 0; return `<tr data-p="${o.peer}" class="${o.peer === sel ? 'sel' : ''}"><td><b>${String(pr.n || '?').replace(/</g, '')}</b> <span class="muted">${CLS_N[pr.c] || ''} Lv.${pr.lv || 1}</span></td><td class="muted">${zoneName(pr.z)}</td><td>${hp}%</td><td style="text-align:right;white-space:nowrap"><button type="button" data-a="insp">살펴보기</button> <button type="button" data-a="go">가기</button> <button type="button" data-a="pull">부르기</button></td></tr>`; }).join('') : '<tr><td class="muted">지금 접속한 다른 유저가 없어요.</td></tr>'; }
+  const KEEP = ['adm-it', 'adm-in', 'adm-ie', 'adm-g', 'adm-l', 'adm-m'];
+  function drawDet() { const box = $('adm-det'); if (!box) return; const kept = {}; for (const k of KEEP) { const el = $(k); if (el) kept[k] = el.value; } const kb = $('adm-ib') && $('adm-ib').checked, foc = document.activeElement && document.activeElement.id; const o = sel && NET.others().find(q => q.peer === sel); if (!o) { box.innerHTML = ''; return; } const I = insp.get(sel), D = I && I.d;
+    const info = D ? `<div class="grid"><span>레벨 <b>${D.lv}</b> (${D.ex}%)</span><span>HP <b>${D.hp[0]}/${D.hp[1]}</b></span><span>MP <b>${D.mp[0]}/${D.mp[1]}</b></span><span>AC <b>${D.ac}</b></span><span>MR <b>${D.mr}</b></span><span>골드 <b>${(D.g || 0).toLocaleString()}</b></span>
+      <span>힘 ${D.st.str} · 민첩 ${D.st.dex}</span><span>체력 ${D.st.con} · 지능 ${D.st.int}</span><span>지혜 ${D.st.wis} · 매력 ${D.st.cha}</span><span>보너스 ${D.bp}</span><span>무게 ${D.w}%</span><span class="muted">${D.z}</span></div>
+      <div style="margin-top:4px"><b>착용</b> ${D.eq.map(([id, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}</span>`).join('') || '<span class="muted">없음</span>'}</div>
+      <div style="margin-top:3px"><b>가방</b> ${D.bag.map(([id, n, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}${n > 1 ? ' ×' + n : ''}</span>`).join('') || '<span class="muted">비어 있음</span>'}${D.more ? ` <span class="muted">외 ${D.more}개</span>` : ''}</div>
+      <div class="muted" style="margin-top:2px">${Math.round((Date.now() - I.at) / 1000)}초 전 정보 · <button type="button" id="adm-re">새로고침</button></div>` : '<div class="muted">정보를 받는 중… (상대가 접속 중이어야 해요)</div>';
+    box.innerHTML = `<h4>${String(o.pr.n || '').replace(/</g, '')} 살펴보기</h4>${info}
+      <h4>관리</h4>
+      <div class="row">아이템 <input id="adm-it" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-in" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-ie" type="number" value="0" style="width:44px"> <label><input id="adm-ib" type="checkbox"> 축복</label> <button type="button" data-c="give">지급</button><button type="button" data-c="take">회수</button></div>
+      <div class="row">골드 <input id="adm-g" type="number" style="width:110px" placeholder="금액"> <button type="button" data-c="gadd">지급</button><button type="button" data-c="gsub">회수</button><button type="button" data-c="gset">이 금액으로</button> &nbsp; 레벨 <input id="adm-l" type="number" style="width:50px" min="1" max="99"> <button type="button" data-c="lv">설정</button></div>
+      <div class="row"><button type="button" data-c="heal">HP·MP 회복</button><button type="button" data-c="town">마을로 보내기</button><button type="button" data-c="save">저장시키기</button><button type="button" data-c="kick" style="border-color:#c05050;color:#ffb0a8">추방</button></div>
+      <div class="row">메시지 <input id="adm-m" style="flex:1" maxlength="80" placeholder="이 유저에게만 보이는 운영자 메시지"> <button type="button" data-c="msg">보내기</button></div>
+      ${acks.length ? `<div class="muted">${acks.slice(0, 3).join(' · ')}</div>` : ''}`;
+    for (const k in kept) { const el = $(k); if (el) el.value = kept[k]; } if ($('adm-ib')) $('adm-ib').checked = !!kb; if (foc && $(foc)) $(foc).focus();
+    const re = $('adm-re'); if (re) re.onclick = () => send(sel, 'insp');
+    box.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => { const c = b.dataset.c, idOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === nm.trim() && !ITEMS[k].hidden);
+      if (c === 'give' || c === 'take') { const id = idOf($('adm-it').value || ''); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } send(sel, c, { id, n: Math.max(1, +$('adm-in').value | 0), en: +$('adm-ie').value | 0, bl: $('adm-ib').checked ? 1 : 0 }); }
+      else if (c === 'gadd' || c === 'gsub' || c === 'gset') { const v = Math.floor(+$('adm-g').value || 0); if (!v && c !== 'gset') return; send(sel, 'gold', c === 'gset' ? { op: 'set', v } : { op: 'add', v: c === 'gsub' ? -Math.abs(v) : Math.abs(v) }); }
+      else if (c === 'lv') { const L = +$('adm-l').value | 0; if (L >= 1) send(sel, 'lv', { lv: L }); }
+      else if (c === 'msg') { const t = $('adm-m').value.trim(); if (t) { send(sel, 'msg', { t }); $('adm-m').value = ''; } }
+      else if (c === 'kick') INV.askYesNo(`${o.pr.n}님을 추방할까요?`, '진행 상황을 저장한 뒤 접속을 끊어요.', () => send(sel, 'kick'));
+      else send(sel, c); }); }
+  function tick(dt) { if (!on) return; BUFF.invis = Math.max(BUFF.invis || 0, 5); if ((uiT -= dt) <= 0) { uiT = 1; drawList(); } }
+  return { on: () => on, pending: () => !on && mine(), tryOn, sign, out: () => out, apply, onResp, tick, send };
 })();
 // ============================================================ 교환 (마을에서 다른 유저 클릭 → 교환 신청 → 수락하면 양쪽에 교환창)
 // 각자 아이템·골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?" 한 번 더 → 둘 다 '예'면 서로 주고받음
@@ -5626,6 +5761,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 128, items: ['아이템 상세 창에서 바로 강화할 수 있어요. [강화]를 누르면 가지고 있는 그 장비용 주문서(일반·축복·저주)가 나오고, 골라서 누르면 강화돼요. (현재 수치 · 안전 강화 · 다음 성공 확률 표시 · 안전 강화를 넘으면 "강화하시겠습니까?"를 한 번 더 물어요)', '민첩의 [회피 ER]이 실제로 작동해요. 몬스터의 화살(원거리 물리 공격)을 ER %만큼 피해요. (민첩 ÷ 3 · 최대 30% · 마법은 해당 없음 · 이전엔 캐릭터 창에 숫자만 나오던 문제 수정)', '후반 보스가 강해졌어요. 카스파 패밀리 · 데스나이트 · 얼음여왕은 HP 2배 · 공격(근접·마법·범위 기술) 1.3배로, 2명 이상이 함께 잡도록 바뀌었어요. 대신 경험치·골드도 2배라 둘이 나눠도 이전만큼 받아요. (감시자 리퍼·영혼석으로 부른 보스도 같음 · 이름 옆에 [2인 이상] 표시 · 바포메트까지는 지금처럼 혼자 잡을 수 있어요)', '영혼석으로 부른 보스가 다른 사람이 가까이 오면 모습이 사라지던 문제를 고쳤어요. 이제 제단에 있는 모두에게 보이고, 쓰러뜨리면 보스와 똑같이 전리품을 떨어뜨려요. (불러낸 사람이 떠나도 60분 동안 남음 · 쓰러뜨리면 전체 공지)', '일반 채팅이 파티·위치와 상관없이 접속한 모두에게 보여요. (다른 지역 사람이면 이름 옆에 지역 표시)', '체력이 HP 회복량을 올려요. 전투 밖 HP 회복이 체력 12를 넘는 1포인트당 초당 +0.08 늘어요. (예: 체력 18 → 초당 +0.48 · 이전엔 툴팁과 달리 레벨로만 계산되던 문제 수정)'] },
     { v: 127, items: ['같은 이름의 아이템이 둘씩 있던 것을 정리했어요. 데스나이트의 불검·투구·갑옷·장갑·장화는 데스나이트만 떨어뜨리는 하나로 합쳤어요. (영웅 · 기사 Lv35 · 4부위 세트 효과 그대로 · 가지고 있던 것은 강화·축복·속성 그대로 자동으로 바뀜 · 드랍률은 장비마다 3~5%) 희귀 Lv20 [얼음 여왕의 지팡이]는 [서리 지팡이]로 이름이 바뀌었어요.', '아이템 밸런스: 얼음여왕의 지팡이(얼음여왕 전용) → 마법사 Lv45 · 공격 11~29 · SP +5 · MR +5 · 냉기 마법 피해 +15%. 군주의 반지 → HP +40 · MR +10 추가. 설원의 망토 → Lv45 · AC 4 · MR 10 · 물 저항 +20. 축복 부여 주문서는 희귀 등급으로. 장신구 마법 주문서 되팔기 가격 250 골드.', '진화한 펫이 [전투견] 모습이 됐어요. 징 박힌 가죽 목걸이 · 등 가죽 마구 · 어깨 철판을 두르고 대기·걷기·공격 모두 그 모습으로 움직여요.', '특별상점 주문서 교환 칸에 [최소] 버튼이 생겼어요. (1개로)', '아이템 도감에서 무기(한손검·활·지팡이·단검) · 방어구(투구·갑옷·티셔츠·망토·장갑·장화·방패) · 장신구(목걸이·반지·벨트)를 부위별로 나눠 볼 수 있어요.', '광폭화한 보스는 몸 둘레에 붉은 테두리 오로라가 일렁여요.', '감시자 리퍼는 불러낸 사람이 화면 밖으로 가거나 · 쓰러지거나 · 다른 맵으로 가도 잡히기 전까지 20분 동안 그 자리에 남아요. 같은 월드의 다른 사람이 찾아가도 보여요. (이전엔 불러낸 사람 화면에만 보이던 문제 수정)', '감시자 리퍼가 쓰러지면 누가 어디서 잡았는지 전체 공지가 떠요.', '감시자 리퍼는 내 레벨보다 10 이상 낮은 몬스터에서는 나오지 않아요. (높은 레벨이 초보 사냥터를 빠르게 쓸어 영혼석을 모으던 것 막기)', '창고에 골드도 맡길 수 있어요. 창고 아래 칸에 금액을 적고 [맡기기]·[찾기] (비워 두면 전부) · 계정 공유라 다른 캐릭터로도 찾을 수 있어요.'] },
     { v: 126, items: ['진화한 펫의 왕관과 금빛 효과를 없앴어요. (징 박힌 목걸이·가죽 마구·어깨 철판을 두른 [전투견] 모습은 다음 업데이트에 들어가요)', '커츠의 검의 번개 이펙트가 노란색으로 바뀌었어요.', '[감시자 리퍼]가 나타나요. 사냥터(각 지역 1·2구간)에서 몬스터를 쓰러뜨리면 0.1% 확률로 감시자 리퍼로 되살아나요. 이름은 감시자 리퍼지만 모습과 능력치는 그 지역 보스와 같아요(이야기섬=셸로브 · 사막=여왕개미 · 오크숲=오우거 · 버그베어밭=바포메트 · 본토던전 1층=카스파 패밀리 중 하나 · 2층=데스나이트 · 오렌설원=얼음여왕). 나타나면 전체 공지가 뜨고, 20분 안에 잡지 못하면 사라져요. 쓰러뜨리면 다른 아이템·골드 없이 [영혼석: 보스 이름]만 100% 떨어져요.', '[소환의 제단]이 생겼어요. (월드맵) 제단 가까이에서 영혼석을 쓰면 [영혼석: 보스 이름] 보스가 나타나요. 원래 보스와 같은 능력치·드랍이고, 한 번에 한 마리만 불러낼 수 있어요. (보스 등장 시간표에는 영향 없음)', '오렌설원지역이 본토던전보다 경험치·골드 효율이 낮던 문제를 고쳤어요. 1구역(엘모어 군단): 경험치 +30% · 골드 +50%. 2구역: 에틴·아이스 골렘·샤벨타이거의 방어와 체력을 낮추고(아이스 골렘 방어 -3 → 1 · 얼림 확률 절반) 경험치 약 +50% · 골드 약 +100%.', '버프칸의 초록·용기·마나 회복 물약과 양초 아이콘 오른쪽 아래에 가방에 남은 개수가 작게 표시돼요. (0개면 빨간색)', '모든 보스에 [광폭화]가 생겼어요. 보스의 HP가 30~50%(나올 때마다 무작위) 아래로 떨어지면 광폭화해서 공격 속도 +50% · 모든 공격 피해 +20%가 돼요. 붉은 기운이 일렁이고 몸이 붉게 깜빡이며, 채팅창에 알림이 떠요.', '화면 위 메뉴에 [아이템 도감]이 생겼어요. 게임 안의 모든 아이템을 분류(무기·방어구·장신구·물약·주문서·기타)별로 그림 · 등급 · 직업·레벨 · 능력치 · 얻는 곳까지 볼 수 있고, 이름·옵션·얻는 곳으로 찾을 수 있어요.', '마법상점이 [특별상점](특별상인 엘리스)으로 바뀌었어요. 장신구 마법 주문서(10,000 골드) · 장신구 변경 주문서 · 능력치 초기화 주문서 · 카운터 매직 주문서를 팔고, [주문서 교환]도 여기서 해요. 마나 회복 물약은 잡화상점에서, 반지·목걸이·벨트 같은 장신구는 장비상점 [장신구] 탭에서 사요.', '남는 데이·젤(무기·갑옷 마법 주문서) 소모처가 생겼어요. 특별상점 [주문서 교환] 탭: 데이·젤 섞어서 5장 → 장신구 마법 주문서 1장 · 데이 50장 또는 젤 50장 → [축복 주문서 주머니] 1개. 주머니를 열면 축복받은 무기·갑옷 마법 주문서, 축복 부여 주문서(각 30%), 축복받은 장신구 마법 주문서(10%, 전체 공지) 중 하나가 나와요. 축복받은 장신구 마법 주문서는 성공하면 +1~2(최대 +8)예요.', '연금술에 촉매를 넣을 수 있어요. 데이·젤을 함께 넣으면 성공 확률이 올라가요. (고급 → 희귀 5장당 +1%p, 최대 15% · 희귀 → 영웅 10장당 +1%p, 최대 6%) 촉매는 성공·실패와 상관없이 사라져요.'] },
     { v: 125, items: ['장신구 강화가 생겼어요. [장신구 마법 주문서]로 힘·민첩·지능·모든 능력치가 붙은 반지·목걸이를 강화할 수 있어요. 강화 1당 그 능력치 +1 (영웅 장신구는 모든 능력치 +1) · 방어와 다른 옵션은 그대로 · 최대 +8. 안전 강화가 없어 +1부터 실패하면 증발해요. (성공 확률 +1 90% · +2 80% · +3 70% · +4 50% · +5 40% · +6 30% · +7 20% · +8 10%) +7 이상은 전체 공지가 떠요. 주문서는 보스(거대 여왕개미·셸로브·오우거·바포메트 등)와 아르카의 마법주머니에서 나와요.', '스탯 장신구를 반지 2개 + 목걸이 1개로 통일했어요. 힘(힘의 반지·새 힘의 목걸이) · 민첩(민첩의 반지·민첩의 목걸이) · 지능(새 지식의 반지·지식의 목걸이). 힘의 벨트는 [용사의 벨트](HP +20)로, 거인의 벨트는 힘 +2 대신 HP +50으로 바뀌었어요.', '영웅 반지·목걸이(용의 반지·군주의 반지·용의 목걸이·신성한 목걸이)는 모두 [모든 능력치 +1]이 기본으로 붙어요.', '지능 밸런스: 지능이 26을 넘는 부분은 마법 보너스(SP)에 더 들어가지 않고 지능 자체로만 계산돼요. (지능 27부터 1당 마법 피해 약 +2% · 기사 힘·요정 민첩과 같은 성장) 마법 성공률·치명타 확률은 그대로 1당 +1%예요.', '마법 쿨타임이 공용이 됐어요. 마법을 하나 쓰면 그 마법의 쿨타임 동안 다른 마법도 쓸 수 없어요. (예: 이럽션을 쓰면 쿨타임이 끝날 때까지 선버스트도 대기) 단축키 칸의 마법들에 함께 쿨타임이 표시돼요. 기사 기술·요정 정령마법은 지금처럼 각자 쿨타임이에요.', '자동사냥 설정에서 물약 자동 구매 개수를 종류마다 따로 정할 수 있어요. (예: 빨간 물약 100 · 주홍 물약 50 · 맑은 물약 30, 0이면 안 삼) 가속 물약(초록·용기)도 마찬가지예요.', '상점 수량 칸 옆에 [고정] 체크가 생겼어요. 체크하면 상점을 언제 열어도 그 개수로 고정되고, [일괄 구매]를 누르면 가방에 부족한 만큼만 채워서 사요. (물약·주문서처럼 겹쳐지는 물건 · 캐릭터마다 기억)', '[장신구 변경 주문서]가 생겼어요. (잡화상점 장신구 탭 · 1장 100,000 골드) 다른 직업의 힘·민첩·지식 반지·목걸이에 쓰면 같은 부위의 내 직업 장신구로 바뀌어요. (기사=힘 · 요정=민첩 · 마법사=지식) 강화된 장신구도 바꿀 수 있고 강화 수치는 그대로예요.'] },
@@ -5799,7 +5935,7 @@ const ACCOUNT = (() => {
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
     const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
     if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
-    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살 없이도 쏠 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 가까이에서 때리고, 멀리서는 마법으로 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
@@ -6107,7 +6243,7 @@ function frame(now){
   holdTick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
+  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
