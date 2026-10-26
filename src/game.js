@@ -634,7 +634,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 132;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 133;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1664,7 +1664,7 @@ function iconImg(k, bl){ const key=k+(bl?'|b':''); if (ICONIMG[key]) return ICON
 const PH = 120; const log = [];
 let logScroll=0; const CHATRECT=[0,0,0,0];
 var HOLD_Q = false, heldSaid = new Map();   // v112: 누르고 있는 단축키의 같은 안내는 3초에 한 번만
-function say(t, c='#e8e2cc', ch=0){ if (HOLD_Q && heldSaid) { const n = performance.now(), p = heldSaid.get(t); if (p && n - p < 3000) return; heldSaid.set(t, n); if (heldSaid.size > 60) heldSaid.clear(); } log.push({t,c,ch}); if (log.length>20){ const nc=log.reduce((a,m)=>a+(m.ch?1:0),0); const k=nc>12?log.findIndex(m=>m.ch):log.findIndex(m=>!m.ch); log.splice(k<0?0:k,1); } if (logScroll>0) logScroll++; }
+function say(t, c='#e8e2cc', ch=0){ if (ch && window.__chatAdd) window.__chatAdd(t, c); if (HOLD_Q && heldSaid) { const n = performance.now(), p = heldSaid.get(t); if (p && n - p < 3000) return; heldSaid.set(t, n); if (heldSaid.size > 60) heldSaid.clear(); } log.push({t,c,ch}); if (log.length>20){ const nc=log.reduce((a,m)=>a+(m.ch?1:0),0); const k=nc>12?log.findIndex(m=>m.ch):log.findIndex(m=>!m.ch); log.splice(k<0?0:k,1); } if (logScroll>0) logScroll++; }
 // 지역 이름 (공지·접속자 목록용)
 function zoneTitle(z){ if (z==null) z = SCENE==='town' ? 'town' : ISLE ? 'isle'+ISLE.id : 'field'; if (z==='town') return '마을'; const m=/^isle(\d+)$/.exec(z); if (m){ const d=ISLAND.def(+m[1]); return d&&d.name||'사냥터'; } return '필드'; }
 // 관찰 기록기: PC 실행 파일에서만 동작 — 30초마다 상태 한 줄 + 일이 생길 때 한 줄(사망·보스·드랍·강화·연금술·구입·오류·끼임)을 logs/play-날짜.jsonl 에, 10분마다 게임 창 캡처
@@ -1787,7 +1787,7 @@ const MM = (() => { let on = true, op = 0.85, key = '', img = null, rect = [0, 0
   function click(lx, ly) { const [x0, yy, W_, H_] = rect; if (!W_ || lx < x0 - 6 || lx > x0 + W_ + 6 || ly < yy - 4 || ly > yy + H_ + 4) return false;
     const k = W_ / img.width, px = (lx - x0) / k, py = (ly - yy) / k - S / 2, a = px / S - N, b = 2 * py / S, i = Math.floor((a + b) / 2), j = Math.floor((b - a) / 2);
     if (i >= 0 && j >= 0 && i < N && j < N && walkable(i, j) && !(ISLE && ISLE.def.maze && !(ISLE.explored && ISLE.explored[j * N + i]))) { hero.target = null; moveGoal = [i, j]; holding = false; mark = { t: [i, j], life: 0.6 }; } return true; }
-  return { draw, click, on: () => on, op: () => op, setOn(v) { on = !!v; save(); }, setOp(v) { op = Math.max(0.2, Math.min(1, v)); save(); }, rebuild() { key = ''; } };
+  return { draw, click, rect: () => rect, on: () => on, op: () => op, setOn(v) { on = !!v; save(); }, setOp(v) { op = Math.max(0.2, Math.min(1, v)); save(); }, rebuild() { key = ''; } };
 })();
 function drawUI(g, vw, vh){
   const y0 = vh-PH, F='"Noto Sans KR",sans-serif';
@@ -1814,7 +1814,7 @@ function drawUI(g, vw, vh){
     g.textAlign='center'; { const t='자동사냥 '+(on?'켜짐':'꺼짐'); let fs=10; g.font='800 '+fs+'px '+F; while (fs>6.5&&g.measureText(t).width>tw-6){ fs-=0.5; g.font='800 '+fs+'px '+F; } g.fillStyle=on?'#f2d98a':'#cfc6ae'; g.fillText(t,8+tw/2,yb+12); } HUNTRECT.push([8,yb,tw,16,'toggle']);
     bevel(g,10+tw,yb,bw2-tw-2,16,'#26201b'); g.strokeStyle='#5a4a34'; g.strokeRect(10.5+tw,yb+0.5,bw2-tw-3,15); g.fillStyle='#cfc6ae'; g.font='700 10px '+F; g.fillText('설정',10+tw+(bw2-tw-2)/2,yb+12); HUNTRECT.push([10+tw,yb,bw2-tw-2,16,'set']);
     g.textAlign='left'; g.font='600 9px '+F; g.fillStyle=on?'#e8d8a8':'#7a7262'; g.fillText(AUTO.status(),10,top+56);
-    const yy=top+74; bevel(g,8,yy-12,L-16,15,'#26201b'); g.textAlign='left'; g.font='500 11px '+F; g.fillStyle='#a89e86'; g.fillText('골드',13,yy); g.textAlign='right'; g.fillStyle='#e8d080'; g.fillText(coins.toLocaleString(),L-13,yy); }
+    const yy=top+74; bevel(g,8,yy-12,L-16,15,'#26201b'); g.textAlign='left'; g.font='500 11px '+F; g.fillStyle='#a89e86'; g.fillText('골드',13,yy); g.textAlign='right'; g.fillStyle='#e8d080'; g.fillText(coins.toLocaleString(),L-13,yy); g.font='500 9px '+F; g.fillStyle='rgba(168,158,134,.62)'; g.fillText('v'+GAME_VER,L-12,yy+16); }
   // ── 가운데: HP/MP (크게) + 대화창
   const cx0=L+2, cw=vw-L-R-4, bw=Math.min(280, Math.floor(cw*0.42)), chX=cx0+bw+6, chW=cw-bw-6;
   ornate(g,cx0,top,bw,hgt);
@@ -5153,6 +5153,16 @@ window.LOOKPV = (() => { let row = 1, t0 = 0, raf = 0; const cvs = () => documen
   return { kick };
 })();
 
+// v133: 채팅 기록 창 — 미니맵 바로 옆 · 클릭이 통과(게임 조작 방해 없음) · 평소엔 흐리고 새 채팅이 오면 잠깐 진해짐 · 글씨는 아래 대화창과 같은 크기 · 최근 80줄 중 들어가는 만큼
+(() => { const L = [], MAX = 80, esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); let box = null, lastAt = -1e9;
+  const hm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  function build() { if (box) return; box = document.createElement('div'); box.id = 'chatlog'; box.setAttribute('aria-hidden', 'true'); document.body.appendChild(box); }
+  function draw() { if (!box) return; box.innerHTML = L.map(x => `<div style="color:${x.c}">${esc(x.t)}</div>`).join(''); }
+  function place() { if (!box) return; try { const r = cv.getBoundingClientRect(), z = curZ, mr = MM.rect(), fs = Math.round(11 * z * 10) / 10;
+      let x, y, h; if (MM.on() && mr && mr[3] > 0) { x = r.left + (mr[0] + mr[2] + 8) * z; y = r.top + mr[1] * z; h = mr[3] * z; } else { h = 150 * z; x = r.left + 10 * z; y = r.top + r.height - PH * z - 40 * z - h; }
+      Object.assign(box.style, { left: x + 'px', top: y + 'px', height: h + 'px', width: Math.max(160, Math.min(330 * z, r.left + r.width / 2 - x - 34 * z)) + 'px', fontSize: fs + 'px' }); } catch (e) {} }
+  window.__chatAdd = (t, c) => { if (!t) return; build(); L.push({ t, c: c || '#e8e2cc', tm: hm(new Date()) }); if (L.length > MAX) L.shift(); lastAt = performance.now(); box.hidden = false; box.classList.remove('idle'); draw(); place(); };
+  setInterval(() => { if (!box || box.hidden) return; place(); box.classList.toggle('idle', performance.now() - lastAt > 12000); }, 500); })();
 // ============================================================ 채팅: 채팅창 맨 아래 입력칸 (항상 열림) — 글자 키를 누르면 바로 입력, Enter로 보내기
 const CHAT = (() => {
   let inp = null;
@@ -5817,6 +5827,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 133, items: ['채팅 기록 창이 생겼어요. 미니맵 바로 옆에 일반·파티·전체 채팅만 따로 계속 남아서, 알림 메시지에 밀려 사라지지 않아요. (평소엔 흐리고 새 채팅이 오면 잠깐 진해짐 · 클릭은 그대로 게임으로 통과 · 글씨는 대화창과 같은 크기)', '왼쪽 아래 골드 표시 밑에 지금 게임 버전이 작게 표시돼요.'] },
     { v: 132, items: ['인벤토리를 [전체] · [장비] · [물약] · [주문서] 탭으로 나눠 볼 수 있어요. (탭 옆 숫자 = 그 종류 개수 · 탭에서도 끌어서 단축키 등록·창고·휴지통 그대로 가능)'] },
     { v: 131, items: ['쓰러지면 바로 마을로 가지 않고, 그 자리에 무덤이 생겨요. 쓰러진 동안은 채팅 말고는 아무것도 할 수 없고, 2분이 지나면 마을에서 부활해요. (경험치 5% · 골드 10% 손실 · HP·MP 50%)', '다른 사람이 부활 주문서를 쓰러진 사람에게 쓰면 "부활하시겠습니까?"가 떠요. [네]를 누르면 그 자리에서 HP·MP 50%로 부활해요. (경험치 손실 없음 · 골드 5%만 손실 · 주문서는 수락했을 때만 사용 · 무덤을 누르거나 근처에서 주문서를 쓰면 돼요)'] },
     { v: 130, items: ['마법·기술·아이템 정보 말풍선이 화면에 그대로 남아 있던 문제를 고쳤어요. (창을 닫거나 목록이 바뀌어도 바로 사라짐)', '사냥터의 감시자 리퍼가 가끔 [영혼석 보스]로 잘못 바뀌던 문제를 고쳤어요. (리퍼인데 이름이 영혼석으로 나오고 · 보스 전리품을 떨어뜨리고 · "소환의 제단에서 쓰러뜨렸다"고 공지되던 것) 이제 리퍼는 항상 리퍼로 나오고 영혼석만 떨어뜨려요.'] },
