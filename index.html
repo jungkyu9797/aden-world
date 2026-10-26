@@ -713,7 +713,7 @@ body.title-on .fullscr{background:transparent}
   <label class="hw-row"><input type="checkbox" data-k="buy"> 물약 자동 구매 <small>(종류마다 그 개수까지 채워요 · 0이면 안 삼)</small></label>
   <div class="hw-row hw-q hw-buyq"><label class="hw-qi" style="--c:#ff7a6a">빨간 물약 (25) <input type="number" min="0" max="500" data-bq="red_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#ffaa55">주홍 물약 (100) <input type="number" min="0" max="500" data-bq="orange_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#e8eef2">맑은 물약 (300) <input type="number" min="0" max="500" data-bq="clear_potion" class="hw-n">개</label></div>
   <label class="hw-row"><input type="checkbox" data-k="buyHaste"> 가속 물약 자동 구매 <small>(종류마다 그 개수까지)</small></label>
-  <div class="hw-row hw-q hw-hasteq"><label class="hw-qi" style="--c:#7ad87a">초록 물약 (200) <input type="number" min="0" max="100" data-hq="green_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#c890e8">용기의 물약 (500) <input type="number" min="0" max="100" data-hq="brave_potion" class="hw-n">개</label></div>
+  <div class="hw-row hw-q hw-hasteq"><label class="hw-qi" style="--c:#7ad87a">초록 물약 (200) <input type="number" min="0" max="100" data-hq="green_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#c890e8">용기의 물약 (500) <input type="number" min="0" max="100" data-hq="brave_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#7ab0ff" title="마나 회복 물약">파란 물약 (120) <input type="number" min="0" max="100" data-hq="mana_potion" class="hw-n">개</label></div>
   <label class="aw-pct">HP <input type="range" min="30" max="100" step="5" data-k="backHp"> <b data-v="backHp"></b> 회복되면 사냥터로 복귀</label>
   <label class="hw-row"><input type="checkbox" data-k="deathBack"> 사망 후 자동 복귀</label></div>
  <div class="hw-sec"><b>사냥</b>
@@ -722,7 +722,7 @@ body.title-on .fullscr{background:transparent}
   <label class="hw-row"><input type="checkbox" data-k="aggrFirst"> 나를 공격하는 몬스터 먼저</label>
   <label class="hw-row"><input type="checkbox" data-k="healFirst"> 힐 마법 먼저 <small>(자동 물약 기준보다 HP 10% 높을 때 MP로 회복)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="noBoss"> 보스 몬스터는 공격 안 함</label>
-  <div class="hw-row">가속 물약 자동 사용 <label class="chip"><input type="checkbox" data-buff="green_potion"> 초록 물약</label><label class="chip"><input type="checkbox" data-buff="brave_potion"> 용기의 물약</label></div>
+  <div class="hw-row">가속 물약 자동 사용 <label class="chip"><input type="checkbox" data-buff="green_potion"> 초록 물약</label><label class="chip"><input type="checkbox" data-buff="brave_potion"> 용기의 물약</label><label class="chip" title="마나 회복 물약"><input type="checkbox" data-buff="mana_potion"> 파란 물약</label></div>
   <label class="hw-row"><input type="checkbox" data-k="mute"> 자동사냥 중엔 배경음악·효과음 끄기 <small>(끝나면 다시 켜짐)</small></label></div>
  <div class="hw-sec"><b>아이템 줍기</b>
   <label class="hw-row"><input type="checkbox" data-k="loot"> 떨어진 아이템 자동으로 줍기 <small>(아래에서 체크한 것만)</small></label>

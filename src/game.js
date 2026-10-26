@@ -396,7 +396,7 @@ function drawAltar(g, A, part) { const [x, y] = W2P(A.i + 0.5, A.j + 0.5), pu = 
   const cy = top - 22 - 4 * Math.sin(time * 1.8); g.globalCompositeOperation = 'lighter'; const gl = g.createRadialGradient(x, cy, 2, x, cy, 26); gl.addColorStop(0, `rgba(210,150,255,${0.7 + 0.2 * pu})`); gl.addColorStop(1, 'rgba(120,40,220,0)'); g.fillStyle = gl; g.beginPath(); g.arc(x, cy, 26, 0, 7); g.fill(); g.globalCompositeOperation = 'source-over';
   g.fillStyle = '#9a5aff'; g.strokeStyle = '#2a0e4a'; g.beginPath(); g.moveTo(x, cy - 12); g.lineTo(x + 7, cy); g.lineTo(x, cy + 12); g.lineTo(x - 7, cy); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#e8d0ff'; g.beginPath(); g.moveTo(x, cy - 12); g.lineTo(x + 7, cy); g.lineTo(x, cy - 1); g.lineTo(x - 7, cy); g.closePath(); g.fill(); g.restore(); }
 // v126: 감시자 리퍼 — 사냥터 잡몹이 쓰러질 때 0.1%로 그 지역 보스의 모습·능력치로 되살아남 (20분) · 잡으면 영혼석만 100%
-const REAPER_P = 0.0003, REAPER_LIFE = 1200, REAPER_GAP = 10, REAPER_OF = { 1: 'shelob', 2: 'shelob', 3: 'queen_ant', 4: 'queen_ant', 5: 'ogre', 6: 'ogre', 7: 'baphomet', 8: 'baphomet', 9: ['kaspar', 'merkyor', 'balthazar', 'sema'], 10: 'deathknight', 11: 'ice_queen', 12: 'ice_queen' };
+const REAPER_P = 0.0003, REAPER_LIFE = 1200, REAPER_GAP = 10, REAPER_OF = { 2: 'shelob', 4: 'queen_ant', 6: 'ogre', 8: 'baphomet', 9: ['kaspar', 'merkyor', 'balthazar', 'sema'], 10: 'deathknight', 12: 'ice_queen' };   // v142: 1구간·1구역에서는 안 나옴 (2구간·2구역만 · 본토던전은 1층 카스파 패밀리·2층 데스나이트 그대로)
 // v127: 리퍼 기록 — 불러낸 사람이 떠나거나 죽어도, 지역 호스트가 바뀌어도 잡히기 전까지(최대 20분) 그 자리에 남음. 같은 월드 사람들끼리 기록을 주고받음
 const REAPERS = new Map(), RP_UID0 = 95000, SOUL_UID0 = 98000, isRpUid = u => u >= RP_UID0 && u < RP_UID0 + 5000, isSoulUid = u => u >= SOUL_UID0 && u < SOUL_UID0 + 2000, SOUL_LIFE = 3600, SOUL_Z = 13, isSoulRec = (u, z) => isSoulUid(u) && z === SOUL_Z, rpLive = r => !!r && !r.dead && !r.gone && Date.now() < r.until;
 const rpOf = f => f && (f.rp || (f.uid != null ? REAPERS.get(f.uid) : null)) || null, rpLeft = f => { const r = rpOf(f); return r ? Math.max(0, Math.ceil((r.until - Date.now()) / 60000)) : 20; };
@@ -419,7 +419,7 @@ function reaperDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Dat
   const msg = `${who}님이 ${zoneTitle()}의 [감시자 리퍼](${S.name}의 모습)를 쓰러뜨렸습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); TELE.ev('reaperDown', { b: f.kind, z: zoneTitle() }); }
 function soulDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Date.now(); } say(`[영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`, '#ffd86a');
   let who = PNAME(); try { if (D && D.shares && D.shares.size) who = NET.nameOf([...D.shares.entries()].sort((a, b) => b[1] - a[1])[0][0]) || who; } catch (e) {} const msg = `${who}님이 소환의 제단에서 [영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); }
-window.__reaperNow = () => { if (SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id]) { say('감시자 리퍼는 사냥터(1·2구간)에서만 나타나요.', '#f08a7a'); return; } spawnReaper(hero.i + 2, hero.j); };   // 갓 모드 테스트
+window.__reaperNow = () => { if (SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id]) { say('감시자 리퍼는 사냥터 2구간·2구역(본토던전은 1·2층)에서만 나타나요.', '#f08a7a'); return; } spawnReaper(hero.i + 2, hero.j); };   // 갓 모드 테스트
 function updateFox(f,dt){
   if (NET.guestMob(f)) { NET.follow(f, dt); return; }
   if (f.hitT>0) f.hitT=Math.max(0,f.hitT-dt);
@@ -644,7 +644,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 141;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 142;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4591,7 +4591,7 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
   function render() { if (!isOpen()) return; clean(); const el = [...document.querySelectorAll('#alchwin .al-slot')];
     el.forEach((c, k) => { const e = S[k]; c.innerHTML = e ? ICON(ITEMS[e.id].icon, e.blessed) + (e.en ? `<b>${e.en > 0 ? '+' : ''}${e.en}</b>` : '') : ''; c.dataset.itip = e ? INV.tipOf(e) : '빈 칸 — 가방에서 장비를 클릭하거나 끌어다 놓으세요'; c.style.borderColor = e ? RARITY_C[rarOf(e)] : ''; });
     const n = S.filter(Boolean).length, g = S.find(x => x) ? rarOf(S.find(x => x)) : null, nx = g && NEXT[g];
-    { const ci = $('al-cat'), cg = g || '희귀'; if (ci && document.activeElement !== ci) ci.value = cat; const inf = $('al-cat-info'); if (inf) inf.innerHTML = !g ? `데이·젤 보유 ${GOD_INF('scroll_weapon') ? '∞' : catHave()}장` : CAT[g] ? `${catN(g)}장 사용 → <b>+${Math.round(catBonus(g) * 100)}%p</b> (${CAT[g].per}장당 +1%p · 최대 +${CAT[g].max}%p) · 보유 ${GOD_INF('scroll_weapon') ? '∞' : catHave()}장` : '<span class="muted">일반 → 고급은 촉매가 없어요</span>'; }
+    { const ci = $('al-cat'), cg = g || '희귀'; if (CAT[cg]) cat = Math.max(0, Math.min(cat, catCap(cg), catHave())); if (ci && document.activeElement !== ci) ci.value = cat;   /* v142: 촉매 장수는 등급 최대·보유 수까지만 */ const inf = $('al-cat-info'); if (inf) inf.innerHTML = !g ? `데이·젤 보유 ${GOD_INF('scroll_weapon') ? '∞' : catHave()}장` : CAT[g] ? `${catN(g)}장 사용 → <b>+${Math.round(catBonus(g) * 100)}%p</b> (${CAT[g].per}장당 +1%p · 최대 +${CAT[g].max}%p) · 보유 ${GOD_INF('scroll_weapon') ? '∞' : catHave()}장` : '<span class="muted">일반 → 고급은 촉매가 없어요</span>'; }
     $('al-info').innerHTML = !g ? '가방에서 <b>같은 등급</b>의 장비 3개를 골라 주세요.' : `<span style="color:${RARITY_C[g]}">${g}</span> 장비 ${n}/3 → 성공하면 <span style="color:${RARITY_C[nx]}">${nx}</span> 등급 ${CLASS_NAME[CLASS]} 장비 · 성공 확률 <b>${Math.round(rateOf(g) * 100)}%</b>${catBonus(g) ? ` <small>(기본 ${Math.round(RATE[g] * 100)}% + 촉매 ${Math.round(catBonus(g) * 100)}%p)</small>` : ''}` + (S.some(x => x && ((x.en || 0) > 0 || x.blessed || x.attr)) ? '<br><span style="color:#f0a080">강화·축복·속성이 붙은 장비가 있어요. 실패하면 함께 사라져요.</span>' : '');
     $('al-go').disabled = busy || n < 3; document.querySelectorAll('#alchwin [data-alg]').forEach(b => { const c = cands(b.dataset.alg).length; b.querySelector('b').textContent = c; b.disabled = busy || c === 0; }); }
   function showOut(id, ok) { const o = $('al-out'); clearTimeout(outT); o.classList.remove('ok', 'fail', 'spin'); void o.offsetWidth; if (id) { o.innerHTML = ICON(ITEMS[id].icon); o.style.borderColor = RARITY_C[ITEMS[id].rar || '일반']; o.dataset.itip = INV.tipOf({ id, n: 1, on: false }); } else { o.textContent = ok === false ? '✕' : '?'; o.style.borderColor = ''; delete o.dataset.itip; }
@@ -4611,7 +4611,7 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
         render(); INV.render(); }, 1300); }); }
   function open() { const w = $('alchwin'); if (!w) return; if (!w.hidden) { w.hidden = true; return; } w.hidden = false; if ($('invwin').hidden) { $('invwin').hidden = false; INV.render(); } render(); }
   { const b = $('btn-alch'); if (b) b.onclick = open; const go_ = $('al-go'); if (go_) go_.onclick = go; const cl = $('al-clear'); if (cl) cl.onclick = () => { S.fill(null); render(); INV.render(); }; document.querySelectorAll('#alchwin [data-alg]').forEach(b => b.onclick = () => fill(b.dataset.alg));
-    { const ci = $('al-cat'); const setCat = v => { cat = Math.max(0, Math.min(999, Math.floor(+v || 0))); render(); }; if (ci) { ci.oninput = () => setCat(ci.value); ci.onkeydown = ev => ev.stopPropagation(); }
+    { const ci = $('al-cat'); const setCat = v => { const s0 = S.find(x => x), g0 = s0 ? rarOf(s0) : '희귀'; cat = Math.max(0, Math.min(CAT[g0] ? catCap(g0) : catCap('희귀'), catHave(), Math.floor(+v || 0))); render(); }; if (ci) { ci.oninput = () => setCat(ci.value); ci.onblur = () => { ci.value = cat; }; ci.onkeydown = ev => ev.stopPropagation(); }
       document.querySelectorAll('#alchwin [data-cd]').forEach(b => b.onclick = () => { const g = S.find(x => x) ? rarOf(S.find(x => x)) : '희귀'; const d = b.dataset.cd; setCat(d === 'max' ? Math.min(catCap(g) || catCap('희귀'), catHave()) : d === '0' ? 0 : cat + +d); }); }
     document.querySelectorAll('#alchwin .al-slot').forEach(c => { const k = +c.dataset.k; c.onclick = () => { if (S[k]) { S[k] = null; render(); INV.render(); } };
       c.addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('over'); } }); c.addEventListener('dragleave', () => c.classList.remove('over'));
@@ -6329,6 +6329,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 142, items: ['자동사냥 설정의 [가속 물약 자동 구매]·[자동 사용]에 파란 물약(마나 회복 물약 · 120골드)이 추가됐어요. 자동 사용을 켜고 구매 개수를 정해 두면, 다 떨어지고 효과가 끝났을 때 마을에 가서 사 와요.', '감시자 리퍼가 이제 각 사냥터의 1구간·1구역에서는 나오지 않고 2구간·2구역에서만 나와요. (본토던전은 1층 카스파 패밀리 · 2층 데스나이트 그대로)', '연금술 촉매(데이·젤) 장수가 최대치(고급 25장 · 희귀 30장)와 가진 장수를 넘어서 계속 올라가던 문제를 고쳤어요.'] },
     { v: 141, items: ['업데이트 파일이 이미 받아져 있는데 실행 중인 게임이 예전 버전일 때 [업데이트]를 누르면 "이미 최신 버전"이라고만 나오고 그대로였던 문제를 고쳤어요. 이제는 바로 다시 불러와서 새 버전으로 이어져요.'] },
     { v: 140, items: ['Lv49부터 레벨업에 필요한 경험치가 3배가 됐어요. (49→50: 252,119 → 756,357 · 50 이후도 같은 무게로 이어짐) 오렌설원 2구역 몬스터 기준으로 49→50이 약 300마리 → 약 900마리예요.', '그만큼 Lv49 이후에 사망하면 잃는 경험치(레벨 필요 경험치의 5%)도 3배가 돼요.'] },
     { v: 139, items: ['마법사·요정 장비 39종이 새로 생겼어요. (리니지 클래식 장비 이름 · 기사 전용 장비가 있던 부위·등급을 채움 · 영웅은 Lv30·Lv35 두 가지) 마법사: 마법사 모자·카스파의 모자·발터자르의 모자·고대의 로브·흑장로의 로브·마나 망토·시어의 심안 등 · 요정: 엘름의 축복·정화의 머리띠·고대의 가죽 갑옷·풍룡 비늘 갑옷·보호 장갑·세피아의 부츠·메두사 방패 등', '마법사는 방패 칸에 마법서·수정구를 낄 수 있어요. (저주받은 마법서·마력서·마나 수정구·시어의 심안·흑장로의 마도서)', '카스파·발터자르·세마·메르키오르의 이름이 붙은 장비는 그 보스에게서 더 잘 나와요. (보스의 영웅 장비 전체 확률은 그대로)', '아이템 도감에서 직업별로 볼 수 있어요. (모든 직업 · 기사 · 요정 · 마법사 · 공용)', '사망하면 알림 안에 큰 [🏠 마을로] 버튼이 나와요. 2분을 기다리지 않고 바로 마을에서 부활할 수 있어요.', '내가 때리는 몬스터가 잘 보이게: 발밑에 굵은 붉은 고리 + 도는 금색 표시(나무·다른 몬스터에 가려도 보임) + 머리 위 화살표', '같이 보스를 잡을 때 화면이 달라 보이던 문제를 고쳤어요. 보스 범위 마법(헬파이어·지옥불·얼음 폭풍 등)이 친구 화면에도 같은 자리에 보이고 각자 피할 수 있어요. 호스트가 멀리 있어도 보스가 가까이 있는 친구에게 기술을 써요. 스턴·슬로우 표시가 머리 위에 계속 남던 문제도 고쳤어요.', '보스 재등장을 잡은 시각부터 세도록 바꿨어요. (예전에는 시계 구간 기준이라 늦게 잡으면 금방 다시 나왔음) 셸로브 20~40분 · 여왕개미·오우거·바포메트 3시간~3시간 30분 · 카스파 패밀리 2시간~2시간 15분 · 데스나이트·얼음여왕 3시간~3시간 20분 · 보스 기록이 캐릭터 저장에도 남아서 다른 PC에서 접속해도 이어져요.'] },
@@ -6546,14 +6547,14 @@ const ACCOUNT = (() => {
 })();
 const AUTO = (() => {
   const C = { ofl: true, manner: true, retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyQ: { red_potion: 30, orange_potion: 0, clear_potion: 0 }, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true, healFirst: true,
-    buyHaste: false, hasteId: 'green_potion', hasteN: 5, hasteQ: { green_potion: 5, brave_potion: 0 }, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
+    buyHaste: false, hasteId: 'green_potion', hasteN: 5, hasteQ: { green_potion: 5, brave_potion: 0, mana_potion: 0 }, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
     sell: false, sellPct: 80, sellR: { 일반: true, 고급: false, 희귀: false, 영웅: false } };   // 자동판매: 가방 무게 sellPct% 이상이면 귀환해서 아덴상단에 고른 등급 장비를 일괄 판매
   // v109: 물약 귀환은 체크한 물약 수량만 셈 (아무것도 안 고르면 자동 구매 물약)
   const lowCount = () => { const ids = Object.keys(C.lowIds).filter(id => C.lowIds[id]); const bq = Object.keys(C.buyQ).filter(id => C.buyQ[id] > 0); return (ids.length ? ids : bq.length ? bq : ['red_potion']).reduce((n, id) => n + INV.count(id), 0); };
-  const PRICE = { red_potion: 25, orange_potion: 100, clear_potion: 300, return_scroll: 40, arrow: 2, green_potion: 200, brave_potion: 500 };
+  const PRICE = { red_potion: 25, orange_potion: 100, clear_potion: 300, return_scroll: 40, arrow: 2, green_potion: 200, brave_potion: 500, mana_potion: 120 };
   // v136: 가속 물약 — [자동 사용]을 켜고 [가속 물약 자동 구매] 개수를 정한 물약이 다 떨어지면 마을에 가서 사 옴 (골드가 모자라 못 샀으면 다시 생길 때까지 귀환하지 않음)
-  const HASTE_IDS = ['green_potion', 'brave_potion'], hasteSkip = {};
-  const hasteOut = () => { if (!C.buyHaste) return null; for (const id of HASTE_IDS) { if (!INV.autoBuff(id) || !((C.hasteQ[id] || 0) > 0)) continue; if (INV.count(id) > 0) { delete hasteSkip[id]; continue; } if (BUFF['haste' + ITEMS[id].haste] > 0) continue; if (!hasteSkip[id]) return id; } return null; };   // 가속이 끝났는데 물약이 없을 때
+  const HASTE_IDS = ['green_potion', 'brave_potion', 'mana_potion'], hasteSkip = {}, hasteBuf = id => ITEMS[id].use === 'haste' ? 'haste' + ITEMS[id].haste : ITEMS[id].buff;   // v142: 파란 물약(마나 회복)도
+  const hasteOut = () => { if (!C.buyHaste) return null; for (const id of HASTE_IDS) { if (!INV.autoBuff(id) || !((C.hasteQ[id] || 0) > 0)) continue; if (INV.count(id) > 0) { delete hasteSkip[id]; continue; } if (BUFF[hasteBuf(id)] > 0) continue; if (!hasteSkip[id]) return id; } return null; };   // 가속이 끝났는데 물약이 없을 때
   // 아이템 줍기: 체크한 등급·종류만, 나를 때리는 몬스터가 없을 때 10칸 안의 가장 가까운 것부터 (못 가는 곳은 3번 시도 후 건너뜀)
   const typeOf = d => d.slot === 'weapon' ? 'weapon' : ['ring', 'amulet'].includes(d.slot) ? 'acc' : d.slot ? 'armor' : d.use === 'learn' ? 'book' : d.use ? 'cons' : 'etc';
   const wantLoot = id => { const d = ITEMS[id]; return !!d && !!C.lootR[d.rar || '일반'] && !!C.lootT[typeOf(d)]; };
