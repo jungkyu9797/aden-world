@@ -360,6 +360,22 @@ body.cursor-hammer,body.cursor-hammer *{cursor:url("data:image/svg+xml;utf8,%3Cs
 .lg-srv{margin:-4px 0 6px;font:600 12px "Noto Sans KR",sans-serif;color:#9c9682} .lg-srv.ok{color:#8fe08a} .lg-srv.no{color:#f0c080} #cs-msg{min-height:18px;margin:8px 0 0;text-align:center}
 .topbar button.upd{border-color:#e8c878!important;color:#ffe6a0!important;animation:lgPulse 1.4s ease-in-out infinite} .topbar button.upd:disabled{animation:none;opacity:.75}
 #death-town{position:fixed;z-index:46;padding:5px 14px;background:linear-gradient(#6a2a1e,#3a140e);border:1px solid #e0705a;border-bottom:none;border-radius:5px 5px 0 0;color:#ffe2d6;font:800 13px "Noto Sans KR",sans-serif;cursor:pointer;box-shadow:0 -2px 10px rgba(0,0,0,.4)} #death-town:hover{background:linear-gradient(#8a3626,#4a1a12)} #death-town small{font-weight:600;color:#f0b8a8;margin-left:6px;font-size:11px}
+#colowin{z-index:25;left:calc(50% - 245px);top:calc(64px + env(safe-area-inset-top,0px));width:490px;max-width:calc(100vw - 24px);padding:12px 16px 12px;background-image:var(--cbl),var(--cbr),var(--damask),var(--leather),linear-gradient(160deg,#3e2a1c 0%,#24170e 50%,#160e08 100%)!important;background-repeat:no-repeat,no-repeat,repeat,repeat,no-repeat!important;background-position:left 1px bottom 1px,right 1px bottom 1px,0 0,0 0,0 0!important}
+#colowin .co-lead{margin:2px 0 8px;color:#ffc870;font:700 13px "Nanum Myeongjo",serif;line-height:1.5} #colowin .co-rules{margin:0 0 8px;padding:0 0 0 16px;font-size:11.5px;line-height:1.55;color:#e0d4b8} #colowin .co-rules b{color:#ffd86a}
+#colowin .co-tk{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:rgba(0,0,0,.28);border:1px solid #5a4a32;border-radius:3px;font-size:12px} #colowin .co-tk b{color:#ffd86a} #colowin .co-tk button:disabled{opacity:.45;cursor:not-allowed}
+#colowin .co-st{margin:8px 0 6px;font-size:12px;color:#cfc3a6;min-height:16px} #colowin .co-st.busy{color:#ff9a7a} #colowin .co-st.wait{color:#9fe0a0}
+#colowin .co-q{background:rgba(0,0,0,.25);border:1px solid #4a3c28;border-radius:3px;padding:6px 8px} #colowin .co-qh{font:700 12px "Noto Sans KR",sans-serif;color:#f2d98a;margin-bottom:4px} #colowin .co-qh small{color:#bfb39a;font-weight:600;margin-left:6px}
+#colowin ol{margin:0;padding:0;list-style:none;max-height:150px;overflow:auto} #colowin ol li{display:flex;align-items:baseline;gap:8px;padding:2px;border-bottom:1px dashed rgba(255,255,255,.06);font-size:12px} #colowin ol li b{color:#e9e2cf} #colowin ol li small{color:#a89c84} #colowin ol li em{margin-left:auto;font-style:normal;color:#9fe0a0;font-size:11px} #colowin ol li.me b{color:#ffd86a} #colowin ol li.none{color:#8a8070;justify-content:center}
+#colowin .co-btns{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:10px} #colowin .co-btns .sl-go{min-width:170px}
+#colo-badge{position:fixed;z-index:30;left:50%;top:calc(100px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:6px 16px;background:linear-gradient(#5a3a1a,#2e1c0c);border:1px solid #d8a850;border-radius:4px;color:#ffe2a0;font:800 13px "Noto Sans KR",sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.5);animation:coPulse 1.6s ease-in-out infinite} @keyframes coPulse{50%{box-shadow:0 0 14px rgba(255,200,100,.6)}}
+#colo-exit{position:fixed;z-index:46;padding:9px 28px;background:linear-gradient(#3a5a24,#1c3010);border:1px solid #9ad07a;border-radius:5px;color:#eaffd8;font:800 16px "Noto Sans KR",sans-serif;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.55);text-align:center} #colo-exit:hover{filter:brightness(1.15)} #colo-exit small{display:block;font-weight:600;font-size:11px;color:#c8e8b0}
+@media (max-width:560px){#colowin{left:12px;right:12px;width:auto}}
+#craftwin{z-index:25;left:calc(50% - 235px);top:calc(64px + env(safe-area-inset-top,0px));width:470px;max-width:calc(100vw - 24px);padding:12px 16px 12px;background-image:var(--cbl),var(--cbr),var(--damask),var(--leather),linear-gradient(160deg,#2e2438 0%,#1c1624 50%,#120e16 100%)!important;background-repeat:no-repeat,no-repeat,repeat,repeat,no-repeat!important;background-position:left 1px bottom 1px,right 1px bottom 1px,0 0,0 0,0 0!important}
+#craftwin .cr-lead{margin:2px 0 8px;color:#d0b0ff;font:700 13px "Nanum Myeongjo",serif;line-height:1.5} #craftwin .cr-list{max-height:min(380px,calc(100vh - 260px));overflow:auto;margin-top:6px}
+#craftwin .cr-row{display:flex;align-items:center;gap:10px;padding:6px 6px;border-bottom:1px solid rgba(255,255,255,.07)} #craftwin .cr-row .ic{flex:0 0 42px;width:42px;height:42px;display:block} #craftwin .cr-row .ic svg{width:42px;height:42px}
+#craftwin .cr-t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0} #craftwin .cr-t b{color:#e2c8ff;font-size:13px} #craftwin .cr-t small{color:#cfc3a6;font-size:11.5px} #craftwin .cr-t small.ok{color:#9fe0a0} #craftwin .cr-t small.neg{color:#f0a08a}
+#craftwin .cr-fi svg{width:15px;height:15px;vertical-align:-3px;margin-right:3px} #craftwin .cr-go{padding:6px 12px;font-size:12px;white-space:nowrap} #craftwin .cr-empty{color:#a89c84;text-align:center;padding:16px 0} #craftwin .cr-note{margin:8px 0 0;font-size:11px;color:#a89c84;line-height:1.5}
+@media (max-width:560px){#craftwin{left:12px;right:12px;width:auto}}
 #deathban{position:fixed;z-index:45;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 18px;background:rgba(36,6,6,.88);border:1px solid #b04436;border-radius:4px;color:#ffd6c8;font:13px "Noto Sans KR",sans-serif;text-align:center;pointer-events:none;box-shadow:0 6px 24px rgba(0,0,0,.55);max-width:calc(100vw - 32px)} #deathban b{font-size:16px;color:#ff7a66} #deathban small{color:#d8b0a6;font-size:11px}
 .iw-ench{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:1px solid #5a4a2e;border-radius:3px;background:rgba(0,0,0,.25)} .iw-ench p{margin:0;font-size:12px;color:#d8ccae} .iw-ench p b{color:#ffd86a} .iw-ench p.no{color:#e0a090} .iw-ench button{text-align:left} .iw-ench button b{display:inline-block;min-width:30px;color:#9fd0e8} .iw-ench button.bl b{color:#ffd86a} .iw-ench button.cu b{color:#c890e8} .iw-ench button small{color:#b8ad92}
 .iw-pv{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:6px 8px;border:1px solid #5a4a2e;border-radius:3px;background:rgba(0,0,0,.25)} .iw-pv span{font:700 12px "Noto Sans KR",sans-serif;color:#d8ccae;margin-right:4px}
@@ -614,6 +630,23 @@ body.title-on .fullscr{background:transparent}
   <div class="sl-opt"><label><input type="checkbox" id="sl-noen" checked>강화된 장비 제외</label><label><input type="checkbox" id="sl-nobl" checked>축복 장비 제외</label></div><div class="sl-prev" id="sl-prev"></div></div>
  <div class="sl-foot"><span id="sl-sum"></span><button type="button" id="sl-go" class="sl-go">선택 판매</button></div>
  <p class="sl-note">착용 중이거나 잠근 물건은 목록에 나오지 않습니다 · 판매가는 상점가의 30% 기준</p></div>
+<div class="gw" id="colowin" hidden role="dialog" aria-label="콜로세움"><span class="gw-plate">콜로세움</span><button class="x" type="button" id="co-x">닫기</button>
+ <p class="co-lead">콜로세움 관리인 로물루스: "모래 위에서 끝까지 버틴 자만이 보물을 가져가지!"</p>
+ <ul class="co-rules">
+  <li><b>1라운드</b> 이야기섬 → 사막필드 → 오크숲 몬스터 (0·1·2분) · 5분 버티면 생존 클리어 · 모두 잡으면 <b>퍼펙트(보상 1.5배)</b> — 보상: 골드 25~30만</li>
+  <li><b>2라운드</b> 버그베어밭 → 본토던전 → 오렌설원 몬스터 — 보상: 무기·갑옷·장신구 마법 주문서 · 축복 부여 주문서 (낮은 확률로 축복받은 무기·갑옷 주문서)</li>
+  <li><b>3라운드</b> 데스나이트 또는 얼음여왕을 5분 안에 — 보상: 그 보스의 전리품</li>
+  <li>2명부터 · 레벨 제한 없음 · 한 번에 한 팀 · 안에서는 죽어도 손실 없음 (라운드가 끝나면 부활 · 부활 주문서 가능) · 몬스터는 경험치만 · 순간이동 주문서 ✕ · 귀환 주문서 = 포기 · 펫 ○</li>
+ </ul>
+ <div class="co-tk"><span>입장권 <b id="co-tn">0</b>장 · 오늘 구매 <b id="co-day">0 / 2</b> <small>(새벽 5시 초기화)</small></span><button type="button" id="co-buy" class="inv-sort">입장권 구매 (100,000 골드)</button></div>
+ <div class="co-st" id="co-st"></div>
+ <div class="co-q"><div class="co-qh">입장 대기 명단<small id="co-qn">0명</small></div><ol id="co-ql"></ol></div>
+ <div class="co-btns"><button type="button" id="co-join" class="sl-go">입장 대기</button><button type="button" id="co-cancel" class="inv-sort" hidden>대기 취소</button><button type="button" id="co-solo" class="inv-sort" hidden>혼자 입장 (테스트)</button></div></div>
+<div class="gw" id="craftwin" hidden role="dialog" aria-label="제작"><span class="gw-plate">제작</span><button class="x" type="button" data-closewin="craftwin">닫기</button>
+ <p class="cr-lead">제작 장인 브론: "보스의 가호조각 다섯 개면 가호를 빚어 주지. 실패해도 원망은 말게!"</p>
+ <div class="sl-tabs" role="tablist" aria-label="제작 메뉴"><button type="button" role="tab" data-ct="make" aria-selected="true">가호 제작</button><button type="button" role="tab" data-ct="mix" aria-selected="false">가호 조합</button></div>
+ <div class="cr-list" id="cr-list"></div>
+ <p class="cr-note" id="cr-note"></p></div>
 <div class="gw" id="bulkwin" hidden role="dialog" aria-label="장비 일괄 강화"><span class="gw-plate">장비 일괄 강화</span><button class="x" type="button" data-closewin="bulkwin">닫기</button>
  <p class="bk-help">인벤토리에서 무기·방어구를 클릭해 넣고 빼세요. 하나를 넣고 <b>같은 장비 모두 넣기</b>를 누르면 같은 장비가 한꺼번에 들어옵니다.</p>
  <div id="bk-list" class="bk-list"></div>
