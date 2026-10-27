@@ -706,7 +706,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 159;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 160;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4359,6 +4359,9 @@ CX_ZONE[16] = [...CX_ZONE[11]]; CX_ZONE[17] = [...CX_ZONE[12]]; CX_ZONE_R[16] = 
 function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id], LH = CX_ZONE_H[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[ISLE.id] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < CX_HERO_ZP); if (!hit.length) return false;   // v109: 희귀 — 버그베어밭 2구간 0.03% · 본토던전 0.04% · 오렌설원 0.05% (아이템마다) · 영웅 — 본토던전 2층·오렌설원 2구역 0.002%   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
   const id = hit[Math.floor(Math.random() * hit.length)]; GROUND.drop(id, 1, f.i, f.j); if (!lowRar(id)) say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); return true; }
 const cxClsName = d => d.cls ? d.cls.map(c => CLASS_NAME[c]).join('·') : '공용';
+/* v160: 내 직업이 착용할 수 없는 장비 — 아이템 칸 오른쪽 아래에 '착용불가' 표시 (착용 제한 검사와 같은 기준) */
+const noWear = d => !!(d && d.slot && ((d.codex && d.cls && !d.cls.includes(CLASS)) || (d.only && d.only !== CLASS)));
+const NOWEAR_TAG = '<i class="nowear">착용불가</i>';
 const cxReq = d => { const okC = !d.cls || d.cls.includes(CLASS), okL = !d.lv || hero.lv >= d.lv; return { okC, okL, ok: okC && okL, txt: `착용 가능: ${cxClsName(d)}${d.lv > 1 ? ` · Lv.${d.lv} 이상` : ''}` }; };
 const cxInfo = d => [cxClsName(d), d.lv > 1 ? 'Lv.' + d.lv : '', d.dmg ? `공격 ${d.dmg[0]}~${d.dmg[1]}` : d.ac ? `방어 +${d.ac}` : '', d.hit ? '명중 +' + d.hit : '', d.xdmg ? '추가 피해 +' + d.xdmg : '', d.mr ? 'MR +' + d.mr : '', ...d.optTxt].filter(Boolean).join(' · ');
 function breakInvis() { if (BUFF.invis > 0) { BUFF.invis = 0; say('공격하면서 투명 상태가 풀렸습니다.', '#9c9682'); } }
@@ -4851,7 +4854,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       for (let k = 0; k < N; k++) { const e = FL[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
         c.ondragover = ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('dropk'); } }; c.ondragleave = () => c.classList.remove('dropk');
         c.ondrop = ev => { c.classList.remove('dropk'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); if (invTab !== 'all') { const to = e ? bag.indexOf(e) : -1; if (to >= 0) moveBag(+a, to); else render(); return; } moveBag(+a, k); };   // 칸끼리 끌어서 자리 바꾸기
-        if (e) { c.draggable = true; c.ondragstart = ev => { bagDrag = true; ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.setData('text/x-bag', String(bag.indexOf(e))); }; c.innerHTML = ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.on ? '<i class="on">ON</i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (ITEMS[e.id].stack ? `<b>${GOD_INF(e.id) ? '∞' : e.n}</b>` : ''); c.dataset.itip = tip(e) + (e.locked ? '\n잠김 — 강화·판매 불가' : ''); c.dataset.ic = rarC(e.id); { const rr = ITEMS[e.id].rar || '일반'; c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); c.classList.add('rar', 'r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } if (e.blessed) c.classList.add('blessed'); { const t_ = enTierOf(e.id, e.en); if (t_) c.classList.add('eg' + t_); } if (e.locked) c.insertAdjacentHTML('beforeend', '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>');
+        if (e) { c.draggable = true; c.ondragstart = ev => { bagDrag = true; ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.setData('text/x-bag', String(bag.indexOf(e))); }; c.innerHTML = ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.on ? '<i class="on">ON</i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (ITEMS[e.id].stack ? `<b>${GOD_INF(e.id) ? '∞' : e.n}</b>` : '') + (noWear(ITEMS[e.id]) ? NOWEAR_TAG : ''); c.dataset.itip = tip(e) + (e.locked ? '\n잠김 — 강화·판매 불가' : ''); c.dataset.ic = rarC(e.id); { const rr = ITEMS[e.id].rar || '일반'; c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); c.classList.add('rar', 'r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } if (e.blessed) c.classList.add('blessed'); { const t_ = enTierOf(e.id, e.en); if (t_) c.classList.add('eg' + t_); } if (e.locked) c.insertAdjacentHTML('beforeend', '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>');
           c.onpointerdown = ev => holdStart(ev, e); c.onclick = () => { if (tgtScroll) { lastApplyT = performance.now(); applyScroll(e); } else if ($('bulkwin') && !$('bulkwin').hidden) { lastApplyT = performance.now(); bulkToggle(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } }; if (BK.list.includes(e) && document.getElementById('bulkwin') && !document.getElementById('bulkwin').hidden) c.classList.add('bk-on'); if (window.ALCH && ALCH.open() && ALCH.has(e)) c.classList.add('al-on'); c.ondblclick = () => { if (!recentApply()) use(e); }; c.oncontextmenu = ev => { ev.preventDefault(); if ($('storewin') && !$('storewin').hidden) { lastApplyT = performance.now(); STORE.depositAsk(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } else use(e); }; }   // 창고가 열려 있으면 우클릭 = 창고로
         else { c.classList.add('empty'); c.tabIndex = -1; c.setAttribute('aria-disabled', 'true'); }
         grid.appendChild(c); }
@@ -4881,8 +4884,9 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     [null, null, 'act:auto', 'act:pick', 'red_potion', 'orange_potion', 'return_charm', 'tele_scroll', null, null, null, null].forEach((v, k) => { hot[k] = v; }); render(); }
   // 정렬: 착용 장비 → 안 낀 장비 → 소모품 → 기타 (같은 묶음 안에서는 부위 순·이름 순)
   function sortBag() { const so = id => { const d = ITEMS[id], k = SLOTS.findIndex(([s]) => s === d.slot || (d.slot === 'ring' && s.startsWith('ring'))); return k < 0 ? 99 : k; };
-    const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : d.use ? 2 : 3; };
-    bag.sort((a, b) => grp(a) - grp(b) || so(a.id) - so(b.id) || ITEMS[a.id].name.localeCompare(ITEMS[b.id].name, 'ko'));
+    /* v160: 정렬 순서 — 착용 중 장비 → 장비(높은 등급 먼저 · 같은 등급은 강화 높은 것 먼저) → 그 밖의 아이템(높은 등급 먼저 · 같은 등급은 물약 → 주문서 → 잡템) */
+    const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : 2; }, RK = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 }, rk = id => RK[ITEMS[id].rar] || 0, CK = { pot: 0, scr: 1, etc: 2 };
+    bag.sort((a, b) => grp(a) - grp(b) || (grp(a) === 0 ? 0 : rk(b.id) - rk(a.id)) || (grp(a) === 1 ? (b.en || 0) - (a.en || 0) : 0) || (grp(a) === 2 ? (CK[invCat(ITEMS[a.id])] || 0) - (CK[invCat(ITEMS[b.id])] || 0) : 0) || so(a.id) - so(b.id) || ITEMS[a.id].name.localeCompare(ITEMS[b.id].name, 'ko'));
     render(); say('인벤토리를 정렬했습니다.', '#9c9682'); }
   // 스킬창: 1서클·2서클 마법(각 3칸) + 기사 기술 5칸. 안 배운 건 흐리게
   let skKey = '';
@@ -5802,7 +5806,7 @@ const STORE = (() => {
   const withdrawAsk = k => { const e = box[k]; if (e) askQty(e, '찾기', q => withdraw(k, q)); };
   function render() { const w = $('storewin'); if (!w || w.hidden) return; const G = $('st-grid'); G.innerHTML = '';
     for (let k = 0; k < CAP; k++) { const e = box[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
-      if (e) { const d = ITEMS[e.id], rr = d.rar || '일반'; c.innerHTML = ICON(d.icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (d.stack ? `<b>${e.n}</b>` : '');
+      if (e) { const d = ITEMS[e.id], rr = d.rar || '일반'; c.innerHTML = ICON(d.icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (d.stack ? `<b>${e.n}</b>` : '') + (noWear(d) ? NOWEAR_TAG : '');
         c.classList.add('rar', 'r-' + RO[rr]); c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); if (e.blessed) c.classList.add('blessed');
         c.dataset.itip = INV.tipOf(e).split('\n').filter(l => !/더블클릭|꾹 누르고/.test(l)).concat('더블클릭·인벤토리로 끌어가기: 전부 찾기 · 우클릭: 수량 정해서 찾기').join('\n'); c.dataset.ic = rarC(e.id);
         c.draggable = true; c.ondragstart = ev => { ev.dataTransfer.setData('text/x-store', String(k)); ev.dataTransfer.effectAllowed = 'move'; }; c.ondblclick = () => withdraw(k); c.oncontextmenu = ev => { ev.preventDefault(); withdrawAsk(k); }; }
@@ -6822,6 +6826,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 160, items: ['내 직업이 착용할 수 없는 장비는 인벤토리·창고 아이템 칸 오른쪽 아래에 [착용불가]라고 작게 표시돼요.', '인벤토리 [정렬] 순서가 바뀌었어요. 착용 중인 장비 → 장비(높은 등급 먼저, 같은 등급은 강화된 것 먼저) → 그 밖의 아이템(높은 등급 먼저) 순으로 정리돼요.'] },
     { v: 159, items: ['용의 계곡 2구역의 몬스터 수가 1.5배로 늘었어요. (와이번 23 · 드레이크 21 · 흑장로 3)', '용의 계곡 1구역의 [리자드맨]이 [트롤]로 바뀌었어요. (독은 없고 공격이 조금 세요)', '용의 계곡 2구역의 [레서 드래곤]이 [흑장로]로 바뀌었어요. 멀리서 [콜 라이트닝]으로 번개를 떨어뜨리고, 가끔 발밑에 [토네이도]를 일으켜요. (노란 원 밖으로 피하세요)', '용의 계곡 [해골 궁수]가 이제 먼저 덤벼요. (선공)', '용의 계곡 트롤·와이번·드레이크가 새 그림으로 바뀌었어요. 드레이크는 하늘을 날아다니고, 드레이크 킹도 커다란 붉은 드레이크 모습이 됐어요.', '같은 계정으로 다른 곳에서 접속했을 때, 예전에 켜 두었던 창이 새 진행 상황을 덮어써서 아이템이 사라질 수 있던 문제를 고쳤어요.'] },
     { v: 158, items: ['월드맵 사냥터 도감의 [보스 드랍]에 보스가 떨어뜨리는 무작위 영웅 장비와, 반드시 떨어지는 재료(용의 심장·용의 비늘·드레이크의 발톱·가호조각)도 보여요. 일반 몬스터의 영웅 장비는 아이콘에 마우스를 올리면 얼마나 드문지 나와요.', '아이템 도감에 용의 심장과 모든 보스의 가호조각·가호가 실렸어요. 영웅 장비의 [얻는 곳]에 모든 보스(무작위 영웅)와 데스나이트 2층·오렌 설원 2구역·용의 계곡 2구역 몬스터가 함께 나와요.', '용의 지팡이에 [용족 마법 피해 +15%]가 붙었어요. (드래곤 슬레이어·용의 활처럼 용족에게 더 강해요)'] },
     { v: 157, items: ['몬스터가 겹쳐 있을 때 마우스 오른쪽 버튼을 누를 때마다 겹친 대상이 하나씩 돌아가며 골라져요. (노란 점선 원 표시) 고른 뒤 왼쪽 클릭하면 그 대상이 선택돼요. 휠 버튼 마법도 고른 대상에게 나가요. (결투장에서는 유저도 포함)', '단축키 칸의 힐·이뮨 투 함·어드밴스 스피릿·리무브 커스는 그 키를 빠르게 두 번(따닥) 누르면 나에게 시전돼요. (파티원에게 마우스를 올려 둔 상태에서도)'] },
