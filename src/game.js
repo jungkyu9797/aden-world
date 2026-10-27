@@ -171,7 +171,7 @@ let curZ=2, zoom=2, zoomT=2, pixel=true, cam=W2P(hero.x,hero.z), moveGoal=null, 
 document.getElementById('px-on').onclick=()=>{ pixel=true; document.getElementById('px-on').setAttribute('aria-pressed',true); document.getElementById('px-off').setAttribute('aria-pressed',false); };
 document.getElementById('px-off').onclick=()=>{ pixel=false; document.getElementById('px-on').setAttribute('aria-pressed',false); document.getElementById('px-off').setAttribute('aria-pressed',true); };
 const toWorldPx=(sx,sy)=>[ (sx-W/2)/curZ+cam[0], (sy-H/2)/curZ+cam[1] ];
-function wheelTgt(sx, sy) { const f = pickFox(sx, sy); if (f) return f; if (DUEL() && !DEATH) { const op = NET.peerAt(sx, sy); if (op && !(op.pr.dd > 0) && op.pr.hp > 0) return NET.proxyOf(op.peer); } return null; }   // v155: 휠 버튼 — 마우스가 가리킨 몬스터, 결투장에선 유저에게도 바로 시전
+function wheelTgt(sx, sy) { const f = pickFox(sx, sy); if (f) return f; if (PVPZ() && !DEATH) { const op = NET.peerAt(sx, sy); if (op && !(op.pr.dd > 0) && op.pr.hp > 0) return NET.proxyOf(op.peer); } return null; }   // v155: 휠 버튼 — 마우스가 가리킨 몬스터, 유저끼리 싸울 수 있는 곳(PVPZ: 결투장 · 앞으로 PvP 필드)에선 유저에게도 바로 시전
 function pickFox(sx,sy){ const [px,py]=toWorldPx(sx,sy); let b=null,bd=-1; for (const f of foxes){ if (f.dead||!DN.seen(f.i,f.j)) continue; const S=MOB[f.kind], hw=S.hw||Math.round(14*S.sc+6), hh=S.hh||Math.round(62*S.sc); const [fx,fy]=W2P(f.x,f.z); if (px>fx-hw&&px<fx+hw&&py>fy-hh&&py<fy+8&&f.x+f.z>bd){ bd=f.x+f.z; b=f; } } return b; }
 function P2Wh(px,py){ let [x,z]=P2W(px,py); for (let k=0;k<4;k++){ const h=hAt(x,z); [x,z]=P2W(px,py+h*VPXG); } return [x,z]; }
 function pickTile(sx,sy){ const [x,z]=P2Wh(...toWorldPx(sx,sy)); return [Math.floor(x),Math.floor(z)]; }
@@ -181,7 +181,7 @@ cv.addEventListener('pointerdown',ev=>{ if (ev.button!==0) return; initAudio(); 
   { const lx=sx/curZ, ly=sy/curZ, pr=PETRECT.find(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (pr){ if (!pr[4].sum) PET.openWin(pr[4].e); return; } }
   if (MM.click(sx/curZ, sy/curZ)) return;
   if (COLO_LOCK) { COLO.lockSay(); return; }   // v136: 콜로세움 입장 대기 중엔 채팅만
-  { const op=NET.peerAt(sx,sy); if (op && DUEL() && !(op.pr.dd>0) && !DEATH && op.pr.hp > 0){ hero.target=NET.proxyOf(op.peer); moveGoal=null; holding=false; return; }   /* v146: 결투장 — 누르면 공격 */
+  { const op=NET.peerAt(sx,sy); if (op && PVPZ() && !(op.pr.dd>0) && !DEATH && op.pr.hp > 0){ hero.target=NET.proxyOf(op.peer); moveGoal=null; holding=false; return; }   /* v146: 결투장 — 누르면 공격 */
     if (op && (SCENE==='town' || (op.pr.dd>0 && !DEATH))){ NET.openMenu(op, ev.clientX, ev.clientY); return; } }   // v131: 필드에서도 무덤을 누르면 메뉴(부활 주문서)
   if (DEATH) { deadSay(); return; }   // 다른 플레이어 클릭 → 파티 초대 메뉴 (마을에서만 · 필드는 오른쪽 클릭)
   if (SCENE==='town' && TOWN.click(sx,sy)) return;
@@ -281,10 +281,10 @@ function heroRelease(f){   // 활시위를 놓는 순간 / 마력탄을 쏘는 �
   arrows.push({ pl:true, kind:mage?'bolt':'arrow', col:mage?['140,100,255','175,185,255','245,240,255']:null, x0:x0+(mage?6:0), y0:y0-(mage?64:42), x1, y1:y1-headY(f)*0.55, t:0, dur:(mage?0.16:0.1)+d*(mage?0.06:0.05), onHit:()=>{ if (!f.dead) strike(f, mage?'magic':'bow'); } });
   if (AC&&SFX_ON){ const t=AC.currentTime; if (mage){ tone(t,'sine',480,980,0.2,0.07); tone(t+0.02,'triangle',1460,1900,0.14,0.03); nz(t,0.22,2400,5200,0.05); } else if (!MSFX('elf','bow',0.5)) { tone(t,'triangle',230,140,0.14,0.09); nz(t,0.14,3000,6500,0.07); } } }
 // v146: 결투장 — 다른 유저 때리기 (몬스터와 같은 공식: 상대 AC·레벨로 명중 · 무기 피해 · 치명타 · 축복 추가 타격) → 상대 화면에서 받는 피해 감소(AC·MR·리덕션 등) 적용
-// v155: 대인전 명중 — 몬스터용 공식(방어 1당 −3%)은 유저의 큰 AC(−50~−100)에서 거의 다 빗나가서 따로: 50% + 레벨 차 1당 3% + 힘·민첩·지능 보너스 + 장비 명중 − 상대 방어 1당 0.4% (마력탄은 0.2%) · 20~95%
+// v155: 대인전 명중 (결투장·앞으로 PvP 필드 공통) — 몬스터용 공식(방어 1당 −3%)은 유저의 큰 AC(−50~−100)에서 거의 다 빗나가서 따로: 50% + 레벨 차 1당 3% + 힘·민첩·지능 보너스 + 장비 명중 − 상대 방어 1당 0.4% (마력탄은 0.2%) · 20~95%
 function hitSb(mode) { const st = INV.stat(); return mode === 'bow' ? (st.dex >= 16 ? 0.05 : 0) + (st.dex >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.dex - 20) / 2)) * 0.01 : mode === 'magic' ? 0.12 + (st.int >= 16 ? 0.05 : 0) + (st.int >= 18 ? 0.05 : 0) : (st.str >= 16 ? 0.05 : 0) + (st.str >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.str - 20) / 2)) * 0.01; }
 function pvpHitP(D, mode) { const ac = D && D.ac != null ? D.ac : 10; return Math.max(0.2, Math.min(0.95, 0.5 + 0.03 * (hero.lv - ((D && D.lv) || 1)) + hitSb(mode) + INV.cx('hit') * 0.03 + (BUFF.bounce > 0 && !mode ? 0.15 : 0) + (mode === 'bow' && BUFF.windshot > 0 ? Math.min(0.1, 0.05 + Math.floor(hero.lv / 10) * 0.01) : 0) - (10 - ac) * (mode === 'magic' ? 0.002 : 0.004))); }
-function pvpStrike(p, mode){ if (!DUEL() || !NET.alive(p)) { hero.target = null; return; } const D = NET.duelDef(p), S = { lv: D.lv, mac: D.ac }, [x, y] = W2P(p.x, p.z); breakInvis();
+function pvpStrike(p, mode){ if (!PVPZ() || !NET.alive(p)) { hero.target = null; return; } const D = NET.duelDef(p), S = { lv: D.lv, mac: D.ac }, [x, y] = W2P(p.x, p.z); breakInvis();
   if (!GOD_OHK && Math.random() > pvpHitP(D, mode)) { floatText(x + (Math.random() * 18 - 9), y - 108, 'MISS', { color: '#c8d0d8', size: 11 }); return; }
   const crit = Math.random() < 0.12 + INV.cx('crit') / 100, DR = mode === 'magic' ? magicDmg() : INV.dmg(); let d = DR[0] + Math.floor(Math.random() * (DR[1] - DR[0] + 1)); if (crit) d = Math.round(d * 1.8); { const gd = INV.gaho('dmg'); if (gd) d = Math.floor(d * (1 + gd / 100) + Math.random()); }
   if (INV.blessHit() && Math.random() < 0.35) d += 1 + Math.floor(Math.random() * 2); d = Math.max(1, d); NET.pvp(p, d, { k: mode === 'magic' ? 'magic' : mode === 'bow' ? 'bow' : 'melee', c: crit });
@@ -394,7 +394,7 @@ function updateHero(dt){
   if (hero.t<1) return;
   if (BUFF.root>0){ const T=BUFF.abar>0?null:hero.target; if (T&&!T.dead&&inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); } return; }
   const T=BUFF.abar>0?null:hero.target;   /* v149: 앱솔루트 배리어 중에는 공격 안 함 (이동만) */
-  if (T){ if (T.dead||(T.isRemote&&!(DUEL()&&NET.alive(T)))){ hero.target=null; return; } if (inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); return; }
+  if (T){ if (T.dead||(T.isRemote&&!(PVPZ()&&NET.alive(T)))){ hero.target=null; return; } if (inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); return; }
     const RR=heroRange(), p=MAZE()?mzPath(hero,T.i,T.j):astar(hero,(i,j)=>{ const d=cheb(i,j,T.i,T.j); return d>=1&&d<=RR&&(d<=1||!AUTO.on()||FLOS({ i, j },T)); },T.i,T.j); if (p.length) beginStep(hero,p[0]); return; }
   if (moveGoal){ if (hero.i===moveGoal[0]&&hero.j===moveGoal[1]){ if (!holding) moveGoal=null; return; }
     const p=MAZE()?mzPath(hero,moveGoal[0],moveGoal[1]):astar(hero,(i,j)=>i===moveGoal[0]&&j===moveGoal[1],moveGoal[0],moveGoal[1]); if (!p.length||!beginStep(hero,p[0])){ if (!holding) moveGoal=null; } }
@@ -684,7 +684,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 155;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 156;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -763,7 +763,7 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
   if (id === 'heal' || id === 'xheal' || id === 'gheal' || id === 'immune' || id === 'advspirit' || id === 'rcurse') { const PTY_ = id === 'immune' || id === 'advspirit' || id === 'rcurse', PM_ = OT && !PTY_ ? null : NET.hoverParty(), tg = !PTY_ && OT ? OT : PM_ ? { i: Math.floor(PM_.pr.x), j: Math.floor(PM_.pr.y) } : null;   /* v124: 대상에게 거는 힐·이뮨도 8칸 · 장애물 (이뮨은 던전 벽만) */
     if (tg) { if (cheb(tg.i, tg.j, hero.i, hero.j) > 8) { say(`${k.name}: 8칸 안의 대상에게 쓸 수 있어요.`, '#9c9682'); return; } if (PTY_ ? !DGLOS(hero, tg) : !FLOS(hero, tg)) { say('장애물이 있습니다.', '#9c9682'); return; } } }
   if (T && T.isRemote && ['stun', 'turnund', 'slow', 'striker_gale', 'earth_bind', 'pollute_water', 'triple_arrow'].concat(Object.keys(SPELL)).includes(id)) {   /* v146: 결투장 — 유저에게 쓸 수 있는 건 스턴·공격 마법·트리플 애로우 */
-    if (!DUEL() || !NET.alive(T)) { hero.target = null; say('다른 유저는 결투장 안에서만 공격할 수 있어요.', '#9c9682'); return; }
+    if (!PVPZ() || !NET.alive(T)) { hero.target = null; say('다른 유저는 결투장 안에서만 공격할 수 있어요.', '#9c9682'); return; }
     if (id === 'stun') { if (cheb(T.i, T.j, hero.i, hero.j) > 1) { say('스턴: 바로 옆의 대상을 선택하세요.', '#9c9682'); return; } if (!GOD_MP) hero.mp -= k.mp; SKCD[id] = k.cd / heroSpd(); face(hero, T); hero.atk = { t: 0, dur: 0.5, hit: true, f: T };
       const D = NET.duelDef(T), ch = Math.max(0.1, Math.min(0.9, 0.5 + 0.05 * (hero.lv - D.lv))), [fx, fy] = W2P(T.x, T.z);
       if (Math.random() < ch) { const t = 1 + Math.random() * 3; NET.pvp(T, 0, { k: 'melee', st: t }); floatText(fx, fy - 118, `스턴! ${t.toFixed(1)}초`, { color: '#ffe066', size: 19, big: true, life: 1.4, rise: 34 }); impact(fx, fy - 60, 'bolt', '#ffe066'); spellSfx('stun'); } else { floatText(fx, fy - 112, '스턴 실패', { color: '#c8d0d8', size: 11 }); spellSfx('stunfail'); } return; }
@@ -966,12 +966,12 @@ function skNow(id) { if (SPELL[id]) { const [a, b] = spellRange(id); return `지
 const coldK = P => P && P.el === 'water' ? 1 + INV.cx('coldMagic') / 100 : 1;   // v146: 냉기 마법 피해 +% (아이스 대거·콘 오브 콜드 등 수속성)
 function spellRange(id) { const P = SPELL[id], m = spellMul() * (P.mul || 1) * coldK(P); return [Math.max(1, Math.round(P.dmg[0] * m)), Math.max(1, Math.round(P.dmg[1] * m))]; }
 function spellHit(f, id) { const P = SPELL[id]; if (!P || !f || f.dead) return; const st = INV.stat(), ib = Math.max(0, Math.floor((st.int - 12) / 2)), sp = INV.sp(); const [fx, fy] = W2P(f.x, f.z);
-  if (f.isRemote) { if (!DUEL() || !NET.alive(f)) return; let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * spellMul() * coldK(P); if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(f, d, { k: 'magic', c: cr, sp: id }); floatText(fx, fy - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); return; }   // v146: 결투장 — 유저에게 마법 피해 (상대 화면에서 MR·카운터 매직 적용)
+  if (f.isRemote) { if (!PVPZ() || !NET.alive(f)) return; let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * spellMul() * coldK(P); if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(f, d, { k: 'magic', c: cr, sp: id }); floatText(fx, fy - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); return; }   // v146: 결투장 — 유저에게 마법 피해 (상대 화면에서 MR·카운터 매직 적용)
   const L = P.box ? foxes.filter(m => !m.dead && !m.gone && Math.abs(m.x - f.x) <= P.box && Math.abs(m.z - f.z) <= P.box && DGLOS(f, m)) : [f], MUL = spellMul() * coldK(P);   // 파이어볼: 대상 중심 가로·세로 6칸 (던전은 벽 너머 X)
   for (const m of L) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * MUL; const me = MOB[m.kind] && MOB[m.kind].el; let wk = false;
     if (P.el && me) { if (ATTR_OPP[me] === P.el) { d *= 1.5; wk = true; } else if (me === P.el) d *= 0.5; } if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP(MOB[m.kind] || {}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d));
     mobHurt(m, d, P.col, null, cr); if (wk) { const [mx, my] = W2P(m.x, m.z); floatText(mx + 16, my - headY(m) - 22, '약점!', { color: ATTR_C[P.el], size: 10 }); } if (P.stun || P.slow) spellExtra(m, P); }
-  if (P.box && DUEL()) for (const p of NET.remotesNear(f.x, f.z, P.box)) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * MUL; if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(p, d, { k: 'magic', c: cr, sp: id, st: P.stun && Math.random() < P.stun ? 1 : 0 }); const [px, py] = W2P(p.x, p.z); floatText(px, py - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); }   // v149: 결투장 — 범위 안의 다른 유저도
+  if (P.box && PVPZ()) for (const p of NET.remotesNear(f.x, f.z, P.box)) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * MUL; if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(p, d, { k: 'magic', c: cr, sp: id, st: P.stun && Math.random() < P.stun ? 1 : 0 }); const [px, py] = W2P(p.x, p.z); floatText(px, py - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); }   // v149: 결투장 — 범위 안의 다른 유저도
 }
 // v149: 7~10서클 범위 마법 연출 (내 주변 · 범위 크기만큼)
 function mxAoeFx(id, e) { const P = SPELL[id] || {}, b = P.box || 3, [x, y] = W2P(e.x, e.z), Kp = Math.max(8, W2P(e.x + 1, e.z)[0] - x), R = 2 * b * Kp * 0.8, rnd = () => mxAt(e.x + mxR(-b, b), e.z + mxR(-b, b), 0), at = (fn, ms) => setTimeout(fn, ms);
@@ -2094,7 +2094,7 @@ function drawUI(g, vw, vh){
     if (WHEEL_LOCK){ g.strokeStyle='#ffe08a'; g.lineWidth=1.6; g.beginPath(); g.moveTo(bxx+2,yy+4.5); g.lineTo(bxx+4,yy+7); g.lineTo(bxx+7.5,yy+2); g.stroke(); }
     g.font='700 8px '+F; g.textAlign='left'; g.textBaseline='middle'; g.fillStyle=WHEEL_LOCK?'#ffe08a':'#c8bfa8'; g.fillText('휠 고정', bxx+bsz+4, yy+bsz/2+0.5); g.textAlign='right'; g.fillStyle='#ffd040'; g.fillText('휠 ▶ F'+(INV.hotSel()+1), gx+sw*4-4, yy+bsz/2+0.5); g.restore(); }
   if (false&&NEAR_PICK){ g.save(); g.font='800 9px '+F; const t='F4 주변 1칸 줍기 켜짐', tw=g.measureText(t).width+12, bx=rx+(R-6-tw)/2, by=top-15; g.fillStyle='rgba(10,16,8,.85)'; g.fillRect(bx,by,tw,13); g.strokeStyle='#6ad06a'; g.lineWidth=1; g.strokeRect(bx+0.5,by+0.5,tw-1,12); g.fillStyle='#b8ffb0'; g.textAlign='left'; g.textBaseline='top'; g.fillText(t,bx+6,by+2); g.restore(); }
-  if (hotDrag&&hotDrag.moved) drawHotGhost(g); else drawHotTip(g, vw);
+  if (hotDrag&&hotDrag.moved) drawHotGhost(g);   // v156: 단축칸 툴팁은 맨 마지막에 (버프 아이콘·미니맵에 가리지 않게)
   g.textBaseline='alphabetic';
   MM.draw(g, vw, y0);
   // 지역 이름
@@ -2141,6 +2141,7 @@ function drawUI(g, vw, vh){
       lines.forEach((l,n)=>{ g.textAlign='left'; g.textBaseline='alphabetic'; g.fillStyle=n===0?D.c:n===2?'#f2eedf':'#cfc6ae'; g.font=(n===0?'800 ':'500 ')+'11px '+F; g.fillText(l,tx+8,ty+17+n*15); }); }
     g.font='700 12px '+F; g.textAlign='left'; }
   { const zw=g.measureText(ZONE).width, lb=DN.label(); g.font='700 11px '+F; g.fillStyle='#000'; g.fillText(lb,zw+19,y0-6); g.fillStyle=DN.isNight()?'#a8b8f0':'#f2d98a'; g.fillText(lb,zw+18,y0-7); }
+  if (!(hotDrag&&hotDrag.moved)) { g.save(); drawHotTip(g, vw); g.restore(); }
 }
 
 // ============================================================ 몬스터 도감 · 이야기섬 (Lv 1~10)
@@ -2322,6 +2323,7 @@ let stunSaidT = 0; function stunSay() { if (time - stunSaidT < 1.2) return; stun
 let DEATH = null, deadSayT = 0; const DEATH_SEC = 120;
 const deathLeft = () => DEATH ? (DEATH.arena || DEATH.duel ? 9999 : Math.max(0, DEATH_SEC - (Date.now() - DEATH.at) / 1000)) : 0;   // v136: 콜로세움은 시간 부활 없음 (9999)
 function ARENA() { return !!(ISLE && ISLE.def && ISLE.def.arena && SCENE === 'field'); }
+function PVPZ() { return DUEL() || !!(ISLE && ISLE.def && ISLE.def.pvp && SCENE === 'field'); }   // v156: 유저끼리 싸울 수 있는 곳 — 지금은 결투장만 · 앞으로 PvP 사냥터는 DEF에 pvp: true만 붙이면 같은 명중 계산·휠 시전·피해 처리가 그대로 적용
 function DUEL() { return !!(ISLE && ISLE.def && ISLE.def.duel && SCENE === 'field'); }   // v146: 결투장 (유저끼리 전투 · 죽어도 손실 없음 · 제자리 부활)
 function reviveDuel() { if (!DEATH) return; DEATH = null; hero.hp = hero.max; hero.mp = hero.maxmp; deathUI(); spellFx('heal', hero); say('제자리에서 부활했습니다. (HP·MP 100% · 손실 없음)', '#9fe0a0'); try { SAVE.now(false, true); } catch (e) {} }
 // v136: 일일 초기화 기준 = 한국 시간 새벽 5시 (앞으로 모든 일일 제한은 이 날짜로 셈 · PC 시간대와 상관없이 모두 같은 날짜)
@@ -6029,18 +6031,18 @@ const NET = (() => {
   const mxOut = []; let mxSeq = 0; const seenMx = new Map();
   // v146: 결투장 PvP — 때린 쪽이 명중·피해를 정해 presence(pv)로 보내고, 맞은 사람 화면에서 받는 피해 감소(AC·MR·리덕션·카운터)를 적용해 HP를 깎음
   const pvOut = []; let pvSeq = 0; const seenPv = new Map(), pvLast = new Map(), pvDeadSeen = new Map();
-  function pvp(p, dmg, o) { if (!p || !p.isRemote || !alive(p) || !DUEL()) return; o = o || {}; pvOut.push([++pvSeq, p.peer, Math.max(0, Math.round(dmg)), o.k === 'magic' ? 2 : o.k === 'bow' ? 1 : 0, o.c ? 1 : 0, +(+o.st || 0).toFixed(1), String(o.sp || '').slice(0, 12), Date.now()]); if (pvOut.length > 14) pvOut.splice(0, pvOut.length - 14); pvLast.set(p.peer, time); sendT = 0; }
+  function pvp(p, dmg, o) { if (!p || !p.isRemote || !alive(p) || !PVPZ()) return; o = o || {}; pvOut.push([++pvSeq, p.peer, Math.max(0, Math.round(dmg)), o.k === 'magic' ? 2 : o.k === 'bow' ? 1 : 0, o.c ? 1 : 0, +(+o.st || 0).toFixed(1), String(o.sp || '').slice(0, 12), Date.now()]); if (pvOut.length > 14) pvOut.splice(0, pvOut.length - 14); pvLast.set(p.peer, time); sendT = 0; }
   function duelDef(p) { const o = OTH.find(q => q.peer === p.peer), d = o && Array.isArray(o.pr.dv) ? o.pr.dv : null; return { ac: d ? +d[0] : 10, mr: d ? +d[1] : 0, lv: d ? +d[2] : ((o && o.pr.lv) || 1) }; }
   const wdOut = []; const seenWd = new Map();   // v146: 타버린 불멸의 가호 — [시각(순번), i, j, 지역]
   function wardAt(i, j, owner) { const d = GROUND.drop('burnt_ward', 1, i, j); if (d && owner) { d.owner = owner; d.until = performance.now() + 600e3; } return d; }
   function wardDrop(i, j) { if (isHost()) { wardAt(i, j, myPeer || null); return; } wdOut.push([Date.now(), i, j, zk()]); if (wdOut.length > 4) wdOut.splice(0, wdOut.length - 4); sendT = 0; }
   function applyWd(o) { const L = o.pr.wd; if (!Array.isArray(L)) return; const last = seenWd.get(o.peer) || 0; let mx = last; for (const x of L) { if (!Array.isArray(x) || !(x[0] > last)) continue; mx = Math.max(mx, x[0]); if (isHost() && x[3] === zk() && o.pr.z === zk()) wardAt(+x[1] | 0, +x[2] | 0, o.peer); } seenWd.set(o.peer, mx); }
   function applyPv(o) { const L = o.pr.pv; if (!Array.isArray(L)) { if (!seenPv.has(o.peer)) seenPv.set(o.peer, 0); return; } if (!seenPv.has(o.peer)) { seenPv.set(o.peer, maxSeq(L)); return; } const last = seenPv.get(o.peer) || 0; let mx = last;
-    for (const x of L) { if (!Array.isArray(x)) continue; const [sq, to, dmg, kd, cr, st] = x; if (sq <= last) continue; mx = Math.max(mx, sq); if (to !== myPeer || !DUEL() || o.pr.z !== zk() || DEATH || hero.hp <= 0) continue;
+    for (const x of L) { if (!Array.isArray(x)) continue; const [sq, to, dmg, kd, cr, st] = x; if (sq <= last) continue; mx = Math.max(mx, sq); if (to !== myPeer || !PVPZ() || o.pr.z !== zk() || DEATH || hero.hp <= 0) continue;
       const src = proxy(o.peer); if (dmg > 0) hurtHero(dmg, src, kd === 2 ? 'magic' : kd === 1 ? 'bow' : 'melee');
       if (st > 0 && !DEATH && hero.hp > 0 && !GOD_INV) { BUFF.stun = Math.max(BUFF.stun || 0, st); hero.atk = null; moveGoal = null; const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 118, `스턴! ${(+st).toFixed(1)}초`, { color: '#ffe066', size: 17, big: true, life: 1.3 }); say(`${nmOf(o.pr)}님의 스턴에 걸렸습니다! (${(+st).toFixed(1)}초)`, '#ffe066'); } }
     seenPv.set(o.peer, mx); }
-  function pvKills() { for (const o of OTH) { const dead = !(o.pr.hp > 0) || o.pr.dd > 0, was = pvDeadSeen.get(o.peer); pvDeadSeen.set(o.peer, dead); if (dead && was === false && DUEL() && o.pr.z === zk() && time - (pvLast.get(o.peer) || -99) < 4) { const nm = nmOf(o.pr); say(`[결투장] ${nm}님을 쓰러뜨렸습니다!`, '#ffd86a'); const v = peers.get(o.peer); if (v) { const [x, y] = W2P(v.x, v.z); floatText(x, y - 130, '승리!', { color: '#ffd86a', size: 20, big: true, life: 1.6, rise: 36 }); } } } }
+  function pvKills() { for (const o of OTH) { const dead = !(o.pr.hp > 0) || o.pr.dd > 0, was = pvDeadSeen.get(o.peer); pvDeadSeen.set(o.peer, dead); if (dead && was === false && PVPZ() && o.pr.z === zk() && time - (pvLast.get(o.peer) || -99) < 4) { const nm = nmOf(o.pr); say(`[결투장] ${nm}님을 쓰러뜨렸습니다!`, '#ffd86a'); const v = peers.get(o.peer); if (v) { const [x, y] = W2P(v.x, v.z); floatText(x, y - 130, '승리!', { color: '#ffd86a', size: 20, big: true, life: 1.6, rise: 36 }); } } } }
   // v153: 보스 어그로 대상 (보스 HP 바 아래) · 보스 대사 — 호스트가 계산해서 presence(bt · tk)로 같은 지역 사람들에게
   const tkOut = []; let tkSeq = 0; const seenTk = new Map();
   function aggroInfo(f) { if (!f || f.dead) return null; const T = f.tgt; if (T && T.isRemote) { const pr = prOf(T.peer); return pr ? { n: nmOf(pr), c: CLASS_NAME[pr.c] || '모험가' } : null; }
@@ -6201,7 +6203,7 @@ const NET = (() => {
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
-      e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: DUEL() ? [INV.ac(), Math.round(mrTotal()), hero.lv] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: DUEL() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x.slice(0, 7)); return A.length ? A : null; })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
+      e: eqIds(), eg: glowOut(), iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x.slice(0, 7)); return A.length ? A : null; })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
@@ -6772,7 +6774,8 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
-    { v: 155, items: ['일괄 강화 창의 [목표 강화] 옆에 넣은 장비에 맞는 남은 주문서 수가 크게 보여요. 주문서를 한 장 쓸 때마다 바로 줄어들어요. (지금 쓰는 주문서는 금색 테두리)', '일괄 강화 중에 증발한 장비가 목록에 남아 보이던 문제를 고쳤어요.', '펫과 서먼 몬스터 소환수가 보스에게 주는 피해가 절반으로 줄었어요. (일반 몬스터는 그대로)', '결투장(대인전) 명중 계산을 고쳤어요. 상대 방어(AC)가 높으면 거의 다 빗나가던 문제 — 이제 레벨 차이·명중 보너스·상대 AC를 함께 따져요.', '결투장에서 휠 버튼으로 공격 마법을 쓸 때 상대 유저에게 마우스만 올리고 누르면 바로 시전돼요. (먼저 클릭할 필요 없음)', '보안을 강화했어요. (테스트용 기능이 일반 게임에서 열리지 않게 막음)'] },
+    { v: 156, items: ['단축키 칸 아이템 툴팁이 버프 아이콘에 가려 안 보이던 문제를 고쳤어요.'] },
+    { v: 155, items: ['일괄 강화 창의 [목표 강화] 옆에 넣은 장비에 맞는 남은 주문서 수가 크게 보여요. 주문서를 한 장 쓸 때마다 바로 줄어들어요. (지금 쓰는 주문서는 금색 테두리)', '일괄 강화 중에 증발한 장비가 목록에 남아 보이던 문제를 고쳤어요.', '펫과 서먼 몬스터 소환수가 보스에게 주는 피해가 절반으로 줄었어요. (일반 몬스터는 그대로)', '결투장(대인전) 명중 계산을 고쳤어요. 상대 방어(AC)가 높으면 거의 다 빗나가던 문제 — 이제 레벨 차이·명중 보너스·상대 AC를 함께 따져요.', '결투장에서 휠 버튼으로 공격 마법을 쓸 때 상대 유저에게 마우스만 올리고 누르면 바로 시전돼요. (먼저 클릭할 필요 없음)'] },
     { v: 154, items: ['일괄 강화에 장신구도 넣을 수 있어요. (힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이 · 장신구 마법 주문서 사용 · 안전 강화가 없어 +1부터 실패하면 증발 · 최대 +8 · [안전 강화까지]에서는 건너뜀)', '착용 중인 장비는 일괄 강화에 넣을 수 없어요. (벗은 뒤 넣어 주세요)', '일괄 강화 창을 넓히고 목록 높이를 고정해서, 강화하는 동안 이름이 길어져도 강화 버튼이 아래로 밀리지 않아요.'] },
     { v: 153, items: ['새 사냥터 [용의 계곡]이 열렸어요! (월드맵 · 상급 · 권장 Lv 47~54) 1구역: 해골 돌격병·해골 궁수·리자드맨 무리 / 2구역: 모두 먼저 덤비는 와이번·드레이크·레서 드래곤', '드레이크와 레서 드래곤은 앞쪽으로 불 숨결을 뿜어요. 방어력을 무시하는 마법 피해라서 주황 범위가 보이면 옆으로 피하세요. (MR·화염 저항으로 줄어듦)', '새 보스 [드레이크 킹] — 용의 계곡 2구역 · 약 3시간마다 · 2명 이상 권장. 쓰러뜨리면 [용의 심장]과 [드레이크 킹의 가호조각]이 반드시 떨어져요. (드레이크 킹의 가호: 경험치 획득 증가)', '새 재료 [용의 비늘]·[드레이크의 발톱]·[용의 심장]으로 제작 장인 브론의 [장비 제작]에서 용비늘 투구·갑옷·장갑·장화(모든 클래스 · AC·MR·화염 저항)와 드래곤 슬레이어·용의 지팡이·용의 활을 만들 수 있어요. (성공 100%)', '보스 HP 바 아래에 지금 그 보스가 노리는 사람(어그로)의 아이디가 보여요.', '보스가 처음 마주칠 때 · 싸우는 중 · 쓰러질 때 보스마다 다른 대사를 해요. (머리 위 말풍선 + 채팅창 · 같은 사냥터 사람 모두에게 보임)'] },
     { v: 152, items: ['단축키 칸에 [자동사냥] 아이콘이 생겼어요. 누르거나 그 칸의 F키를 누르면 자동사냥이 켜지고 꺼져요. (켜지면 초록 테두리와 ON 표시 · 줍기 아이콘처럼 끌어서 원하는 칸으로 옮길 수 있어요 · 처음엔 F3 자리, 차 있으면 빈 칸)', '게임 메뉴에 [복구 코드 입력]이 생겼어요. 운영자에게 받은 복구 코드를 넣으면 아이템을 받을 수 있어요. (코드마다 받을 캐릭터가 정해져 있고 한 번만 사용 가능)'] },

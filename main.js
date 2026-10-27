@@ -6,6 +6,7 @@ const crypto = require('crypto');
 
 app.setAppUserModelId('com.local.adensurvivors');   // 작업 표시줄에 게임 아이콘이 나오게
 let closeOk = false;
+const DEV_OK = () => process.argv.includes('--dev') || fs.existsSync(path.join(__dirname, 'admin_key.js'));
 const SAVE_DIR = () => path.join(app.getPath('userData'), 'saves');
 
 function createWindow() {
@@ -34,7 +35,7 @@ function createWindow() {
   win.webContents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown') return;
     if (input.alt && input.key === 'Enter') { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
-    if (input.control && input.shift && (input.key === 'I' || input.key === 'i')) { win.webContents.toggleDevTools(); e.preventDefault(); }
+    if (input.control && input.shift && (input.key === 'I' || input.key === 'i')) { e.preventDefault(); if (DEV_OK()) win.webContents.toggleDevTools(); }   // v156: 개발자도구는 --dev 실행 또는 운영자 키(admin_key.js)가 있는 PC에서만
   });
 }
 
