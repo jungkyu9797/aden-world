@@ -345,6 +345,12 @@ body.cursor-hammer,body.cursor-hammer *{cursor:url("data:image/svg+xml;utf8,%3Cs
 .bk-chk{display:flex;gap:5px;align-items:center;font-size:12px;color:#d8ccae;cursor:pointer} .bk-chk input{accent-color:#c9a24a}
 .bk-go{flex:1;padding:9px 10px!important;font-size:13.5px!important} #bk-go{background-image:linear-gradient(#6a2e1a,#3a1a0e)!important;border-color:#d2a94c!important;color:#ffe6b0!important}
 .bk-scrolls{margin:8px 0 0;font-size:11.5px;color:#a89e86;white-space:pre-wrap}
+.bk-chk-r{margin-left:auto} .bk-t{margin-right:0!important} .bk-have{display:flex;gap:5px;align-items:center;margin-left:auto;flex-wrap:nowrap}
+.bk-have .hv{display:inline-flex;align-items:baseline;gap:3px;padding:4px 9px;border:1px solid #8a6a2a;border-radius:3px;background:linear-gradient(#2e2212,#150f08);font:700 12px "Noto Sans KR",sans-serif;color:#e8d8b0;white-space:nowrap}
+.bk-have .hv b{display:inline-block;font:900 17px "Noto Sans KR",sans-serif;color:#fff;min-width:1.4em;text-align:right} .bk-have .hv i{font-style:normal;font-size:11px;color:#c9b88a} .bk-have .hv i b{font-size:13px;min-width:0}
+.bk-have .hv.cur{border-color:#ffd86a;box-shadow:0 0 0 1px #ffd86a inset,0 0 10px rgba(255,200,90,.45)} .bk-have .hv.zero b{color:#ff7a6a} .bk-have .hv.tick > b{animation:bkTick .4s ease-out}
+.bk-row-t{flex-wrap:nowrap} .bk-have{min-width:0;overflow:hidden} .bk-have .bk-hl{font-size:11px;color:#a89e86;margin-right:1px;white-space:nowrap} .bk-have.many .bk-hl{display:none} .bk-have.many .hv{padding:3px 6px;font-size:11px} .bk-have.many .hv b{font-size:14px;min-width:0} .bk-have .none{font-size:11.5px;color:#8a826e;white-space:nowrap}
+@keyframes bkTick{0%{color:#ff9a6a;transform:scale(1.45)}100%{color:#fff;transform:scale(1)}}
 .bk-log{list-style:none;margin:6px 0 0;padding:6px 8px;max-height:140px;overflow-y:auto;background:rgba(0,0,0,.3);border:1px solid #3a2c18;font-size:12px;line-height:1.55;color:#cfc6ae} .bk-log:empty{display:none} .bk-log .no{color:#ff8a7a} .bk-log small{color:#ffd86a}
 .slot.bk-on{outline:2px dashed #ffffff;outline-offset:-3px}#inv-grid .bk-on::after{content:'✓';position:absolute;right:3px;top:1px;font:900 12px sans-serif;line-height:1;color:#fff;text-shadow:0 1px 2px #000;pointer-events:none}
 /* ===== 캐릭터 만들기 (아이디) ===== */
@@ -651,10 +657,10 @@ body.title-on .fullscr{background:transparent}
 <div class="gw" id="bulkwin" hidden role="dialog" aria-label="장비 일괄 강화"><span class="gw-plate">장비 일괄 강화</span><button class="x" type="button" data-closewin="bulkwin">닫기</button>
  <p class="bk-help">인벤토리에서 무기·방어구·장신구(능력치 반지·목걸이)를 클릭해 넣고 빼세요. 착용 중인 장비는 넣을 수 없어요. 하나를 넣고 <b>같은 장비 모두 넣기</b>를 누르면 같은 장비가 한꺼번에 들어옵니다.</p>
  <div id="bk-list" class="bk-list"></div>
- <div class="bk-row"><button type="button" id="bk-same">같은 장비 모두 넣기</button><button type="button" id="bk-clear">비우기</button></div>
- <div class="bk-row"><span class="bk-t">목표 강화 + <button type="button" id="bk-m" aria-label="목표 1 낮추기">−</button><input id="bk-target" type="number" min="1" max="15" value="7" aria-label="목표 강화 수치"><button type="button" id="bk-p" aria-label="목표 1 올리기">+</button></span><label class="bk-chk"><input type="checkbox" id="bk-bless">축복 주문서 먼저</label></div>
+ <div class="bk-row"><button type="button" id="bk-same">같은 장비 모두 넣기</button><button type="button" id="bk-clear">비우기</button><label class="bk-chk bk-chk-r"><input type="checkbox" id="bk-bless">축복 주문서 먼저</label></div>
+ <div class="bk-row bk-row-t"><span class="bk-t">목표 강화 + <button type="button" id="bk-m" aria-label="목표 1 낮추기">−</button><input id="bk-target" type="number" min="1" max="15" value="7" aria-label="목표 강화 수치"><button type="button" id="bk-p" aria-label="목표 1 올리기">+</button></span><span class="bk-have" id="bk-have" aria-live="polite"></span></div>
  <div class="bk-row"><button type="button" id="bk-safe" class="bk-go">안전 강화까지</button><button type="button" id="bk-go" class="bk-go">목표까지 강화</button></div>
- <p class="bk-scrolls" id="bk-scrolls"></p>
+ <p class="bk-scrolls" id="bk-scrolls" hidden></p>
  <ol class="bk-log" id="bk-log" aria-live="polite"></ol></div>
 <div class="gw" id="alchwin" hidden role="dialog" aria-label="연금술"><span class="gw-plate">연금술</span><button class="x" type="button" data-closewin="alchwin">닫기</button>
  <p class="al-lead">같은 등급의 장비 3개를 올리고 [조합]을 누르면, 확률에 따라 <b>한 단계 위 등급의 내 직업 장비</b>를 얻어요. 실패하면 재료 3개는 사라져요.</p>

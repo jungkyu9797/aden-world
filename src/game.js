@@ -171,6 +171,7 @@ let curZ=2, zoom=2, zoomT=2, pixel=true, cam=W2P(hero.x,hero.z), moveGoal=null, 
 document.getElementById('px-on').onclick=()=>{ pixel=true; document.getElementById('px-on').setAttribute('aria-pressed',true); document.getElementById('px-off').setAttribute('aria-pressed',false); };
 document.getElementById('px-off').onclick=()=>{ pixel=false; document.getElementById('px-on').setAttribute('aria-pressed',false); document.getElementById('px-off').setAttribute('aria-pressed',true); };
 const toWorldPx=(sx,sy)=>[ (sx-W/2)/curZ+cam[0], (sy-H/2)/curZ+cam[1] ];
+function wheelTgt(sx, sy) { const f = pickFox(sx, sy); if (f) return f; if (DUEL() && !DEATH) { const op = NET.peerAt(sx, sy); if (op && !(op.pr.dd > 0) && op.pr.hp > 0) return NET.proxyOf(op.peer); } return null; }   // v155: 휠 버튼 — 마우스가 가리킨 몬스터, 결투장에선 유저에게도 바로 시전
 function pickFox(sx,sy){ const [px,py]=toWorldPx(sx,sy); let b=null,bd=-1; for (const f of foxes){ if (f.dead||!DN.seen(f.i,f.j)) continue; const S=MOB[f.kind], hw=S.hw||Math.round(14*S.sc+6), hh=S.hh||Math.round(62*S.sc); const [fx,fy]=W2P(f.x,f.z); if (px>fx-hw&&px<fx+hw&&py>fy-hh&&py<fy+8&&f.x+f.z>bd){ bd=f.x+f.z; b=f; } } return b; }
 function P2Wh(px,py){ let [x,z]=P2W(px,py); for (let k=0;k<4;k++){ const h=hAt(x,z); [x,z]=P2W(px,py+h*VPXG); } return [x,z]; }
 function pickTile(sx,sy){ const [x,z]=P2Wh(...toWorldPx(sx,sy)); return [Math.floor(x),Math.floor(z)]; }
@@ -250,7 +251,7 @@ cv.addEventListener('wheel',ev=>{ ev.preventDefault(); const r=cv.getBoundingCli
 cv.addEventListener('auxclick',ev=>{ if (ev.button===1) ev.preventDefault(); });
 cv.addEventListener('contextmenu',ev=>{ { const r0=cv.getBoundingClientRect(), op=NET.peerAt(ev.clientX-r0.left, ev.clientY-r0.top); if (op){ ev.preventDefault(); NET.openMenu(op, ev.clientX, ev.clientY); return; } }   // 다른 플레이어 오른쪽 클릭 → 메뉴 (어디서나)
   const r=cv.getBoundingClientRect(), lx=(ev.clientX-r.left)/curZ, ly=(ev.clientY-r.top)/curZ, hk=HOTRECT.findIndex(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (hk>=0){ ev.preventDefault(); INV.openHot(hk, ev.clientX, ev.clientY); } });   // 단축키 칸 오른쪽 클릭: 스킬·아이템 상세
-cv.addEventListener('mousedown',ev=>{ if (ev.button===1){ ev.preventDefault(); initAudio(); const r=cv.getBoundingClientRect(), f=pickFox(ev.clientX-r.left, ev.clientY-r.top); INV.useHot(INV.hotSel(), f); HELD.set('MB', performance.now() + 400); } });
+cv.addEventListener('mousedown',ev=>{ if (ev.button===1){ ev.preventDefault(); initAudio(); const r=cv.getBoundingClientRect(), f=wheelTgt(ev.clientX-r.left, ev.clientY-r.top); INV.useHot(INV.hotSel(), f); HELD.set('MB', performance.now() + 400); } });
 addEventListener('mouseup', ev => { if (ev.button === 1) HELD.delete('MB'); }, { capture: true });   /* v124: 휠 버튼을 누르고 있으면 그 칸을 계속 사용 */   // 휠 클릭: 선택한 칸 사용 (마법이면 마우스가 가리킨 대상에게)   // 휠 클릭: 선택한 칸 사용
 // 인벤토리 아이템을 단축키 칸으로 끌어다 놓기
 cv.addEventListener('dragover',ev=>{ if (ev.dataTransfer.types.includes('text/plain')) ev.preventDefault(); });
@@ -280,8 +281,11 @@ function heroRelease(f){   // 활시위를 놓는 순간 / 마력탄을 쏘는 �
   arrows.push({ pl:true, kind:mage?'bolt':'arrow', col:mage?['140,100,255','175,185,255','245,240,255']:null, x0:x0+(mage?6:0), y0:y0-(mage?64:42), x1, y1:y1-headY(f)*0.55, t:0, dur:(mage?0.16:0.1)+d*(mage?0.06:0.05), onHit:()=>{ if (!f.dead) strike(f, mage?'magic':'bow'); } });
   if (AC&&SFX_ON){ const t=AC.currentTime; if (mage){ tone(t,'sine',480,980,0.2,0.07); tone(t+0.02,'triangle',1460,1900,0.14,0.03); nz(t,0.22,2400,5200,0.05); } else if (!MSFX('elf','bow',0.5)) { tone(t,'triangle',230,140,0.14,0.09); nz(t,0.14,3000,6500,0.07); } } }
 // v146: 결투장 — 다른 유저 때리기 (몬스터와 같은 공식: 상대 AC·레벨로 명중 · 무기 피해 · 치명타 · 축복 추가 타격) → 상대 화면에서 받는 피해 감소(AC·MR·리덕션 등) 적용
+// v155: 대인전 명중 — 몬스터용 공식(방어 1당 −3%)은 유저의 큰 AC(−50~−100)에서 거의 다 빗나가서 따로: 50% + 레벨 차 1당 3% + 힘·민첩·지능 보너스 + 장비 명중 − 상대 방어 1당 0.4% (마력탄은 0.2%) · 20~95%
+function hitSb(mode) { const st = INV.stat(); return mode === 'bow' ? (st.dex >= 16 ? 0.05 : 0) + (st.dex >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.dex - 20) / 2)) * 0.01 : mode === 'magic' ? 0.12 + (st.int >= 16 ? 0.05 : 0) + (st.int >= 18 ? 0.05 : 0) : (st.str >= 16 ? 0.05 : 0) + (st.str >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.str - 20) / 2)) * 0.01; }
+function pvpHitP(D, mode) { const ac = D && D.ac != null ? D.ac : 10; return Math.max(0.2, Math.min(0.95, 0.5 + 0.03 * (hero.lv - ((D && D.lv) || 1)) + hitSb(mode) + INV.cx('hit') * 0.03 + (BUFF.bounce > 0 && !mode ? 0.15 : 0) + (mode === 'bow' && BUFF.windshot > 0 ? Math.min(0.1, 0.05 + Math.floor(hero.lv / 10) * 0.01) : 0) - (10 - ac) * (mode === 'magic' ? 0.002 : 0.004))); }
 function pvpStrike(p, mode){ if (!DUEL() || !NET.alive(p)) { hero.target = null; return; } const D = NET.duelDef(p), S = { lv: D.lv, mac: D.ac }, [x, y] = W2P(p.x, p.z); breakInvis();
-  if (!GOD_OHK && Math.random() > heroHit(S, mode, null)) { floatText(x + (Math.random() * 18 - 9), y - 108, 'MISS', { color: '#c8d0d8', size: 11 }); return; }
+  if (!GOD_OHK && Math.random() > pvpHitP(D, mode)) { floatText(x + (Math.random() * 18 - 9), y - 108, 'MISS', { color: '#c8d0d8', size: 11 }); return; }
   const crit = Math.random() < 0.12 + INV.cx('crit') / 100, DR = mode === 'magic' ? magicDmg() : INV.dmg(); let d = DR[0] + Math.floor(Math.random() * (DR[1] - DR[0] + 1)); if (crit) d = Math.round(d * 1.8); { const gd = INV.gaho('dmg'); if (gd) d = Math.floor(d * (1 + gd / 100) + Math.random()); }
   if (INV.blessHit() && Math.random() < 0.35) d += 1 + Math.floor(Math.random() * 2); d = Math.max(1, d); NET.pvp(p, d, { k: mode === 'magic' ? 'magic' : mode === 'bow' ? 'bow' : 'melee', c: crit });
   if (crit) { floatText(x, y - 120, 'CRITICAL!', { color: '#ffd24a', size: 14, big: true, life: 1.1, rise: 30 }); floatText(x, y - 104, String(d), { color: '#ff9a3a', size: 16, big: true, life: 1.0 }); } else floatText(x + (Math.random() * 18 - 9), y - 108, String(d), { color: '#ffffff', size: 12 });
@@ -432,7 +436,7 @@ function reaperDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Dat
   const msg = `${who}님이 ${zoneTitle()}의 [감시자 리퍼](${S.name}의 모습)를 쓰러뜨렸습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); TELE.ev('reaperDown', { b: f.kind, z: zoneTitle() }); }
 function soulDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Date.now(); } say(`[영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`, '#ffd86a');
   let who = PNAME(); try { if (D && D.shares && D.shares.size) who = NET.nameOf([...D.shares.entries()].sort((a, b) => b[1] - a[1])[0][0]) || who; } catch (e) {} const msg = `${who}님이 소환의 제단에서 [영혼석: ${S.name}]을(를) 쓰러뜨렸습니다!`; announce(msg, '#c890ff'); NET.announceAll(msg); }
-window.__reaperNow = () => { if (SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id]) { say('감시자 리퍼는 사냥터 2구간·2구역(본토던전은 1·2층)에서만 나타나요.', '#f08a7a'); return; } spawnReaper(hero.i + 2, hero.j); };   // 갓 모드 테스트
+const REAPER_NOW = () => { if (!GOD) return; if (SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id]) { say('감시자 리퍼는 사냥터 2구간·2구역(본토던전은 1·2층)에서만 나타나요.', '#f08a7a'); return; } spawnReaper(hero.i + 2, hero.j); };   // 갓 모드 테스트
 function updateFox(f,dt){
   if (NET.guestMob(f)) { NET.follow(f, dt); return; }
   if (f.hitT>0) f.hitT=Math.max(0,f.hitT-dt);
@@ -504,7 +508,8 @@ function drawAoes(g) { for (const a of AOES) { const [x, y] = W2P(a.x, a.z), rx 
       g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(200,255,140,${0.6 * fade})`;
       for (let q = 0; q < 6; q++) { const ph = (q * 0.31 + a.t * 0.8) % 1, an = q * 2.3 + a.s; g.globalAlpha = Math.sin(ph * Math.PI); g.beginPath(); g.arc(x + Math.cos(an) * rx * 0.6, y + Math.sin(an) * ry * 0.6 - ph * 4, 1 + ph * 1.6, 0, 7); g.fill(); } }
     g.restore(); } }
-let GOD = false, GOD_INV = false, GOD_OHK = false, GOD_FAST = false, GOD_MP = false, GOD_CD = false;   // 데모 테스트용 갓 모드 (패널·무한 주문서·착용 제한 없음) · 무적 · 몹 한 방 · 빠른 이동은 패널에서 따로
+let GOD = false, GOD_INV = false, GOD_OHK = false, GOD_FAST = false, GOD_MP = false, GOD_CD = false, GOD_BTN = null;   // v155: 갓 모드 버튼은 게임 안에서만 (데모 페이지·운영자만 · window로 꺼내지 않음)
+   // 데모 테스트용 갓 모드 (패널·무한 주문서·착용 제한 없음) · 무적 · 몹 한 방 · 빠른 이동은 패널에서 따로
 const SUM_MAX = 9, sumLeft = f => AO_SIM ? 0 : Math.max(0, SUM_MAX - foxes.filter(m => m.sumBy === f && !m.dead && !m.gone).length);   /* v119: 보스 소환수는 동시에 최대 9마리 */
 let BT = null, AO_SIM = false;   // v139: BT = 보스 기술 대상(나 또는 다른 플레이어) · AO_SIM = 호스트의 보스 기술을 내 화면에 다시 그리는 중 (소환은 안 함)
 const AO_RNG = s => () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -679,7 +684,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 154;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 155;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1925,7 +1930,7 @@ const tabNav = () => ['loginscr', 'charsel', 'namescr'].some(id => { const el = 
 let pickCdT = 0; const HELD = new Map();
 function pickTry(fresh){ const n = performance.now(); if (n < pickCdT) return; pickCdT = n + 250; const got = GROUND.pickNear(null, 1); /* v136: F4는 한 번에 한 개씩 (누르고 있으면 0.25초마다 하나씩) */ if (!got && fresh) say('주변 1칸에 주울 아이템이 없습니다.', '#9c9682'); }
 let WHEEL_LOCK = (() => { try { return localStorage.getItem('aden_wlock') === '1'; } catch (e) { return false; } })(), WLRECT = [];   /* v124: 휠 고정 */
-function holdTry(k, fresh){ if (k === 'MB') { INV.useHot(INV.hotSel(), hover && !hover.dead ? hover : null); return; } const m = /^F([1-9]|1[0-2])$/.exec(k); if (m) INV.useHot(+m[1] - 1); }
+function holdTry(k, fresh){ if (k === 'MB') { INV.useHot(INV.hotSel(), hover && !hover.dead ? hover : mouse ? wheelTgt(mouse[0], mouse[1]) : null); return; } const m = /^F([1-9]|1[0-2])$/.exec(k); if (m) INV.useHot(+m[1] - 1); }
 function holdTick(){ if (!HELD.size) return; const n = performance.now(); for (const [k, t] of HELD) { if (n < t) continue; HELD.set(k, n + 250); HOLD_Q = true; try { holdTry(k, false); } finally { HOLD_Q = false; } } }
 addEventListener('keyup', ev => { HELD.delete(ev.key); }, { capture: true });
 addEventListener('blur', () => HELD.clear());
@@ -3321,7 +3326,8 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (!foxes.some(f => f.tgt === p && !f.dead)) d.hp = Math.min(MXH(d), d.hp + dt * (0.15 + d.lv * 0.04));
       if (!p.sum) petUse(p); stepMove(p, dt, K_(p).spd * GSPD * hm); if (p.atkT != null) { p.atkT += dt; if (p.atkT > (p.sum ? ATK_T : 0.5)) p.atkT = null; }
       if (p.lunge > 0) { const was = p.lunge; p.lunge -= dt; const T = p.target; if (was > 0.15 && p.lunge <= 0.15 && T && !T.dead && cheb(p.i, p.j, T.i, T.j) === 1) { const S = MOB[T.kind];
-          if (Math.random() < petHit(d, S)) { const dm = petDmg(d); sfxBite(); mobHurt(T, dm, '#ffd27a', p); if (!T.dead && Math.random() < 0.35) T.tgt = p; }
+          if (Math.random() < petHit(d, S)) { const dm = S.boss ? Math.max(1, Math.round(petDmg(d) * 0.5)) : petDmg(d); sfxBite();   // v155: 펫·소환수가 보스에게 주는 피해 −50% (일반 몬스터는 그대로)
+            mobHurt(T, dm, '#ffd27a', p); if (!T.dead && Math.random() < 0.35) T.tgt = p; }
           else { const [fx, fy] = W2P(T.x, T.z); floatText(fx, fy - headY(T) - 4, 'MISS', { color: '#c8d0d8', size: 10 }); } } }
       if (p.t < 1) continue;
       if (cheb(p.i, p.j, hero.i, hero.j) > 16 && d.mode !== 'rest') { place(p); continue; }
@@ -4536,7 +4542,7 @@ const INV = (() => {
   const BK = { list: [], busy: false, stop: false };
   const bkAcc = d => !!accKey(d);   // v154: 능력치 반지·목걸이도 (장신구 마법 주문서 · 안전 강화 없음 · 최대 +8)
   const bkOK = e => !!(e && ITEMS[e.id] && (ITEMS[e.id].slot === 'weapon' || ARMOR_SLOTS.has(ITEMS[e.id].slot) || bkAcc(ITEMS[e.id])));
-  const bkKind = td => td.slot === 'weapon' ? '무기' : bkAcc(td) ? '장신구' : '갑옷';
+  const bkKind = td => td.slot === 'weapon' ? '무기' : bkAcc(td) ? '장신구' : '갑옷', bkTy = td => td.slot === 'weapon' ? 'w' : bkAcc(td) ? 'c' : 'a';
   const bkScroll = (td, bless) => { const w = td.slot === 'weapon', a = bkAcc(td), n = w ? 'scroll_weapon' : a ? 'scroll_acc' : 'scroll_armor', b = w ? 'bscroll_weapon' : a ? 'bscroll_acc' : 'bscroll_armor'; return bless && count(b) ? b : count(n) ? n : count(b) ? b : null; };
   const bkMax = td => bkAcc(td) ? 8 : 15, bkSafe = td => bkAcc(td) ? 0 : SAFE_EN(td);
   function enchOnce(t, sid) { const sd = ITEMS[sid], td = ITEMS[t.id], safe = SAFE_EN(td), cur = t.en || 0; if (bkAcc(td) && cur >= 8) return 'none'; if (!take(sid)) return 'none'; const before = nameOf(t);
@@ -4546,10 +4552,12 @@ const INV = (() => {
     const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = cur + add;
     if (t.en >= (td.slot === 'weapon' ? 8 : 7)) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 9 ? '#ff9a3a' : '#9fe0ff');
     return add; }
-  function bkRender() { const w = $('bulkwin'); if (!w || w.hidden) return; if (!BK.busy) BK.list = BK.list.filter(e => bag.includes(e) && !e.on);   // v154: 착용 중인 장비는 빠짐
+  function bkRender() { const w = $('bulkwin'); if (!w || w.hidden) return; BK.list = BK.list.filter(e => bag.includes(e) && (BK.busy || !e.on));   // v154: 착용 중인 장비는 빠짐 · v155: 강화 중에 증발한 장비는 바로 빠짐
     $('bk-list').innerHTML = BK.list.length ? BK.list.map((e, k) => { const d = ITEMS[e.id], sf = SAFE_EN(d); return `<button type="button" class="bk-it" data-k="${k}" title="클릭: 빼기"${BK.busy ? ' disabled' : ''}><span class="ic">${ICON(d.icon, e.blessed)}</span><b style="color:${rarC(e.id)}">${nameHTML(e)}</b><small>${bkAcc(d) ? `장신구 · 안전 강화 없음 · 다음 성공 ${(e.en || 0) >= 8 ? '최고(+8)' : Math.round(ACC_P[e.en || 0] * 100) + '%'}` : `안전 강화 +${sf}${(e.en || 0) >= sf ? ' · <em>안전 넘음</em>' : ''}`}</small></button>`; }).join('') : '<p class="bk-empty">인벤토리에서 무기·방어구·장신구(능력치 반지·목걸이)를 클릭하면 여기에 들어옵니다. (착용 중인 장비는 안 됨)<br>다시 클릭하면 빠집니다.</p>';
     const c = id => GOD_INF(id) ? '∞' : count(id);
-    $('bk-scrolls').textContent = `무기 주문서 ${c('scroll_weapon')} · 축복 ${c('bscroll_weapon')}   |   갑옷 주문서 ${c('scroll_armor')} · 축복 ${c('bscroll_armor')}   |   장신구 주문서 ${c('scroll_acc')} · 축복 ${c('bscroll_acc')}`;
+    { const TY = { w: ['무기', 'scroll_weapon', 'bscroll_weapon'], a: ['갑옷', 'scroll_armor', 'bscroll_armor'], c: ['장신구', 'scroll_acc', 'bscroll_acc'] }, ks = [...new Set(BK.list.map(e => bkTy(ITEMS[e.id])))], show = ks, prev = BK.prev || {}, now = {}, hv = $('bk-have'); hv.classList.toggle('many', show.length > 1);   // v155: 목표 강화 옆에 남은 주문서 (넣은 장비 종류만 · 쓸 때마다 바로 줄고 반짝)
+      hv.innerHTML = !show.length ? '<span class="none">남은 주문서: 장비를 넣으면 보여요</span>' : '<span class="bk-hl">남은 주문서</span>' + show.map(k => { const [nm, n, b] = TY[k], cn = count(n), cb = count(b); now[n] = cn; now[b] = cb; const tick = (prev[n] != null && cn < prev[n]) || (prev[b] != null && cb < prev[b]);
+        return `<span class="hv${cn + cb <= 0 && !GOD_INF(n) ? ' zero' : ''}${BK.cur === k ? ' cur' : ''}${tick ? ' tick' : ''}" title="${nm} 마법 주문서 · 축복받은 ${nm} 마법 주문서">${nm} <b>${c(n)}</b>${show.length > 1 ? '' : '장'}${cb > 0 || GOD_INF(b) ? ` <i>${show.length > 1 ? '축' : '축복'} <b>${c(b)}</b></i>` : ''}</span>`; }).join(''); BK.prev = now; }
     $('bk-go').textContent = BK.busy ? '중지' : '목표까지 강화'; ['bk-safe', 'bk-same', 'bk-clear'].forEach(id => $(id).disabled = BK.busy); }
   function bulkToggle(e) { if (BK.busy) return; if (e.locked) { say(`${nameOf(e)}: 잠긴 아이템은 일괄 강화에 넣을 수 없습니다.`, '#f08a7a'); return; } if (e.on) { say(`${nameOf(e)}: 착용 중인 장비는 일괄 강화에 넣을 수 없습니다. (벗은 뒤 넣어 주세요)`, '#f08a7a'); return; } if (!bkOK(e)) { say('일괄 강화에는 무기·방어구·장신구(힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이)만 넣을 수 있습니다.', '#f08a7a'); return; }
     const k = BK.list.indexOf(e); if (k >= 0) BK.list.splice(k, 1); else BK.list.push(e); render(); bkRender(); }
@@ -4562,10 +4570,10 @@ const INV = (() => {
     const start = () => { BK.busy = true; BK.stop = false; const q = todo.slice(); let ok = 0, boom = 0, used = 0; const ol = $('bk-log');
       const log = t => { const li = document.createElement('li'); li.innerHTML = t; ol.prepend(li); while (ol.children.length > 60) ol.lastChild.remove(); };
       log(`— ${mode === 'safe' ? '안전 강화까지' : '+' + tgt + '까지'} 시작 (${q.length}개) —`);
-      const finish = why => { BK.busy = false; if (why) log(why); log(`— 끝: 성공 ${ok}회 · 파괴 ${boom}개 · 주문서 ${used}장 —`); say(`일괄 강화 끝: 성공 ${ok}회 · 파괴 ${boom}개 · 주문서 ${used}장`, '#cfe4a8'); render(); bkRender(); };
+      const finish = why => { BK.busy = false; BK.cur = null; if (why) log(why); log(`— 끝: 성공 ${ok}회 · 파괴 ${boom}개 · 주문서 ${used}장 —`); say(`일괄 강화 끝: 성공 ${ok}회 · 파괴 ${boom}개 · 주문서 ${used}장`, '#cfe4a8'); render(); bkRender(); };
       const tick = () => { if (BK.stop) return finish('<span class="no">중지했습니다.</span>'); if (!q.length) return finish();
         const e = q[0], d = ITEMS[e.id]; if (e.on && bag.includes(e)) { log(`<b style="color:${rarC(e.id)}">${nameHTML(e)}</b> 착용 중이라 건너뜀`); q.shift(); return setTimeout(tick, 60); } if (!bag.includes(e) || (e.en || 0) >= goalOf(e)) { if (bag.includes(e)) log(`<b style="color:${rarC(e.id)}">${nameHTML(e)}</b> 목표 도달 ✔`); q.shift(); return setTimeout(tick, 60); }
-        const sid = bkScroll(d, $('bk-bless').checked); if (!sid) return finish(`<span class="no">${bkKind(d)} 마법 주문서가 없어 멈췄습니다.</span>`);
+        const sid = bkScroll(d, $('bk-bless').checked); BK.cur = bkTy(d); if (!sid) return finish(`<span class="no">${bkKind(d)} 마법 주문서가 없어 멈췄습니다.</span>`);
         const before = nameHTML(e), bn = nameOf(e), r = enchOnce(e, sid); if (r === 'none') return finish('<span class="no">주문서를 쓸 수 없어 멈췄습니다.</span>'); used++;
         if (r === 'boom') { boom++; log(`<span class="no">${before} — 증발해 사라졌습니다</span>`); enchSfx('boom'); q.shift(); enFx('#ff6a5a', '파괴!'); NET.fx('boom', '증발…', bn); }
         else { ok++; log(`${before} → <b style="color:${rarC(e.id)}">${nameHTML(e)}</b>${r > 1 ? ' <small>(축복 +' + r + ')</small>' : ''}`); enchSfx(r > 1 ? 'bless' : 'ok'); NET.fx(r > 1 ? 'bless' : 'ok', `+${e.en} 강화 성공!`, nameOf(e)); }
@@ -5575,8 +5583,8 @@ const TOWN = (() => {
       dt.onmouseenter = () => { tip.innerHTML = `<b>${dt.textContent}</b>${dt.dataset.tip}`; tip.hidden = false; tip._own = dt; };
       dt.onmousemove = ev => { const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.min(innerWidth - w - 8, ev.clientX + 16) + 'px'; tip.style.top = Math.min(innerHeight - h - 8, ev.clientY + 14) + 'px'; };
       dt.onmouseleave = () => { tip.hidden = true; }; }); }
-  window.__godBtn = () => { $('btn-god').hidden = false; $('btn-god').onclick = () => { GOD = !GOD; INV.godScrolls(GOD); { const gp = $('godpanel'); if (gp) gp.hidden = !GOD; } $('btn-god').setAttribute('aria-pressed', GOD); $('btn-god').textContent = GOD ? '갓 모드 켜짐' : '갓 모드 (테스트)'; if (GOD) { coins += 50000; say('갓 모드: 50,000 골드를 받았습니다.', '#ffd86a'); say('갓 모드: 순간이동·귀환·강화·축복·속성 주문서를 무한으로 쓸 수 있습니다. (테스트 패널 열림)', '#ffd86a'); } if (!GOD) { GOD_INV = GOD_OHK = GOD_FAST = GOD_MP = false; } window.godSync && godSync(); say(GOD ? '갓 모드: 테스트 패널에서 무적·몹 한 방·빠른 이동을 따로 켤 수 있어요.' : '갓 모드를 껐습니다. (무적·몹 한 방·빠른 이동도 꺼짐)', '#f2d98a'); }; };
-  if (window.DEMO_MODE) { $('btn-dn').hidden = false; $('btn-dn').onclick = () => DN.toggle(); window.__godBtn(); }
+  GOD_BTN = () => { if (!window.DEMO_MODE && !ADMIN.on()) return; $('btn-god').hidden = false; $('btn-god').onclick = () => { GOD = !GOD; INV.godScrolls(GOD); { const gp = $('godpanel'); if (gp) gp.hidden = !GOD; } $('btn-god').setAttribute('aria-pressed', GOD); $('btn-god').textContent = GOD ? '갓 모드 켜짐' : '갓 모드 (테스트)'; if (GOD) { coins += 50000; say('갓 모드: 50,000 골드를 받았습니다.', '#ffd86a'); say('갓 모드: 순간이동·귀환·강화·축복·속성 주문서를 무한으로 쓸 수 있습니다. (테스트 패널 열림)', '#ffd86a'); } if (!GOD) { GOD_INV = GOD_OHK = GOD_FAST = GOD_MP = false; } window.godSync && godSync(); say(GOD ? '갓 모드: 테스트 패널에서 무적·몹 한 방·빠른 이동을 따로 켤 수 있어요.' : '갓 모드를 껐습니다. (무적·몹 한 방·빠른 이동도 꺼짐)', '#f2d98a'); }; };
+  if (window.DEMO_MODE) { $('btn-dn').hidden = false; $('btn-dn').onclick = () => DN.toggle(); GOD_BTN(); }
   // 갓 모드 테스트 패널: 레벨 정하기 · 체력/마나 가득 · 골드 · 낮/밤
   { const gp = $('godpanel');
     if (gp) { const inp = $('gp-lv'), clampL = v => Math.max(1, Math.min(99, Math.round(+v || 1)));
@@ -5597,7 +5605,7 @@ const TOWN = (() => {
       $('gp-dmx').onclick = () => { let n = 0; for (let q = foxes.length - 1; q >= 0; q--) if (MOB[foxes[q].kind] && MOB[foxes[q].kind].dummy) { if (hero.target === foxes[q]) hero.target = null; foxes.splice(q, 1); n++; } say(`허수아비 ${n}개를 치웠습니다.`, '#9c9682'); };
       // 무적 · 몹 한 방 · 빠른 이동: 따로 켜고 끔 (갓 모드를 끄면 모두 꺼짐)
       window.godSync = () => { for (const [id, v, nm] of [['gp-inv', GOD_INV, '무적'], ['gp-ohk', GOD_OHK, '몹 한 방'], ['gp-fast', GOD_FAST, '이동·공속 1.5배'], ['gp-mp', GOD_MP, '마나 무제한'], ['gp-cd', GOD_CD, '쿨타임 자동 초기화']]) { const b = $(id); if (b) { b.textContent = `${nm} ${v ? 'ON' : 'OFF'}`; b.classList.toggle('on', v); b.setAttribute('aria-pressed', v); } } };
-      { const rb = $('gp-reaper'); if (rb) rb.onclick = () => window.__reaperNow(); }
+      { const rb = $('gp-reaper'); if (rb) rb.onclick = () => REAPER_NOW(); }
       $('gp-inv').onclick = () => { GOD_INV = !GOD_INV; godSync(); say(`갓 모드: 무적 ${GOD_INV ? '켜짐 (피해·화상·둔화 없음)' : '꺼짐'}`, '#ffd86a'); };
       $('gp-ohk').onclick = () => { GOD_OHK = !GOD_OHK; godSync(); say(`갓 모드: 몹 한 방 ${GOD_OHK ? '켜짐 (항상 명중·한 번에 처치)' : '꺼짐'}`, '#ffd86a'); };
       $('gp-fast').onclick = () => { GOD_FAST = !GOD_FAST; godSync(); say(`갓 모드: 이동·공격 속도 1.5배 ${GOD_FAST ? '켜짐' : '꺼짐'}`, '#ffd86a'); };
@@ -6334,7 +6342,7 @@ const ADMIN = (() => {
     try { priv = await crypto.subtle.importKey('jwk', K().jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']); if (!(await admVerify('adm-test', await sign('adm-test')))) throw new Error('key'); }
     catch (e) { priv = null; say('운영자 키가 이 게임 버전과 맞지 않아요. (운영자 모드 꺼짐)', '#f08a7a'); return false; }
     on = true; BUFF.invis = Math.max(BUFF.invis || 0, 5); build(); say('***** 운영자 모드가 켜졌습니다. 다른 유저와 몬스터에게 보이지 않아요. (상단 [운영자] 버튼) *****', ADMC);
-    try { window.__godBtn && window.__godBtn(); } catch (e) {} return true; }
+    try { GOD_BTN && GOD_BTN(); } catch (e) {} return true; }
   async function send(to, cmd, args) { if (!on) return false; const me = NET.me(); if (!me) { say('아직 월드에 연결되지 않았어요.', '#f08a7a'); return false; }
     seq = Math.max(seq + 1, Date.now()); const sq = seq, t = Date.now(), a = JSON.stringify(args || {}); const sig = await sign(`${sq}|${t}|${to}|${cmd}|${a}|${me}`);
     out.push([sq, t, to, cmd, a, sig]); if (out.length > 6) out.shift(); NET.poke(); return true; }
@@ -6764,6 +6772,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 155, items: ['일괄 강화 창의 [목표 강화] 옆에 넣은 장비에 맞는 남은 주문서 수가 크게 보여요. 주문서를 한 장 쓸 때마다 바로 줄어들어요. (지금 쓰는 주문서는 금색 테두리)', '일괄 강화 중에 증발한 장비가 목록에 남아 보이던 문제를 고쳤어요.', '펫과 서먼 몬스터 소환수가 보스에게 주는 피해가 절반으로 줄었어요. (일반 몬스터는 그대로)', '결투장(대인전) 명중 계산을 고쳤어요. 상대 방어(AC)가 높으면 거의 다 빗나가던 문제 — 이제 레벨 차이·명중 보너스·상대 AC를 함께 따져요.', '결투장에서 휠 버튼으로 공격 마법을 쓸 때 상대 유저에게 마우스만 올리고 누르면 바로 시전돼요. (먼저 클릭할 필요 없음)', '보안을 강화했어요. (테스트용 기능이 일반 게임에서 열리지 않게 막음)'] },
     { v: 154, items: ['일괄 강화에 장신구도 넣을 수 있어요. (힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이 · 장신구 마법 주문서 사용 · 안전 강화가 없어 +1부터 실패하면 증발 · 최대 +8 · [안전 강화까지]에서는 건너뜀)', '착용 중인 장비는 일괄 강화에 넣을 수 없어요. (벗은 뒤 넣어 주세요)', '일괄 강화 창을 넓히고 목록 높이를 고정해서, 강화하는 동안 이름이 길어져도 강화 버튼이 아래로 밀리지 않아요.'] },
     { v: 153, items: ['새 사냥터 [용의 계곡]이 열렸어요! (월드맵 · 상급 · 권장 Lv 47~54) 1구역: 해골 돌격병·해골 궁수·리자드맨 무리 / 2구역: 모두 먼저 덤비는 와이번·드레이크·레서 드래곤', '드레이크와 레서 드래곤은 앞쪽으로 불 숨결을 뿜어요. 방어력을 무시하는 마법 피해라서 주황 범위가 보이면 옆으로 피하세요. (MR·화염 저항으로 줄어듦)', '새 보스 [드레이크 킹] — 용의 계곡 2구역 · 약 3시간마다 · 2명 이상 권장. 쓰러뜨리면 [용의 심장]과 [드레이크 킹의 가호조각]이 반드시 떨어져요. (드레이크 킹의 가호: 경험치 획득 증가)', '새 재료 [용의 비늘]·[드레이크의 발톱]·[용의 심장]으로 제작 장인 브론의 [장비 제작]에서 용비늘 투구·갑옷·장갑·장화(모든 클래스 · AC·MR·화염 저항)와 드래곤 슬레이어·용의 지팡이·용의 활을 만들 수 있어요. (성공 100%)', '보스 HP 바 아래에 지금 그 보스가 노리는 사람(어그로)의 아이디가 보여요.', '보스가 처음 마주칠 때 · 싸우는 중 · 쓰러질 때 보스마다 다른 대사를 해요. (머리 위 말풍선 + 채팅창 · 같은 사냥터 사람 모두에게 보임)'] },
     { v: 152, items: ['단축키 칸에 [자동사냥] 아이콘이 생겼어요. 누르거나 그 칸의 F키를 누르면 자동사냥이 켜지고 꺼져요. (켜지면 초록 테두리와 ON 표시 · 줍기 아이콘처럼 끌어서 원하는 칸으로 옮길 수 있어요 · 처음엔 F3 자리, 차 있으면 빈 칸)', '게임 메뉴에 [복구 코드 입력]이 생겼어요. 운영자에게 받은 복구 코드를 넣으면 아이템을 받을 수 있어요. (코드마다 받을 캐릭터가 정해져 있고 한 번만 사용 가능)'] },
