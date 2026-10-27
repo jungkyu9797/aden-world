@@ -655,7 +655,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 149;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 150;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4280,6 +4280,7 @@ const POUCH = (() => { const T = [['scroll_armor', 28, [1, 1, 1, 1, 1, 1, 1, 2, 
   tier('희귀', 20, 19); tier('희귀', 24, 11); tier('영웅', 30, 2.4); tier('영웅', 35, 0.6);
   const tot = T.reduce((a, r) => a + r[1], 0);
   return { table: T, roll() { let x = Math.random() * tot; const r = T.find(q => (x -= q[1]) < 0) || T[T.length - 1]; return [r[0], r[2] ? r[2][Math.floor(Math.random() * r[2].length)] : 1]; } }; })();
+let INV_UNK = [], STORE_UNK = [];   // v150: 이 버전이 모르는 아이템(더 새 버전에서 생긴 것)은 버리지 않고 그대로 보관했다가 다시 저장
 const INV = (() => {
   let bagDrag = false;     // 가방 칸을 끄는 동안은 다시 그리지 않음
   const bag = [];          // {id, n, on}
@@ -4742,8 +4743,8 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
         if (on) { if (!e) { bag.push({ id, n: 1, on: false, godTemp: true }); } } else if (e && e.godTemp) { e.n -= 1; delete e.godTemp; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); } } render(); },
     trashAsk, setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, showSkill, holdHot, openHot, setAutoSk, autoSk: id => !!AUTOSK[id], applyScroll, targeting: () => tgtScroll, bag: () => bag, nameOf, wPct, maxW, weightNow: weight, enOf: sl => eq[sl] ? (eq[sl].en || 0) : 0,
     dump() { const cl = x => JSON.parse(JSON.stringify(x, (k, v) => k && k[0] === '_' ? undefined : v)); const B = cl(bag.filter(e => !e.godTemp || e.n > 1).map(e => e.godTemp ? Object.assign({}, e, { n: e.n - 1, godTemp: undefined }) : e)); B.forEach(e => { delete e.godTemp; if (e.pet && e.pet.state === 'out') e.pet.state = 'stored'; });
-      return { bag: B, bonus: Object.assign({}, BONUS), hot: hot.slice(), auto: cl(AUTO), ab: cl(AUTOBUFF), ask: Object.keys(AUTOSK) }; },
-    load(o) { if (!o) return; bag.length = 0; for (const k in eq) delete eq[k]; BK.list = []; for (const e of o.bag || []) { if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (!e || !ITEMS[e.id] || LOW_BOOK.has(e.id)) continue; if (e.on && !eq[e.on]) eq[e.on] = e; else e.on = false; bag.push(e); }
+      return { bag: B.concat(INV_UNK), bonus: Object.assign({}, BONUS), hot: hot.slice(), auto: cl(AUTO), ab: cl(AUTOBUFF), ask: Object.keys(AUTOSK) }; },
+    load(o) { if (!o) return; bag.length = 0; INV_UNK = []; for (const k in eq) delete eq[k]; BK.list = []; for (const e of o.bag || []) { if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (e && e.id && !ITEMS[e.id]) { INV_UNK.push(e); continue; } if (!e || !ITEMS[e.id] || LOW_BOOK.has(e.id)) continue; if (e.on && !eq[e.on]) eq[e.on] = e; else e.on = false; bag.push(e); }
       for (const k in BONUS) BONUS[k] = (o.bonus && +o.bonus[k]) || 0; if (o.hot) { const old = !(o.hot.length > 8); for (let i = 0; i < 12; i++) hot[i] = null; for (let i = 0; i < (old ? 8 : 12); i++) { const h = o.hot[i], j = old ? i + 4 : i; hot[j] = h && (h === 'act:pick' || (String(h).startsWith('sk:') ? SK[h.slice(3)] : ITEMS[h])) ? h : null; } } { for (let k = bag.length - 1; k >= 0; k--) if (bag[k].id === 'return_scroll' || (bag[k].id === 'return_charm' && bag.findIndex(x => x.id === 'return_charm') !== k)) bag.splice(k, 1); if (!bag.some(x => x.id === 'return_charm')) bag.push({ id: 'return_charm', n: 1, on: false }); for (let i = 0; i < 12; i++) if (hot[i] === 'return_scroll') hot[i] = 'return_charm'; }   /* v138: 귀환 주문서 → 귀환 부적 1개 */ ensurePick(); if (false) for (let i = 0; i < 8; i++) { const h = o.hot[i]; }
       if (o.auto) for (const k in o.auto) if (AUTO[k]) Object.assign(AUTO[k], o.auto[k]); if (o.ab) for (const k in o.ab) if (k in AUTOBUFF) AUTOBUFF[k] = !!o.ab[k]; for (const k in AUTOSK) delete AUTOSK[k]; if (Array.isArray(o.ask)) for (const k of o.ask) if (skAutoKind(k)) AUTOSK[k] = true; skKey = ''; render(); },
     usePotion() { const e = bag.find(x => x.id === 'red_potion'); if (!e) { say('빨간 물약이 없습니다.', '#f08a7a'); return; } use(e); } };
@@ -5580,11 +5581,12 @@ const STORE = (() => {
   function deposit(e, q) { if (!e || !ITEMS[e.id]) return false; const w = why(e); if (w) { say(w, '#f08a7a'); return false; } const d = ITEMS[e.id], same = d.stack ? box.find(x => x.id === e.id) : null;
     if (!same && box.length >= CAP) { say(`창고가 가득 찼습니다. (${CAP}칸)`, '#f08a7a'); return false; }
     q = Math.max(1, Math.min(e.n, q || e.n));
-    if (d.stack && q < e.n) { e.n -= q; if (same) same.n += q; else box.push({ id: e.id, n: q, on: false }); INV.render(); say(`창고에 맡김: ${d.name} ×${q}`, '#9fd0e8'); render(); return true; }
-    if (!INV.removeEntry(e)) return false; if (same) same.n += e.n; else box.push(e); say(`창고에 맡김: ${label(e)}`, '#9fd0e8'); render(); return true; }
+    if (d.stack && q < e.n) { e.n -= q; if (same) same.n += q; else box.push({ id: e.id, n: q, on: false }); INV.render(); say(`창고에 맡김: ${d.name} ×${q}`, '#9fd0e8'); render(); saveSoon(); return true; }
+    if (!INV.removeEntry(e)) return false; if (same) same.n += e.n; else box.push(e); say(`창고에 맡김: ${label(e)}`, '#9fd0e8'); render(); saveSoon(); return true; }
   function withdraw(k, q) { const e = box[k]; if (!e) return; const d = ITEMS[e.id]; q = Math.max(1, Math.min(e.n, q || e.n));
-    if (d.stack && q < e.n) { e.n -= q; INV.insertEntry({ id: e.id, n: q, on: false }); say(`창고에서 찾음: ${d.name} ×${q}`, '#9fd0e8'); render(); return; }
-    box.splice(k, 1); INV.insertEntry(e); say(`창고에서 찾음: ${label(e)}`, '#9fd0e8'); render(); }
+    if (d.stack && q < e.n) { e.n -= q; INV.insertEntry({ id: e.id, n: q, on: false }); say(`창고에서 찾음: ${d.name} ×${q}`, '#9fd0e8'); render(); saveSoon(); return; }
+    box.splice(k, 1); INV.insertEntry(e); say(`창고에서 찾음: ${label(e)}`, '#9fd0e8'); render(); saveSoon(); }
+  function saveSoon() { setTimeout(() => { try { SAVE.now(false, true); } catch (e) {} }, 300); }   // v150: 창고에 맡기거나 찾으면 바로 저장
   // 겹치는 물건(물약·주문서 등)은 수량 묻기: 전부 / 수량 입력 / 취소
   function askQty(e, verb, cb) { const d = ITEMS[e.id]; if (!d.stack || e.n <= 1) { cb(e.n); return; }
     let w = $('qtywin'); if (!w) { w = document.createElement('div'); w.id = 'qtywin'; w.className = 'askwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
@@ -5616,7 +5618,7 @@ const STORE = (() => {
       I.addEventListener('drop', ev => { const k = ev.dataTransfer.getData('text/x-store'); if (k === '') return; ev.preventDefault(); withdraw(+k); }); }
     { const gd = $('st-gdep'), gw = $('st-gwd'), gi = $('st-gin'); if (gd) gd.onclick = () => goldMove(1); if (gw) gw.onclick = () => goldMove(-1); if (gi) gi.onkeydown = ev => ev.stopPropagation(); }
     const sb = $('st-sort'); if (sb) sb.onclick = () => { box.sort((a, b) => { const A = ITEMS[a.id], B = ITEMS[b.id]; return (!!B.slot - !!A.slot) || (RO[B.rar || '일반'] - RO[A.rar || '일반']) || A.name.localeCompare(B.name, 'ko'); }); render(); }; }
-  return { open, render, deposit, depositAsk, goldMove, gold: () => gold, list: () => (gold > 0 ? box.concat([{ id: 'stored_gold', n: gold }]) : box).concat(window.__COLO ? window.__COLO.recOut() : []), load(L) { box.length = 0; gold = 0; if (window.__COLO) window.__COLO.recIn(null); for (const e of L || []) { if (e && e.id === 'col_buy') { if (window.__COLO) window.__COLO.recIn(e); continue; } if (e && e.id === 'stored_gold') { gold = Math.max(0, Math.min(GMAX, Math.floor(+e.n || 0))); continue; } if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (e && (e.id === 'return_scroll' || e.id === 'return_charm')) continue; if (e && ITEMS[e.id] && !LOW_BOOK.has(e.id)) box.push(e); } } };
+  return { open, render, deposit, depositAsk, goldMove, gold: () => gold, list: () => (gold > 0 ? box.concat([{ id: 'stored_gold', n: gold }]) : box).concat(window.__COLO ? window.__COLO.recOut() : []).concat(STORE_UNK), load(L) { box.length = 0; gold = 0; STORE_UNK = []; if (window.__COLO) window.__COLO.recIn(null); for (const e of L || []) { if (e && e.id === 'col_buy') { if (window.__COLO) window.__COLO.recIn(e); continue; } if (e && e.id === 'stored_gold') { gold = Math.max(0, Math.min(GMAX, Math.floor(+e.n || 0))); continue; } if (e && ITEM_MERGE[e.id]) e.id = ITEM_MERGE[e.id]; if (e && (e.id === 'return_scroll' || e.id === 'return_charm')) continue; if (e && e.id && !ITEMS[e.id]) { STORE_UNK.push(e); continue; } if (e && ITEMS[e.id] && !LOW_BOOK.has(e.id)) box.push(e); } } };
 })();
 
 addEventListener('keydown', ev => { if (ev.key === 'Alt' && !ev.ctrlKey && !ev.shiftKey) ev.preventDefault(); });   // v129: Alt = 몬스터 무시하고 이동
@@ -5741,7 +5743,7 @@ const SAVE = (() => {
   async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); ut.c = d ? d.__ut || null : null; offUT = ut.c; return d && d.data ? JSON.parse(d.data) : null; }
       const a = await adb(); if (a) { try { const sn = await a.doc(`saves/${hex(ACCOUNT.acc())}_${c}`).get(); if (sn.exists) return JSON.parse(sn.data().data); } catch (e) {} } const v = ls.get(lkey(c)); return v ? JSON.parse(v) : null; }
     catch (e) { console.warn('load', e); return undefined; } }   // undefined = 서버 오류 (null = 저장 없음)
-  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; return d && d.store ? JSON.parse(d.store) : null; } const v = ls.get('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase()); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; return d && d.store ? JSON.parse(d.store) : null; } const v = ls.get('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase()); return v ? JSON.parse(v) : null; } catch (e) { console.warn('loadStore', e); return undefined; } }   // undefined = 불러오기 실패
   function start(c, store) { cls = c; on = true; t = 0; lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); }
     SESS.begin(); if (cloud()) sessP = CLOUD.set(`users/${CLOUD.uid()}`, { sess: SESS.id, sessAt: String(Date.now()) }, true).then(r => { if (typeof r === 'string') { ut.u = r; nowUT = r; } }).catch(() => {}); startP = sessP; }   // v117: 이 접속을 계정의 '현재 접속'으로 표시 → 먼저 있던 접속은 다음 저장 때 끊김
   // v120: 오프라인 정산용 시각 — 계정 서버면 서버가 기록한 시각만 씀 (PC 시계를 바꿔도 소용없음)
@@ -6557,6 +6559,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 150, items: ['창고·가방 아이템이 사라지지 않게 보호를 강화했어요. (접속할 때 창고를 못 불러오면 시작하지 않고 다시 시도 · 창고에 맡기거나 찾으면 바로 저장 · 더 새 버전에서 저장된 캐릭터는 업데이트 후 접속)'] },
     { v: 149, items: ['마법사 7~10서클 마법이 생겼어요. (레벨이 되면 자동으로 배워요)', '7서클(Lv28): 힐 올 · 리무브 커스(나 또는 마우스로 가리킨 파티원의 슬로우·거미줄 속박·독·기절을 풀어요) · 이뮨 투 함(초록 기둥과 초록 오로라로 바뀌었어요)', '8서클(Lv32): 토네이도(바람) · 어스퀘이크(땅) · 파이어 스톰(불) — 내 주변 가로·세로 6칸 범위 공격', '9서클(Lv36): 앱솔루트 배리어(5초 동안 무적 · 그동안 이동과 귀환만 가능 · 12초 동안 마법 사용 불가) · 어드밴스 스피릿(30분 동안 최대 HP·MP +20% · 파티원에게도) · 라이트닝 스톰(물 · 6칸 범위 · 10% 확률로 감전)', '10서클(Lv40): 디스인티그레이트(강력한 단일 공격) · 미티어 스트라이크(대상 중심 8칸 범위) · 블리자드(물 · 내 주변 10칸 범위 · 확률적으로 슬로우)', '그레이터 헤이스트와 리저렉션은 없어졌어요. (마법서는 상점에 팔 수 있어요)', '마법을 쓰면 다른 마법도 잠기는 공용 대기 시간이 최대 3초로 바뀌었어요. (쿨타임이 긴 마법은 그 마법만 따로 기다려요)', '범위 마법은 자동 사용 시 범위 안에 몬스터가 3마리 이상(보스는 1마리)일 때만 써요. 결투장에서는 범위 안의 다른 유저도 맞아요.'] },
     { v: 148, items: ['메두사 방패와 사이하의 방패를 이제 모든 클래스가 착용할 수 있어요.'] },
     { v: 147, items: ['레벨업에 필요한 경험치가 크게 늘어나요.'] },
@@ -6751,7 +6754,9 @@ const ACCOUNT = (() => {
     if (started) { INV.askYesNo(`${name}(${CLASS_NAME[cls]})(으)로 바꿀까요?`, '지금 캐릭터를 저장한 뒤 게임을 새로 불러옵니다.', async () => { await SAVE.now(true, true);
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
     const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
-    if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
+    if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }
+    if (st === undefined) { csMsg('서버에서 창고 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // v150: 빈 창고로 시작해서 덮어쓰지 않게
+    if (sv && (+sv.ver || 0) > GAME_VER) { csMsg(`이 캐릭터는 더 새 버전(v${sv.ver})에서 저장됐어요. 아이템이 사라지지 않게 먼저 업데이트해 주세요. (지금 v${GAME_VER})`, false); $('charsel').hidden = false; try { UPD.check(); } catch (e) {} return; }   // v150   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
     csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); if (got && sv && sv.pos && !sv.dd) resumePos(sv.pos); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
