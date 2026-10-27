@@ -440,7 +440,8 @@ button.cs-card{font:inherit;cursor:pointer;align-items:center;width:172px} butto
 .sl-f{display:flex;gap:8px;align-items:flex-start;margin-bottom:7px} .sl-f>span{flex:none;width:34px;padding-top:5px;font:700 12.5px "Noto Sans KR",sans-serif;color:#f2d98a}
 .sl-chips{display:flex;flex-wrap:wrap;gap:4px} .sl-chips button{background:#1a140e;border:1px solid #5a4424;color:var(--c,#d8ccae);font:700 12.5px "Noto Sans KR",sans-serif;padding:4px 10px;border-radius:999px;cursor:pointer;opacity:.55}
 .sl-chips button[aria-pressed="true"]{opacity:1;border-color:var(--c,#e8c878);background:linear-gradient(#3a2c1c,#1e160e);box-shadow:0 0 6px rgba(232,200,120,.25)}
-.sl-opt{display:flex;gap:14px;margin:2px 0 8px;font-size:12px;color:#d8ccae} .sl-opt label{display:flex;gap:5px;align-items:center;cursor:pointer} .sl-opt input{accent-color:#c9a24a}
+.sl-opt{display:flex;gap:14px;margin:2px 0 8px;font-size:12px;color:#d8ccae} .sl-opt label{display:flex;gap:5px;align-items:center;cursor:pointer}
+.al-oth,.sl-oth{display:inline-flex;gap:4px;align-items:center;margin-left:6px;font-size:12px;font-weight:700;color:#ffb48a;cursor:pointer;white-space:nowrap}.al-oth input,.sl-oth input{margin:0;accent-color:#ff9a6a} .sl-opt input{accent-color:#c9a24a}
 .sl-pv{display:flex;justify-content:space-between;gap:8px;padding:3px 6px;font-size:12.5px;border-bottom:1px solid rgba(90,68,36,.35)} .sl-pv b{color:#ffd86a;font-variant-numeric:tabular-nums}
 .sl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid #5a4a30;font-size:13px;color:#d8cfb6} .sl-foot b{color:#f2eedf} .sl-foot b.g{color:#ffd86a;font-size:16px}
 .sl-go{background-image:linear-gradient(#2e5a24,#18320f);border:1px solid #8ad07a;color:#eaffd8;font:800 14px "Noto Sans KR",sans-serif;padding:8px 18px;border-radius:3px;cursor:pointer} .sl-go:disabled{opacity:.4;cursor:not-allowed} .sl-go:hover:not(:disabled){filter:brightness(1.15)}
@@ -634,7 +635,7 @@ body.title-on .fullscr{background:transparent}
 <div class="gw" id="sellwin" hidden role="dialog" aria-label="아덴상단"><span class="gw-plate">아덴상단</span><button class="x" type="button" data-closewin="sellwin">닫기</button>
  <div class="sl-tabs" role="tablist" aria-label="판매 방식"><button type="button" role="tab" data-t="one" aria-selected="true">개별 판매</button><button type="button" role="tab" data-t="bulk" aria-selected="false">일괄 판매</button></div>
  <div id="sl-one"><p class="sl-help">물건을 클릭해 고르세요. 물약·주문서처럼 겹치는 물건은 수량을 적을 수 있어요.</p><div class="sl-list" id="sl-list"></div></div>
- <div id="sl-bulk" hidden><div class="sl-f"><span>등급</span><div class="sl-chips" id="sl-g"></div></div><div class="sl-f"><span>종류</span><div class="sl-chips" id="sl-k"></div></div>
+ <div id="sl-bulk" hidden><div class="sl-f"><span>등급</span><div class="sl-chips" id="sl-g"></div><label class="sl-oth" title="켜면 내 직업이 쓸 수 있는 장비는 팔지 않고 다른 직업 전용 장비만 팔아요"><input type="checkbox" id="sl-oth">타클래스만</label></div><div class="sl-f"><span>종류</span><div class="sl-chips" id="sl-k"></div></div>
   <div class="sl-opt"><label><input type="checkbox" id="sl-noen" checked>강화된 장비 제외</label><label><input type="checkbox" id="sl-nobl" checked>축복 장비 제외</label></div><div class="sl-prev" id="sl-prev"></div></div>
  <div class="sl-foot"><span id="sl-sum"></span><button type="button" id="sl-go" class="sl-go">선택 판매</button></div>
  <p class="sl-note">착용 중이거나 잠근 물건은 목록에 나오지 않습니다 · 판매가는 상점가의 30% 기준</p></div>
@@ -666,7 +667,7 @@ body.title-on .fullscr{background:transparent}
 <div class="gw" id="alchwin" hidden role="dialog" aria-label="연금술"><span class="gw-plate">연금술</span><button class="x" type="button" data-closewin="alchwin">닫기</button>
  <p class="al-lead">같은 등급의 장비 3개를 올리고 [조합]을 누르면, 확률에 따라 <b>한 단계 위 등급의 내 직업 장비</b>를 얻어요. 실패하면 재료 3개는 사라져요.</p>
  <div class="al-slots"><div class="al-slot" data-k="0"></div><div class="al-slot" data-k="1"></div><div class="al-slot" data-k="2"></div><div class="al-arrow" aria-hidden="true">➜</div><div class="al-out" id="al-out">?</div></div>
- <div class="al-bulk"><span>일괄 등록</span><button type="button" data-alg="일반">일반 <b>0</b></button><button type="button" data-alg="고급">고급 <b>0</b></button><button type="button" data-alg="희귀">희귀 <b>0</b></button></div>
+ <div class="al-bulk"><span>일괄 등록</span><button type="button" data-alg="일반">일반 <b>0</b></button><button type="button" data-alg="고급">고급 <b>0</b></button><button type="button" data-alg="희귀">희귀 <b>0</b></button><label class="al-oth" title="켜면 내 직업이 쓸 수 있는 장비는 빼고 다른 직업 전용 장비만 올려요"><input type="checkbox" id="al-oth">타클래스만</label></div>
  <p class="al-info" id="al-info"></p>
  <div class="al-cat"><span class="al-cat-l">촉매 (데이·젤)</span><button type="button" data-cd="-5" aria-label="5장 빼기">−5</button><input type="number" id="al-cat" min="0" max="999" value="0" aria-label="촉매 장수"><button type="button" data-cd="5" aria-label="5장 더하기">+5</button><button type="button" data-cd="max">최대</button><button type="button" data-cd="0">0</button><small id="al-cat-info"></small></div>
  <div class="al-btns"><button type="button" id="al-clear" class="cs-go cs-sub">비우기</button><button type="button" id="al-go" class="cs-go" disabled>조합</button></div>
@@ -720,7 +721,7 @@ body.title-on .fullscr{background:transparent}
   <label class="hw-row"><input type="checkbox" data-k="buy"> 물약 자동 구매 <small>(종류마다 그 개수까지 채워요 · 0이면 안 삼)</small></label>
   <div class="hw-row hw-q hw-buyq"><label class="hw-qi" style="--c:#ff7a6a">빨간 물약 (25) <input type="number" min="0" max="500" data-bq="red_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#ffaa55">주홍 물약 (100) <input type="number" min="0" max="500" data-bq="orange_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#e8eef2">맑은 물약 (300) <input type="number" min="0" max="500" data-bq="clear_potion" class="hw-n">개</label></div>
   <label class="hw-row"><input type="checkbox" data-k="buyHaste"> 가속 물약 자동 구매 <small>(종류마다 그 개수까지)</small></label>
-  <div class="hw-row hw-q hw-hasteq"><label class="hw-qi" style="--c:#7ad87a">초록 물약 (200) <input type="number" min="0" max="100" data-hq="green_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#c890e8">용기의 물약 (500) <input type="number" min="0" max="100" data-hq="brave_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#7ab0ff" title="마나 회복 물약">파란 물약 (120) <input type="number" min="0" max="100" data-hq="mana_potion" class="hw-n">개</label></div>
+  <div class="hw-row hw-q hw-hasteq"><label class="hw-qi" style="--c:#7ad87a">초록 물약 (200) <input type="number" min="0" max="100" data-hq="green_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#c890e8">용기의 물약 (500) <input type="number" min="0" max="100" data-hq="brave_potion" class="hw-n">개</label></div>
   <label class="aw-pct">HP <input type="range" min="30" max="100" step="5" data-k="backHp"> <b data-v="backHp"></b> 회복되면 사냥터로 복귀</label>
   <label class="hw-row"><input type="checkbox" data-k="deathBack"> 사망 후 자동 복귀</label></div>
  <div class="hw-sec"><b>사냥</b>
@@ -729,7 +730,7 @@ body.title-on .fullscr{background:transparent}
   <label class="hw-row"><input type="checkbox" data-k="aggrFirst"> 나를 공격하는 몬스터 먼저</label>
   <label class="hw-row"><input type="checkbox" data-k="healFirst"> 힐 마법 먼저 <small>(자동 물약 기준보다 HP 10% 높을 때 MP로 회복)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="noBoss"> 보스 몬스터는 공격 안 함</label>
-  <div class="hw-row">가속 물약 자동 사용 <label class="chip"><input type="checkbox" data-buff="green_potion"> 초록 물약</label><label class="chip"><input type="checkbox" data-buff="brave_potion"> 용기의 물약</label><label class="chip" title="마나 회복 물약"><input type="checkbox" data-buff="mana_potion"> 파란 물약</label></div>
+  <div class="hw-row">가속 물약 자동 사용 <label class="chip"><input type="checkbox" data-buff="green_potion"> 초록 물약</label><label class="chip"><input type="checkbox" data-buff="brave_potion"> 용기의 물약</label></div>
   <label class="hw-row"><input type="checkbox" data-k="mute"> 자동사냥 중엔 배경음악·효과음 끄기 <small>(끝나면 다시 켜짐)</small></label></div>
  <div class="hw-sec"><b>아이템 줍기</b>
   <label class="hw-row"><input type="checkbox" data-k="loot"> 떨어진 아이템 자동으로 줍기 <small>(아래에서 체크한 것만)</small></label>
@@ -737,14 +738,14 @@ body.title-on .fullscr{background:transparent}
   <div class="hw-chips"><span class="hw-cap">종류</span><label class="chip"><input type="checkbox" data-lt="weapon"> 무기</label><label class="chip"><input type="checkbox" data-lt="armor"> 방어구</label><label class="chip"><input type="checkbox" data-lt="acc"> 장신구</label><label class="chip"><input type="checkbox" data-lt="cons"> 물약·주문서</label><label class="chip"><input type="checkbox" data-lt="book"> 기술서·마법서</label><label class="chip"><input type="checkbox" data-lt="etc"> 기타</label></div></div>
  <div class="hw-sec"><b>자동판매 <small>(아덴상단)</small></b>
   <label class="hw-row"><input type="checkbox" data-k="sell"> 가방 무게가 <input type="number" min="50" max="100" step="5" data-k="sellPct" class="hw-n">% 이상이면 귀환해서 판매</label>
-  <div class="hw-chips hw-sell"><span class="hw-cap">등급</span><label class="chip" style="--c:#d9d2c0"><input type="checkbox" data-sr="일반"> 일반</label><label class="chip" style="--c:#5fd35f"><input type="checkbox" data-sr="고급"> 고급</label><label class="chip" style="--c:#62c8ff"><input type="checkbox" data-sr="희귀"> 희귀</label><label class="chip" style="--c:#c77dff"><input type="checkbox" data-sr="영웅"> 영웅</label></div>
+  <div class="hw-chips hw-sell"><span class="hw-cap">등급</span><label class="chip" style="--c:#d9d2c0"><input type="checkbox" data-sr="일반"> 일반</label><label class="chip" style="--c:#5fd35f"><input type="checkbox" data-sr="고급"> 고급</label><label class="chip" style="--c:#62c8ff"><input type="checkbox" data-sr="희귀"> 희귀</label><label class="chip" style="--c:#c77dff"><input type="checkbox" data-sr="영웅"> 영웅</label><label class="chip" style="--c:#ff9a6a" title="켜면 내 직업이 쓸 수 있는 장비는 팔지 않고 다른 직업 전용 장비만 팔아요"><input type="checkbox" data-k="sellOther"> 타클래스만</label></div>
   <small>무기·방어구·장신구만 팝니다. 착용 중·잠근·강화(+1 이상)·축복·속성 강화 장비, 펫 목걸이, 물약·주문서·책·재료는 팔지 않아요.</small></div>
 </div>
 <div class="gw" id="autowin" hidden><button class="x" type="button" data-closewin="autowin">닫기</button>
  <h3 class="aw-t">자동 물약</h3>
  <div class="aw-row aw-hp"><label class="aw-on"><input type="checkbox" id="au-hp-on"> HP</label><select id="au-hp-id" aria-label="HP 물약"></select>
   <label class="aw-pct">HP <input type="range" id="au-hp-pct" min="10" max="90" step="5" aria-label="HP 사용 시점"> <b id="au-hp-v">50%</b> 이하</label></div>
- <div class="aw-row aw-mp"><label class="aw-on"><input type="checkbox" id="au-mp-on"> MP</label><select id="au-mp-id" aria-label="MP 물약"></select>
+ <div class="aw-row aw-mp" hidden><label class="aw-on"><input type="checkbox" id="au-mp-on"> MP</label><select id="au-mp-id" aria-label="MP 물약"></select>
   <label class="aw-pct">MP <input type="range" id="au-mp-pct" min="10" max="90" step="5" aria-label="MP 사용 시점"> <b id="au-mp-v">30%</b> 이하</label></div>
  <h3 class="aw-t" style="margin-top:10px">버프 자동 사용 <small style="color:#8f8670;font-weight:400">효과가 끝나면 바로 다시 마심 (마을 제외)</small></h3>
  <div class="aw-row aw-buff"><label class="aw-on"><input type="checkbox" id="au-green_potion"> 초록 물약</label><span class="aw-bn">1단 가속 1.2배 · <b id="au-green_potion-n">0개</b></span>
