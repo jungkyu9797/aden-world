@@ -655,7 +655,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 150;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 151;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -6530,7 +6530,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     else if (r.err === 'nobase') msg('업데이트 서버가 아직 연결되지 않았어요.', '#f0c080');
     else msg(updErr(r.err), '#f08a7a'); }
   { const b = $('lg-update'); if (b) b.onclick = run; const v = $('lg-ver'); if (v) v.textContent = 'v' + GAME_VER; const n = N();
-    if (n && n.onUpdate) n.onUpdate(m => { if (m.step === 'file') msg(`파일 받는 중… ${m.n + 1} / ${m.total}`); });
+    if (n && n.onUpdate) n.onUpdate(m => { if (m.step === 'file') { msg(`파일 받는 중… ${m.n + 1} / ${m.total}`); if (gateOn) { const a = document.getElementById('updgate-t'); if (a) a.textContent = `새 버전 받는 중… ${m.n + 1} / ${m.total}`; } } });
     if (n && n.updateCheck) n.updateCheck().then(r => { if (r && r.ok && r.ver > GAME_VER) { btn(`업데이트 (새 버전 v${r.ver})`, true); msg('새 버전이 나왔어요. 업데이트를 눌러 주세요.', '#ffd86a'); } }).catch(() => {}); }
   // 게임 중: 5분마다 새 버전 확인 → 위쪽 [업데이트] 버튼 → 누르면 저장 → 받기 → 다시 불러온 뒤 같은 자리·같은 파티·같은 방에서 이어서
   let newVer = 0, gBusy = false;
@@ -6555,10 +6555,28 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
   { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = runIn; setTimeout(checkIn, 8000); setInterval(checkIn, 5 * 60 * 1000); }
     else if (b && !n && !window.ADEN_DEMO) { b.onclick = runWeb; setTimeout(checkWeb, 15000); setInterval(checkWeb, 5 * 60 * 1000); }
     if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
-  return { run, check: checkIn }; })();
+  // v151: PC 게임을 켜면 로그인 화면보다 먼저 최신 버전 확인 → 새 버전이면 자동으로 받고 다시 시작 (예전 버전으로 접속해서 아이템이 사라지는 일 방지)
+  let gateOn = false;
+  async function gate() { const n = N(); if (!n || !n.update || !n.updateCheck) return; let tries = 0; try { tries = +(sessionStorage.getItem('aden_upd_try') || 0); } catch (e) {}
+    const ov = document.createElement('div'); ov.id = 'updgate'; ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(24,16,8,.94),rgba(0,0,0,.98));color:#f2e6c0;font:700 16px "Noto Sans KR",sans-serif;text-align:center;line-height:1.7';
+    ov.innerHTML = '<div><div style="font:900 24px \'Noto Serif KR\',serif;color:#ffd86a;margin-bottom:10px">아덴 월드</div><div id="updgate-t">최신 버전을 확인하는 중…</div><div id="updgate-s" style="font-size:12px;color:#a89c84;margin-top:6px">v' + GAME_VER + '</div></div>'; document.body.appendChild(ov);
+    const T = (t, s) => { const a = document.getElementById('updgate-t'), b = document.getElementById('updgate-s'); if (a && t != null) a.textContent = t; if (b && s != null) b.textContent = s; };
+    const done = (t, ms) => new Promise(res => { if (t) T(t); setTimeout(() => { gateOn = false; ov.remove(); res(); }, ms || 0); });
+    const tmo = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+    let r = null; try { r = await tmo(n.updateCheck(), 8000); } catch (e) {}
+    if (!r || !r.ok) return done('업데이트 서버에 연결하지 못했어요. 지금 버전으로 접속합니다.', 1500);
+    if (!(r.ver > GAME_VER)) { try { sessionStorage.removeItem('aden_upd_try'); } catch (e) {} return done(null, 0); }
+    if (tries >= 2) return done(`새 버전(v${r.ver})을 적용하지 못했어요. 게임을 완전히 껐다가 다시 켜 주세요.`, 3500);
+    try { sessionStorage.setItem('aden_upd_try', String(tries + 1)); } catch (e) {}
+    gateOn = true; T(`새 버전 v${r.ver}을 받는 중…`, `v${GAME_VER} → v${r.ver} · 자동으로 다시 시작해요`);
+    let u; try { u = await n.update(); } catch (e) { u = { ok: false, err: String(e && e.message || e) }; }
+    if (u && u.ok && (!u.latest || u.ver > GAME_VER)) { T(`v${u.ver} 업데이트 완료! 다시 시작합니다…`); await new Promise(res => setTimeout(res, 800)); if (u.restart && n.relaunch) n.relaunch(); else location.reload(); return new Promise(() => {}); }
+    return done(updErr(u && u.err) + ' 지금 버전으로 접속합니다.', 3000); }
+  return { run, check: checkIn, gate }; })();
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 151, items: ['PC 게임을 켜면 로그인하기 전에 자동으로 최신 버전을 확인하고, 새 버전이 있으면 받아서 다시 시작해요. (예전 버전으로 접속하는 일이 없어져요)'] },
     { v: 150, items: ['창고·가방 아이템이 사라지지 않게 보호를 강화했어요. (접속할 때 창고를 못 불러오면 시작하지 않고 다시 시도 · 창고에 맡기거나 찾으면 바로 저장 · 더 새 버전에서 저장된 캐릭터는 업데이트 후 접속)'] },
     { v: 149, items: ['마법사 7~10서클 마법이 생겼어요. (레벨이 되면 자동으로 배워요)', '7서클(Lv28): 힐 올 · 리무브 커스(나 또는 마우스로 가리킨 파티원의 슬로우·거미줄 속박·독·기절을 풀어요) · 이뮨 투 함(초록 기둥과 초록 오로라로 바뀌었어요)', '8서클(Lv32): 토네이도(바람) · 어스퀘이크(땅) · 파이어 스톰(불) — 내 주변 가로·세로 6칸 범위 공격', '9서클(Lv36): 앱솔루트 배리어(5초 동안 무적 · 그동안 이동과 귀환만 가능 · 12초 동안 마법 사용 불가) · 어드밴스 스피릿(30분 동안 최대 HP·MP +20% · 파티원에게도) · 라이트닝 스톰(물 · 6칸 범위 · 10% 확률로 감전)', '10서클(Lv40): 디스인티그레이트(강력한 단일 공격) · 미티어 스트라이크(대상 중심 8칸 범위) · 블리자드(물 · 내 주변 10칸 범위 · 확률적으로 슬로우)', '그레이터 헤이스트와 리저렉션은 없어졌어요. (마법서는 상점에 팔 수 있어요)', '마법을 쓰면 다른 마법도 잠기는 공용 대기 시간이 최대 3초로 바뀌었어요. (쿨타임이 긴 마법은 그 마법만 따로 기다려요)', '범위 마법은 자동 사용 시 범위 안에 몬스터가 3마리 이상(보스는 1마리)일 때만 써요. 결투장에서는 범위 안의 다른 유저도 맞아요.'] },
     { v: 148, items: ['메두사 방패와 사이하의 방패를 이제 모든 클래스가 착용할 수 있어요.'] },
@@ -6766,7 +6784,7 @@ const ACCOUNT = (() => {
       document.querySelectorAll('#charsel .cs-card').forEach(c => { c.onclick = () => { sel = c.dataset.cls; render(); }; c.ondblclick = () => { sel = c.dataset.cls; start(); }; });
       $('cs-start').onclick = start; $('cs-logout').onclick = logout; } }
   // 켤 때: 캐릭터를 바꾸느라 새로 불러온 경우엔 바로 그 캐릭터로, 아니면 로그인 화면
-  setTimeout(() => { let boot = null; try { boot = JSON.parse(sessionStorage.getItem('aden_boot') || 'null'); sessionStorage.removeItem('aden_boot'); } catch (e) {}
+  setTimeout(() => UPD.gate().then(() => { let boot = null; try { boot = JSON.parse(sessionStorage.getItem('aden_boot') || 'null'); sessionStorage.removeItem('aden_boot'); } catch (e) {}
     let rs = null; try { rs = JSON.parse(localStorage.getItem('aden_resume') || 'null'); localStorage.removeItem('aden_resume'); } catch (e) {}
     if (rs && rs.exp > Date.now() && rs.acc && CLS_DEF[rs.cls]) { acc = rs.acc; chars = rs.chars || {}; srv = rs.srv || 'legacy'; if (rs.fb) CLOUD.restore(rs.fb); sel = rs.cls;   // 게임 중 업데이트 → 다시 켜지면 그 자리에서
       begin(rs.cls, rs.name).then(() => { if (!started) return; const p = rs.pos || {}; if (p.isle && ISLAND.def(p.isle)) TOWN.toZone(p.isle, p.x, p.z); else if (p.scene === 'town') TOWN.placeAt(p.x, p.z);
@@ -6777,7 +6795,7 @@ const ACCOUNT = (() => {
       if (au && au.acc && au.exp > Date.now() && (au.srv !== 'cloud' || (au.fb && au.fb.uid && au.fb.ref))) { acc = au.acc; chars = au.chars || {}; srv = au.srv || 'legacy'; if (au.fb) CLOUD.restore(au.fb); store.set('aden_acc', acc); openSel(false); csMsg('자동으로 로그인했어요. 다른 계정은 [로그아웃]을 누른 뒤 접속해 주세요.', true);
         if (srv === 'cloud') CLOUD.get(`users/${CLOUD.uid()}`).then(d => { if (d && d.chars) { try { chars = JSON.parse(d.chars) || chars; } catch (e) {} if (!started) render(); saveAuto(); } }).catch(() => { if (started) return; try { localStorage.removeItem('aden_auto'); } catch (e) {} location.reload(); });
         return; } }
-    const w = $('loginscr'); if (!w) return; w.hidden = false; { const sv = $('lg-srv'); if (sv) { if (window.ADEN_DEMO) { sv.textContent = '○ 데모 전용 계정 — 실제 계정 서버와 분리돼 이 데모 페이지에만 저장돼요'; sv.className = 'lg-srv no'; } else { sv.textContent = '계정 서버 확인 중…'; CLOUD.ping().then(ok => { sv.textContent = ok ? '● 계정 서버 연결됨 — 어느 PC에서든 이어서 플레이' : '○ 계정 서버에 연결되지 않음 — 이 기기에만 저장돼요'; sv.className = 'lg-srv ' + (ok ? 'ok' : 'no'); }); } } } const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }, 120);
+    const w = $('loginscr'); if (!w) return; w.hidden = false; { const sv = $('lg-srv'); if (sv) { if (window.ADEN_DEMO) { sv.textContent = '○ 데모 전용 계정 — 실제 계정 서버와 분리돼 이 데모 페이지에만 저장돼요'; sv.className = 'lg-srv no'; } else { sv.textContent = '계정 서버 확인 중…'; CLOUD.ping().then(ok => { sv.textContent = ok ? '● 계정 서버 연결됨 — 어느 PC에서든 이어서 플레이' : '○ 계정 서버에 연결되지 않음 — 이 기기에만 저장돼요'; sv.className = 'lg-srv ' + (ok ? 'ok' : 'no'); }); } } } const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }), 120);   /* v151: 업데이트 확인이 끝나야 로그인 */
   // v137: 다시 접속하면(다른 PC · 중복 접속 포함) 마지막으로 있던 곳에서 이어서 — 콜로세움이었거나 쓰러진 채였으면 마을
   function resumePos(p) { try { const d = p.z && ISLAND.def(p.z); if (d && !d.arena) { TOWN.toZone(p.z, p.x, p.y); say(`마지막 위치(${d.name})에서 이어서 시작합니다.`, '#9fd08a'); } else if (p.t && p.x != null) TOWN.placeAt(p.x, p.y); } catch (e) {} }
   function keepForUpdate() { if (!started) return false; const pos = { scene: SCENE, isle: ISLE ? ISLE.id : null, x: +hero.x.toFixed(2), z: +hero.z.toFixed(2) };
