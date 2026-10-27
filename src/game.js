@@ -706,7 +706,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 157;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 158;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -991,7 +991,7 @@ function spellHit(f, id) { const P = SPELL[id]; if (!P || !f || f.dead) return; 
   if (f.isRemote) { if (!PVPZ() || !NET.alive(f)) return; let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * spellMul() * coldK(P); if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(f, d, { k: 'magic', c: cr, sp: id }); floatText(fx, fy - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); return; }   // v146: 결투장 — 유저에게 마법 피해 (상대 화면에서 MR·카운터 매직 적용)
   const L = P.box ? foxes.filter(m => !m.dead && !m.gone && Math.abs(m.x - f.x) <= P.box && Math.abs(m.z - f.z) <= P.box && DGLOS(f, m)) : [f], MUL = spellMul() * coldK(P);   // 파이어볼: 대상 중심 가로·세로 6칸 (던전은 벽 너머 X)
   for (const m of L) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * MUL; const me = MOB[m.kind] && MOB[m.kind].el; let wk = false;
-    if (P.el && me) { if (ATTR_OPP[me] === P.el) { d *= 1.5; wk = true; } else if (me === P.el) d *= 0.5; } if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP(MOB[m.kind] || {}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d));
+    if (P.el && me) { if (ATTR_OPP[me] === P.el) { d *= 1.5; wk = true; } else if (me === P.el) d *= 0.5; } if (P.mul) d *= P.mul; if (MOB[m.kind] && MOB[m.kind].dragon) { const dm = INV.cx('dragonMagic'); if (dm) d *= 1 + dm / 100; }   /* v158: 용족 마법 피해 +% */ const cr = Math.random() < spellCritP(MOB[m.kind] || {}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d));
     mobHurt(m, d, P.col, null, cr); if (wk) { const [mx, my] = W2P(m.x, m.z); floatText(mx + 16, my - headY(m) - 22, '약점!', { color: ATTR_C[P.el], size: 10 }); } if (P.stun || P.slow) spellExtra(m, P); }
   if (P.box && PVPZ()) for (const p of NET.remotesNear(f.x, f.z, P.box)) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * MUL; if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(p, d, { k: 'magic', c: cr, sp: id, st: P.stun && Math.random() < P.stun ? 1 : 0 }); const [px, py] = W2P(p.x, p.z); floatText(px, py - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); }   // v149: 결투장 — 범위 안의 다른 유저도
 }
@@ -3120,6 +3120,7 @@ const ISLAND = (() => {
 // ============================================================ 바닥 드랍 아이템 (보스 전리품): 아이콘으로 보이고, 마우스를 올리면 정보, 클릭하면 걸어가서 주움
 // 셸로브 드랍표 — 칸마다 따로 굴림(희귀할수록 낮게), 최소 1개는 보장
 const JOSA = (w, a, b) => { const c = String(w).charCodeAt(String(w).length - 1); return w + (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 ? a : b); };
+const BOSS_FIXED = { drake_king: [['dragon_heart', 1, 1], ['dragon_scale', 5, 12], ['drake_claw', 1, 3]] };   // v158: 보스가 반드시 떨어뜨리는 재료 [id, 최소, 최대] — 전리품 · 사냥터 도감 · 아이템 도감이 같이 씀
 const DROP_MIN = { drake_king: 4, ice_queen: 3, queen_ant: 2, ogre: 2, baphomet: 3, kaspar: 2, merkyor: 2, balthazar: 2, sema: 2, deathknight: 3 };
 const DROP_TABLE = {
   shelob: [['scroll_acc', 0.15], ['scroll_armor', 0.40], ['scroll_weapon', 0.30], ['scroll_earth', 0.15], ['scroll_water', 0.10], ['bless_scroll', 0.18, 1, 3], ['book_slow', 0.10], ['bscroll_armor', 0.08], ['bscroll_weapon', 0.05], ['book_eruption', 0.03]],
@@ -3177,7 +3178,7 @@ const GROUND = (() => {
     const tot = T.reduce((a, x) => a + x[1], 0); while (got.length < (DROP_MIN[f.kind] || 1)) { let r = Math.random() * tot; const pk = T.find(x => (r -= x[1]) < 0) || T[0]; if (!got.includes(pk)) got.push(pk); }
     if (CX_BOSS[f.kind] && CX_HERO.length && Math.random() < (HERO_P[f.kind] || 0) * (MOB[f.kind].duo ? 1.5 : 1)) got.push([CX_HERO[Math.floor(Math.random() * CX_HERO.length)], 1]);   // 영웅 장비: 보스마다 정해진 확률로 1개 (HERO_P)
     if (GAHO_OF[f.kind]) got.push(['gfrag_' + f.kind, 1]);   // v136: 그 보스의 가호조각 1개 (100%)
-    if (f.kind === 'drake_king') got.push(['dragon_heart', 1], ['dragon_scale', 1, 5, 12], ['drake_claw', 1, 1, 3]);   // v153: 용의 심장 1 · 비늘 5~12 · 발톱 1~3 (반드시) //   // v136: 그 보스의 가호조각 1개 (100%)
+    for (const [id, a, b] of BOSS_FIXED[f.kind] || []) got.push(a === 1 && b === 1 ? [id, 1] : [id, 1, a, b]);   // v153: 드레이크 킹 — 용의 심장 1 · 비늘 5~12 · 발톱 1~3 (반드시)
     const P = spots(f.i, f.j, got.length); got.forEach((row, k) => drop(row[0], row[2] ? row[2] + Math.floor(Math.random() * (row[3] - row[2] + 1)) : 1, P[k][0], P[k][1])); got = got.map(x => x[0]); TELE.ev('boss', { b: f.kind, items: got });
     say(`${JOSA(MOB[f.kind].name, '이', '가')} 전리품 ${got.length}개를 떨어뜨렸습니다! (마우스를 올려 확인 · 클릭해서 줍기)`, '#f2e6a8');
     for (const id of got) { const d = ITEMS[id]; if (d.rar === '영웅') say(`[${d.rar}] ${JOSA(d.name, '이', '가')} 떨어졌습니다!`, RARITY_C[d.rar]); } }
@@ -4109,6 +4110,7 @@ function cxOpt(txt) { const o = {}; if (!txt || txt === '—' || /롱소드/.tes
     else if ((m = p.match(/^냉기 마법 피해 \+(\d+)%$/))) o.coldMagic = +m[1];
     else if ((m = p.match(/^마법 성공률 \+(\d+)%$/))) o.magicSucc = +m[1];
     else if ((m = p.match(/^용족 추가 피해 \+(\d+)$/))) o.dragonDmg = +m[1];
+    else if ((m = p.match(/^용족 마법 피해 \+(\d+)%$/))) o.dragonMagic = +m[1];   // v158: 용의 지팡이
     else if (p === '화살 소모 없음') o.noArrow = 1;
     else if ((m = p.match(/^사용 시 (\d+)초 투명 \(재사용 (\d+)분\)$/))) o.invis = { dur: +m[1], cd: m[2] * 60 };
     else console.warn('장비 도감: 해석하지 못한 옵션', p); }
@@ -4311,7 +4313,7 @@ for (const k in ITEMS) { const d = ITEMS[k]; if (!d || d.wtype !== 'staff' || d.
     let lo = 0, hi = 30; for (let t = 0; t < 60; t++) { const m = (lo + hi) / 2; if (anyAt(m) < TGT[k]) lo = m; else hi = m; } const x = (lo + hi) / 2;
     for (const r of rows) r[1] = +(r[1] * x).toFixed(5); HERO_P[k] = +(h0 * x).toFixed(5); } }
 // 사막 몬스터(보스 제외)를 잡으면: 그 구간 고급 장비 중 하나가 아주 낮은 확률로 (한 번에 최대 1개)
-const CX_RP = { 6: 0.0003, 8: 0.0003, 9: 0.0004, 10: 0.0004, 11: 0.0005, 12: 0.0005 };
+const CX_RP = { 6: 0.0003, 8: 0.0003, 9: 0.0004, 10: 0.0004, 11: 0.0005, 12: 0.0005 }, CX_HERO_ZP = 0.00002;   // v158: 사냥터 영웅 (한 종당 · 한 마리당)
 // v153: 용의 계곡 재료 · 제작 장비 (제작 장인 브론 · 100%)
 ITEMS.dragon_scale = { name: '용의 비늘', icon: 'dragon_scale', w: 0.1, stack: true, rar: '고급', price: 2000, desc: '용의 계곡 몬스터가 떨어뜨리는 단단한 붉은 비늘 (2구역에서 잘 나옴). 제작 장인 브론에게 가져가면 용비늘 장비와 용족 무기를 만들 수 있어요.' };
 ITEMS.drake_claw = { name: '드레이크의 발톱', icon: 'drake_claw', w: 0.2, stack: true, rar: '희귀', price: 20000, desc: '용의 계곡 2구역 용족에게서 드물게 얻는 발톱. 용비늘 장비와 용족 무기의 재료예요.' };
@@ -4337,14 +4339,14 @@ CX_ZONE[16] = [...CX_ZONE[11]]; CX_ZONE[17] = [...CX_ZONE[12]]; CX_ZONE_R[16] = 
     ['장갑', '희귀', '용비늘 장갑', '공용', 45, '', 3, 0, 0, 5, '화염 저항 +5', 5, 2, SRC_A('용의 비늘 15 · 드레이크의 발톱 2'), 0],
     ['장화', '희귀', '용비늘 장화', '공용', 45, '', 3, 0, 0, 5, '화염 저항 +5 · HP +10', 7, 2, SRC_A('용의 비늘 15 · 드레이크의 발톱 2'), 0],
     ['한손검', '영웅', '드래곤 슬레이어', '기사', 50, '8~22', 0, 3, 2, 0, '힘 +1 · 용족 추가 피해 +6', 12, 2, SRC_A('용의 심장 1 · 용의 비늘 30 · 드레이크의 발톱 5'), 0],
-    ['지팡이', '영웅', '용의 지팡이', '마법사', 50, '5~13', 0, 0, 0, 5, 'SP +6 · MP +30', 8, 2, SRC_A('용의 심장 1 · 용의 비늘 30 · 드레이크의 발톱 5'), 0],
+    ['지팡이', '영웅', '용의 지팡이', '마법사', 50, '5~13', 0, 0, 0, 5, 'SP +6 · MP +30 · 용족 마법 피해 +15%', 8, 2, SRC_A('용의 심장 1 · 용의 비늘 30 · 드레이크의 발톱 5'), 0],
     ['활', '영웅', '용의 활', '요정', 50, '7~18', 0, 3, 3, 0, '민첩 +1 · 화살 소모 없음 · 용족 추가 피해 +4', 8, 2, SRC_A('용의 심장 1 · 용의 비늘 30 · 드레이크의 발톱 5'), 0] ];
   for (const r of ROWS) { const id = CX_MAKE(r); ITEMS[id].craft = true;   // 제작 전용: 보스·사냥터 무작위 드랍표에서는 뺌
     for (const L of [CX_HERO, ...Object.values(CX_ZONE), ...Object.values(CX_ZONE_R), ...Object.values(CX_ZONE_H), ...Object.values(CX_BOSS)]) { const k = L.indexOf(id); if (k >= 0) L.splice(k, 1); }
     for (const b in DROP_TABLE) DROP_TABLE[b] = DROP_TABLE[b].filter(x => x[0] !== id); }
   { const d = ITEMS.dv_staff; d.mpDrain = [1, 2]; d.optTxt = (d.optTxt || []).concat('타격 시 MP 1~2 흡수'); } }
 
-function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id], LH = CX_ZONE_H[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[ISLE.id] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < 0.00002); if (!hit.length) return false;   // v109: 희귀 — 버그베어밭 2구간 0.03% · 본토던전 0.04% · 오렌설원 0.05% (아이템마다) · 영웅 — 본토던전 2층·오렌설원 2구역 0.002%   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
+function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id], LH = CX_ZONE_H[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[ISLE.id] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < CX_HERO_ZP); if (!hit.length) return false;   // v109: 희귀 — 버그베어밭 2구간 0.03% · 본토던전 0.04% · 오렌설원 0.05% (아이템마다) · 영웅 — 본토던전 2층·오렌설원 2구역 0.002%   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
   const id = hit[Math.floor(Math.random() * hit.length)]; GROUND.drop(id, 1, f.i, f.j); if (!lowRar(id)) say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); return true; }
 const cxClsName = d => d.cls ? d.cls.map(c => CLASS_NAME[c]).join('·') : '공용';
 const cxReq = d => { const okC = !d.cls || d.cls.includes(CLASS), okL = !d.lv || hero.lv >= d.lv; return { okC, okL, ok: okC && okL, txt: `착용 가능: ${cxClsName(d)}${d.lv > 1 ? ` · Lv.${d.lv} 이상` : ''}` }; };
@@ -4381,7 +4383,8 @@ function cxWhere(id) { const W = [], d = ITEMS[id];
   if (CX_ZONE[3].includes(id)) W.push('사막 1구간 몬스터'); if (CX_ZONE[4].includes(id)) W.push('사막 2구간 몬스터');
   for (const k in MOB_DROPS) if (MOB_DROPS[k].some(r => r[0] === id)) W.push(MOB[k].name);
   for (const k in DROP_TABLE) if (DROP_TABLE[k].some(r => r[0] === id)) W.push(MOB[k].name);
-  if (CX_HERO.includes(id)) W.push('거대 여왕개미·셸로브·오우거·바포메트 (아주 드묾)');
+  if (CX_HERO.includes(id)) W.push('모든 보스 (무작위 영웅 · 아주 드묾)');   // v158: 보스마다 정해진 확률로 영웅 장비 중 하나 (HERO_P)
+  { const zs = Object.keys(CX_ZONE_H).filter(z => CX_ZONE_H[z].includes(id)).map(z => { const D = ISLAND.def(+z); return D && D.name; }).filter(Boolean); if (zs.length) W.push(zs.join('·') + ' 몬스터 (극히 드묾)'); }
   return W.join(' · ') || d.src; }
 // 타격 시 발동 옵션: 번개·화염 추가 피해, 출혈, 상대 명중 저하, MP 흡수
 function cxProcs(f) { const [fx, fy] = W2P(f.x, f.z), top = fy - headY(f);
@@ -4989,6 +4992,8 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
     try { for (const b of TOWN.shopList()) { const tabs = b.tabs || []; for (const [tn, rows] of tabs) if (Array.isArray(rows)) for (const r of rows) { const [n, price, , iid] = r; add(iid || SHOP2ITEM[n], `${b.name}${tabs.length > 1 ? ' · ' + tn : ''} (${(+price).toLocaleString()} 골드)`); } } } catch (e) {}
     try { for (const x of TOWN.exchList()) add(x.out, `특별상점 교환 (${x.txt})`); } catch (e) {}
     const drops = {}; for (const T of [DROP_TABLE, MOB_DROPS]) for (const k in T) for (const r of T[k]) { if (!MOB[k]) continue; (drops[r[0]] = drops[r[0]] || []).push([MOB[k].name, r[1]]); (DN[r[0]] = DN[r[0]] || new Set()).add(MOB[k].name); }
+    for (const b in BOSS_FIXED) for (const [id, a, c] of BOSS_FIXED[b]) add(id, `보스: ${MOB[b].name} 반드시${a === c ? ' ' + a + '개' : ` ${a}~${c}개`}`);   // v158: 반드시 떨어지는 재료 · 가호조각 · 가호
+    for (const b in GAHO_OF) { if (!MOB[b] || !ITEMS['gfrag_' + b]) continue; add('gfrag_' + b, `보스: ${MOB[b].name} 반드시 1개`); add('gaho_' + b, `제작 장인 브론: ${ITEMS['gfrag_' + b].name} ${GAHO_NEED}개 (성공 ${Math.round(GAHO_P * 100)}%)`); }
     for (const id in drops) { const L = drops[id].sort((a, b) => b[1] - a[1]); add(id, '몬스터: ' + L.slice(0, 8).map(([n, p]) => `${n} ${pct(p)}`).join(' · ') + (L.length > 8 ? ` 외 ${L.length - 8}` : '')); }
     try { const T = POUCH.table, tot = T.reduce((a, r) => a + r[1], 0); for (const r of T) add(r[0], `아르카의 마법주머니 (${pct(r[1] / tot)})`); } catch (e) {}
     for (const [id, p] of [['bscroll_weapon', 0.3], ['bscroll_armor', 0.3], ['bless_scroll', 0.3], ['bscroll_acc', 0.1]]) add(id, `축복 주문서 주머니 (${pct(p)})`);
@@ -5520,13 +5525,20 @@ const TOWN = (() => {
     const sortIds = ids => [...new Set(ids)].filter(id => ITEMS[id]).sort((a, b) => (RORD[ITEMS[a].rar || '일반'] - RORD[ITEMS[b].rar || '일반']) || ITEMS[a].name.localeCompare(ITEMS[b].name, 'ko'));
     const zoneIds = R_.zones.map(z => z[0]), kinds = new Set(zoneIds.flatMap(zoneKinds));
     const BX = R_.bosses || [[R_.boss, R_.bossTxt, [R_.boss]]], BK = BX.flatMap(x => x[2]);
-    const bossIds = sortIds(BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])));
+    const heroBoss = BK.filter(b => (HERO_P[b] || 0) > 0 && CX_BOSS[b]);   // v158: 무작위 영웅 · 반드시 떨어지는 재료 · 가호조각도 보스 드랍에 표시
+    const bossIds = sortIds([...BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])), ...BK.flatMap(b => (BOSS_FIXED[b] || []).map(x => x[0])), ...BK.filter(b => GAHO_OF[b]).map(b => 'gfrag_' + b), ...(heroBoss.length ? CX_HERO : [])]);
+    const pctS = p => (p >= 0.1 ? Math.round(p * 100) : p >= 0.01 ? (p * 100).toFixed(1) : (p * 100).toFixed(2)) + '%';
+    const bossSrc = id => { const L = [], ded = BK.filter(b => (DROP_TABLE[b] || []).some(x => x[0] === id)), fx = BK.filter(b => (BOSS_FIXED[b] || []).some(x => x[0] === id) || 'gfrag_' + b === id);
+      if (ded.length) L.push('보스 ' + ded.map(b => MOB[b].name).join('·') + ' 드랍'); if (fx.length) L.push('보스 ' + fx.map(b => MOB[b].name).join('·') + ' · 반드시');
+      if (heroBoss.length && CX_HERO.includes(id)) L.push(heroBoss.map(b => `${MOB[b].name} 무작위 영웅 (1회 처치당 약 ${pctS((HERO_P[b] || 0) * (MOB[b].duo ? 1.5 : 1))} · 영웅 장비 ${CX_HERO.length}종 중 하나)`).join(' · ')); return L.join(' · '); };
+    const normSrc = id => { const hz = ITEMS[id].rar === '영웅' ? R_.zones.filter(([z]) => (CX_ZONE_H[z] || []).includes(id)) : []; if (!hz.length) return '이 사냥터 일반 몬스터 드랍 (레벨이 높을수록 잘 떨어짐)'; const n = CX_ZONE_H[hz[0][0]].length;
+      return `${hz.map(([, lab]) => lab.split(' · ')[0]).join('·')} 일반 몬스터 · 극히 드묾 (한 마리당 약 ${pctS(1 - Math.pow(1 - CX_HERO_ZP, n))} 확률로 영웅 장비 ${n}종 중 하나)`; };
     const normIds = sortIds([...BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])).filter(id => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')), ...zoneIds.flatMap(z => CX_ZONE[z] || []), ...zoneIds.flatMap(z => CX_ZONE_R[z] || []), ...zoneIds.flatMap(z => CX_ZONE_H[z] || []), ...[...kinds].flatMap(k => (MOB_DROPS[k] || []).map(x => x[0]))]);
     const cnt = ids => ['영웅', '희귀', '고급', '일반'].map(g => [g, ids.filter(id => (ITEMS[id].rar || '일반') === g).length]).filter(x => x[1]).map(([g, n]) => `<span style="color:${g === '일반' ? '#6a5a40' : RARITY_C[g]}">${g} ${n}</span>`).join(' · ');
     return `<h3 class="wc-h">몬스터</h3>` + R_.zones.map(([z, lab]) => `<div class="wc-zone"><span class="wc-zl">${lab}</span><div class="wc-mobs">${zoneKinds(z).map(mobCell).join('')}</div></div>`).join('')
       + BX.map(([, txt, ks]) => `<div class="wc-zone"><span class="wc-zl">보스 · ${txt}</span><div class="wc-mobs">${ks.map(mobCell).join('')}</div></div>`).join('')
-      + `<h3 class="wc-h">보스 드랍 <small>${cnt(bossIds)}</small></h3><div class="wc-items">${bossIds.map(id => itemCell(id, '보스 ' + BK.filter(b => (DROP_TABLE[b] || []).some(x => x[0] === id)).map(b => MOB[b].name).join('·') + ' 드랍')).join('')}</div>`
-      + `<h3 class="wc-h">일반 몬스터 드랍 <small>${cnt(normIds)}</small></h3><div class="wc-items">${normIds.map(id => itemCell(id, '이 사냥터 일반 몬스터 드랍 (레벨이 높을수록 잘 떨어짐)')).join('')}</div>`
+      + `<h3 class="wc-h">보스 드랍 <small>${cnt(bossIds)}</small></h3><div class="wc-items">${bossIds.map(id => itemCell(id, bossSrc(id))).join('')}</div>`
+      + `<h3 class="wc-h">일반 몬스터 드랍 <small>${cnt(normIds)}</small></h3><div class="wc-items">${normIds.map(id => itemCell(id, normSrc(id))).join('')}</div>`
       + `<p class="wc-note">아이콘에 마우스를 올리면 아이템 상세 정보가 보여요.</p>`; }
   function drawPortraits(root) { root.querySelectorAll('canvas[data-k]').forEach(cv2 => { const k = cv2.dataset.k, g = cv2.getContext('2d'), M = MSHEET[k], I = MIMG[k] && MIMG[k].idle;
       const draw = () => { g.clearRect(0, 0, 56, 56); if (M && I && I.complete && I.naturalWidth) { const t = document.createElement('canvas'); t.width = M.W; t.height = M.H; const tg = t.getContext('2d'); if (M.tint) tg.filter = M.tint; tg.drawImage(I, 0, 1 * M.H, M.W, M.H, 0, 0, M.W, M.H); tg.filter = 'none';
@@ -6075,11 +6087,11 @@ const NET = (() => {
     for (const o of othersInZone()) { if (!o.pr || o.pr.dd > 0) continue; if (near(o.pr.x, o.pr.y) || K.some(w => w && w.isRemote && w.peer === o.peer)) C.add(nmOf(o.pr)); }
     const L = [...C]; return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
   function btOut() { const L = []; for (const f of foxes) { if (f.dead || f.gone || f.uid == null) continue; const S = MOB[f.kind]; if (!S || !S.boss || S.dummy) continue; const a = f.aggro ? aggroInfo(f) : null; L.push([f.uid, a ? a.n : '']); if (L.length >= 6) break; } return L.length ? L : null; }
-  function talkOut(f, t) { if (!room || !myPeer || !isHost() || !othersInZone().length || f.uid == null) return; tkOut.push([++tkSeq, f.uid, KINDS.indexOf(f.kind), String(t).slice(0, 90), Date.now()]); if (tkOut.length > 4) tkOut.splice(0, tkOut.length - 4); sendT = 0; }
+  function talkOut(f, t) { if (!room || !myPeer || !isHost() || !watchersInZone().length || f.uid == null) return; tkOut.push([++tkSeq, f.uid, KINDS.indexOf(f.kind), String(t).slice(0, 90), Date.now()]); if (tkOut.length > 4) tkOut.splice(0, tkOut.length - 4); sendT = 0; }
   function applyTk(o) { const L = o.pr.tk; if (!L || !L.length || !ISLE || o.pr.z !== zk()) return; const last = seenTk.get(o.peer) || 0, fresh = L.filter(x => x[0] > last); if (!fresh.length) return; seenTk.set(o.peer, Math.max(...fresh.map(x => x[0])));
     for (const [, uid, k, t] of fresh) { const f = foxes.find(q => q.uid === uid); if (f) showBossTalk(f, t); else { const S = MOB[KINDS[k]]; say(`${S ? S.name : '보스'}: ${t}`, '#ffb08a'); } } }
   const aoOut = []; let aoSeq = 0; const seenAo = new Map();   // v139: 보스 기술(범위 마법) — 호스트가 쓴 기술을 게스트 화면에서도 같은 자리에 (피해는 각자 화면에서 판정)
-  function bossCast(f, si, T, mul, seed) { if (!ISLE || !isHost() || !othersInZone().length || f.uid == null || si < 0 || !T) return; aoOut.push([++aoSeq, f.uid, si, +T.x.toFixed(2), +T.z.toFixed(2), +mul.toFixed(3), seed, T === hero ? (myPeer || '') : (T.peer || ''), Date.now()]); if (aoOut.length > 5) aoOut.splice(0, aoOut.length - 5); sendT = 0; }
+  function bossCast(f, si, T, mul, seed) { if (!ISLE || !isHost() || !watchersInZone().length || f.uid == null || si < 0 || !T) return; aoOut.push([++aoSeq, f.uid, si, +T.x.toFixed(2), +T.z.toFixed(2), +mul.toFixed(3), seed, T === hero ? (myPeer || '') : (T.peer || ''), Date.now()]); if (aoOut.length > 5) aoOut.splice(0, aoOut.length - 5); sendT = 0; }
   function applyAo(o) { const L = o.pr.ao; if (!L || !L.length || !ISLE || o.pr.z !== zk()) return; const last = seenAo.get(o.peer) || 0, fresh = L.filter(x => x[0] > last); if (!fresh.length) return; seenAo.set(o.peer, Math.max(...fresh.map(x => x[0]))); if (last === 0 && fresh.length > 1) fresh.splice(0, fresh.length - 1);
     for (const [, uid, si, tx, tz, mul, seed, tp] of fresh) { const f = foxes.find(q => q.uid === uid); if (!f || f.dead || f.gone) continue; const k = (BOSS_SKILL[f.kind] || [])[si]; if (!k || Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 22) continue;
       const a0 = AOES.length, R = Math.random; BT = { x: tx, z: tz, i: Math.floor(tx), j: Math.floor(tz), me: !!myPeer && tp === myPeer }; AO_SIM = true; Math.random = AO_RNG(seed);
@@ -6122,6 +6134,7 @@ const NET = (() => {
   const hostOf = z => { let h = myPeer && zk() === z && !ADMIN.on() ? myPeer : null; for (const o of OTH) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; return h; };
   const isHost = () => !room || !myPeer || hostOf(zk()) === myPeer || (ADMIN.on() && !hostOf(zk()));
   const othersInZone = () => OTH.filter(o => o.pr.z === zk());
+  const watchersInZone = () => othersInZone().concat(ADMS.filter(o => o.pr.z === zk()));   // v158: 숨은 운영자도 포함 — 호스트가 몬스터·바닥 아이템·보스 기술·대사를 보내 줌 (보상 분배·파티에는 안 셈)
   function hostData() { if (!ISLE || isHost()) return null; const h = hostOf(zk()), o = OTH.find(q => q.peer === h); return o && o.pr.m && o.pr.mz === zk() ? o : null; }
   const guest = () => !!hostCache;
   function guestMob(f) { return !!hostCache && f && f.uid != null && foxes.includes(f); }
@@ -6218,10 +6231,10 @@ const NET = (() => {
     for (const o of OTH) { const rv = o.pr.rv; if (rv && rv.to === myPeer && rvSeen.get(o.peer) !== rv.s) { rvSeen.set(o.peer, rv.s); if (DEATH) { const nm = nmOf(o.pr), s0 = rv.s, p0 = o.peer;
           INV.askYesNo(`${nm}님이 부활 주문서를 사용했습니다.`, '부활하시겠습니까? (그 자리에서 HP·MP 50%로 부활 · 경험치 손실 없음 · 골드 5% 손실)', () => { if (!DEATH) return; raOut = { to: p0, s: s0, ok: 1, at: Date.now() }; sendT = 0; reviveHere(nm); }, () => { raOut = { to: p0, s: s0, ok: 0, at: Date.now() }; sendT = 0; }); } }
       const ra = o.pr.ra; if (rvOut && ra && ra.to === myPeer && ra.s === rvOut.s && rvOut.to === o.peer) { rvOut = null; if (ra.ok) { INV.take('revive_scroll'); INV.render(); say(`${nmOf(o.pr)}님이 부활했습니다. (부활 주문서 1개 사용)`, '#ffd86a'); } else say(`${nmOf(o.pr)}님이 부활을 거절했습니다. (주문서는 그대로)`, '#9c9682'); } } }
-  function mobsOut() { const pos = [[hero.x, hero.z], ...othersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
+  function mobsOut() { const pos = [[hero.x, hero.z], ...watchersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
       L.push([f.uid, KINDS.indexOf(f.kind), Math.round(f.x * 10), Math.round(f.z * 10), f.row, Math.max(0, Math.round(f.hp / f.max * 100)), (f.dead ? 1 : 0) | (f.atkT != null ? 2 : 0) | (f.t < 1 ? 4 : 0) | (f.stunT > 0 ? 8 : 0) | (f.slowT > 0 ? 16 : 0) | (f.enraged ? 32 : 0) | (f.regenOn ? 64 : 0)]); }
     const dn = r => Math.min(...pos.map(([x, z]) => Math.max(Math.abs(r[2] / 10 - x), Math.abs(r[3] / 10 - z)))); return L.sort((a, b) => dn(a) - dn(b)); }
-  function groundOut() { const pos = [[hero.x, hero.z], ...othersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
+  function groundOut() { const pos = [[hero.x, hero.z], ...watchersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
@@ -6229,7 +6242,7 @@ const NET = (() => {
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
-    if (ISLE && isHost() && othersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
+    if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
     const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
   // ----- 게스트: 호스트 몬스터·바닥 아이템 반영
   function applyHost(o) { const list = o.pr.m; const seen = new Set(); { const M = new Map(Array.isArray(o.pr.bt) ? o.pr.bt : []); for (const f of foxes) if (f.uid != null && MOB[f.kind] && MOB[f.kind].boss) f.netAg = M.get(f.uid) || ''; } applyTk(o);
@@ -6797,6 +6810,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 158, items: ['월드맵 사냥터 도감의 [보스 드랍]에 보스가 떨어뜨리는 무작위 영웅 장비와, 반드시 떨어지는 재료(용의 심장·용의 비늘·드레이크의 발톱·가호조각)도 보여요. 일반 몬스터의 영웅 장비는 아이콘에 마우스를 올리면 얼마나 드문지 나와요.', '아이템 도감에 용의 심장과 모든 보스의 가호조각·가호가 실렸어요. 영웅 장비의 [얻는 곳]에 모든 보스(무작위 영웅)와 데스나이트 2층·오렌 설원 2구역·용의 계곡 2구역 몬스터가 함께 나와요.', '용의 지팡이에 [용족 마법 피해 +15%]가 붙었어요. (드래곤 슬레이어·용의 활처럼 용족에게 더 강해요)'] },
     { v: 157, items: ['몬스터가 겹쳐 있을 때 마우스 오른쪽 버튼을 누를 때마다 겹친 대상이 하나씩 돌아가며 골라져요. (노란 점선 원 표시) 고른 뒤 왼쪽 클릭하면 그 대상이 선택돼요. 휠 버튼 마법도 고른 대상에게 나가요. (결투장에서는 유저도 포함)', '단축키 칸의 힐·이뮨 투 함·어드밴스 스피릿·리무브 커스는 그 키를 빠르게 두 번(따닥) 누르면 나에게 시전돼요. (파티원에게 마우스를 올려 둔 상태에서도)'] },
     { v: 156, items: ['단축키 칸 아이템 툴팁이 버프 아이콘에 가려 안 보이던 문제를 고쳤어요.'] },
     { v: 155, items: ['일괄 강화 창의 [목표 강화] 옆에 넣은 장비에 맞는 남은 주문서 수가 크게 보여요. 주문서를 한 장 쓸 때마다 바로 줄어들어요. (지금 쓰는 주문서는 금색 테두리)', '일괄 강화 중에 증발한 장비가 목록에 남아 보이던 문제를 고쳤어요.', '펫과 서먼 몬스터 소환수가 보스에게 주는 피해가 절반으로 줄었어요. (일반 몬스터는 그대로)', '결투장(대인전) 명중 계산을 고쳤어요. 상대 방어(AC)가 높으면 거의 다 빗나가던 문제 — 이제 레벨 차이·명중 보너스·상대 AC를 함께 따져요.', '결투장에서 휠 버튼으로 공격 마법을 쓸 때 상대 유저에게 마우스만 올리고 누르면 바로 시전돼요. (먼저 클릭할 필요 없음)'] },
@@ -7232,7 +7246,7 @@ const OFFL = (() => {
     const b = REGION_BOSS[kind], T = b && DROP_TABLE[b];
     if (T && Math.random() < regionDropP(S.lv || 1)) { const pool = T.filter(([id]) => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')); if (pool.length) { const tot = pool.reduce((a, r) => a + r[1], 0); let x = Math.random() * tot; const row = pool.find(r => (x -= r[1]) < 0) || pool[0]; return row[0]; } }
     const L = iid != null && CX_ZONE[iid]; if (!L || !L.length) return null; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[iid], LH = CX_ZONE_H[iid];
-    if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[iid] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < 0.00002); return hit.length ? hit[Math.floor(Math.random() * hit.length)] : null; }
+    if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[iid] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < CX_HERO_ZP); return hit.length ? hit[Math.floor(Math.random() * hit.length)] : null; }
   async function settle(o) { if (did || !o || o.v !== 1 || !o.arm || GOD) return; did = true;
     const T = await SAVE.times(o); if (!T || !(T.now > T.off) || (o.done && String(o.done) === T.key)) return;
     const tell = t => say('[오프라인 사냥] ' + t, '#9fd0e8');
