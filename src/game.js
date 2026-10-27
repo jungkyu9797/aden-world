@@ -679,7 +679,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 153;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 154;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4534,40 +4534,45 @@ const INV = (() => {
     else { tone(T0, 'sawtooth', 1800, 400, 0.12, 0.08); nz(T0, 0.07, 7000, 3000, 0.4); nz(T0 + 0.05, 0.6, 2500, 300, 0.3); tone(T0 + 0.05, 'sawtooth', 200, 50, 0.6, 0.12); } }
   // ===== 장비 일괄 강화: 창을 연 채 인벤토리 장비를 클릭해 넣고 빼기 · 같은 장비 모두 넣기 · 목표 수치까지 / 안전 강화까지 =====
   const BK = { list: [], busy: false, stop: false };
-  const bkOK = e => !!(e && ITEMS[e.id] && (ITEMS[e.id].slot === 'weapon' || ARMOR_SLOTS.has(ITEMS[e.id].slot)));
-  const bkScroll = (td, bless) => { const w = td.slot === 'weapon', n = w ? 'scroll_weapon' : 'scroll_armor', b = w ? 'bscroll_weapon' : 'bscroll_armor'; return bless && count(b) ? b : count(n) ? n : count(b) ? b : null; };
-  function enchOnce(t, sid) { const sd = ITEMS[sid], td = ITEMS[t.id], safe = SAFE_EN(td), cur = t.en || 0; if (!take(sid)) return 'none'; const before = nameOf(t);
+  const bkAcc = d => !!accKey(d);   // v154: 능력치 반지·목걸이도 (장신구 마법 주문서 · 안전 강화 없음 · 최대 +8)
+  const bkOK = e => !!(e && ITEMS[e.id] && (ITEMS[e.id].slot === 'weapon' || ARMOR_SLOTS.has(ITEMS[e.id].slot) || bkAcc(ITEMS[e.id])));
+  const bkKind = td => td.slot === 'weapon' ? '무기' : bkAcc(td) ? '장신구' : '갑옷';
+  const bkScroll = (td, bless) => { const w = td.slot === 'weapon', a = bkAcc(td), n = w ? 'scroll_weapon' : a ? 'scroll_acc' : 'scroll_armor', b = w ? 'bscroll_weapon' : a ? 'bscroll_acc' : 'bscroll_armor'; return bless && count(b) ? b : count(n) ? n : count(b) ? b : null; };
+  const bkMax = td => bkAcc(td) ? 8 : 15, bkSafe = td => bkAcc(td) ? 0 : SAFE_EN(td);
+  function enchOnce(t, sid) { const sd = ITEMS[sid], td = ITEMS[t.id], safe = SAFE_EN(td), cur = t.en || 0; if (bkAcc(td) && cur >= 8) return 'none'; if (!take(sid)) return 'none'; const before = nameOf(t);
+    if (bkAcc(td)) { if (Math.random() >= ACC_P[cur]) { if (t.on) unequip(t, true); const k = bag.indexOf(t); if (k >= 0) bag.splice(k, 1); say(`${JOSA(before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다. (성공 확률 ${Math.round(ACC_P[cur] * 100)}%)`, '#ff6a5a'); return 'boom'; }
+      const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = Math.min(8, cur + add); if (t.en >= 7) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 8 ? '#ff9a3a' : '#9fe0ff'); return t.en - cur; }   // v154: 장신구 (안전 강화 없음 · ACC_P 확률)
     if (cur >= safe && Math.random() >= 1 / 3) { if (t.on) unequip(t, true); const k = bag.indexOf(t); if (k >= 0) bag.splice(k, 1); say(`${JOSA(before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다.`, '#ff6a5a'); return 'boom'; }
     const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = cur + add;
     if (t.en >= (td.slot === 'weapon' ? 8 : 7)) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 9 ? '#ff9a3a' : '#9fe0ff');
     return add; }
-  function bkRender() { const w = $('bulkwin'); if (!w || w.hidden) return; BK.list = BK.list.filter(e => bag.includes(e));
-    $('bk-list').innerHTML = BK.list.length ? BK.list.map((e, k) => { const d = ITEMS[e.id], sf = SAFE_EN(d); return `<button type="button" class="bk-it" data-k="${k}" title="클릭: 빼기"${BK.busy ? ' disabled' : ''}><span class="ic">${ICON(d.icon, e.blessed)}</span><b style="color:${rarC(e.id)}">${nameHTML(e)}</b><small>안전 강화 +${sf}${(e.en || 0) >= sf ? ' · <em>안전 넘음</em>' : ''}${e.on ? ' · 착용 중' : ''}</small></button>`; }).join('') : '<p class="bk-empty">인벤토리에서 무기·방어구를 클릭하면 여기에 들어옵니다.<br>다시 클릭하면 빠집니다.</p>';
+  function bkRender() { const w = $('bulkwin'); if (!w || w.hidden) return; if (!BK.busy) BK.list = BK.list.filter(e => bag.includes(e) && !e.on);   // v154: 착용 중인 장비는 빠짐
+    $('bk-list').innerHTML = BK.list.length ? BK.list.map((e, k) => { const d = ITEMS[e.id], sf = SAFE_EN(d); return `<button type="button" class="bk-it" data-k="${k}" title="클릭: 빼기"${BK.busy ? ' disabled' : ''}><span class="ic">${ICON(d.icon, e.blessed)}</span><b style="color:${rarC(e.id)}">${nameHTML(e)}</b><small>${bkAcc(d) ? `장신구 · 안전 강화 없음 · 다음 성공 ${(e.en || 0) >= 8 ? '최고(+8)' : Math.round(ACC_P[e.en || 0] * 100) + '%'}` : `안전 강화 +${sf}${(e.en || 0) >= sf ? ' · <em>안전 넘음</em>' : ''}`}</small></button>`; }).join('') : '<p class="bk-empty">인벤토리에서 무기·방어구·장신구(능력치 반지·목걸이)를 클릭하면 여기에 들어옵니다. (착용 중인 장비는 안 됨)<br>다시 클릭하면 빠집니다.</p>';
     const c = id => GOD_INF(id) ? '∞' : count(id);
-    $('bk-scrolls').textContent = `무기 주문서 ${c('scroll_weapon')} · 축복 ${c('bscroll_weapon')}   |   갑옷 주문서 ${c('scroll_armor')} · 축복 ${c('bscroll_armor')}`;
+    $('bk-scrolls').textContent = `무기 주문서 ${c('scroll_weapon')} · 축복 ${c('bscroll_weapon')}   |   갑옷 주문서 ${c('scroll_armor')} · 축복 ${c('bscroll_armor')}   |   장신구 주문서 ${c('scroll_acc')} · 축복 ${c('bscroll_acc')}`;
     $('bk-go').textContent = BK.busy ? '중지' : '목표까지 강화'; ['bk-safe', 'bk-same', 'bk-clear'].forEach(id => $(id).disabled = BK.busy); }
-  function bulkToggle(e) { if (BK.busy) return; if (e.locked) { say(`${nameOf(e)}: 잠긴 아이템은 일괄 강화에 넣을 수 없습니다.`, '#f08a7a'); return; } if (!bkOK(e)) { say('일괄 강화에는 무기와 방어구만 넣을 수 있습니다.', '#f08a7a'); return; }
+  function bulkToggle(e) { if (BK.busy) return; if (e.locked) { say(`${nameOf(e)}: 잠긴 아이템은 일괄 강화에 넣을 수 없습니다.`, '#f08a7a'); return; } if (e.on) { say(`${nameOf(e)}: 착용 중인 장비는 일괄 강화에 넣을 수 없습니다. (벗은 뒤 넣어 주세요)`, '#f08a7a'); return; } if (!bkOK(e)) { say('일괄 강화에는 무기·방어구·장신구(힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이)만 넣을 수 있습니다.', '#f08a7a'); return; }
     const k = BK.list.indexOf(e); if (k >= 0) BK.list.splice(k, 1); else BK.list.push(e); render(); bkRender(); }
   function bulkSame() { const base = BK.list[BK.list.length - 1]; if (!base) { say('먼저 장비를 하나 넣어 주세요.', '#f08a7a'); return; } let n = 0;
-    for (const e of bag) if (e.id === base.id && !BK.list.includes(e)) { BK.list.push(e); n++; } say(n ? `${ITEMS[base.id].name} ${n}개를 더 넣었습니다.` : `더 넣을 ${ITEMS[base.id].name}이(가) 없습니다.`, '#e8d8a8'); render(); bkRender(); }
-  function bulkRun(mode) { if (BK.busy) { BK.stop = true; return; } BK.list = BK.list.filter(e => bag.includes(e)); if (!BK.list.length) { say('일괄 강화할 장비를 먼저 넣어 주세요.', '#f08a7a'); return; }
+    for (const e of bag) if (e.id === base.id && !e.on && !e.locked && !BK.list.includes(e)) { BK.list.push(e); n++; } say(n ? `${ITEMS[base.id].name} ${n}개를 더 넣었습니다.` : `더 넣을 ${ITEMS[base.id].name}이(가) 없습니다.`, '#e8d8a8'); render(); bkRender(); }
+  function bulkRun(mode) { if (BK.busy) { BK.stop = true; return; } BK.list = BK.list.filter(e => bag.includes(e) && !e.on); if (!BK.list.length) { say('일괄 강화할 장비를 먼저 넣어 주세요.', '#f08a7a'); return; }
     const tgt = Math.max(1, Math.min(15, Math.floor(+$('bk-target').value || 0))); $('bk-target').value = tgt;
-    const goalOf = e => mode === 'safe' ? SAFE_EN(ITEMS[e.id]) : tgt, todo = BK.list.filter(e => !e.locked && (e.en || 0) < goalOf(e));
+    const goalOf = e => mode === 'safe' ? bkSafe(ITEMS[e.id]) : Math.min(tgt, bkMax(ITEMS[e.id])), todo = BK.list.filter(e => !e.locked && !e.on && (e.en || 0) < goalOf(e));
     if (!todo.length) { say(mode === 'safe' ? '모두 이미 안전 강화 수치 이상입니다.' : `모두 이미 +${tgt} 이상입니다.`, '#9c9682'); return; }
     const start = () => { BK.busy = true; BK.stop = false; const q = todo.slice(); let ok = 0, boom = 0, used = 0; const ol = $('bk-log');
       const log = t => { const li = document.createElement('li'); li.innerHTML = t; ol.prepend(li); while (ol.children.length > 60) ol.lastChild.remove(); };
       log(`— ${mode === 'safe' ? '안전 강화까지' : '+' + tgt + '까지'} 시작 (${q.length}개) —`);
       const finish = why => { BK.busy = false; if (why) log(why); log(`— 끝: 성공 ${ok}회 · 파괴 ${boom}개 · 주문서 ${used}장 —`); say(`일괄 강화 끝: 성공 ${ok}회 · 파괴 ${boom}개 · 주문서 ${used}장`, '#cfe4a8'); render(); bkRender(); };
       const tick = () => { if (BK.stop) return finish('<span class="no">중지했습니다.</span>'); if (!q.length) return finish();
-        const e = q[0], d = ITEMS[e.id]; if (!bag.includes(e) || (e.en || 0) >= goalOf(e)) { if (bag.includes(e)) log(`<b style="color:${rarC(e.id)}">${nameHTML(e)}</b> 목표 도달 ✔`); q.shift(); return setTimeout(tick, 60); }
-        const sid = bkScroll(d, $('bk-bless').checked); if (!sid) return finish(`<span class="no">${d.slot === 'weapon' ? '무기' : '갑옷'} 마법 주문서가 없어 멈췄습니다.</span>`);
+        const e = q[0], d = ITEMS[e.id]; if (e.on && bag.includes(e)) { log(`<b style="color:${rarC(e.id)}">${nameHTML(e)}</b> 착용 중이라 건너뜀`); q.shift(); return setTimeout(tick, 60); } if (!bag.includes(e) || (e.en || 0) >= goalOf(e)) { if (bag.includes(e)) log(`<b style="color:${rarC(e.id)}">${nameHTML(e)}</b> 목표 도달 ✔`); q.shift(); return setTimeout(tick, 60); }
+        const sid = bkScroll(d, $('bk-bless').checked); if (!sid) return finish(`<span class="no">${bkKind(d)} 마법 주문서가 없어 멈췄습니다.</span>`);
         const before = nameHTML(e), bn = nameOf(e), r = enchOnce(e, sid); if (r === 'none') return finish('<span class="no">주문서를 쓸 수 없어 멈췄습니다.</span>'); used++;
         if (r === 'boom') { boom++; log(`<span class="no">${before} — 증발해 사라졌습니다</span>`); enchSfx('boom'); q.shift(); enFx('#ff6a5a', '파괴!'); NET.fx('boom', '증발…', bn); }
         else { ok++; log(`${before} → <b style="color:${rarC(e.id)}">${nameHTML(e)}</b>${r > 1 ? ' <small>(축복 +' + r + ')</small>' : ''}`); enchSfx(r > 1 ? 'bless' : 'ok'); NET.fx(r > 1 ? 'bless' : 'ok', `+${e.en} 강화 성공!`, nameOf(e)); }
         render(); bkRender(); setTimeout(tick, 170); };
       bkRender(); tick(); };
-    const risky = todo.filter(e => goalOf(e) > SAFE_EN(ITEMS[e.id]));
-    if (mode !== 'safe' && risky.length) askYesNo(`+${tgt}까지 일괄 강화할까요?`, `안전 강화를 넘어서는 장비가 ${risky.length}개 있습니다. 안전 강화 수치를 넘긴 뒤 실패하면 장비가 파괴(증발)됩니다.`, start); else start(); }
+    const risky = todo.filter(e => goalOf(e) > bkSafe(ITEMS[e.id])), accN = risky.filter(e => bkAcc(ITEMS[e.id])).length;
+    if (mode !== 'safe' && risky.length) askYesNo(`+${tgt}까지 일괄 강화할까요?`, `안전 강화를 넘어서는 장비가 ${risky.length}개 있습니다. 안전 강화 수치를 넘긴 뒤 실패하면 장비가 파괴(증발)됩니다.${accN ? ` (장신구 ${accN}개는 안전 강화가 없어 +1부터 실패하면 증발 · 최대 +8)` : ''}`, start); else start(); }
   function bulkOpen() { const w = $('bulkwin'); if (!w) return; if (!w.hidden) { bulkClose(); return; } w.hidden = false; if ($('invwin').hidden) toggle('invwin'); bkRender(); render(); say('장비 일괄 강화: 인벤토리에서 장비를 클릭해 넣고 빼세요.', '#9fd0e8'); }
   function bulkClose() { const w = $('bulkwin'); if (w) w.hidden = true; if (BK.busy) BK.stop = true; render(); }
   { const w = document.getElementById('bulkwin'); if (w) new MutationObserver(() => render()).observe(w, { attributes: true, attributeFilter: ['hidden'] }); }
@@ -6759,6 +6764,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 154, items: ['일괄 강화에 장신구도 넣을 수 있어요. (힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이 · 장신구 마법 주문서 사용 · 안전 강화가 없어 +1부터 실패하면 증발 · 최대 +8 · [안전 강화까지]에서는 건너뜀)', '착용 중인 장비는 일괄 강화에 넣을 수 없어요. (벗은 뒤 넣어 주세요)', '일괄 강화 창을 넓히고 목록 높이를 고정해서, 강화하는 동안 이름이 길어져도 강화 버튼이 아래로 밀리지 않아요.'] },
     { v: 153, items: ['새 사냥터 [용의 계곡]이 열렸어요! (월드맵 · 상급 · 권장 Lv 47~54) 1구역: 해골 돌격병·해골 궁수·리자드맨 무리 / 2구역: 모두 먼저 덤비는 와이번·드레이크·레서 드래곤', '드레이크와 레서 드래곤은 앞쪽으로 불 숨결을 뿜어요. 방어력을 무시하는 마법 피해라서 주황 범위가 보이면 옆으로 피하세요. (MR·화염 저항으로 줄어듦)', '새 보스 [드레이크 킹] — 용의 계곡 2구역 · 약 3시간마다 · 2명 이상 권장. 쓰러뜨리면 [용의 심장]과 [드레이크 킹의 가호조각]이 반드시 떨어져요. (드레이크 킹의 가호: 경험치 획득 증가)', '새 재료 [용의 비늘]·[드레이크의 발톱]·[용의 심장]으로 제작 장인 브론의 [장비 제작]에서 용비늘 투구·갑옷·장갑·장화(모든 클래스 · AC·MR·화염 저항)와 드래곤 슬레이어·용의 지팡이·용의 활을 만들 수 있어요. (성공 100%)', '보스 HP 바 아래에 지금 그 보스가 노리는 사람(어그로)의 아이디가 보여요.', '보스가 처음 마주칠 때 · 싸우는 중 · 쓰러질 때 보스마다 다른 대사를 해요. (머리 위 말풍선 + 채팅창 · 같은 사냥터 사람 모두에게 보임)'] },
     { v: 152, items: ['단축키 칸에 [자동사냥] 아이콘이 생겼어요. 누르거나 그 칸의 F키를 누르면 자동사냥이 켜지고 꺼져요. (켜지면 초록 테두리와 ON 표시 · 줍기 아이콘처럼 끌어서 원하는 칸으로 옮길 수 있어요 · 처음엔 F3 자리, 차 있으면 빈 칸)', '게임 메뉴에 [복구 코드 입력]이 생겼어요. 운영자에게 받은 복구 코드를 넣으면 아이템을 받을 수 있어요. (코드마다 받을 캐릭터가 정해져 있고 한 번만 사용 가능)'] },
     { v: 151, items: ['PC 게임을 켜면 로그인하기 전에 자동으로 최신 버전을 확인하고, 새 버전이 있으면 받아서 다시 시작해요. (예전 버전으로 접속하는 일이 없어져요)'] },
