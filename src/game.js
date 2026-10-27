@@ -171,7 +171,27 @@ let curZ=2, zoom=2, zoomT=2, pixel=true, cam=W2P(hero.x,hero.z), moveGoal=null, 
 document.getElementById('px-on').onclick=()=>{ pixel=true; document.getElementById('px-on').setAttribute('aria-pressed',true); document.getElementById('px-off').setAttribute('aria-pressed',false); };
 document.getElementById('px-off').onclick=()=>{ pixel=false; document.getElementById('px-on').setAttribute('aria-pressed',false); document.getElementById('px-off').setAttribute('aria-pressed',true); };
 const toWorldPx=(sx,sy)=>[ (sx-W/2)/curZ+cam[0], (sy-H/2)/curZ+cam[1] ];
-function wheelTgt(sx, sy) { const f = pickFox(sx, sy); if (f) return f; if (PVPZ() && !DEATH) { const op = NET.peerAt(sx, sy); if (op && !(op.pr.dd > 0) && op.pr.hp > 0) return NET.proxyOf(op.peer); } return null; }   // v155: 휠 버튼 — 마우스가 가리킨 몬스터, 유저끼리 싸울 수 있는 곳(PVPZ: 결투장 · 앞으로 PvP 필드)에선 유저에게도 바로 시전
+// v157: 우클릭 대상 고르기 — 마우스 밑에 몬스터(PvP 지역에선 유저도)가 2개 이상 겹치면 우클릭할 때마다 하나씩 돌아가며 '고르기'만 (노란 점선 원) · 좌클릭하면 고른 대상을 선택 · 6초 지나면 풀림
+let PRESEL = null, SELF_CAST = false;
+function pickAllAt(sx, sy) { const [px, py] = toWorldPx(sx, sy), L = [];
+  for (const f of foxes) { if (f.dead || f.gone || !DN.seen(f.i, f.j)) continue; const S = MOB[f.kind]; if (!S) continue; const hw = S.hw || Math.round(14 * S.sc + 6), hh = S.hh || Math.round(62 * S.sc), [fx, fy] = W2P(f.x, f.z); if (px > fx - hw && px < fx + hw && py > fy - hh && py < fy + 8) L.push(f); }
+  if (PVPZ() && !DEATH) for (const o of NET.peersAt(sx, sy)) { if (o.pr.dd > 0 || !(o.pr.hp > 0)) continue; L.push(NET.proxyOf(o.peer)); }
+  return L.sort((a, b) => (b.x + b.z) - (a.x + a.z)); }   // 앞(화면 아래쪽)부터 = 좌클릭 기본 선택 순서
+const preselOk = () => PRESEL && PRESEL.until > time && PRESEL.e && !PRESEL.e.dead && !PRESEL.e.gone && (!PRESEL.e.isRemote || NET.alive(PRESEL.e));
+function preselAt(sx, sy) { if (!preselOk()) { PRESEL = null; return null; } return pickAllAt(sx, sy).includes(PRESEL.e) ? PRESEL.e : null; }
+function preselCycle(sx, sy) { if (SCENE !== 'field' || ADMIN.on()) return false; const L = pickAllAt(sx, sy); if (L.length < 2) return false;
+  const cur = preselOk() && L.includes(PRESEL.e) ? L.indexOf(PRESEL.e) : -1, k = cur >= 0 ? (cur + 1) % L.length : 1; PRESEL = { e: L[k], k, n: L.length, until: time + 6 }; return true; }
+function drawPresel(g, vw, vh, ox, oy) { if (!preselOk()) return; const e = PRESEL.e, [x, y] = W2P(e.x, e.z), sx = x + ox, sy = y + oy; if (sx < -60 || sx > vw + 60 || sy < -60 || sy > vh + 60) return; const pu = 0.6 + 0.4 * Math.sin(time * 8);
+  g.save(); g.strokeStyle = `rgba(255,224,90,${0.65 + 0.35 * pu})`; g.lineWidth = 2.4; g.setLineDash([6, 4]); g.lineDashOffset = -time * 24; g.beginPath(); g.ellipse(sx, sy + 2, 24, 10, 0, 0, 7); g.stroke(); g.setLineDash([]);
+  const nm = e.isRemote ? NET.nameOf(e.peer) : ((MOB[e.kind] || {}).name || ''), t = `▶ ${nm} (${PRESEL.k + 1}/${PRESEL.n}) · 좌클릭: 선택`, hy = sy - (e.isRemote ? 96 : headY(e)) - 30;
+  g.font = '800 10.5px "Noto Sans KR",sans-serif'; const w = g.measureText(t).width + 12; g.fillStyle = 'rgba(30,22,4,.88)'; g.fillRect(sx - w / 2, hy - 12, w, 17); g.strokeStyle = 'rgba(255,224,90,.85)'; g.lineWidth = 1; g.strokeRect(sx - w / 2 + 0.5, hy - 11.5, w - 1, 16); g.fillStyle = '#ffe680'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(t, sx, hy + 1); g.restore(); }
+// v157: 힐·이뮨·어드밴스 스피릿·리무브 커스는 단축키를 '따닥' 두 번 누르면 나에게 (파티원을 가리키고 있을 때만 한 번 누름인지 0.26초 기다림)
+const SELF_SK = new Set(['heal', 'xheal', 'gheal', 'immune', 'advspirit', 'rcurse']); let TAP2 = { k: null, t: 0, tm: 0 };
+function hotKeyTap(k, i) { const id = INV.hot(i), s = id && id.startsWith('sk:') ? id.slice(3) : null; if (!s || !SELF_SK.has(s)) { INV.useHot(i); return; } const now = performance.now();
+  if (TAP2.k === k && now - TAP2.t < 320) { clearTimeout(TAP2.tm); TAP2 = { k: null, t: 0, tm: 0 }; SELF_CAST = true; try { INV.useHot(i); } finally { SELF_CAST = false; } return; }
+  if (NET.hoverParty()) { TAP2 = { k, t: now, tm: setTimeout(() => { if (TAP2.k !== k) return; TAP2 = { k: null, t: 0, tm: 0 }; INV.useHot(i); }, 260) }; return; }
+  TAP2 = { k, t: now, tm: 0 }; INV.useHot(i); }
+function wheelTgt(sx, sy) { const ps = preselAt(sx, sy); if (ps) return ps; const f = pickFox(sx, sy); if (f) return f; if (PVPZ() && !DEATH) { const op = NET.peerAt(sx, sy); if (op && !(op.pr.dd > 0) && op.pr.hp > 0) return NET.proxyOf(op.peer); } return null; }   // v155: 휠 버튼 — 마우스가 가리킨 몬스터, 유저끼리 싸울 수 있는 곳(PVPZ: 결투장 · 앞으로 PvP 필드)에선 유저에게도 바로 시전
 function pickFox(sx,sy){ const [px,py]=toWorldPx(sx,sy); let b=null,bd=-1; for (const f of foxes){ if (f.dead||!DN.seen(f.i,f.j)) continue; const S=MOB[f.kind], hw=S.hw||Math.round(14*S.sc+6), hh=S.hh||Math.round(62*S.sc); const [fx,fy]=W2P(f.x,f.z); if (px>fx-hw&&px<fx+hw&&py>fy-hh&&py<fy+8&&f.x+f.z>bd){ bd=f.x+f.z; b=f; } } return b; }
 function P2Wh(px,py){ let [x,z]=P2W(px,py); for (let k=0;k<4;k++){ const h=hAt(x,z); [x,z]=P2W(px,py+h*VPXG); } return [x,z]; }
 function pickTile(sx,sy){ const [x,z]=P2Wh(...toWorldPx(sx,sy)); return [Math.floor(x),Math.floor(z)]; }
@@ -181,6 +201,7 @@ cv.addEventListener('pointerdown',ev=>{ if (ev.button!==0) return; initAudio(); 
   { const lx=sx/curZ, ly=sy/curZ, pr=PETRECT.find(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (pr){ if (!pr[4].sum) PET.openWin(pr[4].e); return; } }
   if (MM.click(sx/curZ, sy/curZ)) return;
   if (COLO_LOCK) { COLO.lockSay(); return; }   // v136: 콜로세움 입장 대기 중엔 채팅만
+  if (!DEATH && !INV.targeting()) { const ps=preselAt(sx,sy); PRESEL=null; if (ps){ hero.target=ps; moveGoal=null; holding=false; return; } }   // v157: 우클릭으로 고른 대상을 좌클릭으로 선택
   { const op=NET.peerAt(sx,sy); if (op && PVPZ() && !(op.pr.dd>0) && !DEATH && op.pr.hp > 0){ hero.target=NET.proxyOf(op.peer); moveGoal=null; holding=false; return; }   /* v146: 결투장 — 누르면 공격 */
     if (op && (SCENE==='town' || (op.pr.dd>0 && !DEATH))){ NET.openMenu(op, ev.clientX, ev.clientY); return; } }   // v131: 필드에서도 무덤을 누르면 메뉴(부활 주문서)
   if (DEATH) { deadSay(); return; }   // 다른 플레이어 클릭 → 파티 초대 메뉴 (마을에서만 · 필드는 오른쪽 클릭)
@@ -249,7 +270,8 @@ cv.addEventListener('wheel',ev=>{ ev.preventDefault(); const r=cv.getBoundingCli
   if (lx>=cx&&lx<=cx+cw2&&ly>=cy&&ly<=cy+ch2){ logScroll=Math.max(0,logScroll+(ev.deltaY>0?-1:1)); return; }   // 대화창 위: 기록 스크롤
   if (!WHEEL_LOCK) INV.hotMove(ev.deltaY>0?1:-1); },{passive:false});   // 휠: 단축키 칸 선택 (리니지식)
 cv.addEventListener('auxclick',ev=>{ if (ev.button===1) ev.preventDefault(); });
-cv.addEventListener('contextmenu',ev=>{ { const r0=cv.getBoundingClientRect(), op=NET.peerAt(ev.clientX-r0.left, ev.clientY-r0.top); if (op){ ev.preventDefault(); NET.openMenu(op, ev.clientX, ev.clientY); return; } }   // 다른 플레이어 오른쪽 클릭 → 메뉴 (어디서나)
+cv.addEventListener('contextmenu',ev=>{ { const r1=cv.getBoundingClientRect(); if (preselCycle(ev.clientX-r1.left, ev.clientY-r1.top)) { ev.preventDefault(); return; } }   // v157: 겹친 대상 고르기
+  { const r0=cv.getBoundingClientRect(), op=NET.peerAt(ev.clientX-r0.left, ev.clientY-r0.top); if (op){ ev.preventDefault(); NET.openMenu(op, ev.clientX, ev.clientY); return; } }   // 다른 플레이어 오른쪽 클릭 → 메뉴 (어디서나)
   const r=cv.getBoundingClientRect(), lx=(ev.clientX-r.left)/curZ, ly=(ev.clientY-r.top)/curZ, hk=HOTRECT.findIndex(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (hk>=0){ ev.preventDefault(); INV.openHot(hk, ev.clientX, ev.clientY); } });   // 단축키 칸 오른쪽 클릭: 스킬·아이템 상세
 cv.addEventListener('mousedown',ev=>{ if (ev.button===1){ ev.preventDefault(); initAudio(); const r=cv.getBoundingClientRect(), f=wheelTgt(ev.clientX-r.left, ev.clientY-r.top); INV.useHot(INV.hotSel(), f); HELD.set('MB', performance.now() + 400); } });
 addEventListener('mouseup', ev => { if (ev.button === 1) HELD.delete('MB'); }, { capture: true });   /* v124: 휠 버튼을 누르고 있으면 그 칸을 계속 사용 */   // 휠 클릭: 선택한 칸 사용 (마법이면 마우스가 가리킨 대상에게)   // 휠 클릭: 선택한 칸 사용
@@ -684,7 +706,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 156;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 157;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1819,7 +1841,7 @@ function drawWorld(g, vw, vh){
     if (!tipHid) { g.save(); g.beginPath(); g.moveTo(x,tip); g.lineTo(x-7.5,tip-9); g.lineTo(x-2.8,tip-9); g.lineTo(x-2.8,tip-16); g.lineTo(x+2.8,tip-16); g.lineTo(x+2.8,tip-9); g.lineTo(x+7.5,tip-9); g.closePath(); g.lineJoin='round'; g.lineWidth=3.2; g.strokeStyle='rgba(0,0,0,.85)'; g.stroke(); g.fillStyle='#ff5a3c'; g.fill(); g.lineWidth=1; g.strokeStyle='#ffe2a0'; g.stroke(); g.restore(); } }
   g.restore(); mxDrawFlash(g, vw, vh); AMB.drawFlies(g, ox, oy);
   const vg=g.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*0.35,vw/2,vh/2,Math.max(vw,vh)*0.75); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.45)'); g.fillStyle=vg; g.fillRect(0,0,vw,vh);
-  drawBigFx(g, vw, vh, ox, oy); drawBossBar(g, vw, vh, ox, oy); drawBossTalk(g, vw, vh, ox, oy); COLO.draw(g, vw, vh);
+  drawBigFx(g, vw, vh, ox, oy); drawPresel(g, vw, vh, ox, oy); drawBossBar(g, vw, vh, ox, oy); drawBossTalk(g, vw, vh, ox, oy); COLO.draw(g, vw, vh);
 }
 // v153: 보스 대사 — 처음 누군가를 노릴 때(meet) · 싸우는 중(mid: HP 50% 아래 1번 + 그 뒤 40~60초마다) · 쓰러질 때(die)
 //   {이름} = 보스를 때렸거나 보스 근처(10칸)에 있는 사람 중 무작위 한 명의 아이디 · 머리 위 말풍선(4.5초) + 채팅창 · 호스트가 같은 지역 사람들에게 알려 줌 · dl: 첫 만남 대사를 늦게(카스파 패밀리 차례로)
@@ -1930,7 +1952,7 @@ const tabNav = () => ['loginscr', 'charsel', 'namescr'].some(id => { const el = 
 let pickCdT = 0; const HELD = new Map();
 function pickTry(fresh){ const n = performance.now(); if (n < pickCdT) return; pickCdT = n + 250; const got = GROUND.pickNear(null, 1); /* v136: F4는 한 번에 한 개씩 (누르고 있으면 0.25초마다 하나씩) */ if (!got && fresh) say('주변 1칸에 주울 아이템이 없습니다.', '#9c9682'); }
 let WHEEL_LOCK = (() => { try { return localStorage.getItem('aden_wlock') === '1'; } catch (e) { return false; } })(), WLRECT = [];   /* v124: 휠 고정 */
-function holdTry(k, fresh){ if (k === 'MB') { INV.useHot(INV.hotSel(), hover && !hover.dead ? hover : mouse ? wheelTgt(mouse[0], mouse[1]) : null); return; } const m = /^F([1-9]|1[0-2])$/.exec(k); if (m) INV.useHot(+m[1] - 1); }
+function holdTry(k, fresh){ if (k === 'MB') { INV.useHot(INV.hotSel(), hover && !hover.dead ? hover : mouse ? wheelTgt(mouse[0], mouse[1]) : null); return; } const m = /^F([1-9]|1[0-2])$/.exec(k); if (m) { if (fresh) hotKeyTap(k, +m[1] - 1); else INV.useHot(+m[1] - 1); } }
 function holdTick(){ if (!HELD.size) return; const n = performance.now(); for (const [k, t] of HELD) { if (n < t) continue; HELD.set(k, n + 250); HOLD_Q = true; try { holdTry(k, false); } finally { HOLD_Q = false; } } }
 addEventListener('keyup', ev => { HELD.delete(ev.key); }, { capture: true });
 addEventListener('blur', () => HELD.clear());
@@ -6299,6 +6321,7 @@ const NET = (() => {
     const M = members(); const h = `<div class="pb-h">파티 <small>${M.length + 1}명${M.length ? '' : ' · 초대를 기다리는 중'}</small><button type="button" id="pb-leave">나가기</button></div>` + row(PNAME(), CLASS, hero.lv, hero.hp, hero.max, hero.mp, hero.maxmp, zk(), true, myBuffs()) + M.map(o => row(nmOf(o.pr), o.pr.c, o.pr.lv, o.pr.hp || 0, o.pr.hm || 1, o.pr.mp || 0, o.pr.mm || 1, o.pr.z, false, o.pr.bf)).join('');
     if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; const b = document.getElementById('pb-leave'); if (b) b.onclick = () => INV.askYesNo('파티에서 나가시겠습니까?', '', leaveParty); } }
   // ----- 다른 플레이어 클릭 → 메뉴 (파티 초대)
+  function peersAt(sx, sy) { if (!room) return []; const [px, py] = toWorldPx(sx, sy), L = []; for (const o of othersInZone()) { const v = peers.get(o.peer); if (!v) continue; const [x, y] = W2P(v.x, v.z), dx = px - x, dy = py - (y - 40); if (Math.abs(dx) < 20 && Math.abs(dy) < 52) L.push(o); } return L; }   // v157: 겹친 유저 모두
   function peerAt(sx, sy) { if (!room) return null; const [px, py] = toWorldPx(sx, sy); let b = null, bd = 1e9; for (const o of othersInZone()) { const v = peers.get(o.peer); if (!v) continue; const [x, y] = W2P(v.x, v.z), dx = px - x, dy = py - (y - 40); if (Math.abs(dx) < 20 && Math.abs(dy) < 52) { const q = dx * dx + dy * dy; if (q < bd) { bd = q; b = o; } } } return b; }
   function openMenu(o, cx, cy) { const m = document.getElementById('pmenu'); if (!m) return; const same = partyId && o.pr.pt === partyId;
     m.innerHTML = `<b>${esc_(nmOf(o.pr))}</b><small>${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1}${o.pr.dd > 0 ? ' · 사망' : ''}</small>` + (o.pr.dd > 0 ? `<button type="button" data-a="rev">부활 주문서 사용 (${scrolls()}개)</button>` : '') + (same ? '<span class="pm-in">같은 파티원</span>' : '<button type="button" data-a="inv">파티 초대</button>') + (SCENE === 'town' && o.pr.z === 'town' ? '<button type="button" data-a="trade">교환 신청</button>' : '<span class="pm-in" style="color:#9c9682">교환은 마을에서만</span>') + '<button type="button" data-a="x">닫기</button>';
@@ -6325,10 +6348,10 @@ const NET = (() => {
         if (!(pr.dd > 0)) { const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top);
         const w = 34, k = Math.max(0, Math.min(1, (pr.hp || 0) / (pr.hm || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore(); }
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
-  return { pvp, duelDef, wardDrop, cleansePeer, remotesNear, proxyOf: peer => proxy(peer), duelCount: () => OTH.filter(o => o.pr.z === 'isle15').length + (zk() === 'isle15' ? 1 : 0), mx, bossCast, aggroName, aggroInfo, talkOut, talkTarget, hostHere: () => isHost(), setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
+  return { pvp, duelDef, wardDrop, cleansePeer, remotesNear, proxyOf: peer => proxy(peer), duelCount: () => OTH.filter(o => o.pr.z === 'isle15').length + (zk() === 'isle15' ? 1 : 0), mx, bossCast, peersAt, aggroName, aggroInfo, talkOut, talkTarget, hostHere: () => isHost(), setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
     zoneHost: () => isHost(), guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
-    setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
+    setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { if (SELF_CAST) return null; const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t) { anSeq++; anText = String(t).slice(0, 90); anL.push([anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
 })();
 // ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
@@ -6774,6 +6797,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 157, items: ['몬스터가 겹쳐 있을 때 마우스 오른쪽 버튼을 누를 때마다 겹친 대상이 하나씩 돌아가며 골라져요. (노란 점선 원 표시) 고른 뒤 왼쪽 클릭하면 그 대상이 선택돼요. 휠 버튼 마법도 고른 대상에게 나가요. (결투장에서는 유저도 포함)', '단축키 칸의 힐·이뮨 투 함·어드밴스 스피릿·리무브 커스는 그 키를 빠르게 두 번(따닥) 누르면 나에게 시전돼요. (파티원에게 마우스를 올려 둔 상태에서도)'] },
     { v: 156, items: ['단축키 칸 아이템 툴팁이 버프 아이콘에 가려 안 보이던 문제를 고쳤어요.'] },
     { v: 155, items: ['일괄 강화 창의 [목표 강화] 옆에 넣은 장비에 맞는 남은 주문서 수가 크게 보여요. 주문서를 한 장 쓸 때마다 바로 줄어들어요. (지금 쓰는 주문서는 금색 테두리)', '일괄 강화 중에 증발한 장비가 목록에 남아 보이던 문제를 고쳤어요.', '펫과 서먼 몬스터 소환수가 보스에게 주는 피해가 절반으로 줄었어요. (일반 몬스터는 그대로)', '결투장(대인전) 명중 계산을 고쳤어요. 상대 방어(AC)가 높으면 거의 다 빗나가던 문제 — 이제 레벨 차이·명중 보너스·상대 AC를 함께 따져요.', '결투장에서 휠 버튼으로 공격 마법을 쓸 때 상대 유저에게 마우스만 올리고 누르면 바로 시전돼요. (먼저 클릭할 필요 없음)'] },
     { v: 154, items: ['일괄 강화에 장신구도 넣을 수 있어요. (힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이 · 장신구 마법 주문서 사용 · 안전 강화가 없어 +1부터 실패하면 증발 · 최대 +8 · [안전 강화까지]에서는 건너뜀)', '착용 중인 장비는 일괄 강화에 넣을 수 없어요. (벗은 뒤 넣어 주세요)', '일괄 강화 창을 넓히고 목록 높이를 고정해서, 강화하는 동안 이름이 길어져도 강화 버튼이 아래로 밀리지 않아요.'] },
