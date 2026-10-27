@@ -707,7 +707,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 164;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 165;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1502,7 +1502,7 @@ function drawClassLayers(g, cls, anim, fr, row, x, y, hurtF, eqf, gl) { const D 
     if (gl && L !== 'body') { const t = gl(CL_SLOT[L.replace(/_[lp]$/, '')]); if (t) layerGlow(g, img, M, k, row, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), sc, t, D.pfx + L + ':' + a, CL_SLOT[L.replace(/_[lp]$/, '')] === 'weapon' ? 1 : 0.85); } }
   return true; }
 function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT;
-  { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf)) return true; }   // 변신 (데스나이트 세트 등)
+  { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf, gl)) return true; }   // 변신 (데스나이트 세트 등)
   if (cls !== 'knight' && CL_DEF[cls] && drawClassLayers(g, cls, anim, fr, row, x, y, hf, eqf, gl)) return true;
   if (cls !== 'knight') { const M = CLSM[cls], a = anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2') ? 'attack' : 'idle', img = M && clsImg(cls, a);
     if (img) { const m = M[a]; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; drawSheet(g, img, { W: m.W, H: m.H, ax: m.ax, ay: m.ay, s: KN.s || 1 }, Math.min(fr, m.n - 1), row, x, y, 1, hf); if (gl) bodyGlow(g, img, { W: m.W, H: m.H, ax: m.ax, ay: m.ay, s: KN.s || 1 }, Math.min(fr, m.n - 1), row, x, y, gl); g.restore(); return true; }
@@ -2587,17 +2587,18 @@ const DG_LAND = {
 
 // ---------- 변신: 데스나이트 세트(투구·갑옷·장갑·장화)를 모두 입으면 데스나이트 모습 (기사 전용) · 나중에 변신 주문서도 같은 표로
 const POLY = { deathknight: { name: '데스나이트', sheet: 'deathknight', s: 0.6, set: { helm: 'dk_helm', armor: 'dk_armor', gloves: 'dk_gloves', boots: 'dk_boots' } } };
-/* v164: 변신 주문서 — 직업별 다크(Lv55)·실버(Lv60) 모습 · 30분 · 공격·이동 속도 보너스 (그림: 기사·마법사·요정 모델에 새 갑옷을 입혀 렌더 → PMSHEET) */
+/* v164: 변신 주문서 — 직업별 다크(Lv50)·실버(Lv55) 모습 (v165: 55·60 → 50·55) · 30분 · 공격·이동 속도 보너스 (그림: 기사·마법사·요정 모델에 새 갑옷을 입혀 렌더 → PMSHEET) */
 Object.assign(POLY, { pm_dknight: { name: '다크나이트', sheet: 'pm_dknight', s: 1, cls: 'knight', tier: 'dark', fx: '255,70,50' }, pm_dmage: { name: '다크메이지', sheet: 'pm_dmage', s: 1, cls: 'wizard', tier: 'dark', fx: '190,70,255' }, pm_dranger: { name: '다크레인저', sheet: 'pm_dranger', s: 1, cls: 'elf', tier: 'dark', fx: '255,70,50' },
   pm_sknight: { name: '실버나이트', sheet: 'pm_sknight', s: 1, cls: 'knight', tier: 'silver', fx: '140,200,255' }, pm_smage: { name: '실버메이지', sheet: 'pm_smage', s: 1, cls: 'wizard', tier: 'silver', fx: '140,200,255' }, pm_sranger: { name: '실버레인저', sheet: 'pm_sranger', s: 1, cls: 'elf', tier: 'silver', fx: '140,200,255' } });
-const POLY_TIER = { dark: { lv: 55, bonus: 5, nm: '다크' }, silver: { lv: 60, bonus: 8, nm: '실버' } }, POLY_FORM = { knight: { dark: 'pm_dknight', silver: 'pm_sknight' }, wizard: { dark: 'pm_dmage', silver: 'pm_smage' }, elf: { dark: 'pm_dranger', silver: 'pm_sranger' } };
-const POLY_SHOP = false;   /* 변신 그림 6종이 다 들어오면 true (잡화상점 판매 시작) */
-const PMSHEET = {}, PMIMG = {};   /* 변신 그림 (렌더가 들어오면 채움) — 처음 그릴 때 불러옴 */
+const POLY_TIER = { dark: { lv: 50, bonus: 5, nm: '다크' }, silver: { lv: 55, bonus: 8, nm: '실버' } }, POLY_FORM = { knight: { dark: 'pm_dknight', silver: 'pm_sknight' }, wizard: { dark: 'pm_dmage', silver: 'pm_smage' }, elf: { dark: 'pm_dranger', silver: 'pm_sranger' } };
+const POLY_SHOP = true;   /* v165: 변신 그림 6종 완성 → 잡화상점 판매 */
+const PMSHEET = { pm_dknight: { W: 255, H: 251, ax: 111, ay: 207, s: 0.5, af: 8 }, pm_sknight: { W: 255, H: 251, ax: 111, ay: 207, s: 0.5, af: 8 }, pm_dmage: { W: 363, H: 305, ax: 144, ay: 244, s: 0.5, af: 8, cast: true }, pm_smage: { W: 363, H: 305, ax: 144, ay: 244, s: 0.5, af: 8, cast: true }, pm_dranger: { W: 240, H: 207, ax: 93, ay: 171, s: 0.5, af: 8 }, pm_sranger: { W: 240, H: 207, ax: 93, ay: 171, s: 0.5, af: 8 } }, PMIMG = {};   /* 절반 크기 렌더 (s 1 = 캐릭터와 같은 크기) */   /* 변신 그림 (렌더가 들어오면 채움) — 처음 그릴 때 불러옴 */
 let POLY_ON = null; const selfPoly = () => (POLY_ON && BUFF.poly > 0 && POLY[POLY_ON]) ? POLY_ON : null, polyBonus = k => { const p = selfPoly(); return p && (k === 'atkSpd' || k === 'moveSpd') ? POLY_TIER[POLY[p].tier].bonus : 0; };
 function pmImg(sheet, a) { const M = PMSHEET[sheet]; if (!M) return null; const I = PMIMG[sheet] || (PMIMG[sheet] = {}); if (!I[a] && (a !== 'cast' || M.cast)) { const im = new Image(); im.src = `assets/classic/pm_${sheet.slice(3)}_${a}.webp`; I[a] = im; } return I[a] || null; }
 function polyOf(eqf) { if (!eqf) return null; for (const k in POLY) { const st = POLY[k].set; if (!st) continue; if (Object.keys(st).every(sl => eqf(sl) === st[sl])) return k; } return null; }
-function drawPoly(g, pk, anim, fr, row, x, y, hf) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
-  if (!img || !img.complete || !img.naturalWidth) return false; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; drawSheet(g, img, { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: P.s }, Math.min(7, fr), row, x, y, 1, hf); g.restore();
+function drawPoly(g, pk, anim, fr, row, x, y, hf, gl) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
+  if (!img || !img.complete || !img.naturalWidth) return false; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s }; drawSheet(g, img, M2, Math.min(7, fr), row, x, y, 1, hf); g.restore();
+  if (gl && pmS) { const wt = gl('weapon') || 0, at = Math.max(0, ...EN_ARMOR.map(sl => gl(sl) || 0)), t = Math.max(wt, at); if (t) layerGlow(g, img, M2, Math.min(7, fr), row, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s), M2.s, t, 'poly:' + P.sheet + ':' + a, 1.35, true); }   /* v165: 변신 중에도 강화·등급 장비 빛 (평소보다 조금 진하게) */
   if (Math.random() < (P.fx ? 0.1 : 0.18)) mxP(x + mxR(-14, 14), y - mxR(0, 50), { k: 'ember', c: P.fx || '255,110,50', s: 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
   return true; }
 // 데스나이트 세트 효과 (네 부위 모두): AC -3 · 추가 피해 +2 · 불 저항 +20
@@ -3626,8 +3627,8 @@ const ITEMS = {
   clear_potion: { name: '맑은 물약', icon: 'pot_wh', use: 'heal', heal: [50, 60], w: 0.5, stack: true },
   antidote: { name: '해독제', icon: 'antidote', use: 'antidote', w: 0.3, stack: true, desc: '독을 바로 치료합니다. (본토던전 구울 대비)' },
   candle: { name: '양초', icon: 'candle', use: 'candle', buff: 'light', w: 0.3, stack: true, desc: '켜면 10분 동안 밤 시야가 넓어져요.' },
-  poly_dark: { name: '다크 변신 주문서', icon: 'scr_poly', use: 'poly', tier: 'dark', w: 0, stack: true, rar: '희귀', desc: '읽으면 30분 동안 내 직업의 다크 모습으로 변신합니다. (기사: 다크나이트 · 마법사: 다크메이지 · 요정: 다크레인저) 공격 속도 +5% · 이동 속도 +5% · Lv.55 이상' },
-  poly_silver: { name: '실버 변신 주문서', icon: 'scr_poly_s', use: 'poly', tier: 'silver', w: 0, stack: true, rar: '영웅', desc: '읽으면 30분 동안 내 직업의 실버 모습으로 변신합니다. (기사: 실버나이트 · 마법사: 실버메이지 · 요정: 실버레인저) 공격 속도 +8% · 이동 속도 +8% · Lv.60 이상' },
+  poly_dark: { name: '다크 변신 주문서', icon: 'scr_poly', use: 'poly', tier: 'dark', w: 0, stack: true, rar: '희귀', desc: '읽으면 30분 동안 내 직업의 다크 모습으로 변신합니다. (기사: 다크나이트 · 마법사: 다크메이지 · 요정: 다크레인저) 공격 속도 +5% · 이동 속도 +5% · Lv.50 이상' },
+  poly_silver: { name: '실버 변신 주문서', icon: 'scr_poly_s', use: 'poly', tier: 'silver', w: 0, stack: true, rar: '영웅', desc: '읽으면 30분 동안 내 직업의 실버 모습으로 변신합니다. (기사: 실버나이트 · 마법사: 실버메이지 · 요정: 실버레인저) 공격 속도 +8% · 이동 속도 +8% · Lv.55 이상' },
   scroll_counterm: { name: '카운터 매직 주문서', icon: 'scr_cm', use: 'counterm', buff: 'counterm', w: 0, stack: true, desc: '읽으면 10분 동안 다음에 받는 마법 공격(보스 범위 기술·마법 화살 등) 1번을 무효로 합니다. 체력 물약과 재사용 대기(1.5초)를 함께 씁니다. 아이템 정보에서 자동 사용을 켜면 효과가 끝날 때 알아서 읽어요.' },
   mana_potion: { name: '마나 회복 물약', icon: 'pot_bl', use: 'mana', buff: 'mana', w: 0.5, stack: true, desc: '30분 동안 MP 자연 회복이 초당 0.5씩 늘어납니다. (즉시 회복은 없음 · 다시 마시면 남은 시간이 30분으로)' },
   green_potion: { name: '초록 물약', icon: 'pot_gr', use: 'haste', haste: 1, dur: 1800, w: 0.5, stack: true },
@@ -4498,7 +4499,7 @@ const INV = (() => {
   function addStat(k) { if (hero.bonusPts <= 0 || !(k in BASE)) return; BONUS[k]++; hero.bonusPts--; say(`${NAMES_ST[k]}이(가) 1 올랐습니다. (${STAT[k]})`, '#f2e6a8'); render(); }
   function resetStats() { const n = Object.values(BONUS).reduce((a, b) => a + b, 0); if (!n) { say('되돌릴 보너스 능력치가 없습니다.', '#9c9682'); return false; }
     for (const k in BONUS) BONUS[k] = 0; hero.bonusPts += n; say(`보너스 능력치 ${n}개를 되돌렸습니다. 다시 찍을 수 있습니다.`, '#f2e6a8'); render(); return true; }
-  function add(id, n = 1, silent) { const d = ITEMS[id]; if (!d) return; if (window.SAVER) SAVER.item(id, n); if (id === 'gold_pile') { coins += n; if (!silent) say(`골드 +${n.toLocaleString()}`, '#f2d060'); render(); return; }   // v136: 콜로세움 골드 뭉치
+  function add(id, n = 1, silent) { const d = ITEMS[id]; if (!d || REMOVED_ITEMS[id]) return; if (window.SAVER) SAVER.item(id, n); if (id === 'gold_pile') { coins += n; if (!silent) say(`골드 +${n.toLocaleString()}`, '#f2d060'); render(); return; }   // v136: 콜로세움 골드 뭉치
     const e = d.stack ? bag.find(x => x.id === id) : null; if (e) e.n += n; else for (let k = 0; k < (d.stack ? 1 : n); k++) bag.push({ id, n: d.stack ? n : 1, on: false, ...(d.petKind ? { pet: mkPetData(d.petKind, d.petLv) } : {}) });
     if (!silent) say(`${rarTag(id)}${d.name}${n > 1 ? ' (' + n + ')' : ''}을(를) 얻었습니다.`, rarC(id)); render(); }
   const count = id => bag.filter(x => x.id === id).reduce((s, x) => s + x.n, 0);
@@ -5120,7 +5121,7 @@ const TOWN = (() => {
   const SHOPS = [
     { id: 'general', name: '잡화상점', npc: '잡화상인 판도라', icon: 'potion', i: 3, j: 13, w: 6, d: 6, h: 3.5, door: 'i', roof: [122, 58, 40], npcType: 'f',
       hello: '어서 오세요! 사냥 전에 물약은 넉넉히 챙기셨나요?',
-      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 100, 'HP를 많이 회복'], ['맑은 물약', 300, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 30분'], ['용기의 물약', 500, '2단 가속 1.4배 · 30분'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 10분 (체력 물약과 재사용 1.5초 공유)', 'scroll_counterm'], ...(POLY_SHOP ? [['다크 변신 주문서', 3000, 'Lv55 이상 · 30분 동안 내 직업의 다크 모습으로 변신 · 공격·이동 속도 +5%', 'poly_dark'], ['실버 변신 주문서', 6000, 'Lv60 이상 · 30분 동안 내 직업의 실버 모습으로 변신 · 공격·이동 속도 +8%', 'poly_silver']] : []), ['불멸의 가호', 50000, '가방에 지니고 있으면 사망 손실 없음 · 쓰러지면 1개가 타서 그 자리에 떨어짐 (주워서 되팔면 2만 5천)', 'immortal_ward'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 10000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch']]]] },
+      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 100, 'HP를 많이 회복'], ['맑은 물약', 300, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 30분'], ['용기의 물약', 500, '2단 가속 1.4배 · 30분'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 10분 (체력 물약과 재사용 1.5초 공유)', 'scroll_counterm'], ...(POLY_SHOP ? [['다크 변신 주문서', 3000, 'Lv50 이상 · 30분 동안 내 직업의 다크 모습으로 변신 · 공격·이동 속도 +5%', 'poly_dark'], ['실버 변신 주문서', 6000, 'Lv55 이상 · 30분 동안 내 직업의 실버 모습으로 변신 · 공격·이동 속도 +8%', 'poly_silver']] : []), ['불멸의 가호', 50000, '가방에 지니고 있으면 사망 손실 없음 · 쓰러지면 1개가 타서 그 자리에 떨어짐 (주워서 되팔면 2만 5천)', 'immortal_ward'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 10000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch']]]] },
     { id: 'equip', name: '장비상점', npc: '장비상인 발신', icon: 'sword', i: 3, j: 4, w: 6, d: 6, h: 3.5, door: 'i', roof: [74, 79, 92], npcType: 'm',
       hello: '좋은 무기가 좋은 기사를 만들지. 천천히 둘러보게.',
       get tabs() { return [['무기', [['한손검', 800, '공용 · 공격 1~8 · 처음 쓰기 좋은 검'], ...CX_SHOP.weapon.map(cxRow)]], ['방어구', CX_SHOP.armor.map(cxRow)], ['장신구', CX_SHOP.general.map(cxRow)]]; } },   /* v126: 장신구는 장비상점에서 */
@@ -5153,7 +5154,7 @@ const TOWN = (() => {
   const PORTAL = { i: 24, j: 15 };
   const WELL = { x: 15, z: 15 };
   // 우물: 건물과 같은 카메라·조명으로 렌더한 그림(well.webp). ax/ay = 그림 안에서 우물 중심(바닥) 위치(원본 픽셀). 그림이 안 읽히면 drawWell로 그림
-  const wellImg = new Image(); wellImg.src = 'assets/town/well.webp'; const WELL_AX = 130, WELL_AY = 281;
+  const wellImg = new Image(); const WELL_AX = 130, WELL_AY = 281;
   const SPAWN = [15, 18];
   const COLO_NPC = { i: 5, j: 21 };
   const DUEL_NPC = { i: 5, j: 25 };   // v146: 결투장 관리인 (콜로세움 관리인 아래쪽 풀밭)
@@ -5171,7 +5172,7 @@ const TOWN = (() => {
   TB[STORE_NPC.j][STORE_NPC.i] = 1; TB[SELL_NPC.j][SELL_NPC.i] = 1; TB[COLO_NPC.j][COLO_NPC.i] = 1; TB[COLO_NPC.j][COLO_NPC.i - 1] = 1; TB[CRAFT_NPC.j][CRAFT_NPC.i] = 1; TB[CRAFT_NPC.j][CRAFT_NPC.i + 1] = 1; TB[DUEL_NPC.j][DUEL_NPC.i] = 1; TB[DUEL_NPC.j][DUEL_NPC.i - 1] = 1;
   MARKET.DEF.forEach(d => { TB[d.j][d.i] = 1; });   // 시장 상인 자리
   SHOPS.forEach(b => setDoor(b, true));   // 문 없음: 항상 열린 입구
-  for (let j = 14; j <= 15; j++) for (let i = 14; i <= 15; i++) TB[j][i] = 1;            // 우물
+  // v165: 마을 가운데 우물은 없앰 (길을 막아서). 자리만 비워 둠
   // ---- 가장자리 나무·덤불
   const TPROPS = [];
   for (let k = 0; k < N; k += 2) { [[k, 0], [0, k], [k, N - 1], [N - 1, k]].forEach(([i, j]) => TPROPS.push({ type: 'tree', v: (i * 3 + j) % 3, i, j })); }
@@ -5378,7 +5379,7 @@ const TOWN = (() => {
       if (!inn) { list.push({ d: DUEL_NPC.i + DUEL_NPC.j, f: () => drawColoSign(g, DUEL_NPC, true) }); list.push({ d: DUELK.i + DUELK.j + 1, f: () => drawDuelKeeper(g, DUELK) }); }
       // 테스트 상점은 없앰 (아이템은 갓 모드 패널의 '아이템 지급'으로)
       if (!inn) for (const m of MERCH) { list.push({ d: m.i + m.j - 0.4, f: () => drawRug(g, m) }); list.push({ d: m.i + m.j + 1, f: () => drawMerchant(g, m) }); }
-      list.push({ d: WELL.x + WELL.z, f: () => { if (wellImg.complete && wellImg.naturalWidth) { const [x, y] = W2P(WELL.x, WELL.z); g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+      if (false) list.push({ d: WELL.x + WELL.z, f: () => { if (wellImg.complete && wellImg.naturalWidth) { const [x, y] = W2P(WELL.x, WELL.z); g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
         { const hv = hero.x + hero.z - WELL.x - WELL.z, hu = hero.x - hero.z - WELL.x + WELL.z; if (hv < 0 && hv > -7 && hu > -2.4 && hu < 2) g.globalAlpha = 0.55; }   // 기사가 우물 뒤(지붕에 가림)면 반투명
         g.drawImage(wellImg,Math.round(x - WELL_AX * S2), Math.round(y - WELL_AY * S2), wellImg.naturalWidth * S2, wellImg.naturalHeight * S2); g.restore(); } else drawWell(g); } });
       { const [x, y] = W2P(PORTAL.i + 0.5, PORTAL.j + 0.5); list.push({ d: PORTAL.i + PORTAL.j + 0.6, f: () => { const p = 0.5 + 0.5 * Math.sin(time * 2.4);
@@ -6314,7 +6315,7 @@ const NET = (() => {
   function hit(f, d) { myHits.push([++hitSeq, f.uid, d]); trim(myHits, 30); f.myDmg = (f.myDmg || 0) + d; f.predUntil = time + 1.2; sendT = 0; }
   // 보상·아이템 받기 (누가 보냈든 내 몫만, 번호로 한 번씩)
   function applyRewards(o) { const rw = o.pr.rw && myPeer && o.pr.rw[myPeer]; if (rw) { if (!seenRw.has(o.peer)) seenRw.set(o.peer, 0); const last = seenRw.get(o.peer); let mx = last;
-      for (const [sq, ex, gd, k, pct, bn, li, ln, its] of rw) { if (sq <= last) continue; mx = Math.max(mx, sq); const S = MOB[KINDS[k]], ex2 = gahoExp(S ? Math.round(ex * lowLvMul(S)) : ex); if (Array.isArray(its) && its.length) say(`[분배] ${S ? S.name : '보스'} 드랍 중 ${its.map(id => (ITEMS[id] && ITEMS[id].name) || id).join(', ')} 우선권을 받았어요! (3초 안에 주우세요)`, '#ffd86a'); if (ex2 <= 0 && gd <= 0 && Array.isArray(its)) continue; if (ex2 > 0) gainExp(ex2); if (gd > 0) coins += gd; if (OFFL_HOOK && S) { OFFL_HOOK.kill({ kind: KINDS[k] }, (+pct || 0) / 100); if (gd > 0) OFFL_HOOK.gold(gd); } say(`${S ? S.name : '몬스터'} 처치 보상 (공헌도 ${pct}%${bn ? ' · 파티 +10%' : ''}) — 경험치 +${ex2}${ex2 > 0 && S ? lowLvTag(S) : ''} · 골드 +${gd}`, '#d8e8a8'); }
+      for (const [sq, ex, gd, k, pct, bn, li, ln, its] of rw) { if (sq <= last) continue; mx = Math.max(mx, sq); const S = MOB[KINDS[k]], ex2 = gahoExp(S ? Math.round(ex * lowLvMul(S)) : ex); if (Array.isArray(its) && its.length) say(`[분배] ${S ? S.name : '보스'} 드랍 중 ${its.map(id => (ITEMS[id] && ITEMS[id].name) || id).join(', ')} 우선권을 받았어요! (3초 안에 주우세요)`, '#ffd86a'); if (ex2 <= 0 && gd <= 0 && Array.isArray(its)) continue; if (ex2 > 0) gainExp(ex2); if (window.SAVER && S) SAVER.kill(); if (gd > 0) coins += gd; if (OFFL_HOOK && S) { OFFL_HOOK.kill({ kind: KINDS[k] }, (+pct || 0) / 100); if (gd > 0) OFFL_HOOK.gold(gd); } say(`${S ? S.name : '몬스터'} 처치 보상 (공헌도 ${pct}%${bn ? ' · 파티 +10%' : ''}) — 경험치 +${ex2}${ex2 > 0 && S ? lowLvTag(S) : ''} · 골드 +${gd}`, '#d8e8a8'); }
       seenRw.set(o.peer, mx); }
     const gv = o.pr.gv && myPeer && o.pr.gv[myPeer]; if (gv) { if (!seenGv.has(o.peer)) seenGv.set(o.peer, 0); const last = seenGv.get(o.peer); let mx = last;
       for (const [sq, ii, n, gid, x4] of gv) { if (sq <= last) continue; mx = Math.max(mx, sq);
@@ -6852,6 +6853,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 165, items: ['자동사냥이 없어진 [마나 회복 물약]을 예전 [가속 물약 자동 구매] 설정대로 계속 사던 문제를 고쳤어요. (이미 산 물약은 다음 접속 때 개당 120골드로 돌려드려요)', '[변신 주문서]가 생겼어요! 잡화상점에서 팔아요. 읽으면 30분 동안 내 직업의 변신 모습이 되고 공격 속도·이동 속도가 빨라져요. (다른 유저에게도 변신한 모습으로 보여요)', '[다크 변신 주문서] (3,000골드 · Lv.50 이상): 기사 → 다크나이트 · 마법사 → 다크메이지 · 요정 → 다크레인저 · 공격·이동 속도 +5%', '[실버 변신 주문서] (6,000골드 · Lv.55 이상): 기사 → 실버나이트 · 마법사 → 실버메이지 · 요정 → 실버레인저 · 공격·이동 속도 +8%', '변신 중에는 버프 칸에 남은 시간이 보이고, 다시 읽으면 30분으로 늘어나요. 접속을 끊었다 들어와도 남은 시간만큼 변신이 이어져요.', '변신 중에도 강화·등급 장비를 낀 빛이 몸에 보여요.', '절전 화면의 [처치] 수가 0으로만 보이던 경우를 고쳤어요.', '절전 화면의 [시간당 경험치]를 %로 보여 줘요. (한 시간에 경험치 바가 몇 % 차는지 · 레벨이 오르면 이어서 더함)', '마을 가운데 [우물]을 없앴어요. 이제 마을 가운데를 막힘 없이 지나갈 수 있어요.'] },
     { v: 164, items: ['[절전 모드]가 생겼어요. 위 메뉴의 [절전]을 누르면 화면 그리기를 멈추고 검은 화면에 사냥 요약만 보여 줘요. (사냥·자동사냥·저장은 그대로 · 컴퓨터가 훨씬 덜 일해요)', '절전 화면에는 시각·절전 시간·HP/MP·경험치·지역·자동사냥 상태와 절전 중 처치 수·얻은 경험치(시간당)·골드 변화·획득 아이템이 나와요. 희귀·영웅 아이템을 얻거나 쓰러지면 알림이 떠요.', '[절전 귀환]을 켜 두면 절전 중 다른 유저에게 공격받을 때 바로 마을로 돌아가요.', '아래 막대를 오른쪽 끝까지 밀면 절전이 풀려요.', '자동사냥 중에 이동 발판(2구역으로 · 마을로 · 계단)을 밟아도 다른 구역으로 넘어가지 않게 고쳤어요. (자동사냥을 끄면 평소처럼 넘어가요)', '자동사냥 설정에 [자동 절전]이 생겼어요. 자동사냥 중 마우스·키보드 입력이 정해 둔 시간(3·5·10·30분) 동안 없으면 저절로 절전 모드로 들어가요.'] },
     { v: 163, items: ['[반역자의 방패] 설명을 알기 쉽게 바꿨어요. [피격 시 확률로 모든 피해 감소 10% 발동 (확률 최초 2% + 강화당 1% 증가)] — 효과는 그대로예요.'] },
     { v: 162, items: ['연금술 [일괄 등록]·아덴상단 [일괄 판매]·자동사냥 [자동판매]의 등급 옆에 [타클래스만] 체크가 생겼어요. 켜면 내 직업이 쓸 수 있는 장비는 빼고 다른 직업 전용 장비만 골라요.', '단축키 칸에 지금 착용 중인 장비를 넣으면 칸 아래에 [착용중]이라고 표시돼요.', '용의 계곡 [드레이크]가 원래 크기로 돌아오고, [드레이크 킹]은 드레이크의 1.5배 크기가 됐어요.', '[마나 회복 물약(파란 물약)]이 게임에서 없어졌어요. 상점에서 팔지 않고, 가지고 있던 물약은 개당 120골드(상점 가격)로 돌려드려요. (가방 → 내 골드 · 창고 → 창고 골드) 쓸 물약이 없어진 MP 자동 물약 칸도 빠졌어요.', '기사의 최대 MP가 늘었어요. 이제 레벨이 오를 때마다 MP가 항상 1씩 올라요. (예전: 0~1) 이미 키운 기사도 접속하면 소급돼요. (55레벨 기준 약 31 → 56)', '오렌설원 [에틴]이 지금 크기의 절반으로 작아졌어요. (마법사 소환수 에틴도 같이)', '[반역자의 방패]의 [받는 피해 -2]가 [피격 시 확률 피해 -10%]로 바뀌었어요. 근접·원거리·마법 모든 피해에 2% 확률(강화 1당 +1%)로 발동해 받는 피해를 10% 줄이고, 방패에서 붉은 빛이 터져요.'] },
@@ -7094,7 +7096,7 @@ const ACCOUNT = (() => {
 })();
 const AUTO = (() => {
   const C = { ofl: true, manner: true, retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyQ: { red_potion: 30, orange_potion: 0, clear_potion: 0 }, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true, healFirst: true,
-    buyHaste: false, hasteId: 'green_potion', hasteN: 5, hasteQ: { green_potion: 5, brave_potion: 0, mana_potion: 0 }, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
+    buyHaste: false, hasteId: 'green_potion', hasteN: 5, hasteQ: { green_potion: 5, brave_potion: 0 }, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
     sell: false, sellPct: 80, sellR: { 일반: true, 고급: false, 희귀: false, 영웅: false }, saverMin: '0' };   // 자동판매: 가방 무게 sellPct% 이상이면 귀환해서 아덴상단에 고른 등급 장비를 일괄 판매
   // v109: 물약 귀환은 체크한 물약 수량만 셈 (아무것도 안 고르면 자동 구매 물약)
   const lowCount = () => { const ids = Object.keys(C.lowIds).filter(id => C.lowIds[id]); const bq = Object.keys(C.buyQ).filter(id => C.buyQ[id] > 0); return (ids.length ? ids : bq.length ? bq : ['red_potion']).reduce((n, id) => n + INV.count(id), 0); };
@@ -7125,7 +7127,7 @@ const AUTO = (() => {
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
   function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
-  function buyAll() { const want = (id, n) => { const p = PRICE[id], k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); } if (k) say(`자동사냥: ${ITEMS[id].name} ${k}개 구입 (-${k * p} 골드)`, '#cfe4a8'); else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
+  function buyAll() { const want = (id, n) => { if (REMOVED_ITEMS[id] || !ITEMS[id] || !PRICE[id]) return; const p = PRICE[id],   /* v165: 없어진 아이템(마나 회복 물약)은 예전 설정이 남아 있어도 사지 않음 */ k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); } if (k) say(`자동사냥: ${ITEMS[id].name} ${k}개 구입 (-${k * p} 골드)`, '#cfe4a8'); else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
     if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) { want(id, C.hasteQ[id]); if (!INV.count(id)) hasteSkip[id] = true; } }   /* v125: 종류마다 정한 개수까지 */
   // 실제 걸음 수(나무·바위·물을 돌아가는 길) — 직선으로만 가까운 몹을 가깝다고 착각하지 않게 (22걸음 안)
   function pathDist(R) { const W = 2 * R + 1, D = new Int16Array(W * W).fill(-1), i0 = hero.i - R, j0 = hero.j - R, q = [hero.i, hero.j]; D[R * W + R] = 0;
@@ -7192,7 +7194,7 @@ const AUTO = (() => {
     w.querySelectorAll('[data-buff]').forEach(el => { el.onchange = () => { INV.setAutoBuff(el.dataset.buff, el.checked); sync(); }; });
     const qv = el => Math.max(0, Math.min(+el.max || 500, Math.floor(+el.value || 0))); w.querySelectorAll('[data-bq]').forEach(el => { el.oninput = () => { C.buyQ[el.dataset.bq] = qv(el); }; el.onchange = () => { C.buyQ[el.dataset.bq] = qv(el); sync(); }; }); w.querySelectorAll('[data-hq]').forEach(el => { el.oninput = () => { C.hasteQ[el.dataset.hq] = qv(el); }; el.onchange = () => { C.hasteQ[el.dataset.hq] = qv(el); sync(); }; });
     w.querySelectorAll('select,input').forEach(el => { el.onkeydown = ev => ev.stopPropagation(); }); }
-  return { tick, toggle, openSet, status, wantLoot, buyAll, home: () => home, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; }
+  return { tick, toggle, openSet, status, wantLoot, buyAll, home: () => home, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } for (const q of [C.buyQ, C.hasteQ]) for (const id in q) if (REMOVED_ITEMS[id] || !ITEMS[id]) delete q[id]; if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; }
       if (o && !o.buyQ && o.buyId && o.buyId in C.buyQ) { for (const id in C.buyQ) C.buyQ[id] = id === o.buyId ? Math.max(1, +o.buyN || 30) : 0; }   /* v125: 예전 저장(물약 1종) → 종류별 개수 */
       if (o && !o.hasteQ && o.hasteId && o.hasteId in C.hasteQ) { for (const id in C.hasteQ) C.hasteQ[id] = id === o.hasteId ? Math.max(1, +o.hasteN || 5) : 0; } } };
 })();
@@ -7380,7 +7382,7 @@ window.SAVER = (() => {
   const $ = id => document.getElementById(id), esc_ = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let on = false, t0 = 0, acc = 0, S = null, lastIn = performance.now(), el = null, home = false;
   try { home = localStorage.getItem('aden_saver_home') === '1'; } catch (e) {}
-  const fresh = () => ({ exp: 0, gold: 0, kills: 0, items: new Map(), notes: [], lv0: hero.lv, pct0: hero.exp / needExp(hero.lv), coins0: coins, dead: 0 });
+  const fresh = () => ({ exp: 0, xp: 0, gold: 0, kills: 0, items: new Map(), notes: [], lv0: hero.lv, pct0: hero.exp / needExp(hero.lv), coins0: coins, dead: 0 });
   const fmtT = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ':' : '') + String(m).padStart(h ? 2 : 1, '0') + ':' + String(x).padStart(2, '0'); };
   function build() { if (el) return el; el = document.createElement('div'); el.id = 'saver'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '절전 모드');
     el.innerHTML = `<div class="sv-top"><b class="sv-clock" id="sv-clock"></b><span>절전 모드</span><span class="sv-el" id="sv-el"></span></div>
@@ -7411,7 +7413,7 @@ window.SAVER = (() => {
     const bar = (id, v, m) => { $(id).style.width = Math.max(0, Math.min(100, v / Math.max(1, m) * 100)) + '%'; $(id + 't').textContent = `${Math.max(0, Math.ceil(v)).toLocaleString()} / ${m.toLocaleString()}`; };
     bar('sv-hp', hero.hp, hero.max); bar('sv-mp', hero.mp, hero.maxmp); const ep = hero.exp / needExp(hero.lv) * 100; $('sv-ex').style.width = ep + '%'; $('sv-ext').textContent = `EXP ${ep.toFixed(2)}%`;
     const hz = huntOn(); $('sv-st').innerHTML = `<span>${esc_(zoneTitle())}</span><span class="${hz ? 'ok' : 'no'}">${hz ? '자동사냥 중' : '자동사냥 꺼짐'}</span>${S.dead ? '<span class="no">쓰러짐</span>' : ''}`;
-    $('sv-k').textContent = S.kills.toLocaleString(); $('sv-x').textContent = '+' + S.exp.toLocaleString(); $('sv-xh').textContent = sec > 60 ? '+' + Math.round(S.exp / sec * 3600).toLocaleString() : '-';
+    $('sv-k').textContent = S.kills.toLocaleString(); $('sv-x').textContent = '+' + S.exp.toLocaleString(); $('sv-xh').textContent = sec > 60 ? '+' + (v => v.toFixed(v < 10 ? 2 : 1))(S.xp / sec * 3600) + '%' : '-';   /* v165: 시간당 경험치를 레벨 % 로 */
     const gd = coins - S.coins0; $('sv-g').textContent = (gd >= 0 ? '+' : '') + gd.toLocaleString();
     const L = [...S.items].sort((a, b) => (RO_[ITEMS[b[0]] && ITEMS[b[0]].rar] || 0) - (RO_[ITEMS[a[0]] && ITEMS[a[0]].rar] || 0) || b[1] - a[1]);
     $('sv-items').innerHTML = L.length ? L.slice(0, 40).map(([id, n]) => { const it = ITEMS[id]; return `<li style="color:${rarC(id)}"><span class="ic">${ICON(it.icon)}</span>${esc_(it.name)} <b>×${n.toLocaleString()}</b></li>`; }).join('') : '<li class="none">아직 없음</li>';
@@ -7427,7 +7429,7 @@ window.SAVER = (() => {
   { const b = $('btn-saver'); if (b) b.onclick = () => enter(false); }
   for (const t of ['pointerdown', 'keydown', 'wheel']) addEventListener(t, () => { lastIn = performance.now(); }, true);
   return { on: () => on, enter, exit, tick, note,
-    exp(n) { if (on && n > 0) S.exp += n; }, kill() { if (on) S.kills++; }, item(id, n) { if (!on || SCENE === 'town' || !ITEMS[id]) return; if (id === 'gold_pile') return; S.items.set(id, (S.items.get(id) || 0) + (n || 1)); if (ITEMS[id].rar === '영웅' || ITEMS[id].rar === '희귀') note(`${JOSA(ITEMS[id].name, '을', '를')} 얻었어요!`, rarC(id)); },
+    exp(n) { if (!on || !(n > 0)) return; S.exp += n; let r = n, lv = hero.lv, e = hero.exp; for (let k = 0; k < 6 && r > 0; k++) { const nd = needExp(lv), t = Math.min(r, Math.max(1, nd - e)); S.xp += t / nd * 100; r -= t; e = 0; lv++; } },   /* 레벨 % 로도 셈 (레벨이 오르면 나눠서) */ kill() { if (on) S.kills++; }, item(id, n) { if (!on || SCENE === 'town' || !ITEMS[id]) return; if (id === 'gold_pile') return; S.items.set(id, (S.items.get(id) || 0) + (n || 1)); if (ITEMS[id].rar === '영웅' || ITEMS[id].rar === '희귀') note(`${JOSA(ITEMS[id].name, '을', '를')} 얻었어요!`, rarC(id)); },
     death() { if (!on) return; S.dead = 1; note('캐릭터가 쓰러졌어요.', '#ff5a4a'); render(); },
     pvpHit(src) { if (!on || !home || SCENE === 'town') return; note('다른 유저에게 공격받아 마을로 귀환했어요.', '#ff8a70'); try { TOWN.goTown(); } catch (e) {} } };
 })();
