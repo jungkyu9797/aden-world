@@ -416,7 +416,7 @@ const BUFF_DEF = { poly: { get name() { const p = POLY_ON && POLY[POLY_ON]; retu
                    windshot: { name: '윈드 샷', desc: '활 명중 증가 (+5% · 10레벨마다 +1% · 최대 +10%)', icon: 'sk_wind_shot', dur: 600, c: '#bff0ff' },
                    stormshot: { name: '스톰 샷', desc: '활 피해 증가 (+3 · 40레벨 +4 · 60레벨 +5)', icon: 'sk_storm_shot', dur: 600, c: '#d8c0ff' },
                    esight: { name: '요정의 시야', desc: '밤에도 낮처럼 밝게 보임 (던전 제외)', icon: 'sk_tele_tree', dur: 1200, c: '#c8f0a0' },
-                   immune: { name: '이뮨 투 함', desc: '받는 모든 피해 30% 감소', icon: 'sk_immune', dur: 12, c: '#8af0a8' },
+                   immune: { name: '이뮨 투 함', desc: '받는 모든 피해 30% 감소', icon: 'sk_immune', dur: 28, c: '#8af0a8' },
                    advsp: { name: '어드밴스 스피릿', desc: '최대 HP·MP +20%', icon: 'sk_advspirit', dur: 1800, c: '#9fe8c0' },
                    abar: { name: '앱솔루트 배리어', desc: '모든 피해 무효 · 이동과 귀환만 가능', icon: 'sk_abarrier', dur: 5, c: '#f4f8ff' },
                    mlock: { name: '마법 봉인', desc: '마법을 쓸 수 없음 (앱솔루트 배리어 뒤 · 물약·주문서는 가능)', icon: 'sk_abarrier', dur: 12, c: '#a8b0c8', bad: true } };
@@ -735,7 +735,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 174;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 175;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -753,7 +753,7 @@ const MAGIC_LIST = [
   [4, 'fball', '파이어볼', '대상을 중심으로 가로·세로 6칸 범위를 폭발시켜 범위 안 모든 몬스터에게 불속성 피해. (기본 6~10 · 지능·SP로 커짐)', 15], [4, 'slow', '슬로우', '대상의 이동·공격 속도를 1.3배 느리게 합니다. (10초 · 보스 4초 · 성공률 = 내 레벨·지능 vs 대상 레벨·마법 방어, 최대 75%)', 10], [4, 'medit', '메디테이션', '10분 동안 MP 회복 초당 +0.5. 가만히 서 있으면 2배. (클리어 마인드와는 큰 쪽만)', 8],
   [5, 'clight', '콜 라이트닝', '하늘에서 번개를 떨어뜨려 무속성 피해. (기본 12~20 · 지능·SP로 커짐)', 14], [5, 'gheal', '그레이터 힐', 'HP를 회복합니다. (기본 36~51 · 지능·SP로 커짐)', 12], [5, 'counterm', '카운터 매직', '10분 동안 받는 마법 공격(보스 범위 공격·거미줄 포함) 1회를 무효로 합니다.', 10],
   [6, 'coc', '콘 오브 콜드', '대상 발밑에서 얼음 기둥이 솟구쳐 수속성 피해. (기본 13~22 · 지능·SP로 커짐)', 16], [6, 'eruption', '이럽션', '대상 발밑에 지진을 일으켜 땅속성 피해. (기본 13~22 · 지능·SP로 커짐)', 18], [6, 'sunburst', '선버스트', '대상에게 점점 모여드는 강한 빛으로 불속성 피해. (기본 15~25 · 지능·SP로 커짐)', 20],
-  [7, 'healall', '힐 올', '나와 8칸 안의 파티원 HP를 회복합니다. (기본 20~29 · 지능·SP로 커짐)', 26], [7, 'rcurse', '리무브 커스', '나, 또는 마우스로 가리킨 8칸 안의 파티원에게 걸린 해로운 효과(슬로우·거미줄 속박·독·기절)를 모두 풉니다.', 20], [7, 'immune', '이뮨 투 함', '12초 동안 받는 모든 피해 30% 감소. 나에게, 또는 마우스로 가리킨 8칸 안의 파티원에게 걸어요. (리덕션 아머와 함께 적용 · 지형지물에 막히지 않음 · 던전 벽은 막힘)', 24],
+  [7, 'healall', '힐 올', '나와 8칸 안의 파티원 HP를 회복합니다. (기본 20~29 · 지능·SP로 커짐)', 26], [7, 'rcurse', '리무브 커스', '나, 또는 마우스로 가리킨 8칸 안의 파티원에게 걸린 해로운 효과(슬로우·거미줄 속박·독·기절)를 모두 풉니다.', 20], [7, 'immune', '이뮨 투 함', '받는 모든 피해 30% 감소. 나에게 쓰면 28초, 마우스로 가리킨 8칸 안의 파티원에게 쓰면 18초 동안 걸려요. (리덕션 아머와 함께 적용 · 지형지물에 막히지 않음 · 던전 벽은 막힘)', 24],
   [8, 'tornado', '토네이도', '모래폭풍을 일으켜 내 주변 가로·세로 6칸 안의 모든 대상에게 바람속성 피해. (기본 30~40 · 지능·SP로 커짐)', 22], [8, 'quake', '어스퀘이크', '땅을 뒤흔들어 솟구친 돌덩이로 내 주변 가로·세로 6칸 안의 모든 대상에게 땅속성 피해. (기본 30~40 · 지능·SP로 커짐)', 22], [8, 'fstorm', '파이어 스톰', '화염 회오리로 내 주변 가로·세로 6칸 안의 모든 대상에게 불속성 피해. (기본 30~40 · 지능·SP로 커짐)', 22],
   [9, 'abarrier', '앱솔루트 배리어', '5초 동안 어떤 공격·마법 피해도 받지 않아요. 그동안 이동과 귀환 주문서만 쓸 수 있고, 시전 후 12초 동안은 마법을 쓸 수 없어요. (물약·주문서는 5초 뒤부터 가능)', 40], [9, 'advspirit', '어드밴스 스피릿', '30분 동안 최대 HP·MP +20%. 나에게, 또는 마우스로 가리킨 8칸 안의 파티원에게 걸어요.', 5], [9, 'lstorm', '라이트닝 스톰', '폭우와 번개로 내 주변 가로·세로 6칸 안의 모든 대상에게 물속성 피해. 10% 확률로 1초 감전(기절 · 보스 제외). (기본 35~45 · 지능·SP로 커짐)', 22],
   [10, 'disint', '디스인티그레이트', '하늘에서 빛의 창을 내리꽂아 대상 하나에게 큰 피해. (기본 80~120 · 지능·SP로 커짐)', 60], [10, 'meteor', '미티어 스트라이크', '하늘에서 운석을 떨어뜨려 대상 중심 가로·세로 8칸 안의 모든 대상에게 피해. (기본 60~80 · 지능·SP로 커짐)', 40], [10, 'blizzard', '블리자드', '눈보라로 내 주변 가로·세로 10칸 안의 모든 대상에게 물속성 피해, 확률적으로 슬로우(4서클 슬로우와 같은 확률·시간). (기본 40~55 · 지능·SP로 커짐)', 40],
@@ -882,9 +882,9 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     mxCast(id, hero); spellSfx('heal'); return; }
   if (id === 'nature_bless') { const amt = Math.max(1, Math.round(hero.max / 3)), h = Math.max(0, Math.min(Math.ceil(hero.max - hero.hp), amt)); hero.hp = Math.min(hero.max, hero.hp + h); floatText(hx, hy - 100, `+${h}`, { color: '#8af08a', size: 13 }); mxSelf(id, hero); mxCast(id, hero); NET.mx(id, hero); const P_ = NET.partyNear(8, DGLOS); for (const o of P_) NET.healPeer(o, Math.max(1, Math.round((o.pr.hm || 0) / 3)), true); say(`${k.name}! (HP +${h}${P_.length ? ` · 파티원 ${P_.length}명 회복` : ''})`, '#cfe4ff'); spellSfx(id); return; }
   if (id === 'healall') { const amt = healAmt('healall'), h = Math.max(0, Math.min(Math.ceil(hero.max - hero.hp), amt)); hero.hp = Math.min(hero.max, hero.hp + h); floatText(hx, hy - 100, `+${h}`, { color: '#8af08a', size: 13 }); mxSelf('healall', hero); mxCast(id, hero); const P_ = NET.partyNear(8, FLOS); for (const o of P_) NET.healPeer(o, amt); say(`${k.name}!${P_.length ? ` (파티원 ${P_.length}명 회복)` : ''}`, '#cfe4ff'); spellSfx('heal'); return; }
-  if (id === 'immune') { const PM = NET.hoverParty(), D = BUFF_DEF.immune.dur;
-    if (PM) { NET.buffPeer(PM, 'immune', D); face(hero, { i: Math.floor(PM.pr.x), j: Math.floor(PM.pr.y) }); say(`이뮨 투 함 → ${String(PM.pr.n).slice(0, 12)} (12초 · 받는 피해 30% 감소)`, '#ffe9a0'); }
-    else { BUFF.immune = D; mxSelf('immune', hero); NET.mx('immune', hero); floatText(hx, hy - 100, '이뮨 투 함', { color: '#ffe08a', size: 12 }); say('이뮨 투 함! 12초 동안 받는 피해 30% 감소', '#ffe9a0'); }
+  if (id === 'immune') { const PM = NET.hoverParty(), D = PM ? 18 : 28;   // v175: 나 28초 · 파티원 18초
+    if (PM) { NET.buffPeer(PM, 'immune', D); face(hero, { i: Math.floor(PM.pr.x), j: Math.floor(PM.pr.y) }); say(`이뮨 투 함 → ${String(PM.pr.n).slice(0, 12)} (18초 · 받는 피해 30% 감소)`, '#ffe9a0'); }
+    else { BUFF.immune = D; mxSelf('immune', hero); NET.mx('immune', hero); floatText(hx, hy - 100, '이뮨 투 함', { color: '#ffe08a', size: 12 }); say('이뮨 투 함! 28초 동안 받는 피해 30% 감소', '#ffe9a0'); }
     mxCast(id, hero); spellSfx(id); return; }
   if (id === 'cure') { floatText(hx, hy - 100, '해독', { color: '#8af08a', size: 12 }); if (BUFF.poison > 0) { BUFF.poison = 0; say('독이 깨끗이 나았습니다.', '#9ae06a'); } mxSelf('cure', hero); }
   else if (k.buff) { BUFF[k.buff] = BUFF_DEF[k.buff].dur; if (k.kind === 'magic' && id !== 'light') NET.buffParty(k.buff, BUFF_DEF[k.buff].dur); mxSelf(id, hero); }
@@ -7047,6 +7047,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 175, items: ['이뮨 투 함 지속 시간이 늘었어요. 나에게 쓰면 28초, 파티원에게 쓰면 18초 동안 받는 피해가 30% 줄어요. (이전: 12초)'] },
     { v: 174, items: ['모든 마법·기술·정령마법 아이콘을 새로 그렸어요. 어두운 돌판에 하얀 문양을 새긴 클래식 스타일이에요. (스킬창·단축칸·버프 줄 모두)', '변신 주문서(다크·실버)를 읽을 때 레벨업 효과가 잘못 나오던 문제를 고쳤어요. 이제 마법진과 빛 소용돌이가 도는 변신 효과가 나와요.'] },
     { v: 173, items: ['힐·익스트라 힐·그레이터 힐·이뮨 투 함·어드밴스 스피릿·리무브 커스는 단축키를 한 번 누르면 [대상을 선택하십시오]가 떠요. 나나 파티원을 누르거나, 왼쪽 파티창에서 파티원을 누르면 그 대상에게 써요.', '같은 단축키를 2초 안에 두 번 누르면 나에게 바로 써요. 마우스 휠 클릭은 가리킨 대상(나·파티원)에게 바로 써요. 대상 선택은 Esc로 취소해요.', '단축칸 아이콘 아래에 짧은 이름(힐·그힐·빨물·순간 등)이 표시돼요. 물약·주문서 개수는 오른쪽 위로 옮겼고, 착용 중인 장비는 이름이 하늘색으로 보여요.', '오른쪽 클릭으로 겹친 대상을 고를 때 몬스터뿐 아니라 다른 캐릭터도 골라져요. (결투장이 아닌 곳에서 캐릭터를 고르고 왼쪽 클릭하면 캐릭터 메뉴)'] },
     { v: 172, items: ['버프와 디버프 아이콘을 두 줄로 나눴어요. 디버프는 버프 줄 위에 따로 떠요.', '맨 오른쪽 첫 칸은 [불멸의 가호] 칸이에요. 가방에 가호가 있으면 버프 줄에 가호 아이콘(사망 패널티 없음)이 뜨고, 없으면 디버프 줄에 타버린 가호 아이콘(사망 패널티: 경험치 −5% · 골드 −10%)이 떠요. 마우스를 올리면(휴대폰은 톡) 자세히 보여 줘요.', '진화한 펫의 목걸이는 금빛 왕관과 보석이 달린 아이콘으로 바뀌어서 진화 안 한 목걸이와 구분돼요.', '장신구(반지·목걸이·벨트)에도 축복 부여 주문서를 쓸 수 있어요. 축복받은 장신구는 명중 +1이에요.', '캐릭터 정보창의 [포만감]을 없앴어요.'] },
