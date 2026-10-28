@@ -715,7 +715,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 169;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 170;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -6990,6 +6990,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 170, items: ['ESC 메뉴에 [📲 앱 설치 주소 복사]가 생겼어요. 누르면 휴대폰 웹 주소(jungkyu9797.github.io/aden-world)가 복사돼요. 카카오톡 등으로 휴대폰에 보내서 브라우저로 열고 [📲 앱 설치]를 누르면 앱처럼 설치돼요.', '휴대폰을 세로로 들었을 때 나오는 [가로로 돌려 주세요] 화면에 [📱 가로 화면으로 돌리기] 버튼이 생겼어요. 갤럭시는 누르면 바로 전체 화면 가로로 바뀌어요. 아이폰은 웹에서 화면을 직접 돌릴 수 없어서, 누르면 화면 방향 잠금을 끄는 방법을 알려 줘요.'] },
     { v: 169, items: ['아이템 도감에 [마법인형] 탭이 생겼어요. 1·2·3단계 인형 18종의 능력치와 얻는 법(주머니에서 나올 확률 · 합성 성공 확률)을 단계별로 볼 수 있어요.', '[마법인형 주머니]는 도감의 [펫·주머니·기타] 탭으로 옮겼어요.', '휴대폰에 아덴 월드를 앱처럼 설치할 수 있어요! 휴대폰 브라우저(Safari·Chrome·삼성 인터넷)로 jungkyu9797.github.io/aden-world 에 들어가서 로그인 화면이나 [메뉴]의 [📲 앱 설치]를 누르세요. 홈 화면 아이콘을 누르면 주소창 없이 전체 화면 가로 모드로 열려요.', '카카오톡·네이버 앱 안에서 주소를 열었다면 [다른 브라우저로 열기]를 먼저 눌러 주세요. (앱 안의 브라우저에서는 설치가 안 돼요)', 'PC와 휴대폰은 같은 계정·캐릭터로 이어서 할 수 있어요.'] },
     { v: 168, items: ['이제 휴대폰(아이폰·갤럭시)과 태블릿 브라우저에서도 아덴 월드를 할 수 있어요! 휴대폰을 가로로 눕혀서 플레이해요. (PC 버전 화면은 그대로예요)', '이동: 왼쪽 아래 조이스틱을 끌거나, 가고 싶은 곳을 톡 누르세요. 몬스터를 누르면 공격해요.', '오른쪽 아래: [공격]은 가장 가까운 몬스터를 공격 · [자동]은 자동사냥 켜기/끄기 · [설정]은 자동사냥 설정 · [줍기]는 주변 아이템 줍기 · 물약 칸을 누르면 자동 물약 설정.', '단축칸 1~12: 누르면 사용, 누르고 있으면 계속 사용해요. 등록은 가방·스킬창에서 아이템이나 스킬을 톡 누르면 뜨는 정보창의 [단축칸] 번호를 누르면 돼요. (같은 번호를 다시 누르면 해제)', '가방: 한 번 톡 = 정보 · 두 번 톡톡 = 사용/착용 (창고가 열려 있으면 창고에 넣기) · 길게 누르기 = 자세한 정보. 몬스터가 겹쳐 있거나 다른 유저 메뉴를 열 때는 화면을 길게 누르세요. (PC의 오른쪽 클릭)', '위 오른쪽 [채팅]·[가방]·[캐릭터]·[지도]·[메뉴]. 메뉴에는 자동사냥 설정·자동 물약·연금술·도감·절전 모드·배경음악·화면 크기·화질(배터리 절약)·설정이 있어요. 왼쪽의 알림 칸을 눌러도 채팅을 쓸 수 있어요.', 'PC와 휴대폰을 오가며 같은 계정으로 해도 안전해요. 나중에 접속한 쪽이 이어서 하고, 먼저 켜 둔 쪽은 접속이 끊기며 더 이상 저장하지 않아요. 휴대폰에서 다른 앱으로 가거나 화면을 끄면 그 순간 바로 저장해서, PC로 옮겨도 직전까지 그대로 이어져요.', '자동사냥을 켜 두면 휴대폰 화면이 저절로 꺼지지 않아요. 휴대폰은 화면을 끄거나 다른 앱으로 가면 브라우저가 게임을 멈추니, 오래 사냥할 때는 [메뉴 → 절전 모드]를 켜 두세요.'] },
     { v: 167, items: ['[변신 주문서]도 자동 사용할 수 있어요. 아이템 정보나 자동사냥 설정의 [버프 자동 사용]에서 켜 두면 변신이 끝날 때 바로 다시 읽어요. (둘 다 켜면 실버 먼저 · 레벨이 안 되면 안 씀 · 마을에서는 안 씀)', '자동사냥 설정 [마을에서]에 [변신 주문서 자동 구매]가 생겼어요. 종류마다 정한 개수까지 채워요. (레벨이 되는 것만)', '자동사냥 설정에 [소모품 0개면 마을에서 정비]가 생겼어요. 자동 사용을 켠 초록 물약·용기의 물약·변신 주문서가 다 떨어지면 마을에 가서 사고 다시 사냥터로 돌아가요.', '자동사냥 중 어떤 이유로든 마을에 가면 체크해 둔 소모품(물약·가속 물약·변신 주문서 등)을 모두 정한 개수까지 채우고, 산 것을 한 줄로 알려 줘요.', '절전 모드 중에 새 업데이트가 나오면 절전 화면 맨 위에 크게 알려 줘요. [지금 업데이트]를 누르면 바로 받고 그 자리에서 이어져요.'] },
@@ -7642,7 +7643,11 @@ function frame(now){
   curZ = z; requestAnimationFrame(frame);
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
-const APP = (() => { const $a = id => document.getElementById(id);
+const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https://jungkyu9797.github.io/aden-world/';   // 휴대폰 웹 주소 (GitHub Pages)
+  async function copyUrl(btn) { let ok = false; try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(URL_); ok = true; } } catch (e) {}   // v170: ESC 메뉴 [앱 설치 주소 복사]
+    if (!ok) { try { const t = document.createElement('textarea'); t.value = URL_; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(t); t.select(); t.setSelectionRange(0, URL_.length); ok = document.execCommand('copy'); t.remove(); } catch (e) {} }
+    say(ok ? `앱 설치 주소를 복사했어요: ${URL_} — 카톡 등으로 휴대폰에 보내서 브라우저로 열고 [📲 앱 설치]를 누르세요.` : `복사가 안 됐어요. 주소: ${URL_}`, ok ? '#9fd08a' : '#f0c080');
+    if (btn) { clearTimeout(btn._t); btn.textContent = ok ? '✔ 주소를 복사했어요' : '복사 실패 — 채팅창에 주소가 있어요'; btn._t = setTimeout(() => { btn.textContent = '📲 앱 설치 주소 복사'; }, 1800); } }
   const web = !!document.querySelector('link[rel="manifest"]') && (location.protocol === 'https:' || /^(127\.0\.0\.1|localhost)$/.test(location.hostname));
   const ua = navigator.userAgent || '', ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), kakao = /KAKAOTALK/i.test(ua), inApp = kakao || /NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua);
   const standalone = () => { try { return matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
@@ -7654,12 +7659,12 @@ const APP = (() => { const $a = id => document.getElementById(id);
   function sync() { for (const id of ['lg-app', 'mm-app']) { const b = $a(id); if (b) b.hidden = !can(); } }
   function guide() { const g = $a('app-guide'); if (!g) return; $a('ag-ios').hidden = !ios || inApp; $a('ag-and').hidden = ios || inApp; $a('ag-inapp').hidden = !inApp; $a('ag-kakao').hidden = !kakao; g.hidden = false; }
   function install() { if (evt && !inApp) { const e = evt; evt = null; try { e.prompt(); e.userChoice.then(r => { if (r.outcome !== 'accepted') evt = e; sync(); }).catch(() => {}); } catch (x) { guide(); } return; } guide(); }
-  function init() { sync(); const lb = $a('lg-app'), mb = $a('mm-app'); if (lb) lb.onclick = install; if (mb) mb.addEventListener('click', install);
+  function init() { sync(); { const eb = $a('esc-app'); if (eb) eb.onclick = () => copyUrl(eb); } const lb = $a('lg-app'), mb = $a('mm-app'); if (lb) lb.onclick = install; if (mb) mb.addEventListener('click', install);
     const x = $a('ag-x'), ok = $a('ag-ok'), g = $a('app-guide'); const close = () => { if (g) g.hidden = true; }; if (x) x.onclick = close; if (ok) ok.onclick = close; if (g) g.addEventListener('click', ev => { if (ev.target === g) close(); });
     const kb = $a('ag-kakao'); if (kb) kb.onclick = () => { location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href.replace(/[?&]app=1/, '')); };
     try { matchMedia('(display-mode: fullscreen), (display-mode: standalone)').addEventListener('change', sync); } catch (e) {} }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  return { install, can, web, standalone, guide };
+  return { install, can, web, standalone, guide, copyUrl, url: URL_ };
 })();
 // ============================================================ v168: 모바일(폰·태블릿) 화면 — 가로 전용 · 왼쪽 아래 가상 조이스틱 · 오른쪽 아래 공격·자동사냥·단축칸 · 위 오른쪽 메뉴
 const MUI = (() => {
@@ -7814,6 +7819,10 @@ const MUI = (() => {
     document.addEventListener('dblclick', ev => { if (ev.isTrusted) { ev.preventDefault(); ev.stopImmediatePropagation(); } }, true);
     document.addEventListener('contextmenu', ev => { if (ev.isTrusted) { ev.preventDefault(); ev.stopImmediatePropagation(); } }, true);
     for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, ev => ev.preventDefault());
+    // v170: [가로 화면으로 돌리기] — 갤럭시(안드로이드)는 전체 화면 + 가로 고정으로 바로 돌림 · 아이폰은 웹에서 돌릴 수 없어서 회전 잠금 끄는 법 안내
+    { const rb = $m('mr-go'), ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const help = () => { const h = $m('mr-help'); if (!h) return; $m('mr-ios').hidden = !ios; $m('mr-and').hidden = ios; h.hidden = false; };
+      if (rb) rb.onclick = async () => { if (ios) { help(); return; } const d = document.documentElement; try { if (!(document.fullscreenElement || document.webkitFullscreenElement)) { const rq = d.requestFullscreen || d.webkitRequestFullscreen; if (rq) await rq.call(d, { navigationUI: 'hide' }); } await screen.orientation.lock('landscape'); } catch (e) { help(); } }; }
     // 조이스틱
     const st = $m('mob-stick'); if (st) { st.addEventListener('pointerdown', ev => { ev.preventDefault(); ev.stopPropagation(); initAudio(); TOWN.unlockAudio(); try { st.setPointerCapture(ev.pointerId); } catch (e) {} const r = st.getBoundingClientRect(); stick = { id: ev.pointerId, cx: r.left + r.width / 2, cy: r.top + r.height / 2, dx: 0, dy: 0 }; st.classList.add('on'); stickMove(ev); });
       st.addEventListener('pointermove', ev => { if (stick && stick.id === ev.pointerId) stickMove(ev); });
