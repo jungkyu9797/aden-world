@@ -456,6 +456,9 @@ button.cs-card{font:inherit;cursor:pointer;align-items:center;width:172px} butto
 .sl-chips{display:flex;flex-wrap:wrap;gap:4px} .sl-chips button{background:#1a140e;border:1px solid #5a4424;color:var(--c,#d8ccae);font:700 12.5px "Noto Sans KR",sans-serif;padding:4px 10px;border-radius:999px;cursor:pointer;opacity:.55}
 .sl-chips button[aria-pressed="true"]{opacity:1;border-color:var(--c,#e8c878);background:linear-gradient(#3a2c1c,#1e160e);box-shadow:0 0 6px rgba(232,200,120,.25)}
 .sl-opt{display:flex;gap:14px;margin:2px 0 8px;font-size:12px;color:#d8ccae} .sl-opt label{display:flex;gap:5px;align-items:center;cursor:pointer}
+#saver .sv-upd{display:flex;flex-direction:column;align-items:center;gap:6px;width:min(680px,92vw);padding:14px 18px;border:2px solid #ffd86a;border-radius:12px;background:linear-gradient(180deg,rgba(90,64,10,.92),rgba(40,26,4,.92));color:#ffe9a8;text-align:center;animation:svUpd 1.6s ease-in-out infinite}
+#saver .sv-upd[hidden]{display:none} #saver .sv-upd b{font-size:22px;color:#fff2b8} #saver .sv-upd small{font-size:14px;color:#f0dca0} #saver .sv-upd button{margin-top:4px;padding:8px 26px;font:800 16px "Noto Sans KR",sans-serif;color:#2a1a02;background:linear-gradient(#ffe48a,#d8a830);border:1px solid #fff0b0;border-radius:8px;cursor:pointer}
+@keyframes svUpd{0%,100%{box-shadow:0 0 12px 2px rgba(255,216,106,.45)}50%{box-shadow:0 0 30px 10px rgba(255,216,106,.85)}}
 #saver{position:fixed;inset:0;z-index:9999;background:#030303;color:#cfc6ae;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:"Noto Sans KR",sans-serif;user-select:none;touch-action:none}#saver[hidden]{display:none}
 .sv-top{display:flex;gap:18px;align-items:baseline;color:#8a826e;font-size:17px}.sv-clock{font:800 48px "Noto Sans KR";color:#e8dcc0;letter-spacing:1px}
 .sv-card{width:min(680px,calc(100vw - 32px));background:#0d0c0a;border:1px solid #3a3326;border-radius:8px;padding:20px 24px;display:flex;flex-direction:column;gap:10px}
@@ -751,6 +754,9 @@ body.title-on .fullscr{background:transparent}
   <div class="hw-row hw-q hw-buyq"><label class="hw-qi" style="--c:#ff7a6a">빨간 물약 (25) <input type="number" min="0" max="500" data-bq="red_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#ffaa55">주홍 물약 (100) <input type="number" min="0" max="500" data-bq="orange_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#e8eef2">맑은 물약 (300) <input type="number" min="0" max="500" data-bq="clear_potion" class="hw-n">개</label></div>
   <label class="hw-row"><input type="checkbox" data-k="buyHaste"> 가속 물약 자동 구매 <small>(종류마다 그 개수까지)</small></label>
   <div class="hw-row hw-q hw-hasteq"><label class="hw-qi" style="--c:#7ad87a">초록 물약 (200) <input type="number" min="0" max="100" data-hq="green_potion" class="hw-n">개</label><label class="hw-qi" style="--c:#c890e8">용기의 물약 (500) <input type="number" min="0" max="100" data-hq="brave_potion" class="hw-n">개</label></div>
+  <label class="hw-row"><input type="checkbox" data-k="buyPoly"> 변신 주문서 자동 구매 <small>(종류마다 그 개수까지 · 레벨이 되는 것만)</small></label>
+  <div class="hw-row hw-q hw-polyq"><label class="hw-qi" style="--c:#c88aff">다크 변신 (5,000) <input type="number" min="0" max="50" data-pq="poly_dark" class="hw-n">개</label><label class="hw-qi" style="--c:#a8d8ff">실버 변신 (5,000) <input type="number" min="0" max="50" data-pq="poly_silver" class="hw-n">개</label></div>
+  <label class="hw-row"><input type="checkbox" data-k="refillHome"> 소모품 0개면 마을에서 정비 <small>(자동 사용을 켠 초록·용기 물약·변신 주문서가 다 떨어지면 마을에 가서 사고 다시 사냥터로)</small></label>
   <label class="aw-pct">HP <input type="range" min="30" max="100" step="5" data-k="backHp"> <b data-v="backHp"></b> 회복되면 사냥터로 복귀</label>
   <label class="hw-row"><input type="checkbox" data-k="deathBack"> 사망 후 자동 복귀</label></div>
  <div class="hw-sec"><b>사냥</b>
@@ -760,6 +766,7 @@ body.title-on .fullscr{background:transparent}
   <label class="hw-row"><input type="checkbox" data-k="healFirst"> 힐 마법 먼저 <small>(자동 물약 기준보다 HP 10% 높을 때 MP로 회복)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="noBoss"> 보스 몬스터는 공격 안 함</label>
   <div class="hw-row">가속 물약 자동 사용 <label class="chip"><input type="checkbox" data-buff="green_potion"> 초록 물약</label><label class="chip"><input type="checkbox" data-buff="brave_potion"> 용기의 물약</label></div>
+  <div class="hw-row">변신 주문서 자동 사용 <label class="chip"><input type="checkbox" data-buff="poly_dark"> 다크 (Lv.50)</label><label class="chip"><input type="checkbox" data-buff="poly_silver"> 실버 (Lv.55)</label></div>
   <label class="hw-row"><input type="checkbox" data-k="mute"> 자동사냥 중엔 배경음악·효과음 끄기 <small>(끝나면 다시 켜짐)</small></label>
   <label class="hw-row">자동 절전 <select data-k="saverMin" class="hw-sel"><option value="0">끔</option><option value="3">3분</option><option value="5">5분</option><option value="10">10분</option><option value="30">30분</option></select> <small>자동사냥 중 마우스·키보드 입력이 없으면 절전 모드로</small></label></div>
  <div class="hw-sec"><b>아이템 줍기</b>
@@ -780,6 +787,8 @@ body.title-on .fullscr{background:transparent}
  <h3 class="aw-t" style="margin-top:10px">버프 자동 사용 <small style="color:#8f8670;font-weight:400">효과가 끝나면 바로 다시 마심 (마을 제외)</small></h3>
  <div class="aw-row aw-buff"><label class="aw-on"><input type="checkbox" id="au-green_potion"> 초록 물약</label><span class="aw-bn">1단 가속 1.2배 · <b id="au-green_potion-n">0개</b></span>
   <label class="aw-on"><input type="checkbox" id="au-brave_potion"> 용기의 물약</label><span class="aw-bn">2단 가속 1.4배 · <b id="au-brave_potion-n">0개</b></span></div>
+ <div class="aw-row aw-buff"><label class="aw-on"><input type="checkbox" id="au-poly_dark"> 다크 변신 주문서</label><span class="aw-bn">Lv.50 · <b id="au-poly_dark-n">0개</b></span>
+  <label class="aw-on"><input type="checkbox" id="au-poly_silver"> 실버 변신 주문서</label><span class="aw-bn">Lv.55 · <b id="au-poly_silver-n">0개</b></span></div>
  <p class="aw-help">인벤토리의 물약을 화면 아래 자동 물약 칸에 끌어다 놓아도 됩니다.</p>
 </div>
 

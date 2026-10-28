@@ -707,7 +707,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 166;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 167;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3650,8 +3650,8 @@ const ITEMS = {
   clear_potion: { name: '맑은 물약', icon: 'pot_wh', use: 'heal', heal: [50, 60], w: 0.5, stack: true },
   antidote: { name: '해독제', icon: 'antidote', use: 'antidote', w: 0.3, stack: true, desc: '독을 바로 치료합니다. (본토던전 구울 대비)' },
   candle: { name: '양초', icon: 'candle', use: 'candle', buff: 'light', w: 0.3, stack: true, desc: '켜면 10분 동안 밤 시야가 넓어져요.' },
-  poly_dark: { name: '다크 변신 주문서', icon: 'scr_poly', use: 'poly', tier: 'dark', w: 0, stack: true, rar: '희귀', desc: '읽으면 30분 동안 내 직업의 다크 모습으로 변신합니다. (기사: 다크나이트 · 마법사: 다크메이지 · 요정: 다크레인저) 공격 속도 +5% · 이동 속도 +5% · Lv.50 이상' },
-  poly_silver: { name: '실버 변신 주문서', icon: 'scr_poly_s', use: 'poly', tier: 'silver', w: 0, stack: true, rar: '영웅', desc: '읽으면 30분 동안 내 직업의 실버 모습으로 변신합니다. (기사: 실버나이트 · 마법사: 실버메이지 · 요정: 실버레인저) 공격 속도 +8% · 이동 속도 +8% · Lv.55 이상' },
+  poly_dark: { name: '다크 변신 주문서', icon: 'scr_poly', use: 'poly', buff: 'poly', tier: 'dark', w: 0, stack: true, rar: '희귀', desc: '읽으면 30분 동안 내 직업의 다크 모습으로 변신합니다. (기사: 다크나이트 · 마법사: 다크메이지 · 요정: 다크레인저) 공격 속도 +5% · 이동 속도 +5% · Lv.50 이상' },
+  poly_silver: { name: '실버 변신 주문서', icon: 'scr_poly_s', use: 'poly', buff: 'poly', tier: 'silver', w: 0, stack: true, rar: '영웅', desc: '읽으면 30분 동안 내 직업의 실버 모습으로 변신합니다. (기사: 실버나이트 · 마법사: 실버메이지 · 요정: 실버레인저) 공격 속도 +8% · 이동 속도 +8% · Lv.55 이상' },
   scroll_counterm: { name: '카운터 매직 주문서', icon: 'scr_cm', use: 'counterm', buff: 'counterm', w: 0, stack: true, desc: '읽으면 10분 동안 다음에 받는 마법 공격(보스 범위 기술·마법 화살 등) 1번을 무효로 합니다. 체력 물약과 재사용 대기(1.5초)를 함께 씁니다. 아이템 정보에서 자동 사용을 켜면 효과가 끝날 때 알아서 읽어요.' },
   mana_potion: { name: '마나 회복 물약', icon: 'pot_bl', use: 'mana', buff: 'mana', w: 0.5, stack: true, desc: '30분 동안 MP 자연 회복이 초당 0.5씩 늘어납니다. (즉시 회복은 없음 · 다시 마시면 남은 시간이 30분으로)' },
   green_potion: { name: '초록 물약', icon: 'pot_gr', use: 'haste', haste: 1, dur: 1800, w: 0.5, stack: true },
@@ -4561,7 +4561,7 @@ const INV = (() => {
   const AUTOBUFF = Object.fromEntries(Object.keys(ITEMS).filter(id => !ITEMS[id].slot && buffKeyOf(ITEMS[id])).map(id => [id, false]));
   function setAutoBuff(id, on) { if (!(id in AUTOBUFF)) return; AUTOBUFF[id] = !!on; say(`자동 사용: ${ITEMS[id].name} ${on ? '켬' : '끔'}`, '#9fd0e8'); const el = document.getElementById('au-' + id); if (el) el.checked = !!on; if (dwE && dwE.id === id && !$('itemwin').hidden) showDetail(dwE); }
   function buffAuto() { if (SCENE === 'town' || hero.hp <= 0 || cd > 0) return;
-    for (const id in AUTOBUFF) { if (!AUTOBUFF[id]) continue; const d = ITEMS[id], k = buffKeyOf(d); if (!k || BUFF[k] > 0) continue; if (d.use === 'counterm' && (hcd > 0 || (AUTO.hp.on && hero.hp / hero.max * 100 <= AUTO.hp.pct + 10))) continue; const e = bag.find(x => x.id === id); if (e) { use(e); return; } } }
+    for (const id in AUTOBUFF) { if (!AUTOBUFF[id]) continue; const d = ITEMS[id], k = buffKeyOf(d); if (!k || BUFF[k] > 0) continue; if (d.use === 'counterm' && (hcd > 0 || (AUTO.hp.on && hero.hp / hero.max * 100 <= AUTO.hp.pct + 10))) continue; if (d.use === 'poly' && (hero.lv < ((POLY_TIER[d.tier] || {}).lv || 99) || (id === 'poly_dark' && AUTOBUFF.poly_silver && hero.lv >= POLY_TIER.silver.lv && count('poly_silver') > 0))) continue;   /* v167: 변신 주문서 — 레벨 안 되면 안 씀 · 둘 다 켜면 실버 먼저 */ const e = bag.find(x => x.id === id); if (e) { use(e); return; } } }
   function autoTick(dt) { buffAuto(); skAuto(dt); for (const k of ['hp', 'mp']) { const A = AUTO[k]; A.warn = Math.max(0, A.warn - dt); if (!A.on || !A.id || hero.hp <= 0) continue;
       const cur = k === 'hp' ? hero.hp / hero.max : hero.mp / Math.max(1, hero.maxmp); if (cur * 100 > A.pct || cd > 0 || (k === 'hp' && hcd > 0)) continue; { const bk = ITEMS[A.id] && ITEMS[A.id].buff; if (bk && BUFF[bk] > 0) continue; }   // 버프식 물약(마나 회복)은 효과가 남아 있으면 안 마심
       let e = bag.find(x => x.id === A.id);
@@ -6965,10 +6965,11 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     let u; try { u = await n.update(); } catch (e) { u = { ok: false, err: String(e && e.message || e) }; }
     if (u && u.ok && (!u.latest || u.ver > GAME_VER)) { T(`v${u.ver} 업데이트 완료! 다시 시작합니다…`); await new Promise(res => setTimeout(res, 800)); if (u.restart && n.relaunch) n.relaunch(); else location.reload(); return new Promise(() => {}); }
     return done(updErr(u && u.err) + ' 지금 버전으로 접속합니다.', 3000); }
-  return { run, check: checkIn, gate }; })();
+  return { run, check: checkIn, gate, newVer: () => newVer }; })();
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 167, items: ['[변신 주문서]도 자동 사용할 수 있어요. 아이템 정보나 자동사냥 설정의 [버프 자동 사용]에서 켜 두면 변신이 끝날 때 바로 다시 읽어요. (둘 다 켜면 실버 먼저 · 레벨이 안 되면 안 씀 · 마을에서는 안 씀)', '자동사냥 설정 [마을에서]에 [변신 주문서 자동 구매]가 생겼어요. 종류마다 정한 개수까지 채워요. (레벨이 되는 것만)', '자동사냥 설정에 [소모품 0개면 마을에서 정비]가 생겼어요. 자동 사용을 켠 초록 물약·용기의 물약·변신 주문서가 다 떨어지면 마을에 가서 사고 다시 사냥터로 돌아가요.', '자동사냥 중 어떤 이유로든 마을에 가면 체크해 둔 소모품(물약·가속 물약·변신 주문서 등)을 모두 정한 개수까지 채우고, 산 것을 한 줄로 알려 줘요.', '절전 모드 중에 새 업데이트가 나오면 절전 화면 맨 위에 크게 알려 줘요. [지금 업데이트]를 누르면 바로 받고 그 자리에서 이어져요.'] },
     { v: 166, items: ['[마법인형]이 생겼어요! 잡화상점 [특별] 탭의 [마법인형 주머니](10만 골드)를 열면 1단계 인형 6종 중 하나가 나와요.', '인형은 캐릭터 창의 [인형] 칸에 끼우면 옆에서 둥실둥실 따라다니며 능력을 올려 줘요. (다른 유저에게도 보여요)', '1단계: 늑대인간(추가 피해 +1) · 리자드맨(명중 +1) · 드워프(AC -1) · 오크 마법사(최대 MP +30) · 버그베어(가방 최대 무게 +10%) · 오우거(최대 HP +50)', '2단계: 바실리스크(원거리 추가 피해·명중 +1) · 오크 전사(근거리 추가 피해·명중 +1) · 다크엘프(MP 회복 +2) · 네크로맨서(MP 회복 +1 · SP +1) · 케르베로스(AC -2 · 최대 HP +30) · 불개미(받는 피해 -1)', '3단계: 드레이크(원거리 추가 피해·명중 +2) · 킹 버그베어(근거리 추가 피해·명중 +2) · 트롤(AC -3 · 최대 HP +50 · 최대 MP +20) · 와이번(MP 회복 +2 · 공격할 때 4% 확률로 번개) · 셸로브(MP 회복 +2 · SP +1) · 스파토이(받는 피해 -2)', '마을의 제작 장인 [인형 합성] 탭에서 같은 단계 인형 4개로 다음 단계 인형을 만들 수 있어요. 가방에서 인형을 눌러 칸에 넣거나 [자동 넣기]를 누르고 [합성]! (1→2단계 40% · 2→3단계 30% · 실패하면 넣은 인형 중 1개를 돌려받아요 · 3단계가 나오면 전체 알림)', '변신했을 때 장비 빛이 부위마다 따로 보여요. 강화했거나 영웅 등급인 장비를 낀 부위만 그 단계 색으로 빛나요. (변신하기 전과 같은 방식 · 다크·실버 나이트/메이지/레인저 모두)', '[다크 변신 주문서]·[실버 변신 주문서] 가격을 둘 다 5,000골드로 맞췄어요.'] },
     { v: 165, items: ['자동사냥이 없어진 [마나 회복 물약]을 예전 [가속 물약 자동 구매] 설정대로 계속 사던 문제를 고쳤어요. (이미 산 물약은 다음 접속 때 개당 120골드로 돌려드려요)', '[변신 주문서]가 생겼어요! 잡화상점에서 팔아요. 읽으면 30분 동안 내 직업의 변신 모습이 되고 공격 속도·이동 속도가 빨라져요. (다른 유저에게도 변신한 모습으로 보여요)', '[다크 변신 주문서] (3,000골드 · Lv.50 이상): 기사 → 다크나이트 · 마법사 → 다크메이지 · 요정 → 다크레인저 · 공격·이동 속도 +5%', '[실버 변신 주문서] (6,000골드 · Lv.55 이상): 기사 → 실버나이트 · 마법사 → 실버메이지 · 요정 → 실버레인저 · 공격·이동 속도 +8%', '변신 중에는 버프 칸에 남은 시간이 보이고, 다시 읽으면 30분으로 늘어나요. 접속을 끊었다 들어와도 남은 시간만큼 변신이 이어져요.', '변신 중에도 강화·등급 장비를 낀 빛이 몸에 보여요.', '절전 화면의 [처치] 수가 0으로만 보이던 경우를 고쳤어요.', '절전 화면의 [시간당 경험치]를 %로 보여 줘요. (한 시간에 경험치 바가 몇 % 차는지 · 레벨이 오르면 이어서 더함)', '마을 가운데 [우물]을 없앴어요. 이제 마을 가운데를 막힘 없이 지나갈 수 있어요.'] },
     { v: 164, items: ['[절전 모드]가 생겼어요. 위 메뉴의 [절전]을 누르면 화면 그리기를 멈추고 검은 화면에 사냥 요약만 보여 줘요. (사냥·자동사냥·저장은 그대로 · 컴퓨터가 훨씬 덜 일해요)', '절전 화면에는 시각·절전 시간·HP/MP·경험치·지역·자동사냥 상태와 절전 중 처치 수·얻은 경험치(시간당)·골드 변화·획득 아이템이 나와요. 희귀·영웅 아이템을 얻거나 쓰러지면 알림이 떠요.', '[절전 귀환]을 켜 두면 절전 중 다른 유저에게 공격받을 때 바로 마을로 돌아가요.', '아래 막대를 오른쪽 끝까지 밀면 절전이 풀려요.', '자동사냥 중에 이동 발판(2구역으로 · 마을로 · 계단)을 밟아도 다른 구역으로 넘어가지 않게 고쳤어요. (자동사냥을 끄면 평소처럼 넘어가요)', '자동사냥 설정에 [자동 절전]이 생겼어요. 자동사냥 중 마우스·키보드 입력이 정해 둔 시간(3·5·10·30분) 동안 없으면 저절로 절전 모드로 들어가요.'] },
@@ -7213,13 +7214,16 @@ const ACCOUNT = (() => {
 })();
 const AUTO = (() => {
   const C = { ofl: true, manner: true, retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyQ: { red_potion: 30, orange_potion: 0, clear_potion: 0 }, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true, healFirst: true,
-    buyHaste: false, hasteId: 'green_potion', hasteN: 5, hasteQ: { green_potion: 5, brave_potion: 0 }, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
+    buyHaste: false, hasteId: 'green_potion', hasteN: 5, hasteQ: { green_potion: 5, brave_potion: 0 }, buyPoly: false, polyQ: { poly_dark: 0, poly_silver: 0 }, refillHome: false, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true },
     sell: false, sellPct: 80, sellR: { 일반: true, 고급: false, 희귀: false, 영웅: false }, saverMin: '0' };   // 자동판매: 가방 무게 sellPct% 이상이면 귀환해서 아덴상단에 고른 등급 장비를 일괄 판매
   // v109: 물약 귀환은 체크한 물약 수량만 셈 (아무것도 안 고르면 자동 구매 물약)
   const lowCount = () => { const ids = Object.keys(C.lowIds).filter(id => C.lowIds[id]); const bq = Object.keys(C.buyQ).filter(id => C.buyQ[id] > 0); return (ids.length ? ids : bq.length ? bq : ['red_potion']).reduce((n, id) => n + INV.count(id), 0); };
-  const PRICE = { red_potion: 25, orange_potion: 100, clear_potion: 300, return_scroll: 40, arrow: 2, green_potion: 200, brave_potion: 500, mana_potion: 120 };
+  const PRICE = { red_potion: 25, orange_potion: 100, clear_potion: 300, return_scroll: 40, arrow: 2, green_potion: 200, brave_potion: 500, mana_potion: 120, poly_dark: 5000, poly_silver: 5000 };
   // v136: 가속 물약 — [자동 사용]을 켜고 [가속 물약 자동 구매] 개수를 정한 물약이 다 떨어지면 마을에 가서 사 옴 (골드가 모자라 못 샀으면 다시 생길 때까지 귀환하지 않음)
   const HASTE_IDS = ['green_potion', 'brave_potion'], hasteSkip = {}, hasteBuf = id => ITEMS[id].use === 'haste' ? 'haste' + ITEMS[id].haste : ITEMS[id].buff;   // v142: 파란 물약(마나 회복)도
+  // v167: 소모품(초록·용기 물약·변신 주문서)이 0개가 되면 마을에 가서 정비 — 자동 사용을 켠 것만 · 효과가 끝난 뒤 · 사러 갔는데도 못 샀으면 다시 생길 때까지 안 감
+  const CONS_IDS = ['green_potion', 'brave_potion', 'poly_dark', 'poly_silver'], consSkip = {};
+  const consOut = () => { if (!C.refillHome) return null; for (const id of CONS_IDS) { const d = ITEMS[id]; if (!d || !INV.autoBuff(id)) continue; if (d.use === 'poly' && hero.lv < ((POLY_TIER[d.tier] || {}).lv || 99)) continue; if (INV.count(id) > 0) { delete consSkip[id]; continue; } if (BUFF[hasteBuf(id)] > 0) continue; if (id === 'poly_dark' && INV.autoBuff('poly_silver') && INV.count('poly_silver') > 0) continue; if (!consSkip[id]) return id; } return null; };
   const hasteOut = () => { if (!C.buyHaste) return null; for (const id of HASTE_IDS) { if (!INV.autoBuff(id) || !((C.hasteQ[id] || 0) > 0)) continue; if (INV.count(id) > 0) { delete hasteSkip[id]; continue; } if (BUFF[hasteBuf(id)] > 0) continue; if (!hasteSkip[id]) return id; } return null; };   // 가속이 끝났는데 물약이 없을 때
   // 아이템 줍기: 체크한 등급·종류만, 나를 때리는 몬스터가 없을 때 10칸 안의 가장 가까운 것부터 (못 가는 곳은 3번 시도 후 건너뜀)
   const typeOf = d => d.slot === 'weapon' ? 'weapon' : ['ring', 'amulet'].includes(d.slot) ? 'acc' : d.slot ? 'armor' : d.use === 'learn' ? 'book' : d.use ? 'cons' : 'etc';
@@ -7244,8 +7248,11 @@ const AUTO = (() => {
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
   function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
-  function buyAll() { const want = (id, n) => { if (REMOVED_ITEMS[id] || !ITEMS[id] || !PRICE[id]) return; const p = PRICE[id],   /* v165: 없어진 아이템(마나 회복 물약)은 예전 설정이 남아 있어도 사지 않음 */ k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); } if (k) say(`자동사냥: ${ITEMS[id].name} ${k}개 구입 (-${k * p} 골드)`, '#cfe4a8'); else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
-    if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) { want(id, C.hasteQ[id]); if (!INV.count(id)) hasteSkip[id] = true; } }   /* v125: 종류마다 정한 개수까지 */
+  function buyAll() { const got = [];   /* v167: 마을에 오면 이유와 상관없이 체크해 둔 소모품을 모두 정한 개수까지 채움 · 산 것은 한 줄로 알림 */ const want = (id, n) => { if (REMOVED_ITEMS[id] || !ITEMS[id] || !PRICE[id]) return; const p = PRICE[id],   /* v165: 없어진 아이템(마나 회복 물약)은 예전 설정이 남아 있어도 사지 않음 */ k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); got.push([id, k, k * p]); } if (k) {} else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
+    if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) { want(id, C.hasteQ[id]); if (!INV.count(id)) hasteSkip[id] = true; }
+    if (C.buyPoly) for (const id in C.polyQ) { const d = ITEMS[id]; if (!d || !(C.polyQ[id] > 0)) continue; if (hero.lv < ((POLY_TIER[d.tier] || {}).lv || 99)) { say(`자동사냥: ${d.name}은(는) Lv.${POLY_TIER[d.tier].lv}부터 쓸 수 있어 사지 않았어요.`, '#f0c080'); continue; } want(id, C.polyQ[id]); }   /* v167: 변신 주문서 자동 구매 */
+    for (const id of CONS_IDS) if (INV.autoBuff(id) && !INV.count(id)) consSkip[id] = true;
+    if (got.length) say(`자동사냥 정비: ${got.map(([id, k]) => `${ITEMS[id].name} ${k.toLocaleString()}개`).join(' · ')} 구입 (-${got.reduce((s, x) => s + x[2], 0).toLocaleString()} 골드)`, '#cfe4a8'); }   /* v125: 종류마다 정한 개수까지 */
   // 실제 걸음 수(나무·바위·물을 돌아가는 길) — 직선으로만 가까운 몹을 가깝다고 착각하지 않게 (22걸음 안)
   function pathDist(R) { const W = 2 * R + 1, D = new Int16Array(W * W).fill(-1), i0 = hero.i - R, j0 = hero.j - R, q = [hero.i, hero.j]; D[R * W + R] = 0;
     for (let h = 0; h < q.length; h += 2) { const i = q[h], j = q[h + 1], d = D[(j - j0) * W + (i - i0)]; if (d >= R) continue;
@@ -7277,6 +7284,7 @@ const AUTO = (() => {
       if (pct() <= C.retHp) { goHome(`HP ${pct()}%`); return; }
       if (C.healFirst) healFirstTry();   // v114: 힐 마법 먼저 — 자동 물약 기준보다 HP 10% 높을 때 MP로 회복
       if (C.lowPot && lowCount() <= C.lowN) { goHome('물약 부족'); return; }
+      { const cz = consOut(); if (cz) { goHome(`${ITEMS[cz].name} 0개 (마을에서 정비)`); return; } }
       { const hz = hasteOut(); if (hz) { goHome(`${ITEMS[hz].name} 없음 (가속 물약 구매)`); return; } }
       if (C.sell && wpc() >= C.sellPct) { const L = sellList(), sw = L.reduce((a, e) => a + (ITEMS[e.id].w || 0) * (e.n || 1), 0);   // 팔 장비가 가방 최대 무게의 5% 이상(또는 가방이 꽉 참)일 때만 귀환 — 못 파는 물건 때문에 마을을 계속 오가지 않게
         if (L.length && (sw >= INV.maxW() * 0.05 || wpc() >= 100)) { sellGo = true; goHome(`가방 무게 ${wpc()}% (자동판매)`); return; }
@@ -7304,12 +7312,12 @@ const AUTO = (() => {
     w.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (el.type === 'checkbox') el.checked = !!C[k]; else el.value = C[k]; const out = w.querySelector(`[data-v="${k}"]`); if (out) out.textContent = C[k] + (el.type === 'range' ? '%' : ''); });
     w.querySelectorAll('[data-lr]').forEach(el => { el.checked = !!C.lootR[el.dataset.lr]; }); w.querySelectorAll('[data-lt]').forEach(el => { el.checked = !!C.lootT[el.dataset.lt]; }); w.querySelectorAll('[data-buff]').forEach(el => { el.checked = !!INV.autoBuff(el.dataset.buff); });
     w.querySelectorAll('.hw-chips:not(.hw-sell):not(.hw-pot)').forEach(el => el.classList.toggle('off', !C.loot)); w.querySelectorAll('[data-lp]').forEach(el => { el.checked = !!C.lowIds[el.dataset.lp]; }); w.querySelectorAll('.hw-pot').forEach(el => el.classList.toggle('off', !C.lowPot)); w.querySelectorAll('[data-sr]').forEach(el => { el.checked = !!C.sellR[el.dataset.sr]; }); w.querySelectorAll('.hw-sell').forEach(el => el.classList.toggle('off', !C.sell));
-    w.querySelectorAll('[data-bq]').forEach(el => { if (document.activeElement !== el) el.value = C.buyQ[el.dataset.bq] || 0; }); w.querySelectorAll('[data-hq]').forEach(el => { if (document.activeElement !== el) el.value = C.hasteQ[el.dataset.hq] || 0; }); w.querySelectorAll('.hw-buyq').forEach(el => el.classList.toggle('off', !C.buy)); w.querySelectorAll('.hw-hasteq').forEach(el => el.classList.toggle('off', !C.buyHaste)); }
+    w.querySelectorAll('[data-bq]').forEach(el => { if (document.activeElement !== el) el.value = C.buyQ[el.dataset.bq] || 0; }); w.querySelectorAll('[data-hq]').forEach(el => { if (document.activeElement !== el) el.value = C.hasteQ[el.dataset.hq] || 0; }); w.querySelectorAll('[data-pq]').forEach(el => { if (document.activeElement !== el) el.value = C.polyQ[el.dataset.pq] || 0; }); w.querySelectorAll('.hw-polyq').forEach(el => el.classList.toggle('off', !C.buyPoly)); w.querySelectorAll('.hw-buyq').forEach(el => el.classList.toggle('off', !C.buy)); w.querySelectorAll('.hw-hasteq').forEach(el => el.classList.toggle('off', !C.buyHaste)); }
   function openSet() { const w = $h('huntwin'); w.hidden = false; sync();
     w.querySelectorAll('[data-k]').forEach(el => { el.oninput = el.onchange = () => { const k = el.dataset.k; C[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' ? el.value : +el.value; if (k === 'mute' && state !== 'off') { if (C.mute) muteOn(); else muteOff(); } sync(); }; });
     w.querySelectorAll('[data-lr]').forEach(el => { el.onchange = () => { C.lootR[el.dataset.lr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lt]').forEach(el => { el.onchange = () => { C.lootT[el.dataset.lt] = el.checked; sync(); }; }); w.querySelectorAll('[data-sr]').forEach(el => { el.onchange = () => { C.sellR[el.dataset.sr] = el.checked; sync(); }; }); w.querySelectorAll('[data-lp]').forEach(el => { el.onchange = () => { C.lowIds[el.dataset.lp] = el.checked; sync(); }; });
     w.querySelectorAll('[data-buff]').forEach(el => { el.onchange = () => { INV.setAutoBuff(el.dataset.buff, el.checked); sync(); }; });
-    const qv = el => Math.max(0, Math.min(+el.max || 500, Math.floor(+el.value || 0))); w.querySelectorAll('[data-bq]').forEach(el => { el.oninput = () => { C.buyQ[el.dataset.bq] = qv(el); }; el.onchange = () => { C.buyQ[el.dataset.bq] = qv(el); sync(); }; }); w.querySelectorAll('[data-hq]').forEach(el => { el.oninput = () => { C.hasteQ[el.dataset.hq] = qv(el); }; el.onchange = () => { C.hasteQ[el.dataset.hq] = qv(el); sync(); }; });
+    const qv = el => Math.max(0, Math.min(+el.max || 500, Math.floor(+el.value || 0))); w.querySelectorAll('[data-bq]').forEach(el => { el.oninput = () => { C.buyQ[el.dataset.bq] = qv(el); }; el.onchange = () => { C.buyQ[el.dataset.bq] = qv(el); sync(); }; }); w.querySelectorAll('[data-hq]').forEach(el => { el.oninput = () => { C.hasteQ[el.dataset.hq] = qv(el); }; el.onchange = () => { C.hasteQ[el.dataset.hq] = qv(el); sync(); }; }); w.querySelectorAll('[data-pq]').forEach(el => { el.oninput = () => { C.polyQ[el.dataset.pq] = qv(el); }; el.onchange = () => { C.polyQ[el.dataset.pq] = qv(el); sync(); }; });
     w.querySelectorAll('select,input').forEach(el => { el.onkeydown = ev => ev.stopPropagation(); }); }
   return { tick, toggle, openSet, status, wantLoot, buyAll, home: () => home, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } for (const q of [C.buyQ, C.hasteQ]) for (const id in q) if (REMOVED_ITEMS[id] || !ITEMS[id]) delete q[id]; if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; }
       if (o && !o.buyQ && o.buyId && o.buyId in C.buyQ) { for (const id in C.buyQ) C.buyQ[id] = id === o.buyId ? Math.max(1, +o.buyN || 30) : 0; }   /* v125: 예전 저장(물약 1종) → 종류별 개수 */
@@ -7540,6 +7548,7 @@ window.SAVER = (() => {
   const fmtT = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ':' : '') + String(m).padStart(h ? 2 : 1, '0') + ':' + String(x).padStart(2, '0'); };
   function build() { if (el) return el; el = document.createElement('div'); el.id = 'saver'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '절전 모드');
     el.innerHTML = `<div class="sv-top"><b class="sv-clock" id="sv-clock"></b><span>절전 모드</span><span class="sv-el" id="sv-el"></span></div>
+      <div class="sv-upd" id="sv-upd" hidden><b>🔔 새 업데이트 <span id="sv-updv"></span> 이(가) 나왔어요!</b><small>저장한 뒤 새 버전을 받고, 다시 불러와서 지금 자리·자동사냥 그대로 이어져요.</small><button type="button" id="sv-updb">지금 업데이트</button></div>
       <div class="sv-card"><div class="sv-who" id="sv-who"></div><div class="sv-bar hp"><i id="sv-hp"></i><span id="sv-hpt"></span></div><div class="sv-bar mp"><i id="sv-mp"></i><span id="sv-mpt"></span></div>
       <div class="sv-bar ex"><i id="sv-ex"></i><span id="sv-ext"></span></div><div class="sv-st" id="sv-st"></div>
       <div class="sv-grid"><div><small>처치</small><b id="sv-k">0</b></div><div><small>경험치</small><b id="sv-x">0</b></div><div><small>시간당 경험치</small><b id="sv-xh">-</b></div><div><small>골드 변화</small><b id="sv-g">0</b></div></div>
@@ -7547,6 +7556,7 @@ window.SAVER = (() => {
       <label class="sv-home"><input type="checkbox" id="sv-homec"> 절전 귀환 — 다른 유저에게 공격받으면 바로 마을로 귀환</label>
       <div class="sv-slide" id="sv-slide"><span>밀어서 절전 해제 ▶▶</span><b class="sv-knob" id="sv-knob">⏻</b></div>`;
     document.body.appendChild(el);
+    $('sv-updb').onclick = () => { exit(); const b = document.getElementById('btn-upd'); if (b && !b.hidden && !b.disabled) b.click(); };
     const hc = $('sv-homec'); hc.checked = home; hc.onchange = () => { home = hc.checked; try { localStorage.setItem('aden_saver_home', home ? '1' : '0'); } catch (e) {} };
     const sl = $('sv-slide'), kn = $('sv-knob'); let dr = null;
     const pos = x => { const r = sl.getBoundingClientRect(), w = r.width - kn.offsetWidth - 8; return Math.max(0, Math.min(w, x - r.left - kn.offsetWidth / 2 - 4)) / Math.max(1, w); };
@@ -7571,7 +7581,8 @@ window.SAVER = (() => {
     const gd = coins - S.coins0; $('sv-g').textContent = (gd >= 0 ? '+' : '') + gd.toLocaleString();
     const L = [...S.items].sort((a, b) => (RO_[ITEMS[b[0]] && ITEMS[b[0]].rar] || 0) - (RO_[ITEMS[a[0]] && ITEMS[a[0]].rar] || 0) || b[1] - a[1]);
     $('sv-items').innerHTML = L.length ? L.slice(0, 40).map(([id, n]) => { const it = ITEMS[id]; return `<li style="color:${rarC(id)}"><span class="ic">${ICON(it.icon)}</span>${esc_(it.name)} <b>×${n.toLocaleString()}</b></li>`; }).join('') : '<li class="none">아직 없음</li>';
-    $('sv-notes').innerHTML = S.notes.map(x => `<li style="color:${x.c}">${esc_(x.t)}</li>`).join(''); }
+    $('sv-notes').innerHTML = S.notes.map(x => `<li style="color:${x.c}">${esc_(x.t)}</li>`).join('');
+    { const nv = (typeof UPD !== 'undefined' && UPD.newVer) ? UPD.newVer() : 0, u = $('sv-upd'); if (nv > GAME_VER) { if (u.hidden) note(`새 업데이트 v${nv}이(가) 나왔어요.`, '#ffd86a'); u.hidden = false; $('sv-updv').textContent = 'v' + nv; } else u.hidden = true; } }   /* v167: 업데이트가 있으면 절전 화면 맨 위에 크게 */
   const RO_ = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 };
   let lowT = 0;
   function tick(dt) { if (!on) { const m = +((AUTOH_CFG() || {}).saverMin || 0); if (m > 0 && huntOn() && performance.now() - lastIn > m * 60000 && !(typeof DEATH !== 'undefined' && DEATH)) enter(true); return; }
