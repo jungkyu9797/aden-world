@@ -715,7 +715,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 168;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 169;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4393,7 +4393,7 @@ const DOLL_DEF = [
   ['shelob', '셸로브', 3, { mpRegen: 2, sp: 1 }, 'MP 회복 +2 · SP +1'], ['spartoi', '스파토이', 3, { dr: 2 }, '받는 피해 -2']];
 const DOLL_RAR = { 1: '고급', 2: '희귀', 3: '영웅' }, DOLL_SYN = { 1: 0.4, 2: 0.3 }, DOLL_NEED = 4, DOLL_TC = { 1: ['#1c3a52', '#7ac8ff'], 2: ['#4a3410', '#ffd25a'], 3: ['#34184e', '#d08cff'] };
 for (const [k, nm, t, st, txt] of DOLL_DEF) { ITEMS['doll_' + k] = Object.assign({ name: nm + ' 인형', icon: 'doll_' + k, slot: 'doll', doll: k, tier: t, rar: DOLL_RAR[t], w: 1, dTxt: txt,
-    desc: `${t}단계 마법인형 — 인형 칸에 끼우면 옆을 둥실둥실 따라다니며 도와줘요. 같은 단계 인형 ${DOLL_NEED}개를 마을의 제작 장인에게 가져가면 ${t < 3 ? `다음 단계 인형으로 합성할 수 있어요. (성공 ${DOLL_SYN[t] * 100}% · 실패하면 1개 돌려받음)` : '— 3단계는 가장 높은 단계예요.'}` }, st);
+    desc: `${t}단계 마법인형 — 인형 칸에 끼우면 옆을 둥실둥실 따라다니며 도와줘요. ${t < 3 ? `같은 단계 인형 ${DOLL_NEED}개를 마을의 제작 장인에게 가져가면 다음 단계 인형으로 합성할 수 있어요. (성공 ${DOLL_SYN[t] * 100}% · 실패하면 1개 돌려받음)` : '3단계는 가장 높은 단계예요.'}` }, st);
   CXI['doll_' + k] = `<rect x="2" y="2" width="30" height="30" rx="6" fill="${DOLL_TC[t][0]}" stroke="${DOLL_TC[t][1]}" stroke-width="1.2"/><text x="17" y="22" text-anchor="middle" font-size="12" font-weight="900" fill="${DOLL_TC[t][1]}">${nm[0]}</text>`; }   // 그림이 읽히면 인형 얼굴로 바뀜 (DOLL)
 ITEMS.doll_pouch = { name: '마법인형 주머니', icon: 'doll_pouch', use: 'dollbox', w: 0.5, stack: true, rar: '희귀', desc: '열면 1단계 마법인형 6종(늑대인간·리자드맨·드워프·오크 마법사·버그베어·오우거) 중 하나가 같은 확률로 나와요. 같은 단계 인형 4개를 모아 마을의 제작 장인에게 가져가면 다음 단계 인형으로 합성할 수 있어요.' };
 CXI.doll_pouch = '<defs><radialGradient id="g_dlp" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#d8a8ff"/><stop offset=".6" stop-color="#6a2a9a"/><stop offset="1" stop-color="#2a0c44"/></radialGradient></defs><path d="M11 9 C9 13 5 17 5 23 C5 29 10 31 17 31 C24 31 29 29 29 23 C29 17 25 13 23 9 Z" fill="url(#g_dlp)" stroke="#1a0630" stroke-width="1"/><path d="M10 8.5 C13 10 21 10 24 8.5 L22 5.5 C19 6.6 15 6.6 12 5.5 Z" fill="#f0d66a" stroke="#7a5a18" stroke-width=".8"/><circle cx="17" cy="20.5" r="5.2" fill="#f6e6c8" stroke="#5a3a1a" stroke-width=".7"/><circle cx="15.2" cy="20" r=".9" fill="#2a1a0a"/><circle cx="18.8" cy="20" r=".9" fill="#2a1a0a"/><path d="M15.4 22.6 Q17 23.8 18.6 22.6" stroke="#8a3a2a" stroke-width=".7" fill="none"/><path d="M12.2 17.2 L13.4 14.4 L15 16.8 M21.8 17.2 L20.6 14.4 L19 16.8" stroke="#f6e6c8" stroke-width="1.1" fill="none"/><path d="M24 25 L25.2 22.6 L26.4 25 L28.8 26.2 L26.4 27.4 L25.2 29.8 L24 27.4 L21.6 26.2 Z" fill="#fff6c0"/>';
@@ -5077,12 +5077,13 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
 
 // ============================================================ v126: 아이템 도감 — 게임 데이터(ITEMS·상점·드랍표·주머니)에서 바로 만들어서 아이템이 바뀌면 자동으로 맞춰짐
 window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0, sub = 0, built = null, cls = 0;
-  const CLS_F = [['모든 직업', null], ['기사', d => !!(d.slot && d.cls && d.cls.includes('knight'))], ['요정', d => !!(d.slot && d.cls && d.cls.includes('elf'))], ['마법사', d => !!(d.slot && d.cls && d.cls.includes('wizard'))], ['공용', d => !!(d.slot && !d.cls)]];   /* v139: 직업별로 보기 (그 직업이 낄 수 있는 전용 장비 · 공용은 따로) */
+  const CLS_F = [['모든 직업', null], ['기사', d => !!(d.slot && d.cls && d.cls.includes('knight'))], ['요정', d => !!(d.slot && d.cls && d.cls.includes('elf'))], ['마법사', d => !!(d.slot && d.cls && d.cls.includes('wizard'))], ['공용', d => !!(d.slot && !d.cls && d.slot !== 'doll')]];   /* v139: 직업별로 보기 (그 직업이 낄 수 있는 전용 장비 · 공용은 따로) */
   const SUB = { 1: [['전체', null], ['한손검', d => (d.wtype || 'sword') === 'sword'], ['활', d => d.wtype === 'bow'], ['지팡이', d => d.wtype === 'staff'], ['단검', d => d.wtype === 'dagger']],   /* v127: 부위별 */
     2: [['전체', null], ['투구', d => d.slot === 'helm'], ['갑옷', d => d.slot === 'armor'], ['티셔츠', d => d.slot === 'shirt'], ['망토', d => d.slot === 'cloak'], ['장갑', d => d.slot === 'gloves'], ['장화', d => d.slot === 'boots'], ['방패', d => d.slot === 'shield']],
-    3: [['전체', null], ['목걸이', d => d.slot === 'amulet'], ['반지', d => d.slot === 'ring'], ['벨트', d => d.slot === 'belt']] };
-  const TABS = [['전체', () => true], ['무기', d => d.slot === 'weapon'], ['방어구', d => ARMOR_SLOTS.has(d.slot)], ['장신구', d => ['ring', 'amulet', 'belt'].includes(d.slot)],
-    ['물약·소모품', d => !d.slot && !isScroll(d) && !!d.use && !['learn', 'pet', 'petevo', 'pouch', 'bpouch'].includes(d.use)], ['주문서', d => !d.slot && isScroll(d)], ['펫·주머니·기타', d => !d.slot && !isScroll(d) && (!d.use || ['learn', 'pet', 'petevo', 'pouch', 'bpouch'].includes(d.use))]];
+    3: [['전체', null], ['목걸이', d => d.slot === 'amulet'], ['반지', d => d.slot === 'ring'], ['벨트', d => d.slot === 'belt']],
+    4: [['전체', null], ['1단계 · 고급', d => d.tier === 1], ['2단계 · 희귀', d => d.tier === 2], ['3단계 · 영웅', d => d.tier === 3]] };   /* v169: 마법인형 단계별 */
+  const TABS = [['전체', () => true], ['무기', d => d.slot === 'weapon'], ['방어구', d => ARMOR_SLOTS.has(d.slot)], ['장신구', d => ['ring', 'amulet', 'belt'].includes(d.slot)], ['마법인형', d => d.slot === 'doll'],
+    ['물약·소모품', d => !d.slot && !isScroll(d) && !!d.use && !['learn', 'pet', 'petevo', 'pouch', 'bpouch', 'dollbox'].includes(d.use)], ['주문서', d => !d.slot && isScroll(d)], ['펫·주머니·기타', d => !d.slot && !isScroll(d) && (!d.use || ['learn', 'pet', 'petevo', 'pouch', 'bpouch', 'dollbox'].includes(d.use))]];
   const isScroll = d => /주문서/.test(d.name || '') || /^scr_/.test(d.icon || '');
   const pct = p => (p >= 0.1 ? Math.round(p * 100) : p >= 0.01 ? (p * 100).toFixed(1) : (p * 100).toFixed(2)) + '%';
   let DN = {};
@@ -5095,13 +5096,15 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
     for (const id in drops) { const L = drops[id].sort((a, b) => b[1] - a[1]); add(id, '몬스터: ' + L.slice(0, 8).map(([n, p]) => `${n} ${pct(p)}`).join(' · ') + (L.length > 8 ? ` 외 ${L.length - 8}` : '')); }
     try { const T = POUCH.table, tot = T.reduce((a, r) => a + r[1], 0); for (const r of T) add(r[0], `아르카의 마법주머니 (${pct(r[1] / tot)})`); } catch (e) {}
     for (const [id, p] of [['bscroll_weapon', 0.3], ['bscroll_armor', 0.3], ['bless_scroll', 0.3], ['bscroll_acc', 0.1]]) add(id, `축복 주문서 주머니 (${pct(p)})`);
+    for (const r of DOLL_DEF) { const n = DOLL_DEF.filter(q => q[2] === r[2]).length, t = r[2];   // v169: 마법인형 — 주머니(1단계) · 합성(2·3단계)
+      add('doll_' + r[0], t === 1 ? `잡화상점 [특별] ${ITEMS.doll_pouch.name} (10만 골드) · 1단계 ${n}종 중 하나 (${pct(1 / n)})` : `인형 합성 (제작 장인 브론 · 인형 합성 탭): ${t - 1}단계 인형 ${DOLL_NEED}개 → 성공 ${Math.round(DOLL_SYN[t - 1] * 100)}% · 성공하면 ${t}단계 ${n}종 중 하나 (${pct(1 / n)}) · 실패하면 넣은 인형 중 1개 돌려받음`); }
     for (const c in CLS_DEF) for (const k of CLS_DEF[c].kit || []) add(SHOP2ITEM[k] || (ITEMS[k] ? k : Object.keys(ITEMS).find(i => ITEMS[i].name === k)), `${CLASS_NAME[c]} 시작 장비`);
     return S; }
   function build() { const S = sources(), L = [];
     for (const id in ITEMS) { const d = ITEMS[id]; if (!d || !d.name || d.hidden || /테스트/.test(d.name) || id === 'pet_collar50') continue;
       const src = d.codex ? null : S[id]; if (!d.codex && !(src && src.length)) continue;
       const lines = INV.tipOf({ id, n: 1, on: false }).split('\n').slice(1).map(t => t.replace(/ — 착용 불가$/, '')).filter(t => t && !/^더블클릭|^꾹 누르고/.test(t));
-      const where = d.codex ? (lines.find(t => /^얻는 곳: /.test(t)) || '').replace(/^얻는 곳: /, '') : ''; const st = lines.filter(t => !/^얻는 곳: |^착용 가능: /.test(t) && t !== d.desc);
+      const where = d.codex ? (lines.find(t => /^얻는 곳: /.test(t)) || '').replace(/^얻는 곳: /, '') : ''; const st = lines.filter(t => !/^얻는 곳: |^착용 가능: |단계 마법인형 · 인형 칸에 착용$/.test(t) && t !== d.desc);
       const own = S[id] || [], cxw = d.codex ? where.split(' · ').map(t => t.trim()).filter(t => t && !(DN[id] && DN[id].has(t)) && !(/^(장비상점|잡화상점|특별상점)/.test(t) && own.some(o => o.startsWith(t.split(' ')[0])))).join(' · ') : '';
       L.push({ id, d, rar: d.rar || '일반', st, where: d.codex ? [cxw, ...own].filter(Boolean) : src, txt: (d.name + ' ' + st.join(' ') + ' ' + (d.desc || '') + ' ' + (src || [where]).join(' ')).toLowerCase() }); }
     const RO = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 }, SO = ['weapon', 'helm', 'armor', 'shirt', 'cloak', 'gloves', 'boots', 'shield', 'belt', 'amulet', 'ring'];
@@ -5112,11 +5115,11 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
     $('cdx-tabs').innerHTML = TABS.map(([n, f], k) => `<button type="button" role="tab" class="cdx-tab" aria-selected="${k === tab}" data-k="${k}">${n} <small>${built.filter(x => f(x.d)).length}</small></button>`).join('');
     const q = ($('cdx-q').value || '').trim().toLowerCase(), rar = $('cdx-rar').value, mine = $('cdx-mine').checked, f = TABS[tab][1], SL = SUB[tab], sf = SL && SL[sub] && SL[sub][1];
     { const sb = $('cdx-sub'); if (sb) { sb.hidden = !SL; sb.innerHTML = SL ? SL.map(([n, g_], k) => `<button type="button" class="cdx-subt" aria-selected="${k === sub}" data-s="${k}">${n} <small>${built.filter(x => f(x.d) && (!g_ || g_(x.d))).length}</small></button>`).join('') : ''; } }
-    const cf = CLS_F[cls][1]; { const cb = $('cdx-cls'); if (cb) cb.innerHTML = '<span class="cdx-clt">직업</span>' + CLS_F.map(([n, g_], k) => `<button type="button" class="cdx-subt cdx-clb" aria-selected="${k === cls}" data-c="${k}">${n} <small>${built.filter(x => f(x.d) && (!sf || sf(x.d)) && (!g_ || g_(x.d))).length}</small></button>`).join(''); }
+    const dollT = TABS[tab][0] === '마법인형', cf = dollT ? null : CLS_F[cls][1]; { const cb = $('cdx-cls'); if (cb) cb.hidden = dollT; if (cb) cb.innerHTML = '<span class="cdx-clt">직업</span>' + CLS_F.map(([n, g_], k) => `<button type="button" class="cdx-subt cdx-clb" aria-selected="${k === cls}" data-c="${k}">${n} <small>${built.filter(x => f(x.d) && (!sf || sf(x.d)) && (!g_ || g_(x.d))).length}</small></button>`).join(''); }
     const L = built.filter(x => f(x.d) && (!sf || sf(x.d)) && (!cf || cf(x.d)) && (!rar || x.rar === rar) && (!mine || !x.d.cls || x.d.cls.includes(CLASS)) && (!q || q.split(/\s+/).every(t => x.txt.includes(t))));
     $('cdx-n').textContent = `${L.length}개`;
-    $('cdx-list').innerHTML = L.length ? L.map(x => { const rc = RARITY_C[x.rar] || '#f2f2f2', d = x.d, meta = [x.rar, d.slot ? cxClsName(d) : '', d.lv ? `Lv.${d.lv}+` : '', d.w ? `무게 ${d.w}` : ''].filter(Boolean).join(' · ');
-      return `<div class="cdx-card" style="--rc:${rc}"><span class="cdx-ic">${ICON(d.icon)}</span><div><div class="cdx-nm">${esc(d.name)}</div><div class="cdx-meta">${esc(meta)}</div></div>${x.st.length ? `<div class="cdx-st">${x.st.map(esc).join('<br>')}</div>` : ''}${d.desc ? `<div class="cdx-desc">${esc(d.desc)}</div>` : ''}<div class="cdx-src"><b>얻는 곳</b> ${x.where && x.where.length ? x.where.map(esc).join('<br>') : '—'}</div></div>`; }).join('') : '<p class="muted cdx-empty">찾는 아이템이 없어요.</p>'; }
+    $('cdx-list').innerHTML = (TABS[tab][0] === '마법인형' ? `<div class="cdx-guide"><b>마법인형</b> 캐릭터 창의 [인형] 칸에 1개 착용 · 옆에서 따라다니며 능력을 올려 줘요 (다른 유저에게도 보여요)<br><b>얻는 법</b> 잡화상점 [특별] 마법인형 주머니(10만 골드) → 1단계 6종 중 하나 · 마을 제작 장인 [인형 합성]에서 같은 단계 ${DOLL_NEED}개 → 다음 단계 (1→2단계 ${Math.round(DOLL_SYN[1] * 100)}% · 2→3단계 ${Math.round(DOLL_SYN[2] * 100)}% · 실패하면 1개 돌려받음 · 3단계 성공은 전체 알림)</div>` : '') + (L.length ? L.map(x => { const rc = RARITY_C[x.rar] || '#f2f2f2', d = x.d, meta = [x.rar, d.slot === 'doll' ? `${d.tier}단계 마법인형 · 모든 직업` : d.slot ? cxClsName(d) : '', d.lv ? `Lv.${d.lv}+` : '', d.w ? `무게 ${d.w}` : ''].filter(Boolean).join(' · ');
+      return `<div class="cdx-card" style="--rc:${rc}"><span class="cdx-ic">${ICON(d.icon)}</span><div><div class="cdx-nm">${esc(d.name)}</div><div class="cdx-meta">${esc(meta)}</div></div>${x.st.length ? `<div class="cdx-st">${x.st.map(esc).join('<br>')}</div>` : ''}${d.desc ? `<div class="cdx-desc">${esc(d.desc)}</div>` : ''}<div class="cdx-src"><b>얻는 곳</b> ${x.where && x.where.length ? x.where.map(esc).join('<br>') : '—'}</div></div>`; }).join('') : '<p class="muted cdx-empty">찾는 아이템이 없어요.</p>'); }
   function open() { const w = $('codexwin'); if (!w) return; if (!w.hidden) { w.hidden = true; return; } built = null; w.hidden = false; render(); $('cdx-list').scrollTop = 0; }
   { const b = $('btn-codex'); if (b) b.onclick = open; const tb = $('cdx-tabs'); if (tb) tb.onclick = ev => { const x = ev.target.closest('[data-k]'); if (!x) return; tab = +x.dataset.k; sub = 0; render(); $('cdx-list').scrollTop = 0; };
     const sb = $('cdx-sub'); if (sb) sb.onclick = ev => { const x = ev.target.closest('[data-s]'); if (!x) return; sub = +x.dataset.s; render(); $('cdx-list').scrollTop = 0; };
@@ -6987,6 +6990,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 169, items: ['아이템 도감에 [마법인형] 탭이 생겼어요. 1·2·3단계 인형 18종의 능력치와 얻는 법(주머니에서 나올 확률 · 합성 성공 확률)을 단계별로 볼 수 있어요.', '[마법인형 주머니]는 도감의 [펫·주머니·기타] 탭으로 옮겼어요.', '휴대폰에 아덴 월드를 앱처럼 설치할 수 있어요! 휴대폰 브라우저(Safari·Chrome·삼성 인터넷)로 jungkyu9797.github.io/aden-world 에 들어가서 로그인 화면이나 [메뉴]의 [📲 앱 설치]를 누르세요. 홈 화면 아이콘을 누르면 주소창 없이 전체 화면 가로 모드로 열려요.', '카카오톡·네이버 앱 안에서 주소를 열었다면 [다른 브라우저로 열기]를 먼저 눌러 주세요. (앱 안의 브라우저에서는 설치가 안 돼요)', 'PC와 휴대폰은 같은 계정·캐릭터로 이어서 할 수 있어요.'] },
     { v: 168, items: ['이제 휴대폰(아이폰·갤럭시)과 태블릿 브라우저에서도 아덴 월드를 할 수 있어요! 휴대폰을 가로로 눕혀서 플레이해요. (PC 버전 화면은 그대로예요)', '이동: 왼쪽 아래 조이스틱을 끌거나, 가고 싶은 곳을 톡 누르세요. 몬스터를 누르면 공격해요.', '오른쪽 아래: [공격]은 가장 가까운 몬스터를 공격 · [자동]은 자동사냥 켜기/끄기 · [설정]은 자동사냥 설정 · [줍기]는 주변 아이템 줍기 · 물약 칸을 누르면 자동 물약 설정.', '단축칸 1~12: 누르면 사용, 누르고 있으면 계속 사용해요. 등록은 가방·스킬창에서 아이템이나 스킬을 톡 누르면 뜨는 정보창의 [단축칸] 번호를 누르면 돼요. (같은 번호를 다시 누르면 해제)', '가방: 한 번 톡 = 정보 · 두 번 톡톡 = 사용/착용 (창고가 열려 있으면 창고에 넣기) · 길게 누르기 = 자세한 정보. 몬스터가 겹쳐 있거나 다른 유저 메뉴를 열 때는 화면을 길게 누르세요. (PC의 오른쪽 클릭)', '위 오른쪽 [채팅]·[가방]·[캐릭터]·[지도]·[메뉴]. 메뉴에는 자동사냥 설정·자동 물약·연금술·도감·절전 모드·배경음악·화면 크기·화질(배터리 절약)·설정이 있어요. 왼쪽의 알림 칸을 눌러도 채팅을 쓸 수 있어요.', 'PC와 휴대폰을 오가며 같은 계정으로 해도 안전해요. 나중에 접속한 쪽이 이어서 하고, 먼저 켜 둔 쪽은 접속이 끊기며 더 이상 저장하지 않아요. 휴대폰에서 다른 앱으로 가거나 화면을 끄면 그 순간 바로 저장해서, PC로 옮겨도 직전까지 그대로 이어져요.', '자동사냥을 켜 두면 휴대폰 화면이 저절로 꺼지지 않아요. 휴대폰은 화면을 끄거나 다른 앱으로 가면 브라우저가 게임을 멈추니, 오래 사냥할 때는 [메뉴 → 절전 모드]를 켜 두세요.'] },
     { v: 167, items: ['[변신 주문서]도 자동 사용할 수 있어요. 아이템 정보나 자동사냥 설정의 [버프 자동 사용]에서 켜 두면 변신이 끝날 때 바로 다시 읽어요. (둘 다 켜면 실버 먼저 · 레벨이 안 되면 안 씀 · 마을에서는 안 씀)', '자동사냥 설정 [마을에서]에 [변신 주문서 자동 구매]가 생겼어요. 종류마다 정한 개수까지 채워요. (레벨이 되는 것만)', '자동사냥 설정에 [소모품 0개면 마을에서 정비]가 생겼어요. 자동 사용을 켠 초록 물약·용기의 물약·변신 주문서가 다 떨어지면 마을에 가서 사고 다시 사냥터로 돌아가요.', '자동사냥 중 어떤 이유로든 마을에 가면 체크해 둔 소모품(물약·가속 물약·변신 주문서 등)을 모두 정한 개수까지 채우고, 산 것을 한 줄로 알려 줘요.', '절전 모드 중에 새 업데이트가 나오면 절전 화면 맨 위에 크게 알려 줘요. [지금 업데이트]를 누르면 바로 받고 그 자리에서 이어져요.'] },
     { v: 166, items: ['[마법인형]이 생겼어요! 잡화상점 [특별] 탭의 [마법인형 주머니](10만 골드)를 열면 1단계 인형 6종 중 하나가 나와요.', '인형은 캐릭터 창의 [인형] 칸에 끼우면 옆에서 둥실둥실 따라다니며 능력을 올려 줘요. (다른 유저에게도 보여요)', '1단계: 늑대인간(추가 피해 +1) · 리자드맨(명중 +1) · 드워프(AC -1) · 오크 마법사(최대 MP +30) · 버그베어(가방 최대 무게 +10%) · 오우거(최대 HP +50)', '2단계: 바실리스크(원거리 추가 피해·명중 +1) · 오크 전사(근거리 추가 피해·명중 +1) · 다크엘프(MP 회복 +2) · 네크로맨서(MP 회복 +1 · SP +1) · 케르베로스(AC -2 · 최대 HP +30) · 불개미(받는 피해 -1)', '3단계: 드레이크(원거리 추가 피해·명중 +2) · 킹 버그베어(근거리 추가 피해·명중 +2) · 트롤(AC -3 · 최대 HP +50 · 최대 MP +20) · 와이번(MP 회복 +2 · 공격할 때 4% 확률로 번개) · 셸로브(MP 회복 +2 · SP +1) · 스파토이(받는 피해 -2)', '마을의 제작 장인 [인형 합성] 탭에서 같은 단계 인형 4개로 다음 단계 인형을 만들 수 있어요. 가방에서 인형을 눌러 칸에 넣거나 [자동 넣기]를 누르고 [합성]! (1→2단계 40% · 2→3단계 30% · 실패하면 넣은 인형 중 1개를 돌려받아요 · 3단계가 나오면 전체 알림)', '변신했을 때 장비 빛이 부위마다 따로 보여요. 강화했거나 영웅 등급인 장비를 낀 부위만 그 단계 색으로 빛나요. (변신하기 전과 같은 방식 · 다크·실버 나이트/메이지/레인저 모두)', '[다크 변신 주문서]·[실버 변신 주문서] 가격을 둘 다 5,000골드로 맞췄어요.'] },
@@ -7637,6 +7641,26 @@ function frame(now){
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); }
   curZ = z; requestAnimationFrame(frame);
 }
+// ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
+const APP = (() => { const $a = id => document.getElementById(id);
+  const web = !!document.querySelector('link[rel="manifest"]') && (location.protocol === 'https:' || /^(127\.0\.0\.1|localhost)$/.test(location.hostname));
+  const ua = navigator.userAgent || '', ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), kakao = /KAKAOTALK/i.test(ua), inApp = kakao || /NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua);
+  const standalone = () => { try { return matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
+  let evt = null;
+  if (web && 'serviceWorker' in navigator) addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; sync(); });
+  addEventListener('appinstalled', () => { evt = null; sync(); const g = $a('app-guide'); if (g) g.hidden = true; try { say('아덴 월드를 설치했어요! 이제 홈 화면 아이콘으로 바로 들어올 수 있어요.', '#9fd08a'); } catch (e) {} });
+  const can = () => web && MOBILE && !standalone();
+  function sync() { for (const id of ['lg-app', 'mm-app']) { const b = $a(id); if (b) b.hidden = !can(); } }
+  function guide() { const g = $a('app-guide'); if (!g) return; $a('ag-ios').hidden = !ios || inApp; $a('ag-and').hidden = ios || inApp; $a('ag-inapp').hidden = !inApp; $a('ag-kakao').hidden = !kakao; g.hidden = false; }
+  function install() { if (evt && !inApp) { const e = evt; evt = null; try { e.prompt(); e.userChoice.then(r => { if (r.outcome !== 'accepted') evt = e; sync(); }).catch(() => {}); } catch (x) { guide(); } return; } guide(); }
+  function init() { sync(); const lb = $a('lg-app'), mb = $a('mm-app'); if (lb) lb.onclick = install; if (mb) mb.addEventListener('click', install);
+    const x = $a('ag-x'), ok = $a('ag-ok'), g = $a('app-guide'); const close = () => { if (g) g.hidden = true; }; if (x) x.onclick = close; if (ok) ok.onclick = close; if (g) g.addEventListener('click', ev => { if (ev.target === g) close(); });
+    const kb = $a('ag-kakao'); if (kb) kb.onclick = () => { location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href.replace(/[?&]app=1/, '')); };
+    try { matchMedia('(display-mode: fullscreen), (display-mode: standalone)').addEventListener('change', sync); } catch (e) {} }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  return { install, can, web, standalone, guide };
+})();
 // ============================================================ v168: 모바일(폰·태블릿) 화면 — 가로 전용 · 왼쪽 아래 가상 조이스틱 · 오른쪽 아래 공격·자동사냥·단축칸 · 위 오른쪽 메뉴
 const MUI = (() => {
   const $m = id => document.getElementById(id);

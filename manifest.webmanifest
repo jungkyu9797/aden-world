@@ -1,0 +1,19 @@
+{
+  "name": "아덴 월드",
+  "short_name": "아덴 월드",
+  "description": "리니지 클래식 감성의 쿼터뷰 MMORPG — 휴대폰·PC 같은 캐릭터로",
+  "id": "./",
+  "start_url": "./?app=1",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0c0a08",
+  "theme_color": "#120e0a",
+  "lang": "ko",
+  "icons": [
+    { "src": "assets/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
