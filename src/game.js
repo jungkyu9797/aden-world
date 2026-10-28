@@ -143,6 +143,7 @@ const hero = mk('hero', META.spawn[0], META.spawn[1]); hero.row = 1;
 let foxes = []; const FIELD_FOXES = foxes;
 let PETS_HERE = [];   // 지금 지역에 나와 있는 내 펫 (PET 모듈이 매 프레임 갱신)
 let PEER_OCC = null;   // 다른 플레이어가 서 있는 칸 (NET 이 채움)
+const SWAPB = o => !!(o && o.bot && o.bot.team === 'A' && !o.dead);   // 수호탑 대전: 아군 봇은 길을 막지 않음 (나와 자리를 바꿈)
 function occ(i,j){ if (hero.i===i&&hero.j===j) return hero; for (const f of foxes) if (!f.dead&&f.i===i&&f.j===j) return f; for (const p of PETS_HERE) if (!p.dead&&p.i===i&&p.j===j) return p; if (PEER_OCC) { const o=PEER_OCC(i,j); if (o) return o; } return null; }
 function freeTile(minD){ for (let t=0;t<400;t++){ const i=2+Math.floor(Math.random()*(MAP-4)), j=2+Math.floor(Math.random()*(MAP-4)); if (walkable(i,j)&&!occ(i,j)&&Math.max(Math.abs(i-hero.i),Math.abs(j-hero.j))>=minD) return [i,j]; } return [3,3]; }
 for (let k=0;k<7;k++){ const [i,j]=freeTile(5); foxes.push(mk('fox',i,j)); }
@@ -154,10 +155,10 @@ function astar(e, goal, ti, tj){
     const k=open.splice(bi,1)[0]; if (closed[k]) continue; closed[k]=1; const i=k%N, j=(k/N)|0;
     if (goal(i,j)){ best=k; break; } const h=cheb(i,j,ti,tj); if (h<bh){bh=h;best=k;}
     for (const [di,dj] of DIRS8){ const ni=i+di, nj=j+dj; if (!walkable(ni,nj)) continue; if (di&&dj&&(!walkable(i+di,j)||!walkable(i,j+dj))) continue;
-      const o=occ(ni,nj); if (o&&o!==e&&!(e===hero&&o.isPet)&&cheb(ni,nj,e.i,e.j)<=2) continue; const nk=nj*N+ni, ng=g[k]+(di&&dj?1.001:1); if (ng<g[nk]){ g[nk]=ng; came[nk]=k; open.push(nk); } } }
+      const o=occ(ni,nj); if (o&&o!==e&&!(e===hero&&(o.isPet||SWAPB(o)))&&cheb(ni,nj,e.i,e.j)<=2) continue; const nk=nj*N+ni, ng=g[k]+(di&&dj?1.001:1); if (ng<g[nk]){ g[nk]=ng; came[nk]=k; open.push(nk); } } }
   const path=[]; let k=best; while (k!==s&&k!==-1){ path.unshift([k%N,(k/N)|0]); k=came[k]; } return path; }
 function beginStep(e,[i,j]){ const di=i-e.i, dj=j-e.j; if (Math.abs(di)>1||Math.abs(dj)>1) return false; if (di&&dj&&(!walkable(e.i+di,e.j)||!walkable(e.i,e.j+dj))) return false;
-  if (!walkable(i,j)) return false; const o=occ(i,j); if (o){ if (e===hero&&o.isPet&&o.t>=1){ o.fi=o.i; o.fj=o.j; o.i=e.i; o.j=e.j; o.t=0; o.row=rowFor(-di,-dj); } else return false; }   // 내 펫과는 자리를 바꿔 지나감
+  if (!walkable(i,j)) return false; const o=occ(i,j); if (o){ if (e===hero&&(o.isPet||SWAPB(o))&&o.t>=1){ o.fi=o.i; o.fj=o.j; o.i=e.i; o.j=e.j; o.t=0; o.row=rowFor(-di,-dj); } else return false; }   // 내 펫·수호탑 아군 봇과는 자리를 바꿔 지나감
   e.fi=e.i; e.fj=e.j; e.i=i; e.j=j; e.t=0; e.row=rowFor(di,dj); return true; }
 function stepMove(e,dt,sp){ if (e.t<1){ e.t=Math.min(1,e.t+sp*dt); e.dist+=sp*dt; } e.x=e.fi+0.5+(e.i-e.fi)*e.t; e.z=e.fj+0.5+(e.j-e.fj)*e.t; }
 function face(e,t){ const di=Math.sign(t.i-e.i), dj=Math.sign(t.j-e.j); if (di||dj) e.row=rowFor(di,dj); }
@@ -743,7 +744,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 183;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 184;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2808,7 +2809,7 @@ const DGF = (() => { const C = new Map();
 // 미로에서 한 걸음: 목표까지 거리가 줄어드는 이웃 칸 (막혔으면 기다림) — astar와 같은 꼴 [[i,j]]
 function mzPath(e, ti, tj) { const N = MAP, F = DGF.field(ti, tj), cur = F[e.j * N + e.i]; if (cur < 0) return []; let best = null, bd = cur;
   for (const [di, dj] of DIRS8) { const a = e.i + di, b = e.j + dj; if (a < 0 || b < 0 || a >= N || b >= N) continue; const d = F[b * N + a]; if (d < 0 || d >= bd && !(d === bd && best && Math.random() < 0.3)) continue;
-    if (di && dj && (!walkable(e.i + di, e.j) || !walkable(e.i, e.j + dj))) continue; const o = occ(a, b); if (o && o !== e && !(e === hero && o.isPet)) continue; if (d < bd || !best) { bd = d; best = [a, b]; } }
+    if (di && dj && (!walkable(e.i + di, e.j) || !walkable(e.i, e.j + dj))) continue; const o = occ(a, b); if (o && o !== e && !(e === hero && (o.isPet || SWAPB(o)))) continue; if (d < bd || !best) { bd = d; best = [a, b]; } }
   return best && bd < cur ? [best] : []; }
 
 // ---------- 벽: 돌 벽돌 블록 (위·왼쪽·오른쪽 면) · 변형(이끼·핏자국·금·해골 감실·쇠사슬) · 기둥
@@ -5156,8 +5157,8 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       else if (kind === 'barrier') { if (hero.hp / hero.max > 0.3) continue; }
       else if (kind === 'cleanse') { if (!(BUFF.slow > 0 || BUFF.root > 0 || BUFF.poison > 0)) continue; }
       else if (kind === 'aoe') { const P = SPELL[id], inB = f => !f.dead && !f.gone && Math.abs(f.x - hero.x) <= P.box && Math.abs(f.z - hero.z) <= P.box && MOB[f.kind] && !MOB[f.kind].dummy; if (foxes.filter(inB).length < 3 && !foxes.some(f => inB(f) && MOB[f.kind].boss)) continue; }
-      else { if (id === 'triple_arrow') { const W = INV.equipped('weapon'); if (!(W && ITEMS[W] && ITEMS[W].wtype === 'bow')) continue; } const T = hero.target; if (hero.atk || !T || T.dead || T.isRemote || !foxes.includes(T)) continue; const dd = cheb(T.i, T.j, hero.i, hero.j); if (id === 'stun' ? dd > 1 || T.stunT > 0 : dd > 8 || !FLOS(hero, T)) continue; if (id === 'turnund' && !(MOB[T.kind] && MOB[T.kind].undead)) continue; }
-      castSkill(id, kind === 'attack' ? hero.target : null); return; } }
+      else { if (id === 'triple_arrow') { const W = INV.equipped('weapon'); if (!(W && ITEMS[W] && ITEMS[W].wtype === 'bow')) continue; } const T = hero.target; if ((hero.atk && !hero.atk.hit) || !T || T.dead || T.isRemote || !foxes.includes(T)) continue;   /* 평타가 들어간 뒤엔 바로 써도 됨 (예전엔 공격 동작 중이면 늘 건너뛰어 연속 공격하는 기사 스턴이 거의 안 나감) */ const dd = cheb(T.i, T.j, hero.i, hero.j); if (id === 'stun' ? dd > 1 || T.stunT > 0 : dd > 8 || !FLOS(hero, T)) continue; if (id === 'turnund' && !(MOB[T.kind] && MOB[T.kind].undead)) continue; }
+      { const cd0 = SKCD[id] || 0, mp0 = hero.mp; castSkill(id, kind === 'attack' ? hero.target : null); if ((SKCD[id] || 0) > cd0 || hero.mp < mp0) return; } } }   // 못 쓴 자동 스킬이 있으면 다음 스킬로 넘어감 (예전엔 한 스킬이 계속 실패하면 뒤의 스턴 같은 스킬이 영영 안 나감)
   function holdSkill(ev, id) { if (ev.button !== 0) return; holdCancel(); holdP = [ev.clientX, ev.clientY]; holdT = setTimeout(() => { holdT = 0; showSkill(id, holdP[0], holdP[1]); }, 420); }
   function holdHot(ev, i) { const id = hot[i]; if (!id || id.startsWith('act:')) return; if (id.startsWith('sk:')) { if (SK[id.slice(3)]) holdSkill(ev, id.slice(3)); return; } const e = bag.find(x => x.id === id); if (e) holdStart(ev, e); }
   function openHot(i, x, y) { const id = hot[i]; if (!id) return false; if (id === 'act:auto') { say('자동사냥: 누르면 자동사냥을 켜고 끕니다. 지울 수 없고 다른 칸으로 옮기기만 할 수 있어요.', '#9fd0e8'); return true; } if (id === 'act:pick') { say('줍기: 바로 옆(1칸 안) 아이템을 모두 주워요. (재사용 1초 · 누르고 있으면 계속) 지울 수 없고 다른 칸으로 옮기기만 할 수 있어요.', '#9fd0e8'); return true; } if (id.startsWith('sk:')) { if (!SK[id.slice(3)]) return false; showSkill(id.slice(3), x, y); return true; } const e = bag.find(x_ => x_.id === id); if (!e) return false; showDetail(e, x, y); return true; }
@@ -7197,8 +7198,8 @@ const TWM = (() => {
   function front(t) { const o = OT(t); let m = null; for (const k of teams()['k' + t]) { const d = tdist(k, o); if (m == null || d < m) m = d; } return m; }
   // ----- 전투: 명중 · 피해 (유저와 같은 구조 — 방어 1당 0.4% · 레벨 차 1당 3%)
   function hitChance(a, T) { const st = a.bot.st, lvT = T === hero ? hero.lv : T.bot ? T.bot.st.lv : T.isRemote ? (refOf(T.peer).lv || st.lv) : st.lv, acT = T === hero ? INV.ac() : T.bot ? T.bot.st.ac : T.isRemote ? (refOf(T.peer).ac ?? 0) : 10;
-    return Math.max(0.2, Math.min(0.95, TWB.hit + 0.03 * (st.lv - lvT) - (10 - acT) * 0.004)); }
-  function rollD(a, mul) { let d = a.bot.st.d * TWB.dm * (0.75 + Math.random() * 0.5) * (mul || 1); const cr = Math.random() < 0.1; if (cr) d *= 1.5; return [Math.max(1, Math.round(d)), cr]; }
+    return Math.max(0.2, Math.min(0.95, TWB.hit + 0.03 * (st.lv - lvT) - (10 - acT) * TWB.acK)); }
+  function rollD(a, mul) { let d = a.bot.st.d * TWB.dm * (a.bot.cls === 'wizard' ? TWB.wiz : 1) * (0.75 + Math.random() * 0.5) * (mul || 1);   /* 법사 봇: 마법은 빗나가지 않으니 한 방은 약하게 */ const cr = Math.random() < 0.1; if (cr) d *= 1.5; return [Math.max(1, Math.round(d)), cr]; }
   function inDmg(f, d, mode) { if (f.twr) return mode === 'bow' || mode === 'magic' ? Math.max(1, Math.round(d * 0.5)) : d; const st = f.bot && f.bot.st; if (!st) return d;
     if (mode !== 'magic' && st.ac < 0) d = Math.max(1, d - Math.floor(Math.random() * (Math.floor(-st.ac / 3) + 1)));
     if (mode === 'magic') d = Math.round(d * (1 - Math.min(0.5, (st.mr || 0) / 200)));
@@ -7240,7 +7241,7 @@ const TWM = (() => {
     S.res = { w, lh: lh && lh.startsWith('p:') ? lh : (lh || null), kt: kt && S.sc[kt][0] > 0 ? kt : null, dt: dt && S.sc[dt][1] > 0 ? dt : null, how: how || (lh ? 'tower' : 'time') }; setPh('end'); }
   function setPh(ph) { S.ph = ph; S.t = 0; if (!SIM) publish(); }
   // ----- 봇 판단 (호스트 · 초당 4~5회) · 행동 (매 프레임)
-  const TWB = { hit: 0.72, dm: 1.3, spd: 1.4, pot: 0.035, potAt: 0.5, heal: 0.12, healCd: 3.5 };   // 봇 밸런스 (모의전으로 맞춤)
+  const TWB = { hit: 0.8, acK: 0.003, wiz: 0.62, dm: 1.3, spd: 1.4, pot: 0.035, potAt: 0.5, heal: 0.09, healCd: 4.5 };   // 봇 밸런스 (모의전으로 맞춤)
   const rngT = c => RNG[c] + (c === 'knight' ? 0 : 2);   // 수호탑은 커서 원거리는 2칸 더 멀리서
   const SPD = 3.2 * GSPD * TWB.spd, ATK = { knight: 0.9, elf: 1.0, wizard: 1.15 }, RNG = { knight: 1, elf: 8, wizard: 7 }, AGR = { knight: 7, elf: 9, wizard: 9 };
   function mobTick(f, dt) { if (f.twr) { f.flash = Math.max(0, (f.flash || 0) - dt); if (!f.dead && f.hp <= 0) down(f); return; } botTick(f, dt); }
@@ -7253,34 +7254,63 @@ const TWM = (() => {
     if (f.hp < f.max * TWB.potAt && X.pot <= 0 && S.ph === 'fight') { const h = Math.max(6, Math.round(f.max * TWB.pot * (0.85 + Math.random() * 0.3))); f.hp = Math.min(f.max, f.hp + h); X.pot = 1.5; if (near(f, 12)) { const [x, y] = W2P(f.x, f.z); floatText(x + 10, y - 96, '+' + h, { color: '#8af08a', size: 10 }); } }   // 물약: 유저처럼 아끼지 않음
     if (roomOf(f.i, f.j)) { if (f.t >= 1 && S.ph !== 'end') { const P = TWL[b.team].pad; if (f.i === P[0] && f.j === P[1]) teleport(f); else moveField(f, 'p' + b.team); } return; }
     if (S.ph !== 'fight') return;
-    if ((X.th -= dt) <= 0) { X.th = 0.2 + Math.random() * 0.1; think(f, b, X); }
+    if ((X.th -= dt) <= 0) { const p = X.p || (X.p = persona(f)); X.th = p.react * (0.8 + Math.random() * 0.4); think(f, b, X); }
     act(f, b, X); }
   function teleport(f) { const P = TWL[f.bot ? f.bot.team : 'A'], p = spot(P.cx, P.back + 0.5, 2.6) || spot(P.cx, P.cz, TWL.R - 1); place(f, p); if (f.bx) f.bx.tgt = null; if (near(f)) spellFx('enok', f, '#9fd8ff'); }
   // 팀 작전 (2초마다): 살아 있는 수가 3명 이상 많으면 '밀기'(가까운 적만 상대하며 적 수호탑으로) · 3명 이상 적으면 '물러서기'(우리 문 앞에서 모임) · 그 밖에는 '싸우기'
   const MODE = { A: 'fight', B: 'fight' };
   function strat() { const T = teams(); for (const t of ['A', 'B']) { const my = T[t].length, op = T[OT(t)].length, m = MODE[t]; MODE[t] = my >= op + 3 ? 'push' : my <= op - 3 ? 'back' : m === 'push' && my >= op + 1 ? 'push' : m === 'back' && my <= op - 1 ? 'back' : 'fight'; } }
-  function think(f, b, X) { const t = b.team, o = OT(t), T = teams(), foes = T[o], M = MODE[t], R = M === 'push' ? (b.cls === 'knight' ? 4 : 6) : AGR[b.cls], tw = towerOf(o), twIn = tw && live(tw) && rngd(f, tw) <= rngT(b.cls);
+  // 봇 성격 (봇마다 다름): 공격성 · 선호 줄(다리 좌우) · 거리 · 후퇴 HP · 추격 인내 · 반응 속도 · 옆걸음 · 작전 반응 지연 · 집결 인원
+  function persona(f) { const R = rngS((f.uid || 1) * 131 + (S ? S.seed % 9973 : 7)), c = f.bot.cls;
+    return { agg: 0.75 + R() * 0.55, lane: (R() - 0.5) * 7, keep: R() * 2.5, brave: c === 'knight' ? 0.18 + R() * 0.17 : 0.25 + R() * 0.2, pat: 3 + R() * 5, react: 0.18 + R() * 0.25, wander: 0.12 + R() * 0.3, lag: R() * 2.5, rallyN: 3 + Math.floor(R() * 4), rallyT: 3 + R() * 6, focus: R() < (c === 'knight' ? 0.25 : 0.2) ? 'caster' : R() < 0.5 ? 'weak' : 'near' }; }
+  const isCaster = e => e === hero ? CLASS !== 'knight' : e.isRemote ? (refOf(e.peer).c || 'knight') !== 'knight' : !!(e.bot && e.bot.cls !== 'knight');
+  function pickTarget(f, b, X, L) { if (!L.length) return null; const p = X.p, ign = X.ign || {};
+    const C = L.filter(e => !((ign[keyT(e)] || 0) > time)); const M = C.length ? C : L;
+    if (p.focus === 'caster') { const c = M.filter(isCaster); if (c.length && Math.random() < 0.7) return nearest(f, c); }
+    if (b.cls !== 'knight' && (p.focus === 'weak' || Math.random() < 0.35)) { const w = weakest(f, M, RNG[b.cls] + 1); if (w) return w; }
+    if (M.length > 1 && Math.random() < 0.25) { const S2 = M.slice().sort((x, y) => cheb(f.i, f.j, x.i, x.j) - cheb(f.i, f.j, y.i, y.j)); return S2[Math.min(S2.length - 1, 1 + Math.floor(Math.random() * 2))]; }   // 가끔은 두세 번째로 가까운 적
+    return nearest(f, M); }
+  function think(f, b, X) { const t = b.team, o = OT(t), T = teams(), foes = T[o], p = X.p || (X.p = persona(f));
+    if (X.mode !== MODE[t]) { if (X.modeAt == null) X.modeAt = time + p.lag; if (time >= X.modeAt) { X.mode = MODE[t]; X.modeAt = null; } } else X.modeAt = null;   // 팀 작전은 봇마다 조금씩 늦게 따름
+    const M = X.mode || 'fight', R = (M === 'push' ? (b.cls === 'knight' ? 4 : 6) : AGR[b.cls]) * p.agg, tw = towerOf(o), twIn = tw && live(tw) && rngd(f, tw) <= rngT(b.cls), hp = f.hp / (f.max || 1);
+    // 후퇴: HP가 낮으면 우리 쪽으로 물러나 물약 · 회복되면 복귀 (밀기 중인 기사는 버팀)
+    if (X.goal === 'retreat') { if (hp >= 0.72 || time > X.retT) X.goal = null; else { X.tgt = null; return; } }
+    if (hp < p.brave && !(M === 'push' && b.cls === 'knight') && foes.some(e => cheb(f.i, f.j, e.i, e.j) <= 4) && Math.random() < 0.85) { X.goal = 'retreat'; X.retT = time + 4 + Math.random() * 4; X.tgt = null; return; }
     const near1 = foes.some(e => cheb(f.i, f.j, e.i, e.j) <= (M === 'push' ? 1 : 3));
     let tg = X.tgt; if (tg && !(validT(tg) && (tg.twr ? true : cheb(f.i, f.j, tg.i, tg.j) <= R + 3))) tg = null;
+    // 추격 인내: 사거리 밖으로 도망가는 대상을 오래 쫓지 않음 (잠시 무시하고 다른 대상)
+    if (tg && !tg.twr) { const out = rngd(f, tg) > RNG[b.cls]; if (out) { X.chase = (X.chase || 0) + (time - (X.thAt || time)); if (X.chase > p.pat) { (X.ign || (X.ign = {}))[keyT(tg)] = time + 4 + Math.random() * 3; tg = null; X.chase = 0; } } else X.chase = 0; }
+    if (tg && !tg.twr && M !== 'push' && tdist(tg, o) <= TWL.R - 1 && tdist(f, o) > TWL.R + 2) tg = null;   // 적 기지 깊숙이 도망간 대상은 (밀기 아니면) 안 쫓음
+    X.thAt = time;
     const siege = M === 'push' && b.cls === 'knight';   // 밀기 중인 기사는 적이 붙어도 수호탑을 계속 침 (물약으로 버팀)
     if (tg && tg.twr && near1 && !siege) tg = null;
-    if (twIn && !b.guard && (siege || (!near1 && (M === 'push' || !foes.some(e => cheb(f.i, f.j, e.i, e.j) <= 3))))) tg = tw;   // 공성 우선: 적 수호탑이 사거리 안이고 바로 옆에 적이 없으면   // 수호탑을 치다가도 적이 붙으면 적부터
+    if (twIn && !b.guard && (siege || (!near1 && (M === 'push' || !foes.some(e => cheb(f.i, f.j, e.i, e.j) <= 3))))) tg = tw;   // 공성 우선: 적 수호탑이 사거리 안이고 바로 옆에 적이 없으면
     const inv = foes.filter(e => tdist(e, t) <= TWL.R + 1);   // 우리 기지에 들어온 적
-    if (!tg && inv.length && (b.guard || M === 'back' || tdist(f, t) <= 26)) tg = nearest(f, inv, 30);
-    if (!tg && twIn && !near1 && (M === 'push' || !b.guard)) tg = tw;   // 공성: 적 수호탑이 사거리 안
-    if (!tg) { const nb = foes.filter(e => cheb(f.i, f.j, e.i, e.j) <= R); if (nb.length) tg = b.cls === 'knight' ? nearest(f, nb) : (weakest(f, nb, RNG[b.cls] + 1) || nearest(f, nb)); }
+    if (!tg && inv.length && (b.guard || M === 'back' || tdist(f, t) <= 26)) tg = pickTarget(f, b, X, inv.filter(e => cheb(f.i, f.j, e.i, e.j) <= 30));
+    if (!tg && twIn && !near1 && (M === 'push' || !b.guard)) tg = tw;
+    if (!tg) { const nb = foes.filter(e => cheb(f.i, f.j, e.i, e.j) <= R); if (nb.length) { tg = pickTarget(f, b, X, nb); X.chase = 0; } }
     X.tgt = tg; X.goal = tg ? null : b.guard || M === 'back' ? 'hold' : 'push';
-    if (X.goal === 'push' && M !== 'push') { if (X.rally == null) X.rally = time + 9; if (time < X.rally && T[t].filter(e => cheb(f.i, f.j, e.i, e.j) <= 4).length < 5) X.goal = 'hold'; else X.rally = 0; } }   // 부활한 봇은 문 앞에서 몇 명 모여서 함께 감
-  function act(f, b, X) { const tg = X.tgt;
+    if (X.goal === 'push' && M !== 'push') { if (X.rally == null) X.rally = time + p.rallyT; if (time < X.rally && T[t].filter(e => cheb(f.i, f.j, e.i, e.j) <= 4).length < p.rallyN) X.goal = 'hold'; else X.rally = 0; } }   // 부활한 봇은 문 앞에서 몇 명 모여서 함께 감 (인원·시간은 봇마다)
+  // 옆걸음: 다리 폭 안에서 선호 줄 쪽으로 또는 비어 있는 옆 칸으로 (뭉쳐서 한 줄로 서지 않게)
+  function sidestep(f, X, toLane) { const p = X.p, cx = TWL.cx + p.lane, dirs = []; const want = toLane ? Math.sign(cx - (f.i + 0.5)) : 0;
+    for (const [di, dj] of [[1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) { if (toLane && want && Math.sign(di) !== want) continue; const i = f.i + di, j = f.j + dj; if (!walkable(i, j) || occ(i, j) || (di && dj && (!walkable(f.i + di, f.j) || !walkable(f.i, f.j + dj)))) continue; dirs.push([i, j]); }
+    if (!dirs.length) return false; return beginStep(f, dirs[Math.floor(Math.random() * dirs.length)]); }
+  const crowd = (f, t) => teams()[t].filter(e => e !== f && cheb(f.i, f.j, e.i, e.j) <= 1).length;
+  function act(f, b, X) { const tg = X.tgt, p = X.p || (X.p = persona(f)), t = b.team, o = OT(t);
     if (b.cls === 'wizard' && X.cd <= 0 && f.t >= 1 && support(f, b, X)) return;
+    if (X.goal === 'retreat') { if (f.t < 1) return; const m = teams()[o].find(e => cheb(f.i, f.j, e.i, e.j) <= 1); if (m && X.cd <= 0 && Math.random() < 0.5) { face(f, m); attack(f, b, X, m); return; } if (tdist(f, t) > TWL.R + 3) moveField(f, 'h' + t); else if (Math.random() < 0.08) sidestep(f, X); return; }
     if (tg && validT(tg)) { const d = rngd(f, tg), R = tg.twr ? rngT(b.cls) : RNG[b.cls];
-      if (d <= R) { if (b.cls !== 'knight' && X.kite <= 0 && f.t >= 1 && !tg.twr) { const m = teams()[OT(b.team)].find(e => cheb(f.i, f.j, e.i, e.j) <= 1 && isMelee(e)); if (m && stepAway(f, m)) { X.kite = 0.9; return; } }
-        if (f.t >= 1) { face(f, tg); if (X.cd <= 0) attack(f, b, X, tg); } return; }
+      if (d <= R) { if (b.cls !== 'knight' && X.kite <= 0 && f.t >= 1 && !tg.twr) { const m = teams()[o].find(e => cheb(f.i, f.j, e.i, e.j) <= 1 && isMelee(e)); if (m && stepAway(f, m)) { X.kite = 0.6 + Math.random() * 0.8; return; } }
+        if (f.t >= 1) { face(f, tg); if (X.cd <= 0) { attack(f, b, X, tg); if (b.cls !== 'knight' && !tg.twr && Math.random() < p.wander) X.strafe = time + 0.25 + Math.random() * 0.3; }
+          else if (X.strafe && time >= X.strafe) { X.strafe = 0; if (d < R) sidestep(f, X, Math.random() < 0.5); } }   // 쏘고 나서 가끔 옆으로 한 칸
+        return; }
       if (f.t >= 1) stepToward(f, tg, R); return; }
-    if (f.t < 1) return; const t = b.team, o = OT(t);
-    if (X.goal === 'hold') { moveField(f, 'h' + t); return; }
-    if (X.goal === 'def') { if (tdist(f, t) > 4) moveField(f, 't' + t); return; }   // 물러서기: 우리 수호탑 곁으로
-    if (b.cls !== 'knight' && !(MODE[t] === 'push' && tdist(f, o) <= RNG[b.cls] + 5)) { const fr = front(t); if (fr == null) { moveField(f, 'h' + t); return; } if (tdist(f, o) <= fr + (MODE[t] === 'push' ? 1 : 2)) return; }   // 원거리는 기사 뒤에서
+    if (f.t < 1) return;
+    if (X.goal === 'hold') { if (tdist(f, t) > 0 && fval(field('h' + t), f.i, f.j) > 1) moveField(f, 'h' + t); else if (Math.random() < 0.04 || crowd(f, t) >= 3) sidestep(f, X); return; }   // 모이는 곳에서도 가만히 서 있지 않음
+    if (X.goal === 'def') { if (tdist(f, t) > 4) moveField(f, 't' + t); return; }
+    if (b.cls !== 'knight' && !((X.mode || 'fight') === 'push' && tdist(f, o) <= RNG[b.cls] + 5)) { const fr = front(t); if (fr == null) { moveField(f, 'h' + t); return; }
+      if (tdist(f, o) <= fr + ((X.mode || 'fight') === 'push' ? 1 : 1.5) + p.keep) { if (crowd(f, t) >= 2 || Math.random() < 0.05) sidestep(f, X, Math.abs(f.i + 0.5 - (TWL.cx + p.lane)) > 1.2); return; } }   // 원거리는 기사 뒤에서 (거리·줄은 봇마다 · 붙어 서지 않게)
+    if (Math.abs(f.i + 0.5 - (TWL.cx + p.lane)) > 1.5 && Math.random() < 0.3 && sidestep(f, X, true)) return;   // 자기 줄로
     moveField(f, 't' + o); }
   function attack(f, b, X, tg) { const cls = b.cls, dist = cheb(f.i, f.j, tg.i, tg.j); f.atkT = 0; X.cd = ATK[cls] / GSPD / TWB.spd;
     if (cls === 'knight') { const [d, cr] = rollD(f); deal(f, tg, tg.twr || Math.random() < hitChance(f, tg) ? d : 0, 'melee', cr); snd(f, 'swing'); return; }
@@ -7670,23 +7700,26 @@ const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; 
   function changed() { ver++; if (S && (S.st === 'lock' || S.st === 'ok')) { S.st = 'open'; S.pv = -1; asked = false; } push(); render(); }
   function addItem(e) { if (!S || S.st === 'done') return; if (!tradable(e)) { say('착용 중·잠금·소환 중인 것은 교환할 수 없어요.', '#f08a7a'); return; } if (offer.some(x => x.e === e)) return; if (offer.length >= MAXIT) { say(`한 번에 ${MAXIT}개까지 올릴 수 있어요.`, '#f08a7a'); return; }
     offer.push({ e, n: e.n }); changed(); }
-  function open() { const w = $('tradewin'); if (!w || !S) return; w.hidden = false; $('tw-who').textContent = S.name; $('tw-gold').value = gold || ''; render(); }
-  let lastH = '';
+  function open() { const w = $('tradewin'); if (!w || !S) return; RS.m = RS.h = RS.b = RS.ms = RS.hs = null; w.hidden = false; $('tw-who').textContent = S.name; $('tw-gold').value = gold || ''; render(); }
+  const RS = { m: null, h: null, b: null };
+  const tipStr = (e, extra) => INV.tipOf(Object.assign({ n: 1 }, e, { on: false })).split('\n').filter(l => !/더블클릭|꾹 누르고|우클릭/.test(l)).concat(extra ? [extra] : []).join('\n');
   function render() { const w = $('tradewin'); if (!w || w.hidden || !S) return; const t = ptd(), mine = S.st, his = t ? t.st : 'open';
-    const tipA = (e, extra) => ` data-itip="${esc(INV.tipOf(Object.assign({ n: 1 }, e, { on: false })).split('\n').filter(l => !/더블클릭|꾹 누르고|우클릭/.test(l)).concat(extra ? [extra] : []).join('\n'))}" data-ic="${rarC(e.id)}"`;
+    const tipA = (e, extra) => ` data-itip="${esc(tipStr(e, extra))}" data-ic="${rarC(e.id)}"`;
     const enB = e => e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '';
     const row = (e, n, k, me) => { const d = ITEMS[e.id]; if (!d) return ''; return `<div class="tw-it"${me ? ` data-k="${k}"` : ''}${tipA(e, me ? '클릭: 교환창에서 빼기' : '')}><span class="ic">${ico(d.icon, e.blessed)}${enB(e)}</span><b style="color:${rarC(e.id)}">${esc(INV.nameOf(e))}</b>${d.stack ? (me ? `<input type="number" min="1" max="${e.n}" value="${n}" data-n="${k}" class="tw-n">` : `<small>×${n}</small>`) : ''}</div>`; };
     const stTxt = s => s === 'ok' ? '<span class="ok">교환 수락 ✔</span>' : s === 'lock' ? '<span class="ok">확인함 ✔</span>' : '<span>항목 고르는 중…</span>';
-    const mineH = offer.map((x, k) => row(x.e, x.n, k, true)).join('') || '<p class="tw-empty">아래 내 가방에서 눌러 올리세요</p>';
-    const hisH = ((t && t.it) || []).map(e => row(e, e.n, 0, false)).join('') || '<p class="tw-empty">아직 올린 것이 없어요</p>';
-    const bagH = INV.bag().filter(e => tradable(e) && !offer.some(x => x.e === e)).map((e, k) => { const d = ITEMS[e.id]; return `<button type="button" class="tw-b" data-bag="${INV.bag().indexOf(e)}"${tipA(e, '클릭: 교환창에 올리기')}><span class="ic">${ico(d.icon, e.blessed)}</span>${enB(e)}${d.stack && e.n > 1 ? `<em>${e.n > 999 ? '999+' : e.n}</em>` : ''}</button>`; }).join('');
-    const h = mineH + '|' + hisH + '|' + bagH + '|' + mine + his + (t ? t.g : 0) + coins;
-    if (h !== lastH) { lastH = h; $('tw-mine').innerHTML = mineH; $('tw-his').innerHTML = hisH; $('tw-bag').innerHTML = bagH || '<p class="tw-empty">올릴 수 있는 물건이 없어요</p>'; $('tw-hisgold').textContent = ((t && t.g) || 0).toLocaleString(); $('tw-have').textContent = coins.toLocaleString(); }
-    $('tw-mst').innerHTML = stTxt(mine); $('tw-hst').innerHTML = stTxt(his);
+    // 바뀐 칸만 다시 그림 (예전엔 0.1초마다 가방 전체 설명을 새로 만들어서 가방이 크면 멈췄고, 상대가 바꿀 때마다 내 수량 입력칸까지 새로 그려졌음)
+    const bag = INV.bag(), sigM = offer.map(x => x.e.id + ':' + x.n + ':' + (x.e.en || 0) + ':' + (x.e.blessed ? 1 : 0)).join(','), sigH = t ? (t.v + '|' + ((t.it || []).length) + '|' + (t.g || 0)) : '-', sigB = bag.map(e => e.id + (e.n > 1 ? '*' + e.n : '') + (e.en ? '+' + e.en : '') + (e.on ? '!' : '')).join(',') + '|' + offer.map(x => bag.indexOf(x.e)).join(',');   /* 가방 칸은 올린 물건이 바뀔 때만 (수량만 바꾸면 그대로) */
+    if (sigM !== RS.m) { RS.m = sigM; const ae = document.activeElement, keep = ae && ae.closest && ae.closest('#tw-mine') && ae.dataset.n != null ? ae.dataset.n : null; $('tw-mine').innerHTML = offer.map((x, k) => row(x.e, x.n, k, true)).join('') || '<p class="tw-empty">아래 내 가방에서 눌러 올리세요</p>'; if (keep != null) { const el = $('tw-mine').querySelector(`[data-n="${keep}"]`); if (el) el.focus(); } }
+    if (sigH !== RS.h) { RS.h = sigH; $('tw-his').innerHTML = ((t && t.it) || []).map(e => row(e, e.n, 0, false)).join('') || '<p class="tw-empty">아직 올린 것이 없어요</p>'; }
+    if (sigB !== RS.b) { RS.b = sigB; const bagH = bag.filter(e => tradable(e) && !offer.some(x => x.e === e)).map(e => { const d = ITEMS[e.id]; return `<button type="button" class="tw-b" data-bag="${bag.indexOf(e)}" data-itip="" data-lz="1" data-ic="${rarC(e.id)}"><span class="ic">${ico(d.icon, e.blessed)}</span>${enB(e)}${d.stack && e.n > 1 ? `<em>${e.n > 999 ? '999+' : e.n}</em>` : ''}</button>`; }).join(''); $('tw-bag').innerHTML = bagH || '<p class="tw-empty">올릴 수 있는 물건이 없어요</p>'; }
+    { const hg = ((t && t.g) || 0).toLocaleString(), hv = coins.toLocaleString(); if ($('tw-hisgold').textContent !== hg) $('tw-hisgold').textContent = hg; if ($('tw-have').textContent !== hv) $('tw-have').textContent = hv; }
+    { const a = stTxt(mine), b = stTxt(his); if (RS.ms !== a) { RS.ms = a; $('tw-mst').innerHTML = a; } if (RS.hs !== b) { RS.hs = b; $('tw-hst').innerHTML = b; } }
     const ok = $('tw-ok'); ok.textContent = mine === 'lock' || mine === 'ok' ? (his === 'lock' || his === 'ok' ? '교환 확인 중…' : '상대 확인 기다리는 중…') : '확인'; ok.disabled = mine !== 'open';
     w.classList.toggle('locked', mine !== 'open'); }
   { const w = $('tradewin');
     if (w) { w.addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.preventDefault(); end('교환을 취소했습니다.'); } ev.stopPropagation(); });
+      { const lz = ev => { const b = ev.target.closest && ev.target.closest('[data-lz]'); if (!b) return; const it = INV.bag()[+b.dataset.bag]; if (it) b.dataset.itip = tipStr(it, '클릭: 교환창에 올리기'); delete b.dataset.lz; }; $('tw-bag').addEventListener('mouseover', lz); $('tw-bag').addEventListener('pointerdown', lz); }   // 가방 칸 설명은 마우스를 올릴 때 만듦 (가방이 커도 안 멈추게)
       $('tw-bag').onclick = ev => { const b = ev.target.closest('[data-bag]'); if (!b || !S || S.st !== 'open') return; const e = INV.bag()[+b.dataset.bag]; if (e) addItem(e); };
       $('tw-mine').onclick = ev => { if (ev.target.closest('input')) return; const r = ev.target.closest('[data-k]'); if (!r || !S || S.st !== 'open') return; offer.splice(+r.dataset.k, 1); changed(); };
       $('tw-mine').onchange = ev => { const i = ev.target.closest('[data-n]'); if (!i || !S) return; const x = offer[+i.dataset.n]; if (!x) return; x.n = Math.max(1, Math.min(x.e.n, Math.floor(+i.value || 1))); i.value = x.n; changed(); };
@@ -7757,6 +7790,11 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 184, items: ['교환창: 두 사람이 동시에 수량을 바꾸면 게임이 멈추던 문제를 고쳤어요. (바뀐 칸만 다시 그리고, 가방 설명은 마우스를 올릴 때 만들어요)',
+      '자동 스킬: 기사 스턴 같은 공격 기술을 평타가 들어간 직후에도 쓰고, 못 쓰는 자동 스킬이 있어도 다음 스킬로 넘어가요.',
+      '수호탑 대전: 아군 봇이 길을 막으면 자리를 바꿔 지나갈 수 있어요.',
+      '수호탑 대전 봇: 봇마다 성격(공격성·선호 위치·추격 끈기·후퇴 시점·반응 속도)이 달라졌어요. 한 줄로 서지 않고 흩어지며, 도망가는 대상을 끝까지 쫓지 않고, HP가 낮으면 물러났다가 돌아와요.',
+      '수호탑 대전 봇 밸런스: 기사·요정 봇 명중이 올라가고(높은 방어 상대 약 30%→50%), 법사 봇 마법 피해와 힐(12%→9%)은 줄었어요.'] },
     { v: 183, items: ['수호탑 대전: 같이 하는 사람 화면에서 적 봇·수호탑이 보였다 안 보였다 하던 문제를 고쳤어요. (점수·연출 정보를 줄여 봇 목록이 잘리지 않게)', '창고·상점·판매·제작 창을 열어 둔 채 다른 지역으로 이동하면 창이 자동으로 닫혀요.'] },
     { v: 182, items: ['새 콘텐츠 「수호탑 대전」: 아덴 마을의 수호탑 관리인 레오닉에게 말을 걸면 들어가요. 우리 편(유저 + 아군 봇) 20명과 적 봇 20명이 싸워 상대 수호탑을 먼저 부수면 이겨요. 30분이 지나면 수호탑 체력이 더 남은 편이 이겨요.',
       '수호탑 대전 규칙: 물약·주문서는 써도 줄지 않아요. 쓰러지면 7초 뒤 부활장소에서 HP·MP 50%로 일어나요. (사망 손실 없음) 블리자드·앱솔루트 배리어·서먼 몬스터는 쓸 수 없고 펫은 함께 갈 수 없어요. 활·마법은 수호탑에 절반만 들어가요. 들어가면 공격 스킬의 자동 사용은 꺼지고 버프만 자동으로 남아요. (나오면 다시 켜져요) 귀환 부적은 쓸 수 없고, 나갈 때는 점수판 오른쪽 위 [나가기]를 누르세요.',
