@@ -736,7 +736,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 177;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 178;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2351,12 +2351,12 @@ function drawUI(g, vw, vh){
   CHAT.place(chX, top, chW, hgt);
   // ── 오른쪽: 단축키 F1~F12 (3줄)
   // v177: 자동/수동 큰 버튼 — HP·MP 판과 단축칸 사이 세로 칸 (단축칸에 있는 스킬 전부의 자동 사용을 한 번에 끄고 켜기)
-  { const on=INV.hamOn(), bx=AX, by=top+1, bw2=AW, bh=hgt-2; AMRECT=[bx,by,bw2,bh]; const pu=0.5+0.5*Math.sin(time*3);
-    bevel(g,bx,by,bw2,bh,on?'#1c3a22':'#2a2420'); if (on){ g.save(); g.shadowColor='rgba(106,208,138,.7)'; g.shadowBlur=4+4*pu; g.strokeStyle='#6ad08a'; g.lineWidth=1.6; g.strokeRect(bx+1,by+1,bw2-2,bh-2); g.restore(); } else { g.strokeStyle='#8a7a5a'; g.lineWidth=1.2; g.strokeRect(bx+0.5,by+0.5,bw2-1,bh-1); }
-    const cx=bx+bw2/2; g.textAlign='center'; g.textBaseline='middle'; g.font='700 8.5px '+F; g.fillStyle=on?'#a8e8b8':'#a89e86'; g.fillText('스킬',cx,by+11);
-    const iy=by+bh/2-2; if (on){ g.strokeStyle='#9af0b0'; g.lineWidth=2.4; g.beginPath(); g.arc(cx,iy,8,0.55,5.3); g.stroke(); g.fillStyle='#9af0b0'; g.beginPath(); g.moveTo(cx+10.6,iy-8.6); g.lineTo(cx+10.2,iy+1.4); g.lineTo(cx+2.2,iy-3.2); g.closePath(); g.fill(); }
+  { const on=INV.hamOn(), bx=AX, by=top+1, bw2=AW, bh=hgt-2; AMRECT=[bx,by,bw2,bh];
+    bevel(g,bx,by,bw2,bh,'#2a2420'); g.strokeStyle='#8a7a5a'; g.lineWidth=1.2; g.strokeRect(bx+0.5,by+0.5,bw2-1,bh-1);   /* v178: 자동·수동 같은 색 (아이콘·글씨만 바뀜) */
+    const cx=bx+bw2/2; g.textAlign='center'; g.textBaseline='middle'; g.font='700 8.5px '+F; g.fillStyle='#a89e86'; g.fillText('스킬',cx,by+11);
+    const iy=by+bh/2-2; if (on){ g.strokeStyle='#d8cfb8'; g.lineWidth=2.4; g.beginPath(); g.arc(cx,iy,8,0.55,5.3); g.stroke(); g.fillStyle='#d8cfb8'; g.beginPath(); g.moveTo(cx+10.6,iy-8.6); g.lineTo(cx+10.2,iy+1.4); g.lineTo(cx+2.2,iy-3.2); g.closePath(); g.fill(); }
     else { g.fillStyle='#d8cfb8'; g.fillRect(cx-6,iy-0.5,12.4,8.6); for (let f=0;f<4;f++) g.fillRect(cx-6+f*3.3,iy-8.6+(f===0||f===3?2:0),2.3,8.4); g.fillRect(cx+6.2,iy-3,2.6,5.4); }
-    g.font='900 12px '+F; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(on?'자동':'수동',cx,by+bh-13); g.fillStyle=on?'#c8ffd8':'#e8dcc0'; g.fillText(on?'자동':'수동',cx,by+bh-13); g.textBaseline='alphabetic'; }
+    g.font='900 12px '+F; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(on?'자동':'수동',cx,by+bh-13); g.fillStyle='#e8dcc0'; g.fillText(on?'자동':'수동',cx,by+bh-13); g.textBaseline='alphabetic'; }
   const rx=HX+2; ornate(g,rx-2,top,R-3,hgt);
   const sw=Math.min(28, Math.floor((R-14)/4)), gx=rx+Math.floor((R-6-sw*4)/2);
   HOTRECT.length=0;
@@ -7268,6 +7268,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 178, items: ['[자동/수동] 버튼의 초록색을 없앴어요. 자동·수동 모두 같은 색이고, 아이콘(회전 화살표 · 손)과 글씨만 바뀌어요.'] },
     { v: 177, items: ['[자동/수동] 버튼을 크게 키워서 HP·MP 칸과 단축칸 사이로 옮겼어요. 지금 상태(자동은 초록빛 · 수동은 손 모양)가 한눈에 보이고 누르기 쉬워요.', '창이 좁을 때 자동 물약 칸의 글자가 겹치던 것을 고쳤어요.'] },
     { v: 176, items: ['자동 물약 칸이 빨간·주홍·맑은 물약 3칸으로 나뉘었어요. 칸마다 가진 개수가 보이고, 체크하면 그 물약을 자동으로 마셔요. ◀ ▶로 HP 몇 % 이하에서 마실지 바로 정할 수 있어요.', '여러 칸을 체크하면 지금 HP에 해당하는 것 중 더 낮은 단계(급한 쪽)의 물약을 먼저 마셔요. 체크를 끈 물약과 가진 게 없는 물약은 마시지 않아요. 지금 마시고 있는 물약 칸은 금빛 테두리로 보여요.', 'PC 화면 아래 단축칸과 대화창 자리를 바꿨어요. 이제 HP·MP 옆에 단축칸, 오른쪽 끝에 대화창이 있어요.', '단축칸 아래의 [휠 ▶ F1] 표시를 없앴어요. (휠 위치는 단축칸의 금색 테두리로 보여요)', '단축칸 왼쪽 아래에 [자동/수동] 버튼이 생겼어요. 누르면 단축칸에 있는 스킬의 자동 사용을 한 번에 끄고(수동), 다시 누르면 꺼 두었던 스킬만 그대로 다시 켜요(자동). 단축칸에 없는 스킬의 자동 사용은 바뀌지 않아요. [휠 고정]은 오른쪽으로 옮겼어요.', '마법 인형 크기를 30% 줄였어요.', '절전 모드 통계에 귀환 횟수 · 사망 횟수 · 상점 구매 내역(물건별 개수와 쓴 골드)이 나와요.', '마법사 · 기사 · 요정의 마법 효과를 모두 리니지 클래식 느낌으로 바꿨어요.', '공격 마법: 콜 라이트닝·라이트닝 스톰은 하늘에서 내리꽂는 번개 기둥, 디스인티그레이트는 하늘에서 내려와 꽂히는 하얀 거대한 창, 이럽션·어스퀘이크는 솟아오르는 돌판, 미티어는 모래 먼지 구름, 선버스트는 흰빛 구체, 콘 오브 콜드·블리자드는 얼음 조각, 파이어 스톰은 불기둥, 토네이도는 흙먼지 회오리로 바뀌었어요.', '회복·보조 마법: 힐 계열은 위에서 내려오는 반짝이 가루, 실드·카운터 매직·배리어 같은 보호 마법은 몸을 감싸는 빛 구체(이뮨 투 함은 지금처럼 연두색 빛기둥), 버프는 몸을 따라 올라가는 빛줄기로 바뀌었어요. 어스 바인드는 노란 돌덩이 기둥으로 대상을 가둬요.'] },
     { v: 175, items: ['이뮨 투 함 지속 시간이 늘었어요. 나에게 쓰면 28초, 파티원에게 쓰면 18초 동안 받는 피해가 30% 줄어요. (이전: 12초)'] },
