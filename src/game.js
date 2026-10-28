@@ -736,7 +736,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 176;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 177;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2300,7 +2300,7 @@ function drawUI(g, vw, vh){
     g.textAlign='left'; g.font='600 9px '+F; g.fillStyle=on?'#e8d8a8':'#7a7262'; g.fillText(AUTO.status(),10,top+56);
     const yy=top+74; bevel(g,8,yy-12,L-16,15,'#26201b'); g.textAlign='left'; g.font='500 11px '+F; g.fillStyle='#a89e86'; g.fillText('골드',13,yy); g.textAlign='right'; g.fillStyle='#e8d080'; g.fillText(coins.toLocaleString(),L-13,yy); g.font='500 9px '+F; g.fillStyle='rgba(168,158,134,.62)'; g.fillText('v'+GAME_VER,L-12,yy+16); }
   // ── 가운데: HP/MP (크게) + 대화창
-  const cx0=L+2, cw=vw-L-R-4, bw=Math.min(280, Math.floor(cw*0.42)), HX=cx0+bw+6, chX=HX+R+1, chW=cw-bw-8;   // v175: 단축칸을 HP·MP 옆으로, 대화창을 오른쪽 끝으로
+  const cx0=L+2, cw=vw-L-R-4, bw=Math.min(280, Math.floor(cw*0.42)), AW=34, AX=cx0+bw+5, HX=AX+AW+4, chX=HX+R+1, chW=cw-bw-8-AW-4;   // v177: HP·MP | 자동/수동 | 단축칸 | 대화창   // v175: 단축칸을 HP·MP 옆으로, 대화창을 오른쪽 끝으로
   ornate(g,cx0,top,bw,hgt);
   const big=(y,lab,k,cur,max,c1,c2)=>{ g.textAlign='left'; g.font='800 11px '+F; g.fillStyle=c2; g.fillText(lab,cx0+8,y+13);
     const bx=cx0+32, w=bw-40; g.fillStyle='#0c0a08'; g.fillRect(bx-1,y-1,w+2,20); g.fillStyle='#2a1f1a'; g.fillRect(bx,y,w,18);
@@ -2325,7 +2325,7 @@ function drawUI(g, vw, vh){
       if (act){ const pu=0.6+0.4*Math.sin(time*6); g.save(); g.shadowColor='#ffd040'; g.shadowBlur=6+4*pu; g.strokeStyle=`rgba(255,${(200+30*pu)|0},70,1)`; g.lineWidth=2; g.strokeRect(x+1,y+1,w-2,h-2); g.restore(); }
       else { g.strokeStyle=on?'#b84a3a':'#3a3226'; g.lineWidth=1; g.strokeRect(x+0.5,y+0.5,w-1,h-1); }
       const isz=Math.max(11,Math.min(16,h-30,Math.floor(w*0.24))), im2=iconImg(ITEMS[id].icon); if (im2.complete&&im2.naturalWidth){ g.save(); g.globalAlpha=on&&cnt>0?1:0.45; g.imageSmoothingEnabled=true; g.drawImage(im2,x+2,y+3,isz,isz); g.restore(); }
-      g.textBaseline='middle'; { let fs=9; g.font='800 '+fs+'px '+F; while (fs>6.5&&g.measureText(cnt+'개').width>w-isz-19){ fs-=0.5; g.font='800 '+fs+'px '+F; } } g.fillStyle=cnt>0?(on?'#f2e2b4':'#8a8270'):'#8a5a4a'; g.fillText(cnt+'개',x+isz+4,y+3+isz/2); if (h>=44){ g.textAlign='center'; g.font='600 8px '+F; g.fillStyle=on?'#cfc6ae':'#6a6252'; g.fillText(ITEMS[id].name,x+w/2,y+h/2+2); g.textAlign='left'; }
+      g.textBaseline='middle'; { let fs=9; g.font='800 '+fs+'px '+F; while (fs>6.5&&g.measureText(cnt+'개').width>w-isz-19){ fs-=0.5; g.font='800 '+fs+'px '+F; } } g.fillStyle=cnt>0?(on?'#f2e2b4':'#8a8270'):'#8a5a4a'; g.fillText(cnt+'개',x+isz+4,y+3+isz/2); if (h>=44&&w>=70){ g.textAlign='center'; g.font='600 8px '+F; g.fillStyle=on?'#cfc6ae':'#6a6252'; g.fillText(ITEMS[id].name,x+w/2,y+h/2+2); g.textAlign='left'; }
       { const bs=9, bx=x+w-bs-3, by=y+4; g.fillStyle='#0e0c0a'; g.fillRect(bx,by,bs,bs); g.strokeStyle=on?'#ffd040':'#8a7a5a'; g.lineWidth=1; g.strokeRect(bx+0.5,by+0.5,bs-1,bs-1);
         if (on){ g.strokeStyle='#ffe08a'; g.lineWidth=1.8; g.beginPath(); g.moveTo(bx+1.8,by+4.6); g.lineTo(bx+3.9,by+6.9); g.lineTo(bx+7.4,by+2.2); g.stroke(); } POTRECT.push([bx-4,by-3,bs+8,bs+7,'chk',id]); }
       { const ry=y+h-14, ab=11; const arw=(ax,dir)=>{ bevel(g,ax,ry,ab,12,'#2a2219'); g.strokeStyle='#5a4a34'; g.lineWidth=1; g.strokeRect(ax+0.5,ry+0.5,ab-1,11); g.fillStyle=on?'#e8d8a8':'#7a7262'; g.beginPath(); const c1=ax+ab/2, c2=ry+6;
@@ -2350,6 +2350,13 @@ function drawUI(g, vw, vh){
     g.fillStyle='rgba(255,255,255,.08)'; g.fillRect(tx,top+4,3,th); g.fillStyle=logScroll?'#d2a94c':'rgba(210,169,76,.55)'; g.fillRect(tx,ky,3,kh); }
   CHAT.place(chX, top, chW, hgt);
   // ── 오른쪽: 단축키 F1~F12 (3줄)
+  // v177: 자동/수동 큰 버튼 — HP·MP 판과 단축칸 사이 세로 칸 (단축칸에 있는 스킬 전부의 자동 사용을 한 번에 끄고 켜기)
+  { const on=INV.hamOn(), bx=AX, by=top+1, bw2=AW, bh=hgt-2; AMRECT=[bx,by,bw2,bh]; const pu=0.5+0.5*Math.sin(time*3);
+    bevel(g,bx,by,bw2,bh,on?'#1c3a22':'#2a2420'); if (on){ g.save(); g.shadowColor='rgba(106,208,138,.7)'; g.shadowBlur=4+4*pu; g.strokeStyle='#6ad08a'; g.lineWidth=1.6; g.strokeRect(bx+1,by+1,bw2-2,bh-2); g.restore(); } else { g.strokeStyle='#8a7a5a'; g.lineWidth=1.2; g.strokeRect(bx+0.5,by+0.5,bw2-1,bh-1); }
+    const cx=bx+bw2/2; g.textAlign='center'; g.textBaseline='middle'; g.font='700 8.5px '+F; g.fillStyle=on?'#a8e8b8':'#a89e86'; g.fillText('스킬',cx,by+11);
+    const iy=by+bh/2-2; if (on){ g.strokeStyle='#9af0b0'; g.lineWidth=2.4; g.beginPath(); g.arc(cx,iy,8,0.55,5.3); g.stroke(); g.fillStyle='#9af0b0'; g.beginPath(); g.moveTo(cx+10.6,iy-8.6); g.lineTo(cx+10.2,iy+1.4); g.lineTo(cx+2.2,iy-3.2); g.closePath(); g.fill(); }
+    else { g.fillStyle='#d8cfb8'; g.fillRect(cx-6,iy-0.5,12.4,8.6); for (let f=0;f<4;f++) g.fillRect(cx-6+f*3.3,iy-8.6+(f===0||f===3?2:0),2.3,8.4); g.fillRect(cx+6.2,iy-3,2.6,5.4); }
+    g.font='900 12px '+F; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(on?'자동':'수동',cx,by+bh-13); g.fillStyle=on?'#c8ffd8':'#e8dcc0'; g.fillText(on?'자동':'수동',cx,by+bh-13); g.textBaseline='alphabetic'; }
   const rx=HX+2; ornate(g,rx-2,top,R-3,hgt);
   const sw=Math.min(28, Math.floor((R-14)/4)), gx=rx+Math.floor((R-6-sw*4)/2);
   HOTRECT.length=0;
@@ -2372,10 +2379,6 @@ function drawUI(g, vw, vh){
     if (sel){ const pu=0.6+0.4*Math.sin(time*5); g.save(); g.shadowColor='#ffd040'; g.shadowBlur=8+4*pu; g.strokeStyle=`rgba(255,${200+30*pu|0},70,1)`; g.lineWidth=2.4; g.strokeRect(x+0.5,y-0.5,sw-2,sw-2); g.restore();   /* 휠 위치: 금빛으로 깜빡이는 굵은 테두리 + 위쪽 ▼ 표시 */
       g.save(); g.fillStyle='#ffd040'; g.strokeStyle='#3a2600'; g.lineWidth=1; g.beginPath(); g.moveTo(x+sw/2-5,y-6); g.lineTo(x+sw/2+3,y-6); g.lineTo(x+sw/2-1,y-1); g.closePath(); g.fill(); g.stroke(); g.restore(); } }
   { const yy=top+5+3*(sw+2)+1, bsz=9, x0=gx+2, x1=gx+sw*4-4; g.save(); g.textBaseline='middle';   /* v176: 왼쪽 = 자동/수동 (단축칸 스킬의 자동 사용 한 번에 끄고 켜기) · 오른쪽 = 휠 고정 */
-    { const on=INV.hamOn(), bw2=38, bh=bsz+3, bx=x0-1, by=yy-1.5; AMRECT=[bx-1,by-2,bw2+2,bh+4]; bevel(g,bx,by,bw2,bh,on?'#1e3a24':'#2a2420'); g.strokeStyle=on?'#6ad08a':'#7a6a52'; g.lineWidth=1; g.strokeRect(bx+0.5,by+0.5,bw2-1,bh-1);
-      const ix=bx+7, iy=by+bh/2; if (on){ g.strokeStyle='#9af0b0'; g.lineWidth=1.4; g.beginPath(); g.arc(ix,iy,3.4,0.5,5.3); g.stroke(); g.fillStyle='#9af0b0'; g.beginPath(); g.moveTo(ix+4.6,iy-3.6); g.lineTo(ix+4.4,iy+0.6); g.lineTo(ix+0.9,iy-1.4); g.closePath(); g.fill(); }
-      else { g.fillStyle='#c8bfa8'; g.fillRect(ix-3,iy-0.6,6.2,4.4); for (let f=0;f<4;f++) g.fillRect(ix-3+f*1.65,iy-4.4+(f===0||f===3?1:0),1.15,4); g.fillRect(ix+3.2,iy-1.8,1.3,2.6); }
-      g.font='800 8px '+F; g.textAlign='left'; g.fillStyle=on?'#c8ffd8':'#c8bfa8'; g.fillText(on?'자동':'수동',bx+13.5,iy+0.5); }
     { g.font='700 8px '+F; const tw=g.measureText('휠 고정').width, bxx=Math.round(x1-tw-bsz-4); WLRECT=[bxx-2,yy-2,tw+bsz+8,bsz+4]; g.fillStyle='#0e0c0a'; g.fillRect(bxx,yy,bsz,bsz); g.strokeStyle=WHEEL_LOCK?'#ffd040':'#8a7a5a'; g.lineWidth=1; g.strokeRect(bxx+0.5,yy+0.5,bsz-1,bsz-1);
       if (WHEEL_LOCK){ g.strokeStyle='#ffe08a'; g.lineWidth=1.6; g.beginPath(); g.moveTo(bxx+2,yy+4.5); g.lineTo(bxx+4,yy+7); g.lineTo(bxx+7.5,yy+2); g.stroke(); }
       g.textAlign='left'; g.fillStyle=WHEEL_LOCK?'#ffe08a':'#c8bfa8'; g.fillText('휠 고정', bxx+bsz+4, yy+bsz/2+0.5); }
@@ -7265,6 +7268,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 177, items: ['[자동/수동] 버튼을 크게 키워서 HP·MP 칸과 단축칸 사이로 옮겼어요. 지금 상태(자동은 초록빛 · 수동은 손 모양)가 한눈에 보이고 누르기 쉬워요.', '창이 좁을 때 자동 물약 칸의 글자가 겹치던 것을 고쳤어요.'] },
     { v: 176, items: ['자동 물약 칸이 빨간·주홍·맑은 물약 3칸으로 나뉘었어요. 칸마다 가진 개수가 보이고, 체크하면 그 물약을 자동으로 마셔요. ◀ ▶로 HP 몇 % 이하에서 마실지 바로 정할 수 있어요.', '여러 칸을 체크하면 지금 HP에 해당하는 것 중 더 낮은 단계(급한 쪽)의 물약을 먼저 마셔요. 체크를 끈 물약과 가진 게 없는 물약은 마시지 않아요. 지금 마시고 있는 물약 칸은 금빛 테두리로 보여요.', 'PC 화면 아래 단축칸과 대화창 자리를 바꿨어요. 이제 HP·MP 옆에 단축칸, 오른쪽 끝에 대화창이 있어요.', '단축칸 아래의 [휠 ▶ F1] 표시를 없앴어요. (휠 위치는 단축칸의 금색 테두리로 보여요)', '단축칸 왼쪽 아래에 [자동/수동] 버튼이 생겼어요. 누르면 단축칸에 있는 스킬의 자동 사용을 한 번에 끄고(수동), 다시 누르면 꺼 두었던 스킬만 그대로 다시 켜요(자동). 단축칸에 없는 스킬의 자동 사용은 바뀌지 않아요. [휠 고정]은 오른쪽으로 옮겼어요.', '마법 인형 크기를 30% 줄였어요.', '절전 모드 통계에 귀환 횟수 · 사망 횟수 · 상점 구매 내역(물건별 개수와 쓴 골드)이 나와요.', '마법사 · 기사 · 요정의 마법 효과를 모두 리니지 클래식 느낌으로 바꿨어요.', '공격 마법: 콜 라이트닝·라이트닝 스톰은 하늘에서 내리꽂는 번개 기둥, 디스인티그레이트는 하늘에서 내려와 꽂히는 하얀 거대한 창, 이럽션·어스퀘이크는 솟아오르는 돌판, 미티어는 모래 먼지 구름, 선버스트는 흰빛 구체, 콘 오브 콜드·블리자드는 얼음 조각, 파이어 스톰은 불기둥, 토네이도는 흙먼지 회오리로 바뀌었어요.', '회복·보조 마법: 힐 계열은 위에서 내려오는 반짝이 가루, 실드·카운터 매직·배리어 같은 보호 마법은 몸을 감싸는 빛 구체(이뮨 투 함은 지금처럼 연두색 빛기둥), 버프는 몸을 따라 올라가는 빛줄기로 바뀌었어요. 어스 바인드는 노란 돌덩이 기둥으로 대상을 가둬요.'] },
     { v: 175, items: ['이뮨 투 함 지속 시간이 늘었어요. 나에게 쓰면 28초, 파티원에게 쓰면 18초 동안 받는 피해가 30% 줄어요. (이전: 12초)'] },
     { v: 174, items: ['모든 마법·기술·정령마법 아이콘을 새로 그렸어요. 어두운 돌판에 하얀 문양을 새긴 클래식 스타일이에요. (스킬창·단축칸·버프 줄 모두)', '변신 주문서(다크·실버)를 읽을 때 레벨업 효과가 잘못 나오던 문제를 고쳤어요. 이제 마법진과 빛 소용돌이가 도는 변신 효과가 나와요.'] },
