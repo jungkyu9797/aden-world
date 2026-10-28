@@ -743,7 +743,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 182;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 183;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -6002,6 +6002,8 @@ const TOWN = (() => {
   const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin'], popStack = [];
   POPS.forEach(id => { const el = $(id); if (!el) return; new MutationObserver(() => { const k = popStack.indexOf(id); if (k >= 0) popStack.splice(k, 1); if (!el.hidden) popStack.push(id); }).observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
   function closePop(id) { if (id === 'shop' || id === 'wmap') closeAll(); else if (id === 'itemwin') INV.hideDetail(); else if (id === 'bulkwin') INV.bulkClose(); else $(id).hidden = true; }
+  // 다른 지역으로 가면(텔레포트·월드맵·귀환·수호탑 등) 마을 NPC 창(상점·판매·창고·제작·콜로세움)은 닫음
+  { let lastZ = null; setInterval(() => { const z = SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field:' + ZONE; if (lastZ !== null && z !== lastZ) for (const id of ['shop', 'sellwin', 'storewin', 'craftwin', 'colowin', 'bulkwin']) { const el = $(id); if (el && !el.hidden) closePop(id); } lastZ = z; }, 200); }
   function closeTop() { for (let k = popStack.length - 1; k >= 0; k--) { const id = popStack[k], el = $(id); if (!el || el.hidden) { popStack.splice(k, 1); continue; } closePop(id); return true; }
     const vis = POPS.find(id => $(id) && !$(id).hidden); if (vis) { closePop(vis); return true; } return false; }
   addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('askwin').hidden) return; ev.stopImmediatePropagation();
@@ -6698,7 +6700,9 @@ const NET = (() => {
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
-    const sz = () => TE.encode(JSON.stringify(P)).length; while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
+    const sz = () => TE.encode(JSON.stringify(P)).length;
+    if (P.tw && sz() > 3900) { P.tw = Object.assign({}, P.tw, { fx: (P.tw.fx || []).slice(-4) }); if (sz() > 3900) P.tw.fx = []; }   // 수호탑 대전: 패킷이 넘치면 연출부터 줄이고 봇·수호탑 목록은 지킴
+    while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
   // ----- 게스트: 호스트 몬스터·바닥 아이템 반영
   function applyHost(o) { const list = o.pr.m; const seen = new Set(); { const M = new Map(Array.isArray(o.pr.bt) ? o.pr.bt : []); for (const f of foxes) if (f.uid != null && MOB[f.kind] && MOB[f.kind].boss) f.netAg = M.get(f.uid) || ''; } applyTk(o);
     for (const [uid, k, x10, z10, row, pct, fl] of list) { seen.add(uid); let f = foxes.find(q => q.uid === uid);
@@ -6708,7 +6712,7 @@ const NET = (() => {
       if (!dead) { const hh = Math.max(1, Math.round(f.max * pct / 100)); f.hp = f.predUntil > time ? Math.min(f.hp, hh) : hh; }
       if ((fl & 2) && !f.wasAtk && !dead) { f.atkT = 0; MSFX(f.kind, 'attack', 0.35); } f.wasAtk = !!(fl & 2);
       if (!dead) { if (fl & 8) f.stunT = Math.max(f.stunT || 0, 0.35); if (fl & 16) f.slowT = Math.max(f.slowT || 0, 0.35); f.enraged = !!(fl & 32); f.regenOn = !!(fl & 64); } }   // v139: 호스트 화면의 스턴·슬로우·광폭화를 게스트 화면에도
-    for (const f of foxes) if (f.uid != null && !seen.has(f.uid) && !f.dead && Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) <= 20) f.gone = true;
+    for (const f of foxes) { if (f.uid == null) continue; if (seen.has(f.uid)) { f.missN = 0; continue; } if (f.dead || Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 20) continue; if ((f.bot || f.twr) && (f.missN = (f.missN || 0) + 1) < 15) continue; f.gone = true; }   // 수호탑 봇·탑: 패킷에서 잠깐 빠져도 1.5초는 그대로 (깜빡임 방지)
     applyAo(o);
     GROUND.setShared((o.pr.gi || []).map(([gid, ii, n, i, j, oi, left, bl]) => ({ gid, id: ik()[ii], n, i, j, owner: oi >= 0 ? (o.pr.go || [])[oi] : null, left, bl })).filter(x => ITEMS[x.id]), zk());
     const d = o.pr.d && myPeer && o.pr.d[myPeer]; if (d) { const last = seenDmg.get(o.peer) || 0; let mx = last;
@@ -6818,7 +6822,7 @@ const NET = (() => {
         if (!(pr.dd > 0)) { const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top);
         const w = 34, k = Math.max(0, Math.min(1, (pr.hp || 0) / (pr.hm || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore(); }
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
-  return { pvp, duelDef, wardDrop, cleansePeer, remotesNear, proxyOf: peer => proxy(peer), duelCount: () => OTH.filter(o => o.pr.z === 'isle15').length + (zk() === 'isle15' ? 1 : 0), mx, bossCast, peersAt, aggroName, aggroInfo, talkOut, talkTarget, hostHere: () => isHost(), setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
+  return { dbgPayload: () => payload(), pvp, duelDef, wardDrop, cleansePeer, remotesNear, proxyOf: peer => proxy(peer), duelCount: () => OTH.filter(o => o.pr.z === 'isle15').length + (zk() === 'isle15' ? 1 : 0), mx, bossCast, peersAt, aggroName, aggroInfo, talkOut, talkTarget, hostHere: () => isHost(), setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, hitRaw, distribute, assignLoot, gahoGive, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
     zoneHost: () => isHost(), guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, partyOk(o) { return !!(o && o.pr && partyId && o.pr.pt === partyId && o.pr.z === zk()); }, peerObj(peer) { return OTH.find(q => q.peer === peer) || null; }, hoverParty() { if (SELF_CAST) return null; if (FORCE_PM) return FORCE_PM; const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
@@ -7148,7 +7152,7 @@ const TWM = (() => {
   function hostPub() { let best = null; for (const o of inZone()) { const c = o.pr.tw; if (!c || !c.s) continue; if (!best || o.peer < best.peer) best = o; } return best ? best.pr.tw : null; }
   const scObj = a => { const o = {}; for (const [k, n, d] of a || []) o[k] = [n, d]; return o; };
   function fromPub(c) { return { s: c.s, ph: c.ph, t: c.e, seed: c.sd, ref: c.rf, th: (c.th || [TW_THP, TW_THP]).slice(), k: (c.k || [0, 0]).slice(), sc: scObj(c.sc), res: c.res || null, nb: c.nb || 18, T: 0, _e: c.e }; }
-  function publish() { if (SIM) return; const o = { s: S.s, ph: S.ph, e: Math.round(S.t * 10) / 10, sd: S.seed, rf: S.ref, th: S.th.map(v => Math.max(0, Math.round(v))), k: S.k, sc: Object.entries(S.sc).filter(([, v]) => v[0] || v[1] >= 1).map(([k, v]) => [k, v[0], Math.round(v[1])]), res: S.res, fx: FX.slice(-24), nb: S.nb };
+  function publish() { if (SIM) return; const o = { s: S.s, ph: S.ph, e: Math.round(S.t * 10) / 10, sd: S.seed, rf: S.ref, th: S.th.map(v => Math.max(0, Math.round(v))), k: S.k, sc: Object.entries(S.sc).filter(([k, v]) => (v[0] || v[1] >= 1) && teamOfKey(k) === 'A').map(([k, v]) => [k, v[0], Math.round(v[1])]), res: S.res, fx: FX.slice(-12), nb: S.nb };   /* 점수는 우리 편만 (순위·내 점수용) · 연출은 최근 12개 — 몬스터 목록 자리를 지키려고 */
     if (!pub) { pub = o; NET.setExtra('tw', pub); } else Object.assign(pub, o); }
   const sc = k => S.sc[k] || (S.sc[k] = [0, 0]);
   function fx(ev) { if (SIM) return; FX.push([++fxSeq, ...ev]); if (FX.length > 40) FX.splice(0, FX.length - 40); play(ev); }
@@ -7753,6 +7757,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 183, items: ['수호탑 대전: 같이 하는 사람 화면에서 적 봇·수호탑이 보였다 안 보였다 하던 문제를 고쳤어요. (점수·연출 정보를 줄여 봇 목록이 잘리지 않게)', '창고·상점·판매·제작 창을 열어 둔 채 다른 지역으로 이동하면 창이 자동으로 닫혀요.'] },
     { v: 182, items: ['새 콘텐츠 「수호탑 대전」: 아덴 마을의 수호탑 관리인 레오닉에게 말을 걸면 들어가요. 우리 편(유저 + 아군 봇) 20명과 적 봇 20명이 싸워 상대 수호탑을 먼저 부수면 이겨요. 30분이 지나면 수호탑 체력이 더 남은 편이 이겨요.',
       '수호탑 대전 규칙: 물약·주문서는 써도 줄지 않아요. 쓰러지면 7초 뒤 부활장소에서 HP·MP 50%로 일어나요. (사망 손실 없음) 블리자드·앱솔루트 배리어·서먼 몬스터는 쓸 수 없고 펫은 함께 갈 수 없어요. 활·마법은 수호탑에 절반만 들어가요. 들어가면 공격 스킬의 자동 사용은 꺼지고 버프만 자동으로 남아요. (나오면 다시 켜져요) 귀환 부적은 쓸 수 없고, 나갈 때는 점수판 오른쪽 위 [나가기]를 누르세요.',
       '수호탑 대전 보상: 이기면 수호탑 승리 상자 5개, 지면 패배 상자 5개. 킬 1등·파괴 1등·수호탑 막타는 상자를 2개씩 더 받아요.',
