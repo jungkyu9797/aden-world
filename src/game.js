@@ -187,33 +187,47 @@ const toWorldPx=(sx,sy)=>[ (sx-W/2)/curZ+cam[0], (sy-H/2)/curZ+cam[1] ];
 let PRESEL = null, SELF_CAST = false;
 function pickAllAt(sx, sy) { const [px, py] = toWorldPx(sx, sy), L = [];
   for (const f of foxes) { if (f.dead || f.gone || !DN.seen(f.i, f.j)) continue; const S = MOB[f.kind]; if (!S) continue; const hw = S.hw || Math.round(14 * S.sc + 6), hh = S.hh || Math.round(62 * S.sc), [fx, fy] = W2P(f.x, f.z); if (px > fx - hw && px < fx + hw && py > fy - hh && py < fy + 8) L.push(f); }
-  if (PVPZ() && !DEATH) for (const o of NET.peersAt(sx, sy)) { if (o.pr.dd > 0 || !(o.pr.hp > 0)) continue; L.push(NET.proxyOf(o.peer)); }
+  if (!DEATH) for (const o of NET.peersAt(sx, sy)) { if (o.pr.dd > 0 || !(o.pr.hp > 0)) continue; L.push(NET.proxyOf(o.peer)); }   // v173: 결투장 밖에서도 캐릭터를 고를 수 있음 (고르면 메뉴·지원 마법 대상)
   return L.sort((a, b) => (b.x + b.z) - (a.x + a.z)); }   // 앞(화면 아래쪽)부터 = 좌클릭 기본 선택 순서
 const preselOk = () => PRESEL && PRESEL.until > time && PRESEL.e && !PRESEL.e.dead && !PRESEL.e.gone && (!PRESEL.e.isRemote || NET.alive(PRESEL.e));
 function preselAt(sx, sy) { if (!preselOk()) { PRESEL = null; return null; } return pickAllAt(sx, sy).includes(PRESEL.e) ? PRESEL.e : null; }
-function preselCycle(sx, sy) { if (SCENE !== 'field' || ADMIN.on()) return false; const L = pickAllAt(sx, sy); if (L.length < 2) return false;
+function preselCycle(sx, sy) { if (ADMIN.on()) return false; const L = pickAllAt(sx, sy); if (L.length < 2) return false;
   const cur = preselOk() && L.includes(PRESEL.e) ? L.indexOf(PRESEL.e) : -1, k = cur >= 0 ? (cur + 1) % L.length : 1; PRESEL = { e: L[k], k, n: L.length, until: time + 6 }; return true; }
 function drawPresel(g, vw, vh, ox, oy) { if (!preselOk()) return; const e = PRESEL.e, [x, y] = W2P(e.x, e.z), sx = x + ox, sy = y + oy; if (sx < -60 || sx > vw + 60 || sy < -60 || sy > vh + 60) return; const pu = 0.6 + 0.4 * Math.sin(time * 8);
   g.save(); g.strokeStyle = `rgba(255,224,90,${0.65 + 0.35 * pu})`; g.lineWidth = 2.4; g.setLineDash([6, 4]); g.lineDashOffset = -time * 24; g.beginPath(); g.ellipse(sx, sy + 2, 24, 10, 0, 0, 7); g.stroke(); g.setLineDash([]);
   const nm = e.isRemote ? NET.nameOf(e.peer) : ((MOB[e.kind] || {}).name || ''), t = `▶ ${nm} (${PRESEL.k + 1}/${PRESEL.n}) · 좌클릭: 선택`, hy = sy - (e.isRemote ? 96 : headY(e)) - 30;
   g.font = '800 10.5px "Noto Sans KR",sans-serif'; const w = g.measureText(t).width + 12; g.fillStyle = 'rgba(30,22,4,.88)'; g.fillRect(sx - w / 2, hy - 12, w, 17); g.strokeStyle = 'rgba(255,224,90,.85)'; g.lineWidth = 1; g.strokeRect(sx - w / 2 + 0.5, hy - 11.5, w - 1, 16); g.fillStyle = '#ffe680'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(t, sx, hy + 1); g.restore(); }
-// v157: 힐·이뮨·어드밴스 스피릿·리무브 커스는 단축키를 '따닥' 두 번 누르면 나에게 (파티원을 가리키고 있을 때만 한 번 누름인지 0.26초 기다림)
-const SELF_SK = new Set(['heal', 'xheal', 'gheal', 'immune', 'advspirit', 'rcurse']); let TAP2 = { k: null, t: 0, tm: 0 };
-function hotKeyTap(k, i) { const id = INV.hot(i), s = id && id.startsWith('sk:') ? id.slice(3) : null; if (!s || !SELF_SK.has(s)) { INV.useHot(i); return; } const now = performance.now();
-  if (TAP2.k === k && now - TAP2.t < 320) { clearTimeout(TAP2.tm); TAP2 = { k: null, t: 0, tm: 0 }; SELF_CAST = true; try { INV.useHot(i); } finally { SELF_CAST = false; } return; }
-  if (NET.hoverParty()) { TAP2 = { k, t: now, tm: setTimeout(() => { if (TAP2.k !== k) return; TAP2 = { k: null, t: 0, tm: 0 }; INV.useHot(i); }, 260) }; return; }
-  TAP2 = { k, t: now, tm: 0 }; INV.useHot(i); }
+// v173: 힐·이뮨·어드밴스 스피릿·리무브 커스 — 단축키를 한 번 누르면 '대상을 선택하십시오'
+//   2초 안에 같은 단축키를 한 번 더 누르면 나에게 · 대상 선택 중에는 나·파티원·왼쪽 파티창을 누르면 시전 · Esc·오른쪽 클릭(겹친 대상이 없을 때) = 취소 · 휠 클릭 = 가리킨 대상
+const SELF_SK = new Set(['heal', 'xheal', 'gheal', 'immune', 'advspirit', 'rcurse']); let TAP2 = { k: null, t: 0, tm: 0 }, SKTGT = null, FORCE_PM = null, PB_HOVER = null;
+function heroAt(sx, sy) { const [px, py] = toWorldPx(sx, sy), [hx, hy] = W2P(hero.x, hero.z); return Math.abs(px - hx) < 20 && py > hy - 74 && py < hy + 10; }
+function supportAt(sx, sy) { if (sx == null) return null; const ps = preselAt(sx, sy); if (ps && ps.isRemote) { const o = NET.peerObj(ps.peer); if (NET.partyOk(o)) return o; }
+  const op = NET.peerAt(sx, sy); if (op && NET.partyOk(op)) return op; return heroAt(sx, sy) ? 'self' : null; }
+function supportMode(on) { document.documentElement.classList.toggle('sktgt', !!on); cv.style.cursor = on ? 'crosshair' : 'default'; }
+function supportCast(sk, tg) { SKTGT = null; supportMode(false); if (tg === 'self') { SELF_CAST = true; try { castSkill(sk); } finally { SELF_CAST = false; } return; }
+  if (!NET.partyOk(tg)) { say('그 파티원은 같은 지역에 없어요.', '#9c9682'); return; } if (!(tg.pr.hp > 0) || tg.pr.dd > 0) { say('쓰러진 파티원에게는 쓸 수 없어요.', '#9c9682'); return; }
+  FORCE_PM = tg; try { castSkill(sk); } finally { FORCE_PM = null; } }
+function supportPrompt(k, sk) { SKTGT = { k, sk, t0: performance.now() }; supportMode(true); say(`${SK[sk].name}: 대상을 선택하십시오. (나·파티원 또는 왼쪽 파티창을 누르세요 · 2초 안에 한 번 더 누르면 나에게 · 휠 클릭: 가리킨 대상 · 취소: Esc)`, '#ffe9a0'); }
+function supportCancel(msg) { if (!SKTGT) return false; SKTGT = null; supportMode(false); if (msg) say(msg, '#9c9682'); return true; }
+function hotKeyTap(k, i) { const id = INV.hot(i), s = id && id.startsWith('sk:') ? id.slice(3) : null; if (!s || !SELF_SK.has(s) || !LEARNED.has(s)) { supportCancel(); INV.useHot(i); return; } const now = performance.now();
+  if (TAP2.k === k && now - TAP2.t < 2000) { TAP2 = { k: null, t: 0, tm: 0 }; supportCast(s, 'self'); return; }   // 2초 안에 두 번 → 나에게
+  TAP2 = { k, t: now, tm: 0 }; supportPrompt(k, s); }   // 한 번 = 대상 선택 (가리킨 대상에 바로 쓰려면 휠 클릭)
+{ const pbT = el => { const r = el && el.closest ? el.closest('#partybox [data-pp]') : null; if (!r) return null; return r.dataset.pp === 'me' ? 'self' : NET.peerObj(r.dataset.pp); };   // v173: 왼쪽 파티창으로 지원 마법
+  document.addEventListener('pointerdown', ev => { if (!SKTGT || ev.button !== 0) return; const tg = pbT(ev.target); if (tg) { ev.stopPropagation(); ev.preventDefault(); supportCast(SKTGT.sk, tg); } }, true);   // 누르는 순간 (파티창은 HP가 바뀔 때마다 다시 그려져서 click은 놓칠 수 있음)
+  document.addEventListener('mouseover', ev => { PB_HOVER = pbT(ev.target); }); }
+addEventListener('keydown', ev => { if (ev.key === 'Escape' && SKTGT) { supportCancel('대상 선택을 취소했습니다.'); ev.stopImmediatePropagation(); ev.preventDefault(); } }, true);
 function wheelTgt(sx, sy) { const ps = preselAt(sx, sy); if (ps) return ps; const f = pickFox(sx, sy); if (f) return f; if (PVPZ() && !DEATH) { const op = NET.peerAt(sx, sy); if (op && !(op.pr.dd > 0) && op.pr.hp > 0) return NET.proxyOf(op.peer); } return null; }   // v155: 휠 버튼 — 마우스가 가리킨 몬스터, 유저끼리 싸울 수 있는 곳(PVPZ: 결투장 · 앞으로 PvP 필드)에선 유저에게도 바로 시전
 function pickFox(sx,sy){ const [px,py]=toWorldPx(sx,sy); let b=null,bd=-1; for (const f of foxes){ if (f.dead||!DN.seen(f.i,f.j)) continue; const S=MOB[f.kind], hw=S.hw||Math.round(14*S.sc+6), hh=S.hh||Math.round(62*S.sc); const [fx,fy]=W2P(f.x,f.z); if (px>fx-hw&&px<fx+hw&&py>fy-hh&&py<fy+8&&f.x+f.z>bd){ bd=f.x+f.z; b=f; } } return b; }
 function P2Wh(px,py){ let [x,z]=P2W(px,py); for (let k=0;k<4;k++){ const h=hAt(x,z); [x,z]=P2W(px,py+h*VPXG); } return [x,z]; }
 function pickTile(sx,sy){ const [x,z]=P2Wh(...toWorldPx(sx,sy)); return [Math.floor(x),Math.floor(z)]; }
 cv.addEventListener('pointerdown',ev=>{ if (ev.button!==0) return; initAudio(); TOWN.unlockAudio(); cv.setPointerCapture(ev.pointerId); const r=cv.getBoundingClientRect(), sx=ev.clientX-r.left, sy=ev.clientY-r.top;
+  if (SKTGT && !(sy > H - PH*curZ) && !(MOBILE && MUI.hud(sx/curZ, sy/curZ))) { if (performance.now() - SKTGT.t0 > 15000) supportCancel(); else { const tg = supportAt(sx, sy); if (tg) supportCast(SKTGT.sk, tg); else supportCancel('대상 선택을 취소했습니다. (나·파티원을 눌러 주세요)'); return; } }   // v173
   { const lx=sx/curZ, ly=sy/curZ; if (STATRECT.some(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h)){ const cw=document.getElementById('charwin'); if (cw) cw.hidden=false; INV.render(); return; } if (ZONERECT.some(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h)){ const bm=document.getElementById('btn-map'); if (bm) bm.click(); return; } } if (MOBILE && MUI.down(sx/curZ, sy/curZ, ev)) return; if (sy > H - PH*curZ){ const lx=sx/curZ, ly=sy/curZ; if (WLRECT.length&&lx>=WLRECT[0]&&lx<=WLRECT[0]+WLRECT[2]&&ly>=WLRECT[1]&&ly<=WLRECT[1]+WLRECT[3]){ WHEEL_LOCK=!WHEEL_LOCK; try { localStorage.setItem('aden_wlock', WHEEL_LOCK?'1':'0'); } catch (e) {} say(`휠 스크롤 고정 ${WHEEL_LOCK?'켬 — 휠을 굴려도 선택 칸이 움직이지 않아요':'끔'}`, '#9fd0e8'); return; } { const hk=HOTRECT.findIndex(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (hk>=0){ INV.hotPick(hk); if (INV.hot(hk)){ hotDrag={k:hk,id:INV.hot(hk),sx:lx,sy:ly,mx:lx,my:ly,moved:false}; INV.holdHot(ev,hk); } return; } }
     const a=AUTORECT.find(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (a) INV.openAuto(); const hb=HUNTRECT.find(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (hb) { hb[4]==='toggle' ? AUTO.toggle() : AUTO.openSet(); } return; }
   { const lx=sx/curZ, ly=sy/curZ, pr=PETRECT.find(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (pr){ if (!pr[4].sum) PET.openWin(pr[4].e); return; } }
   if (MM.click(sx/curZ, sy/curZ)) return;
   if (COLO_LOCK) { COLO.lockSay(); return; }   // v136: 콜로세움 입장 대기 중엔 채팅만
-  if (!DEATH && !INV.targeting()) { const ps=preselAt(sx,sy); PRESEL=null; if (ps){ hero.target=ps; moveGoal=null; holding=false; return; } }   // v157: 우클릭으로 고른 대상을 좌클릭으로 선택
+  if (!DEATH && !INV.targeting()) { const ps=preselAt(sx,sy); PRESEL=null; if (ps){ if (ps.isRemote && !PVPZ()) { const o_=NET.peerObj(ps.peer); if (o_) NET.openMenu(o_, ev.clientX, ev.clientY); return; } hero.target=ps; moveGoal=null; holding=false; return; } }   // v157: 우클릭으로 고른 대상을 좌클릭으로 선택
   { const op=NET.peerAt(sx,sy); if (op && PVPZ() && !(op.pr.dd>0) && !DEATH && op.pr.hp > 0){ hero.target=NET.proxyOf(op.peer); moveGoal=null; holding=false; return; }   /* v146: 결투장 — 누르면 공격 */
     if (op && (SCENE==='town' || (op.pr.dd>0 && !DEATH))){ NET.openMenu(op, ev.clientX, ev.clientY); return; } }   // v131: 필드에서도 무덤을 누르면 메뉴(부활 주문서)
   if (DEATH) { deadSay(); return; }   // 다른 플레이어 클릭 → 파티 초대 메뉴 (마을에서만 · 필드는 오른쪽 클릭)
@@ -282,10 +296,10 @@ cv.addEventListener('wheel',ev=>{ ev.preventDefault(); const r=cv.getBoundingCli
   if (lx>=cx&&lx<=cx+cw2&&ly>=cy&&ly<=cy+ch2){ logScroll=Math.max(0,logScroll+(ev.deltaY>0?-1:1)); return; }   // 대화창 위: 기록 스크롤
   if (!WHEEL_LOCK) INV.hotMove(ev.deltaY>0?1:-1); },{passive:false});   // 휠: 단축키 칸 선택 (리니지식)
 cv.addEventListener('auxclick',ev=>{ if (ev.button===1) ev.preventDefault(); });
-const cvCtx=ev=>{ { const r1=cv.getBoundingClientRect(); if (preselCycle(ev.clientX-r1.left, ev.clientY-r1.top)) { ev.preventDefault(); return true; } }   // v157: 겹친 대상 고르기
+const cvCtx=ev=>{ if (SKTGT) { const r2=cv.getBoundingClientRect(); ev.preventDefault(); if (!preselCycle(ev.clientX-r2.left, ev.clientY-r2.top)) supportCancel('대상 선택을 취소했습니다.'); return true; } { const r1=cv.getBoundingClientRect(); if (preselCycle(ev.clientX-r1.left, ev.clientY-r1.top)) { ev.preventDefault(); return true; } }   // v157: 겹친 대상 고르기
   { const r0=cv.getBoundingClientRect(), op=NET.peerAt(ev.clientX-r0.left, ev.clientY-r0.top); if (op){ ev.preventDefault(); NET.openMenu(op, ev.clientX, ev.clientY); return true; } }   // 다른 플레이어 오른쪽 클릭 → 메뉴 (어디서나)
   const r=cv.getBoundingClientRect(), lx=(ev.clientX-r.left)/curZ, ly=(ev.clientY-r.top)/curZ, hk=HOTRECT.findIndex(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h); if (hk>=0){ ev.preventDefault(); INV.openHot(hk, ev.clientX, ev.clientY); return true; } return false; }; cv.addEventListener('contextmenu',ev=>{ if (MOBILE){ ev.preventDefault(); return; } cvCtx(ev); });   // 단축키 칸 오른쪽 클릭: 스킬·아이템 상세
-cv.addEventListener('mousedown',ev=>{ if (ev.button===1){ ev.preventDefault(); initAudio(); const r=cv.getBoundingClientRect(), f=wheelTgt(ev.clientX-r.left, ev.clientY-r.top); INV.useHot(INV.hotSel(), f); HELD.set('MB', performance.now() + 400); } });
+cv.addEventListener('mousedown',ev=>{ if (ev.button===1){ ev.preventDefault(); initAudio(); { const r0=cv.getBoundingClientRect(), id0=INV.hot(INV.hotSel()), s0=id0&&id0.startsWith('sk:')?id0.slice(3):null; if (s0&&SELF_SK.has(s0)&&LEARNED.has(s0)) { const tg=supportAt(ev.clientX-r0.left, ev.clientY-r0.top); if (tg) supportCast(s0, tg); else supportPrompt('MB', s0); return; } } const r=cv.getBoundingClientRect(), f=wheelTgt(ev.clientX-r.left, ev.clientY-r.top); INV.useHot(INV.hotSel(), f); HELD.set('MB', performance.now() + 400); } });
 addEventListener('mouseup', ev => { if (ev.button === 1) HELD.delete('MB'); }, { capture: true });   /* v124: 휠 버튼을 누르고 있으면 그 칸을 계속 사용 */   // 휠 클릭: 선택한 칸 사용 (마법이면 마우스가 가리킨 대상에게)   // 휠 클릭: 선택한 칸 사용
 // 인벤토리 아이템을 단축키 칸으로 끌어다 놓기
 cv.addEventListener('dragover',ev=>{ if (ev.dataTransfer.types.includes('text/plain')) ev.preventDefault(); });
@@ -721,7 +735,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 172;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 173;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1914,6 +1928,19 @@ function drawBossBar(g, vw, vh, ox, oy) { BOSSBAR_B = 0; BOSSBAR_LY = 0; if (SCE
 // ---------- classic bottom UI (original design) ----------
 const HOTRECT=[], AUTORECT=[], HUNTRECT=[], STATRECT=[], ZONERECT=[]; const ICONIMG={};
 const eIcon = e => (e && e.pet && e.pet.evo) ? 'collar_evo' : ITEMS[e.id].icon;   // v172: 가방 칸마다 아이콘 (진화한 펫 목걸이는 따로)
+// v173: 단축칸 아이콘 아래 짧은 이름 (2~3글자)
+const HOT_AB = { 'sk:heal': '힐', 'sk:shieldm': '실드', 'sk:ebolt': '에볼', 'sk:decwt': '디크', 'sk:icedagger': '아대', 'sk:cure': '큐어', 'sk:xheal': '익힐', 'sk:turnund': '턴언', 'sk:farrow': '파애', 'sk:fball': '파볼', 'sk:slow': '슬로',
+  'sk:medit': '메디', 'sk:clight': '콜라', 'sk:gheal': '그힐', 'sk:counterm': '카매', 'sk:coc': '콘콜', 'sk:eruption': '이럽', 'sk:sunburst': '선버', 'sk:healall': '힐올', 'sk:rcurse': '리커', 'sk:immune': '이뮨', 'sk:tornado': '토네',
+  'sk:quake': '어퀘', 'sk:fstorm': '파스', 'sk:abarrier': '앱배', 'sk:advspirit': '어스', 'sk:lstorm': '라스', 'sk:disint': '디스', 'sk:meteor': '미티', 'sk:blizzard': '블리', 'sk:ghaste': '그헤', 'sk:resur': '리저', 'sk:stun': '스턴',
+  'sk:reduction': '리덕', 'sk:bounce': '바운', 'sk:solid': '솔리', 'sk:counter': '카배', 'sk:resist_magic': '레매', 'sk:body_mind': '블소', 'sk:tele_tree': '시야', 'sk:clear_mind': '클마', 'sk:triple_arrow': '트리', 'sk:wind_shot': '윈샷',
+  'sk:storm_shot': '스샷', 'sk:striker_gale': '게일', 'sk:earth_bind': '어바', 'sk:pollute_water': '폴워', 'sk:nature_bless': '네블', 'sk:resist_elem': '레엘', 'sk:summon': '서먼', 'act:pick': '줍기',
+  red_potion: '빨물', orange_potion: '주물', clear_potion: '맑물', antidote: '해독', candle: '양초', poly_dark: '다변', poly_silver: '실변', scroll_counterm: '카매', mana_potion: '마나', green_potion: '초록', brave_potion: '용기',
+  scroll_weapon: '무주', scroll_armor: '갑주', scroll_acc: '장주', bscroll_acc: '축장', bscroll_weapon: '축무', bscroll_armor: '축갑', cscroll_weapon: '저무', cscroll_armor: '저갑', scroll_earth: '땅속', scroll_water: '물속', scroll_fire: '불속', scroll_wind: '바속',
+  bless_scroll: '축부', bless_pouch: '축머', arka_pouch: '아르카', pet_fruit: '열매', pet_collar: '목걸이', revive_scroll: '부활', stat_reset: '초기화', return_scroll: '귀환', tele_scroll: '순간', return_charm: '부적', doll_pouch: '인형', acc_change: '변경' };
+function hotAbbr(id) { if (!id || id === 'act:auto') return ''; if (HOT_AB[id]) return HOT_AB[id]; if (id.startsWith('sk:')) { const k = SK[id.slice(3)]; return k ? k.name.replace(/\s+/g, '').slice(0, 2) : ''; }
+  const d = ITEMS[id]; if (!d) return ''; if (/^soul_/.test(id)) return '영혼'; const w = d.name.replace(/\(.*?\)/g, '').replace(/^(축복받은|저주받은)\s*/, '').trim().split(/\s+/).filter(Boolean); return w.length >= 2 ? w.slice(0, 3).map(x => x[0]).join('') : (w[0] || '').slice(0, 2); }
+function hotLabel(g, id, x, y, w, fs, on) { const t = hotAbbr(id); if (!t) return; g.save(); g.font = `800 ${fs}px "Noto Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; const h = fs + 2;
+  g.fillStyle = 'rgba(0,0,0,.62)'; g.fillRect(x, y - h, w, h); g.lineWidth = 2.4; g.strokeStyle = 'rgba(0,0,0,.95)'; g.strokeText(t, x + w / 2, y - 2); g.fillStyle = on ? '#7fe0ff' : '#fff2c8'; g.fillText(t, x + w / 2, y - 2); g.restore(); }
 function iconImg(k, bl){ const key=k+(bl?'|b':''); if (ICONIMG[key]) return ICONIMG[key]; const i=new Image(); i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(ICON(k, bl).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" ')); return ICONIMG[key]=i; }
 const PH = MOBILE ? 0 : 120; const log = [];   // v168: 모바일은 아래 판 없음 (버튼·조이스틱을 화면 위에)
 let logScroll=0; const CHATRECT=[0,0,0,0];
@@ -1973,7 +2000,8 @@ const tabNav = () => ['loginscr', 'charsel', 'namescr'].some(id => { const el = 
 let pickCdT = 0; const HELD = new Map();
 function pickTry(fresh){ const n = performance.now(); if (n < pickCdT) return; pickCdT = n + 250; const got = GROUND.pickNear(null, 1); /* v136: F4는 한 번에 한 개씩 (누르고 있으면 0.25초마다 하나씩) */ if (!got && fresh) say('주변 1칸에 주울 아이템이 없습니다.', '#9c9682'); }
 let WHEEL_LOCK = (() => { try { return localStorage.getItem('aden_wlock') === '1'; } catch (e) { return false; } })(), WLRECT = [];   /* v124: 휠 고정 */
-function holdTry(k, fresh){ if (k === 'MB') { INV.useHot(INV.hotSel(), hover && !hover.dead ? hover : mouse ? wheelTgt(mouse[0], mouse[1]) : null); return; } const m = /^F([1-9]|1[0-2])$/.exec(k); if (m) { if (fresh) hotKeyTap(k, +m[1] - 1); else INV.useHot(+m[1] - 1); } }
+function holdTry(k, fresh){ const sup_ = i_ => { const id_ = INV.hot(i_); return !!(id_ && id_.startsWith('sk:') && SELF_SK.has(id_.slice(3))); };   // v173: 지원 마법은 누르고 있어도 반복 시전 안 함
+  if (k === 'MB') { if (sup_(INV.hotSel())) return; INV.useHot(INV.hotSel(), hover && !hover.dead ? hover : mouse ? wheelTgt(mouse[0], mouse[1]) : null); return; } const m = /^F([1-9]|1[0-2])$/.exec(k); if (m) { if (fresh) hotKeyTap(k, +m[1] - 1); else if (!sup_(+m[1] - 1)) INV.useHot(+m[1] - 1); } }
 function holdTick(){ if (!HELD.size) return; const n = performance.now(); for (const [k, t] of HELD) { if (n < t) continue; HELD.set(k, n + 250); HOLD_Q = true; try { holdTry(k, false); } finally { HOLD_Q = false; } } }
 addEventListener('keyup', ev => { HELD.delete(ev.key); }, { capture: true });
 addEventListener('blur', () => HELD.clear());
@@ -2129,9 +2157,10 @@ function drawUI(g, vw, vh){
       const cdv=skLeft(sk); if (cdv>0){ const den=isMag(sk)&&(SKCD._mag||0)>=(SKCD[sk]||0)?MAGMAX:(SK[sk].cd||1); g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(x+3,y+2,sw-7,(sw-7)*Math.min(1,cdv/den)); }
       if (INV.autoSk(sk)){ const bx=x+sw-9, by=y+8, on=!!(SK[sk].buff&&BUFF[SK[sk].buff]>0); g.save(); g.beginPath(); g.arc(bx,by,5.4,0,7); g.fillStyle='rgba(16,10,4,.92)'; g.fill(); g.lineWidth=1.2; g.strokeStyle=on?'#8af08a':'#ffd86a'; g.stroke(); g.font='900 7.5px '+F; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle=on?'#c8ffc0':'#ffe08a'; g.fillText('A',bx,by+0.5); g.restore(); } }
     else if (id){ const im2=iconImg(ITEMS[id].icon, INV.bag().some(x=>x.id===id&&x.blessed)); if (im2.complete&&im2.naturalWidth){ g.save(); g.imageSmoothingEnabled=true; g.drawImage(im2,x+3,y+2,sw-7,sw-7); g.restore(); }
-      if (ITEMS[id].slot&&INV.bag().some(x=>x.id===id&&x.on)){ g.save(); g.font='800 7px '+F; g.textAlign='center'; g.textBaseline='bottom'; const tw=g.measureText('착용중').width+4, cx=x+sw/2-1; g.fillStyle='rgba(0,0,0,.72)'; g.fillRect(cx-tw/2,y+sw-12,tw,9); g.fillStyle='#7fe0ff'; g.fillText('착용중',cx,y+sw-3.5); g.restore(); }   /* v162: 단축칸의 착용 중 장비 */
+      if (ITEMS[id].slot&&INV.bag().some(x=>x.id===id&&x.on)){ g.save(); g.fillStyle='#7fe0ff'; g.strokeStyle='#04202a'; g.lineWidth=1; g.beginPath(); g.arc(x+sw-6,y+5,2.6,0,7); g.fill(); g.stroke(); g.restore(); }   /* v173: 착용 중 = 오른쪽 위 하늘색 점 (아래는 이름) */   /* v162: 단축칸의 착용 중 장비 */
       if (ITEMS[id].use==='heal'){ const hc=INV.healCd(); if (hc>0){ g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(x+3,y+2,sw-7,(sw-7)*Math.min(1,hc)); } }
-      if (ITEMS[id].stack){ const inf=GOD_INF(id), pc=INV.count(id), pt=inf?'∞':String(pc); g.textAlign='right'; g.textBaseline='bottom'; g.font='800 '+(inf?10:8)+'px '+F; g.fillStyle='#000'; g.fillText(pt,x+sw-3,y+sw-3); g.fillStyle=pc||inf?(inf?'#ffd86a':'#fff'):'#f08a7a'; g.fillText(pt,x+sw-4,y+sw-4); } }
+      if (ITEMS[id].stack){ const inf=GOD_INF(id), pc=INV.count(id), pt=inf?'∞':String(pc); g.textAlign='right'; g.textBaseline='top'; g.font='800 '+(inf?9:7.5)+'px '+F; g.fillStyle='#000'; g.fillText(pt,x+sw-3,y+3); g.fillStyle=pc||inf?(inf?'#ffd86a':'#fff'):'#f08a7a'; g.fillText(pt,x+sw-4,y+2); } }
+    if (id) hotLabel(g, id, x+1, y+sw-3, sw-3, 7, !!(ITEMS[id]&&ITEMS[id].slot&&INV.bag().some(q=>q.id===id&&q.on)));
     g.font='700 7px '+F; g.textAlign='left'; g.textBaseline='top'; g.fillStyle='#000'; g.fillText('F'+(1+idx),x+4,y+3); g.fillStyle=sel?'#ffe08a':'#a89e86'; g.fillText('F'+(1+idx),x+3,y+2);
     if (sel){ const pu=0.6+0.4*Math.sin(time*5); g.save(); g.shadowColor='#ffd040'; g.shadowBlur=8+4*pu; g.strokeStyle=`rgba(255,${200+30*pu|0},70,1)`; g.lineWidth=2.4; g.strokeRect(x+0.5,y-0.5,sw-2,sw-2); g.restore();   /* 휠 위치: 금빛으로 깜빡이는 굵은 테두리 + 위쪽 ▼ 표시 */
       g.save(); g.fillStyle='#ffd040'; g.strokeStyle='#3a2600'; g.lineWidth=1; g.beginPath(); g.moveTo(x+sw/2-5,y-6); g.lineTo(x+sw/2+3,y-6); g.lineTo(x+sw/2-1,y-1); g.closePath(); g.fill(); g.stroke(); g.restore(); } }
@@ -6448,8 +6477,8 @@ const NET = (() => {
     return '<div class="pb-bf">' + ks.map(k => `<span class="pb-b${DEBUFF.has(k) ? ' bad' : ''}${bf[k] <= 10 ? ' cd' : ''}" title="${esc_(BUFF_DEF[k].name)} · ${tleft(bf[k])} 남음">${ico(BUFF_DEF[k].icon)}${bf[k] <= 10 ? `<i>${Math.ceil(bf[k])}</i>` : `<em>${tleft(bf[k])}</em>`}</span>`).join('') + '</div>'; };
   function renderParty() { const box = document.getElementById('partybox'); if (!box) return; if (!partyId || !room) { if (!box.hidden) box.hidden = true; return; } box.hidden = false;
     const ZN = z => z === 'town' ? '마을' : /^isle\d+$/.test(z || '') ? ((ISLAND.def(+z.slice(4)) || {}).name || '사냥터') : '필드';
-    const row = (nm, cls, lv, hp, hm, mp, mm, z, me, bf) => `<div class="pb-m${me ? ' me' : ''}${hp > 0 ? '' : ' dead'}"><div class="pb-t"><b>${esc_(nm)}</b><span>${CLASS_NAME[cls] || ''} Lv.${lv || 1}</span></div><div class="pb-bar hp"><i style="width:${Math.max(0, Math.min(100, hp / Math.max(1, hm) * 100))}%"></i><em>${Math.ceil(hp)}/${hm}</em></div><div class="pb-bar mp"><i style="width:${Math.max(0, Math.min(100, mp / Math.max(1, mm) * 100))}%"></i><em>${Math.floor(mp)}/${mm}</em></div>${bfRow(bf)}${z !== zk() ? `<small>${esc_(ZN(z))}</small>` : ''}</div>`;
-    const M = members(); const h = `<div class="pb-h">파티 <small>${M.length + 1}명${M.length ? '' : ' · 초대를 기다리는 중'}</small><button type="button" id="pb-leave">나가기</button></div>` + row(PNAME(), CLASS, hero.lv, hero.hp, hero.max, hero.mp, hero.maxmp, zk(), true, myBuffs()) + M.map(o => row(nmOf(o.pr), o.pr.c, o.pr.lv, o.pr.hp || 0, o.pr.hm || 1, o.pr.mp || 0, o.pr.mm || 1, o.pr.z, false, o.pr.bf)).join('');
+    const row = (nm, cls, lv, hp, hm, mp, mm, z, me, bf, pp) => `<div class="pb-m${me ? ' me' : ''}${hp > 0 ? '' : ' dead'}" data-pp="${me ? 'me' : esc_(pp || '')}"><div class="pb-t"><b>${esc_(nm)}</b><span>${CLASS_NAME[cls] || ''} Lv.${lv || 1}</span></div><div class="pb-bar hp"><i style="width:${Math.max(0, Math.min(100, hp / Math.max(1, hm) * 100))}%"></i><em>${Math.ceil(hp)}/${hm}</em></div><div class="pb-bar mp"><i style="width:${Math.max(0, Math.min(100, mp / Math.max(1, mm) * 100))}%"></i><em>${Math.floor(mp)}/${mm}</em></div>${bfRow(bf)}${z !== zk() ? `<small>${esc_(ZN(z))}</small>` : ''}</div>`;
+    const M = members(); const h = `<div class="pb-h">파티 <small>${M.length + 1}명${M.length ? '' : ' · 초대를 기다리는 중'}</small><button type="button" id="pb-leave">나가기</button></div>` + row(PNAME(), CLASS, hero.lv, hero.hp, hero.max, hero.mp, hero.maxmp, zk(), true, myBuffs()) + M.map(o => row(nmOf(o.pr), o.pr.c, o.pr.lv, o.pr.hp || 0, o.pr.hm || 1, o.pr.mp || 0, o.pr.mm || 1, o.pr.z, false, o.pr.bf, o.peer)).join('');
     if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; const b = document.getElementById('pb-leave'); if (b) b.onclick = () => INV.askYesNo('파티에서 나가시겠습니까?', '', leaveParty); } }
   // ----- 다른 플레이어 클릭 → 메뉴 (파티 초대)
   function peersAt(sx, sy) { if (!room) return []; const [px, py] = toWorldPx(sx, sy), L = []; for (const o of othersInZone()) { const v = peers.get(o.peer); if (!v) continue; const [x, y] = W2P(v.x, v.z), dx = px - x, dy = py - (y - 40); if (Math.abs(dx) < 20 && Math.abs(dy) < 52) L.push(o); } return L; }   // v157: 겹친 유저 모두
@@ -6482,7 +6511,7 @@ const NET = (() => {
   return { pvp, duelDef, wardDrop, cleansePeer, remotesNear, proxyOf: peer => proxy(peer), duelCount: () => OTH.filter(o => o.pr.z === 'isle15').length + (zk() === 'isle15' ? 1 : 0), mx, bossCast, peersAt, aggroName, aggroInfo, talkOut, talkTarget, hostHere: () => isHost(), setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, distribute, assignLoot, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
     zoneHost: () => isHost(), guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
-    setHover(o) { hoverPeer = o ? o.peer : null; }, hoverParty() { if (SELF_CAST) return null; const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
+    setHover(o) { hoverPeer = o ? o.peer : null; }, partyOk(o) { return !!(o && o.pr && partyId && o.pr.pt === partyId && o.pr.z === zk()); }, peerObj(peer) { return OTH.find(q => q.peer === peer) || null; }, hoverParty() { if (SELF_CAST) return null; if (FORCE_PM) return FORCE_PM; const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t) { anSeq++; anText = String(t).slice(0, 90); anL.push([anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
 })();
 // ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
@@ -7003,6 +7032,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 173, items: ['힐·익스트라 힐·그레이터 힐·이뮨 투 함·어드밴스 스피릿·리무브 커스는 단축키를 한 번 누르면 [대상을 선택하십시오]가 떠요. 나나 파티원을 누르거나, 왼쪽 파티창에서 파티원을 누르면 그 대상에게 써요.', '같은 단축키를 2초 안에 두 번 누르면 나에게 바로 써요. 마우스 휠 클릭은 가리킨 대상(나·파티원)에게 바로 써요. 대상 선택은 Esc로 취소해요.', '단축칸 아이콘 아래에 짧은 이름(힐·그힐·빨물·순간 등)이 표시돼요. 물약·주문서 개수는 오른쪽 위로 옮겼고, 착용 중인 장비는 이름이 하늘색으로 보여요.', '오른쪽 클릭으로 겹친 대상을 고를 때 몬스터뿐 아니라 다른 캐릭터도 골라져요. (결투장이 아닌 곳에서 캐릭터를 고르고 왼쪽 클릭하면 캐릭터 메뉴)'] },
     { v: 172, items: ['버프와 디버프 아이콘을 두 줄로 나눴어요. 디버프는 버프 줄 위에 따로 떠요.', '맨 오른쪽 첫 칸은 [불멸의 가호] 칸이에요. 가방에 가호가 있으면 버프 줄에 가호 아이콘(사망 패널티 없음)이 뜨고, 없으면 디버프 줄에 타버린 가호 아이콘(사망 패널티: 경험치 −5% · 골드 −10%)이 떠요. 마우스를 올리면(휴대폰은 톡) 자세히 보여 줘요.', '진화한 펫의 목걸이는 금빛 왕관과 보석이 달린 아이콘으로 바뀌어서 진화 안 한 목걸이와 구분돼요.', '장신구(반지·목걸이·벨트)에도 축복 부여 주문서를 쓸 수 있어요. 축복받은 장신구는 명중 +1이에요.', '캐릭터 정보창의 [포만감]을 없앴어요.'] },
     { v: 171, items: ['갤럭시(S펜을 쓸 수 있는 기종)·삼성 인터넷에서 PC 화면이 나와 조작할 수 없던 문제를 고쳤어요. 이제 휴대폰 화면(조이스틱·큰 버튼)으로 열려요.', '휴대폰인데 PC 화면이 나오거나 그 반대라면 ESC 메뉴(휴대폰은 [메뉴 → 설정·종료])의 [화면: PC용/모바일용]을 누르면 저장하고 바꿔요.'] },
     { v: 170, items: ['ESC 메뉴에 [📲 앱 설치 주소 복사]가 생겼어요. 누르면 휴대폰 웹 주소(jungkyu9797.github.io/aden-world)가 복사돼요. 카카오톡 등으로 휴대폰에 보내서 브라우저로 열고 [📲 앱 설치]를 누르면 앱처럼 설치돼요.', '휴대폰을 세로로 들었을 때 나오는 [가로로 돌려 주세요] 화면에 [📱 가로 화면으로 돌리기] 버튼이 생겼어요. 갤럭시는 누르면 바로 전체 화면 가로로 바뀌어요. 아이폰은 웹에서 화면을 직접 돌릴 수 없어서, 누르면 화면 방향 잠금을 끄는 방법을 알려 줘요.'] },
@@ -7709,9 +7739,9 @@ const MUI = (() => {
       if (INV.autoSk(sk)) { const bx = x + s - 7, by = y + 7, on = !!(SK[sk].buff && BUFF[SK[sk].buff] > 0); g.save(); g.beginPath(); g.arc(bx, by, 5.4, 0, 7); g.fillStyle = 'rgba(16,10,4,.92)'; g.fill(); g.lineWidth = 1.2; g.strokeStyle = on ? '#8af08a' : '#ffd86a'; g.stroke(); g.font = '900 7.5px ' + F; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = on ? '#c8ffc0' : '#ffe08a'; g.fillText('A', bx, by + 0.5); g.restore(); }
       return; }
     const d = ITEMS[id]; if (!d) return; const im2 = iconImg(d.icon, INV.bag().some(q => q.id === id && q.blessed)); if (im2.complete && im2.naturalWidth) { g.save(); g.imageSmoothingEnabled = true; g.drawImage(im2, x + p, y + p, S, S); g.restore(); }
-    if (d.slot && INV.bag().some(q => q.id === id && q.on)) { g.save(); g.font = '800 7px ' + F; g.textAlign = 'center'; g.textBaseline = 'bottom'; const tw = g.measureText('착용중').width + 4, cx = x + s / 2; g.fillStyle = 'rgba(0,0,0,.72)'; g.fillRect(cx - tw / 2, y + s - 11, tw, 9); g.fillStyle = '#7fe0ff'; g.fillText('착용중', cx, y + s - 2.5); g.restore(); }
+    if (d.slot && INV.bag().some(q => q.id === id && q.on)) { g.save(); g.fillStyle = '#7fe0ff'; g.strokeStyle = '#04202a'; g.lineWidth = 1; g.beginPath(); g.arc(x + s - 6, y + 6, 3, 0, 7); g.fill(); g.stroke(); g.restore(); }
     if (d.use === 'heal') { const hc = INV.healCd(); if (hc > 0) { g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(x + p, y + p, S, S * Math.min(1, hc)); } }
-    if (d.stack) { const inf = GOD_INF(id), pc = INV.count(id), pt = inf ? '∞' : String(pc); g.textAlign = 'right'; g.textBaseline = 'bottom'; g.font = '800 ' + (inf ? 11 : 9) + 'px ' + F; g.fillStyle = '#000'; g.fillText(pt, x + s - 2, y + s - 1); g.fillStyle = pc || inf ? (inf ? '#ffd86a' : '#fff') : '#f08a7a'; g.fillText(pt, x + s - 3, y + s - 2); g.textBaseline = 'alphabetic'; } }
+    if (d.stack) { const inf = GOD_INF(id), pc = INV.count(id), pt = inf ? '∞' : String(pc); g.textAlign = 'right'; g.textBaseline = 'top'; g.font = '800 ' + (inf ? 10 : 8.5) + 'px ' + F; g.fillStyle = '#000'; g.fillText(pt, x + s - 2, y + 3); g.fillStyle = pc || inf ? (inf ? '#ffd86a' : '#fff') : '#f08a7a'; g.fillText(pt, x + s - 3, y + 2); g.textBaseline = 'alphabetic'; } }
   function roundBtn(g, c, on, F, label, icon, col) { const [x, y, r] = c; g.save();
     const gr = g.createRadialGradient(x, y - r * 0.4, r * 0.1, x, y, r); gr.addColorStop(0, on ? '#5a4418' : '#3a2e22'); gr.addColorStop(1, on ? '#2a1c06' : '#14100c'); g.fillStyle = gr; g.globalAlpha = 0.88; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.globalAlpha = 1;
     g.lineWidth = on ? 2.2 : 1.4; g.strokeStyle = on ? (col || '#f2d98a') : 'rgba(200,160,90,.75)'; g.stroke();
@@ -7762,7 +7792,7 @@ const MUI = (() => {
     const cell = Math.max(36, Math.min(46, Math.floor((vw * 0.42) / 6))), ss = cell - 5, xr = R.atk[0] - ar - 10, x0 = xr - cell * 6 + 5, r1y = vh - B0 - ss, r0y = r1y - cell;
     R.hot.length = 0; for (let k = 0; k < 12; k++) { const x = x0 + (k % 6) * cell, yy = k < 6 ? r0y : r1y; R.hot.push([x, yy, ss, ss]);
       g.fillStyle = 'rgba(10,8,6,.62)'; rr(g, x, yy, ss, ss, 5); g.fill(); g.strokeStyle = 'rgba(138,115,72,.85)'; g.lineWidth = 1; g.stroke();
-      const id = INV.hot(k); if (id) slotIcon(g, id, x, yy, ss, F);
+      const id = INV.hot(k); if (id) { slotIcon(g, id, x, yy, ss, F); hotLabel(g, id, x + 1, yy + ss - 1, ss - 2, 8.5, !!(ITEMS[id] && ITEMS[id].slot && INV.bag().some(q => q.id === id && q.on))); }
       g.font = '700 8px ' + F; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = '#000'; g.fillText(String(k + 1), x + 4, yy + 4); g.fillStyle = '#c8bca0'; g.fillText(String(k + 1), x + 3, yy + 3); g.textBaseline = 'alphabetic';
       if (HELD.has('F' + (k + 1)) && touchKey(k)) { g.strokeStyle = '#ffd040'; g.lineWidth = 2; rr(g, x + 1, yy + 1, ss - 2, ss - 2, 4); g.stroke(); } }
     // 공격 버튼 (누르면 가장 가까운 몬스터 공격)
