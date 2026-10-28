@@ -735,7 +735,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 173;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 174;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -943,11 +943,12 @@ function spellSfx(id) { if (!AC || !SFX_ON) return; const t = AC.currentTime, T 
     case 'disint': T(0, 'sine', 1600, 3200, 0.35, 0.05); T(0.38, 'square', 300, 80, 0.4, 0.08); nz(t + 0.38, 0.4, 6000, 1500, 0.14); break;
     case 'abarrier': [523, 784, 1047].forEach((f, n) => T(n * 0.05, 'sine', f, f * 1.005, 0.9, 0.06)); T(0, 'triangle', 262, 262, 1.0, 0.05); break;
     case 'advspirit': [440, 554, 659, 880].forEach((f, n) => T(n * 0.08, 'sine', f, f * 1.01, 0.6, 0.06)); break;
+    case 'poly': T(0, 'sine', 330, 990, 0.5, 0.06); [659, 831, 988, 1319].forEach((f, n) => T(0.3 + n * 0.05, 'triangle', f, f * 1.01, 0.5, 0.05)); nz(t + 0.3, 0.35, 5000, 2000, 0.03); break;
     case 'rcurse': [988, 1319, 1760].forEach((f, n) => T(n * 0.06, 'sine', f, f, 0.4, 0.05)); nz(t, 0.3, 3000, 6000, 0.03); break;
     default: T(0, 'triangle', 520, 1040, 0.25, 0.07); } }
 // ===== 마법 이펙트: 대상(나/몬스터)을 따라다니며 그림
 const SPELLFX = [];
-function spellFx(kind, ent, c) { SPELLFX.push({ kind, ent, c: c || '#ffffff', t: 0, life: ({ tshield: 0.9, heal: 1.1, shield: 0.9, light: 1.2, enchant: 1.0, stun: 0.6, aura: 0.9, cure: 0.9, cast: 0.35, levelup: 2.4, enok: 1.0, enbless: 1.3, earth: 1.4, puff: 0.8, boom: 1.2 })[kind] || 0.8 }); }
+function spellFx(kind, ent, c) { SPELLFX.push({ kind, ent, c: c || '#ffffff', t: 0, life: ({ tshield: 0.9, heal: 1.1, shield: 0.9, light: 1.2, enchant: 1.0, stun: 0.6, aura: 0.9, cure: 0.9, cast: 0.35, levelup: 2.4, poly: 1.7, enok: 1.0, enbless: 1.3, earth: 1.4, puff: 0.8, boom: 1.2 })[kind] || 0.8 }); }
 function spellFxTick(dt) { for (let n = SPELLFX.length - 1; n >= 0; n--) { const f = SPELLFX[n]; f.t += dt; if (f.t >= f.life) SPELLFX.splice(n, 1); } }
 function drawSpellFx(g) { for (const f of SPELLFX) { const e = f.ent; if (!e || (e !== hero && e.dead && f.kind !== 'levelup')) continue; const [x, y] = W2P(e.x, e.z), k = f.t / f.life, a = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85, top = e === hero || e.pl ? y - 70 : y - headY(e);
     g.save(); g.globalCompositeOperation = 'lighter';
@@ -980,6 +981,14 @@ function drawSpellFx(g) { for (const f of SPELLFX) { const e = f.ent; if (!e || 
       g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(255,120,90,${a})`; g.lineWidth = 1.4; g.beginPath(); for (let q = 0; q < 10; q++) { const an = q * 0.628 + 0.1, r0 = 4 + k * 20, r1 = r0 + 6; g.moveTo(x + Math.cos(an) * r0, y - 50 + Math.sin(an) * r0); g.lineTo(x + Math.cos(an + 0.15) * r1, y - 50 + Math.sin(an + 0.15) * r1); } g.stroke();
       if (k < 0.2) { const gr = g.createRadialGradient(x, y - 50, 0, x, y - 50, 34); gr.addColorStop(0, 'rgba(255,240,220,.95)'); gr.addColorStop(1, 'rgba(255,60,30,0)'); g.globalAlpha = 1 - k * 5; g.fillStyle = gr; g.beginPath(); g.arc(x, y - 50, 34, 0, 7); g.fill(); } }
     else if (f.kind === 'cast') { const R = 10 + k * 20; g.globalAlpha = a; g.strokeStyle = f.c; g.lineWidth = 1.5; g.beginPath(); g.ellipse(x, y, R, R * 0.5, 0, 0, 7); g.stroke(); }
+    else if (f.kind === 'poly') { const sv = f.c === 'silver', c1 = sv ? '215,228,255' : '176,96,255', c2 = sv ? '255,255,255' : '235,190,255', fade = f.t > f.life - 0.5 ? (f.life - f.t) / 0.5 : 1;   // v174: 변신 — 바닥 마법진 · 몸을 감는 소용돌이 · 변하는 순간 번쩍
+      g.save(); g.translate(x, y); g.scale(1, 0.5); const rr = 18 + 22 * Math.min(1, f.t / 0.4); g.globalAlpha = 0.85 * fade; g.strokeStyle = `rgb(${c1})`; g.lineWidth = 1.6; g.beginPath(); g.arc(0, 0, rr, 0, 7); g.stroke(); g.lineWidth = 1; g.beginPath(); g.arc(0, 0, rr * 0.72, 0, 7); g.stroke();
+      g.beginPath(); for (let q = 0; q < 6; q++) { const an = q * 1.0472 + f.t * 1.6, bn = an + 2.0944; g.moveTo(Math.cos(an) * rr * 0.72, Math.sin(an) * rr * 0.72); g.lineTo(Math.cos(bn) * rr * 0.72, Math.sin(bn) * rr * 0.72); } g.stroke();
+      for (let q = 0; q < 12; q++) { const an = q * 0.5236 - f.t * 1.1; g.fillStyle = `rgba(${c2},${0.9 * fade})`; g.fillRect(Math.cos(an) * rr - 1, Math.sin(an) * rr - 1, 2, 2); } g.restore();
+      if (!sv) { g.globalCompositeOperation = 'source-over'; for (let q = 0; q < 7; q++) { const ph = Math.min(1, f.t / 1.2), an = q * 0.9 + 0.4, r = 6 + ph * 24; g.globalAlpha = 0.32 * (1 - ph) * fade; g.fillStyle = q % 2 ? '#2a1438' : '#4a2a60'; g.beginPath(); g.arc(x + Math.cos(an) * r, y - 26 - Math.sin(an) * r * 0.6, 9 + ph * 8, 0, 7); g.fill(); } g.globalCompositeOperation = 'lighter'; }
+      for (let s = 0; s < 2; s++) for (let q = 0; q < 18; q++) { const u = q / 18, hh = Math.min(1, f.t / 0.7), an = u * 12.6 + f.t * 7 + s * Math.PI, R = 15 - u * 5, px = x + Math.cos(an) * R, py = y - 4 - u * 84 * hh + Math.sin(an) * R * 0.35; g.globalAlpha = (0.25 + 0.75 * (1 - u)) * fade * (Math.sin(an) > -0.2 ? 1 : 0.45); g.fillStyle = q % 4 ? `rgb(${c1})` : `rgb(${c2})`; g.fillRect(Math.round(px) - 1, Math.round(py) - 1, 2 + (q % 3 === 0), 2 + (q % 3 === 0)); }
+      const fk = (f.t - 0.32) / 0.4; if (fk > 0 && fk < 1) { const gr = g.createRadialGradient(x, y - 40, 0, x, y - 40, 46); gr.addColorStop(0, `rgba(${c2},${0.9 * (1 - fk)})`); gr.addColorStop(0.45, `rgba(${c1},${0.5 * (1 - fk)})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = 1; g.fillStyle = gr; g.beginPath(); g.ellipse(x, y - 40, 30 + fk * 14, 46 + fk * 10, 0, 0, 7); g.fill(); }
+      for (let q = 0; q < 10; q++) { const ph = (q * 0.23 + f.t * 0.8) % 1, an = q * 2.3; g.globalAlpha = Math.sin(ph * Math.PI) * fade * 0.9; g.fillStyle = q % 2 ? `rgb(${c2})` : `rgb(${c1})`; const px = x + Math.cos(an) * (10 + ph * 14), py = y - 40 - ph * 50; g.fillRect(Math.round(px), Math.round(py) - 2, 1, 5); g.fillRect(Math.round(px) - 2, Math.round(py), 5, 1); } }
     else if (f.kind === 'levelup') { const ph = Math.min(1, f.t / 0.35) * (e === hero ? 1 : 0.55), fade = f.t > f.life - 0.6 ? (f.life - f.t) / 0.6 : 1;
       const pw = 34 * (0.6 + 0.4 * ph), gr = g.createLinearGradient(0, y - 190, 0, y); gr.addColorStop(0, 'rgba(255,220,120,0)'); gr.addColorStop(0.6, `rgba(255,210,100,${0.32 * fade})`); gr.addColorStop(1, `rgba(255,236,170,${0.5 * fade})`);
       g.fillStyle = gr; g.beginPath(); g.moveTo(x - pw * 0.5, y); g.lineTo(x - pw * 0.25, y - 190 * ph); g.lineTo(x + pw * 0.25, y - 190 * ph); g.lineTo(x + pw * 0.5, y); g.closePath(); g.fill();
@@ -1926,6 +1935,12 @@ function drawBossBar(g, vw, vh, ox, oy) { BOSSBAR_B = 0; BOSSBAR_LY = 0; if (SCE
   if (L.length > 2) { g.textAlign = 'center'; g.font = '700 9px "Noto Sans KR",sans-serif'; g.fillStyle = '#e8d8b0'; g.fillText(`보스 ${L.length - 2}마리 더 있음`, vw / 2, top + 2 * 34 + 6); }
   g.restore(); }
 // ---------- classic bottom UI (original design) ----------
+// v174: 스킬 아이콘 — 리니지 클래식풍 돌판 아이콘(자체 제작) 한 장(시트)에서 잘라 씀 · 시트가 없으면 예전 그림
+const SKI_IDS = ["heal", "shieldm", "ebolt", "decwt", "icedagger", "cure", "xheal", "turnund", "farrow", "fball", "slow", "medit", "clight", "gheal", "counterm", "coc", "eruption", "sunburst", "healall", "rcurse", "immune", "tornado", "quake", "fstorm", "abarrier", "advspirit", "lstorm", "disint", "meteor", "blizzard", "stun", "reduction", "bounce", "solid", "counter", "resist_magic", "body_mind", "tele_tree", "clear_mind", "triple_arrow", "wind_shot", "storm_shot", "striker_gale", "earth_bind", "pollute_water", "nature_bless", "resist_elem", "summon"], SKI_C = 80, SKI_COLS = 8, SKI_SRC = 'assets/ui/skicons.webp', SKI_AT = {}; SKI_IDS.forEach((id, n) => { SKI_AT['sk_' + id] = n; });
+const SKI_SHEET = new Image(), SKI_WAIT = new Image(); let SKI_OK = false, SKI_BAD = false; SKI_SHEET.onload = () => { SKI_OK = true; }; SKI_SHEET.onerror = () => { SKI_BAD = true; }; SKI_SHEET.src = SKI_SRC;
+const skiHas = k => SKI_AT[k] != null && !SKI_BAD;
+function skiSVG(k) { const n = SKI_AT[k], c = n % SKI_COLS, r = (n / SKI_COLS) | 0; return `<svg viewBox="${c * SKI_C} ${r * SKI_C} ${SKI_C} ${SKI_C}" aria-hidden="true" class="ski"><image href="${SKI_SRC}" width="${SKI_COLS * SKI_C}" height="${Math.ceil(SKI_IDS.length / SKI_COLS) * SKI_C}"/></svg>`; }
+function skiImg(k) { const n = SKI_AT[k], c = document.createElement('canvas'); c.width = c.height = SKI_C; c.getContext('2d').drawImage(SKI_SHEET, (n % SKI_COLS) * SKI_C, ((n / SKI_COLS) | 0) * SKI_C, SKI_C, SKI_C, 0, 0, SKI_C, SKI_C); c.complete = true; c.naturalWidth = SKI_C; return c; }
 const HOTRECT=[], AUTORECT=[], HUNTRECT=[], STATRECT=[], ZONERECT=[]; const ICONIMG={};
 const eIcon = e => (e && e.pet && e.pet.evo) ? 'collar_evo' : ITEMS[e.id].icon;   // v172: 가방 칸마다 아이콘 (진화한 펫 목걸이는 따로)
 // v173: 단축칸 아이콘 아래 짧은 이름 (2~3글자)
@@ -1941,7 +1956,7 @@ function hotAbbr(id) { if (!id || id === 'act:auto') return ''; if (HOT_AB[id]) 
   const d = ITEMS[id]; if (!d) return ''; if (/^soul_/.test(id)) return '영혼'; const w = d.name.replace(/\(.*?\)/g, '').replace(/^(축복받은|저주받은)\s*/, '').trim().split(/\s+/).filter(Boolean); return w.length >= 2 ? w.slice(0, 3).map(x => x[0]).join('') : (w[0] || '').slice(0, 2); }
 function hotLabel(g, id, x, y, w, fs, on) { const t = hotAbbr(id); if (!t) return; g.save(); g.font = `800 ${fs}px "Noto Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; const h = fs + 2;
   g.fillStyle = 'rgba(0,0,0,.62)'; g.fillRect(x, y - h, w, h); g.lineWidth = 2.4; g.strokeStyle = 'rgba(0,0,0,.95)'; g.strokeText(t, x + w / 2, y - 2); g.fillStyle = on ? '#7fe0ff' : '#fff2c8'; g.fillText(t, x + w / 2, y - 2); g.restore(); }
-function iconImg(k, bl){ const key=k+(bl?'|b':''); if (ICONIMG[key]) return ICONIMG[key]; const i=new Image(); i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(ICON(k, bl).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" ')); return ICONIMG[key]=i; }
+function iconImg(k, bl){ const key=k+(bl?'|b':''); if (ICONIMG[key]) return ICONIMG[key]; if (!bl && skiHas(k)) { if (!SKI_OK) return SKI_WAIT; return ICONIMG[key] = skiImg(k); } const i=new Image(); i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(ICON(k, bl).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" ')); return ICONIMG[key]=i; }
 const PH = MOBILE ? 0 : 120; const log = [];   // v168: 모바일은 아래 판 없음 (버튼·조이스틱을 화면 위에)
 let logScroll=0; const CHATRECT=[0,0,0,0];
 var HOLD_Q = false, heldSaid = new Map();   // v112: 누르고 있는 단축키의 같은 안내는 3초에 한 번만
@@ -3665,7 +3680,7 @@ const ICON = (() => {
       return [R + m, G + m, B + m].map(v => Math.round(Math.max(0, Math.min(1, v)) * 255)); };
     return svg.replace(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g, (all, hx) => { const f = hx.length === 3 ? hx.split('').map(c => c + c).join('') : hx, o = fix(parseInt(f.slice(0, 2), 16), parseInt(f.slice(2, 4), 16), parseInt(f.slice(4, 6), 16)); return o ? '#' + o.map(v => v.toString(16).padStart(2, '0')).join('') : all; })
       .replace(/rgba?\((\d+),\s*(\d+),\s*(\d+)/g, (all, r, g, b) => { const o = fix(+r, +g, +b); return o ? all.replace(/\d+,\s*\d+,\s*\d+/, o.join(',')) : all; }); };
-  return (k, blessed) => { const u = 'i' + (++uid).toString(36), body = P[k] || CXI[k] || (String(k).startsWith('bk_') ? bookSVG(k.slice(3)) : P.scroll); let svgS = `<svg viewBox="0 0 34 34" aria-hidden="true"${blessed ? ' class="bl-svg"' : ''}>${defs}${blessed ? `<defs>${BLF}</defs><g filter="url(#blf)">${body}</g>` : body}</svg>`; if (RECOL[k]) svgS = recol(svgS, RECOL[k]); return svgS.replace(/id="([\w-]+)"/g, `id="$1_${u}"`).replace(/url\(#([\w-]+)\)/g, `url(#$1_${u})`); };
+  return (k, blessed) => { if (!blessed && skiHas(k)) return skiSVG(k); const u = 'i' + (++uid).toString(36), body = P[k] || CXI[k] || (String(k).startsWith('bk_') ? bookSVG(k.slice(3)) : P.scroll); let svgS = `<svg viewBox="0 0 34 34" aria-hidden="true"${blessed ? ' class="bl-svg"' : ''}>${defs}${blessed ? `<defs>${BLF}</defs><g filter="url(#blf)">${body}</g>` : body}</svg>`; if (RECOL[k]) svgS = recol(svgS, RECOL[k]); return svgS.replace(/id="([\w-]+)"/g, `id="$1_${u}"`).replace(/url\(#([\w-]+)\)/g, `url(#$1_${u})`); };
 })();
 const SLOTS = [['helm', '투구'], ['amulet', '목걸이'], ['cloak', '망토'], ['armor', '갑옷'], ['shirt', '티셔츠'], ['weapon', '무기'], ['belt', '벨트'], ['shield', '방패'], ['ring1', '반지'], ['gloves', '장갑'], ['ring2', '반지'], ['boots', '부츠'], ['doll', '인형']];   /* v166: 마법인형 칸 */
 // 아이템 도감 (수치는 기획팀 임시안)
@@ -4643,7 +4658,7 @@ const INV = (() => {
     if (d.use === 'candle') { take(e.id); cd = 0.5; BUFF.light = BUFF_DEF.light.dur; spellFx('light', hero, '#fff2a0'); say('양초를 켰습니다. 10분 동안 밤 시야가 넓어져요.', '#fff2a0'); return; }
     if (d.use === 'counterm') { if (BUFF.counterm > 0) { say('이미 카운터 매직이 걸려 있습니다. (마법 공격을 한 번 막으면 풀려요)', '#9c9682'); return; } if (hcd > 0) return; take(e.id); cd = 0.5; hcd = HEAL_CD; BUFF.counterm = BUFF_DEF.counterm.dur; mxSelf('counterm', hero); spellSfx('counterm'); say('카운터 매직: 다음에 받는 마법 공격 1번을 막아 줍니다. (10분)', '#d8a8ff'); return; }
     if (d.use === 'mana') { take(e.id); cd = 0.5; drinkFx(e.id); BUFF.mana = BUFF_DEF.mana.dur; spellFx('enok', hero, '#8ab8ff'); if (AC) tone(AC.currentTime, 'sine', 440, 760, 0.2, 0.1); buffMsg('mana'); return; }
-    if (d.use === 'poly') { const T = POLY_TIER[d.tier], f = POLY_FORM[CLASS] && POLY_FORM[CLASS][d.tier]; if (!T || !f) return; if (hero.lv < T.lv && !GOD) { say(`${d.name}: Lv.${T.lv} 이상부터 읽을 수 있습니다. (현재 Lv.${hero.lv})`, '#ff5a4a'); return; } take(e.id); const same = POLY_ON === f && BUFF.poly > 0; POLY_ON = f; BUFF.poly = 1800; spellFx('levelup', hero); NET.mx('pot:brave_potion', hero); say(same ? `${POLY[f].name} 변신 시간이 다시 30분이 되었습니다.` : `${POLY[f].name}(으)로 변신했습니다! 30분 동안 공격 속도 +${T.bonus}% · 이동 속도 +${T.bonus}%`, '#e0a8ff'); render(); return; }   /* v164: 변신 주문서 */
+    if (d.use === 'poly') { const T = POLY_TIER[d.tier], f = POLY_FORM[CLASS] && POLY_FORM[CLASS][d.tier]; if (!T || !f) return; if (hero.lv < T.lv && !GOD) { say(`${d.name}: Lv.${T.lv} 이상부터 읽을 수 있습니다. (현재 Lv.${hero.lv})`, '#ff5a4a'); return; } take(e.id); const same = POLY_ON === f && BUFF.poly > 0; POLY_ON = f; BUFF.poly = 1800; spellFx('poly', hero, d.tier); spellSfx('poly'); NET.mx('pot:poly_' + d.tier, hero); say(same ? `${POLY[f].name} 변신 시간이 다시 30분이 되었습니다.` : `${POLY[f].name}(으)로 변신했습니다! 30분 동안 공격 속도 +${T.bonus}% · 이동 속도 +${T.bonus}%`, '#e0a8ff'); render(); return; }   /* v164: 변신 주문서 */
     if (d.use === 'haste') { const k = 'haste' + d.haste; take(e.id); BUFF[k] = d.dur; drinkFx(e.id); if (AC) tone(AC.currentTime, 'triangle', 440, 990, 0.25, 0.1); buffMsg(k); return; }
     if (d.use === 'enchant' || d.use === 'attr' || d.use === 'blessit' || d.use === 'accchg') { const ok = bag.some(x => canScroll(d, ITEMS[x.id]));
       if (!ok) { say(d.use === 'attr' ? '속성을 부여할 무기가 없습니다.' : d.use === 'accchg' ? '바꿀 장신구가 없습니다. (힘·민첩·지식의 반지·목걸이)' : d.ench === 'acc' ? '강화할 장신구가 없습니다. (힘·민첩·지능·모든 능력치가 붙은 반지·목걸이)' : d.ench === 'weapon' ? '강화할 무기가 없습니다.' : '강화할 방어구가 없습니다.', '#9c9682'); return; }
@@ -6246,7 +6261,7 @@ const NET = (() => {
   function mx(id, T, v) { const self = !T || T === hero; mxOut.push([++mxSeq, id, self ? 0 : 1, T ? +T.x.toFixed(2) : 0, T ? +T.z.toFixed(2) : 0, T && !self ? Math.round(mxH(T)) : 0, v ? +(+v).toFixed(2) : 0]); if (mxOut.length > 6) mxOut.splice(0, mxOut.length - 6); sendT = 0; }
   function applyMx(o) { const L = o.pr.mx; if (!L || !L.length) return; const last = seenMx.get(o.peer) || 0, fresh = L.filter(x => x[0] > last); if (!fresh.length) return; seenMx.set(o.peer, Math.max(...fresh.map(x => x[0])));
     if (o.pr.z !== zk() || last === 0 && fresh.length > 2) return; const v = peers.get(o.peer); if (!v) return; const dist = Math.max(Math.abs(v.x - hero.x), Math.abs(v.z - hero.z)); if (dist > 22) return;
-    for (const [, id, tg, tx, tz, th, xv] of fresh.slice(-3)) { if (typeof id === 'string' && id.startsWith('pot:')) { potFx(v, id.slice(4)); continue; } if (id === 'nature_bless_r') { if (!(v._natFx && time - v._natFx < 2.5)) mxSelf('nature_bless', v); continue; } const id0 = id === 'turnund_x' ? 'turnund' : id; if (!SK[id0]) continue; mxCast(id0, v, dist > 10); if (!tg) mxSelf(id, v); else { const T = mxAt(tx, tz, th || 60); if (xv) T.bindLeft = xv; if (SPELL[id]) mxFire(id, v, T, true); else mxSelf(id, T); } if (dist <= 12) spellSfx(id); } }
+    for (const [, id, tg, tx, tz, th, xv] of fresh.slice(-3)) { if (typeof id === 'string' && id.startsWith('pot:poly_')) { spellFx('poly', v, id.slice(9)); continue; } if (typeof id === 'string' && id.startsWith('pot:')) { potFx(v, id.slice(4)); continue; } if (id === 'nature_bless_r') { if (!(v._natFx && time - v._natFx < 2.5)) mxSelf('nature_bless', v); continue; } const id0 = id === 'turnund_x' ? 'turnund' : id; if (!SK[id0]) continue; mxCast(id0, v, dist > 10); if (!tg) mxSelf(id, v); else { const T = mxAt(tx, tz, th || 60); if (xv) T.bindLeft = xv; if (SPELL[id]) mxFire(id, v, T, true); else mxSelf(id, T); } if (dist <= 12) spellSfx(id); } }
 
   // 강화 연출: 내 강화 결과를 보내고, 같은 지역 18칸 안의 다른 사람 강화는 그 사람 머리 위에 이펙트·글자·소리로
   const EFX = { ok: ['enok', '#9fe0ff'], bless: ['enbless', '#ffd86a'], earth: ['earth', '#c8a060'], fail: ['puff', '#c0b8a0'], boom: ['boom', '#ff6a5a'], curse: ['puff', '#c890e8'] };
@@ -7032,6 +7047,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 174, items: ['모든 마법·기술·정령마법 아이콘을 새로 그렸어요. 어두운 돌판에 하얀 문양을 새긴 클래식 스타일이에요. (스킬창·단축칸·버프 줄 모두)', '변신 주문서(다크·실버)를 읽을 때 레벨업 효과가 잘못 나오던 문제를 고쳤어요. 이제 마법진과 빛 소용돌이가 도는 변신 효과가 나와요.'] },
     { v: 173, items: ['힐·익스트라 힐·그레이터 힐·이뮨 투 함·어드밴스 스피릿·리무브 커스는 단축키를 한 번 누르면 [대상을 선택하십시오]가 떠요. 나나 파티원을 누르거나, 왼쪽 파티창에서 파티원을 누르면 그 대상에게 써요.', '같은 단축키를 2초 안에 두 번 누르면 나에게 바로 써요. 마우스 휠 클릭은 가리킨 대상(나·파티원)에게 바로 써요. 대상 선택은 Esc로 취소해요.', '단축칸 아이콘 아래에 짧은 이름(힐·그힐·빨물·순간 등)이 표시돼요. 물약·주문서 개수는 오른쪽 위로 옮겼고, 착용 중인 장비는 이름이 하늘색으로 보여요.', '오른쪽 클릭으로 겹친 대상을 고를 때 몬스터뿐 아니라 다른 캐릭터도 골라져요. (결투장이 아닌 곳에서 캐릭터를 고르고 왼쪽 클릭하면 캐릭터 메뉴)'] },
     { v: 172, items: ['버프와 디버프 아이콘을 두 줄로 나눴어요. 디버프는 버프 줄 위에 따로 떠요.', '맨 오른쪽 첫 칸은 [불멸의 가호] 칸이에요. 가방에 가호가 있으면 버프 줄에 가호 아이콘(사망 패널티 없음)이 뜨고, 없으면 디버프 줄에 타버린 가호 아이콘(사망 패널티: 경험치 −5% · 골드 −10%)이 떠요. 마우스를 올리면(휴대폰은 톡) 자세히 보여 줘요.', '진화한 펫의 목걸이는 금빛 왕관과 보석이 달린 아이콘으로 바뀌어서 진화 안 한 목걸이와 구분돼요.', '장신구(반지·목걸이·벨트)에도 축복 부여 주문서를 쓸 수 있어요. 축복받은 장신구는 명중 +1이에요.', '캐릭터 정보창의 [포만감]을 없앴어요.'] },
     { v: 171, items: ['갤럭시(S펜을 쓸 수 있는 기종)·삼성 인터넷에서 PC 화면이 나와 조작할 수 없던 문제를 고쳤어요. 이제 휴대폰 화면(조이스틱·큰 버튼)으로 열려요.', '휴대폰인데 PC 화면이 나오거나 그 반대라면 ESC 메뉴(휴대폰은 [메뉴 → 설정·종료])의 [화면: PC용/모바일용]을 누르면 저장하고 바꿔요.'] },
