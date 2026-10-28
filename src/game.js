@@ -736,7 +736,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 180;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 181;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1032,7 +1032,8 @@ function skNow(id) { if (SPELL[id]) { const [a, b] = spellRange(id); return `지
 const coldK = P => P && P.el === 'water' ? 1 + INV.cx('coldMagic') / 100 : 1;   // v146: 냉기 마법 피해 +% (아이스 대거·콘 오브 콜드 등 수속성)
 function spellRange(id) { const P = SPELL[id], m = spellMul() * (P.mul || 1) * coldK(P); return [Math.max(1, Math.round(P.dmg[0] * m)), Math.max(1, Math.round(P.dmg[1] * m))]; }
 function spellHit(f, id) { const P = SPELL[id]; if (!P || !f || f.dead) return; const st = INV.stat(), ib = Math.max(0, Math.floor((st.int - 12) / 2)), sp = INV.sp(); const [fx, fy] = W2P(f.x, f.z);
-  if (f.isRemote) { if (!PVPZ() || !NET.alive(f)) return; let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * spellMul() * coldK(P); if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(f, d, { k: 'magic', c: cr, sp: id }); floatText(fx, fy - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); return; }   // v146: 결투장 — 유저에게 마법 피해 (상대 화면에서 MR·카운터 매직 적용)
+  if (f.isRemote && (!PVPZ() || !NET.alive(f))) return;   /* v181: 유저를 직접 찍은 범위 마법(파이어볼·미티어)도 주변 유저·몬스터까지 범위로 */
+  if (f.isRemote && !P.box) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * spellMul() * coldK(P); if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(f, d, { k: 'magic', c: cr, sp: id }); floatText(fx, fy - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); return; }   // v146: 결투장 — 유저에게 마법 피해 (상대 화면에서 MR·카운터 매직 적용)
   const L = P.box ? foxes.filter(m => !m.dead && !m.gone && Math.abs(m.x - f.x) <= P.box && Math.abs(m.z - f.z) <= P.box && DGLOS(f, m)) : [f], MUL = spellMul() * coldK(P);   // 파이어볼: 대상 중심 가로·세로 6칸 (던전은 벽 너머 X)
   for (const m of L) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * MUL; const me = MOB[m.kind] && MOB[m.kind].el; let wk = false;
     if (P.el && me) { if (ATTR_OPP[me] === P.el) { d *= 1.5; wk = true; } else if (me === P.el) d *= 0.5; } if (P.mul) d *= P.mul; if (MOB[m.kind] && MOB[m.kind].dragon) { const dm = INV.cx('dragonMagic'); if (dm) d *= 1 + dm / 100; }   /* v158: 용족 마법 피해 +% */ const cr = Math.random() < spellCritP(MOB[m.kind] || {}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d));
@@ -3872,7 +3873,7 @@ const ICON = (() => {
     + '<feMerge><feMergeNode in="gl"/><feMergeNode in="gl"/><feMergeNode in="rim"/><feMergeNode in="SourceGraphic"/><feMergeNode in="inner"/></feMerge></filter>';
   // v112: 아이템 그림 색이 다른 등급 테두리 색(고급 초록·희귀 파랑·영웅 보라)과 같아 헷갈리는 것 → 그 색만 자기 등급 색 계열로 (일반은 갈색)
   const FAM = { green: [70, 165, 118], blue: [175, 240, 205], purple: [250, 325, 280], brown: [0, 0, 32] };
-  const RECOL = { ic_scale_armor: ['green', 'blue'], ic_cx_am5: ['green', 'blue'], ic_cx_rg5: ['green', 'blue'], ic_cx_ts5: ['purple', 'blue'], ic_cx_gl4: ['purple', 'blue'], ic_cx_am4: ['purple', 'blue'], pouch_arka: ['purple', 'blue'],
+  const RECOL = { ic_scale_armor: ['green', 'blue'], ic_cx_am5: ['green', 'blue'], ic_cx_rg5: ['green', 'blue'], ic_cx_ts5: ['purple', 'blue'], ic_cx_gl4: ['purple', 'blue'], ic_cx_am4: ['purple', 'blue'], ic_cx_rg8: ['purple', 'blue'],   /* v181: 지식의 반지(희귀)가 보라(영웅)처럼 보이던 것 */ pouch_arka: ['purple', 'blue'],
     ic_cx_cl3: ['blue', 'green'], ic_cx_am3: ['blue', 'green'], ic_cx_st3: ['blue', 'green'], ic_cx_hm2: ['purple', 'green'], ic_cx_gl5: ['green', 'purple'], ic_cx_bw7: ['green', 'purple'], ic_cloak: ['purple', 'brown'] };
   const recol = (svg, [from, to]) => { const F = FAM[from], Tt = FAM[to];
     const fix = (r, g, b) => { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn; if (!d) return null; let s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn), h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360;
@@ -5247,7 +5248,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   function sortBag() { const so = id => { const d = ITEMS[id], k = SLOTS.findIndex(([s]) => s === d.slot || (d.slot === 'ring' && s.startsWith('ring'))); return k < 0 ? 99 : k; };
     /* v160: 정렬 순서 — 착용 중 장비 → 장비(높은 등급 먼저 · 같은 등급은 강화 높은 것 먼저) → 그 밖의 아이템(높은 등급 먼저 · 같은 등급은 물약 → 주문서 → 잡템) */
     const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : 2; }, RK = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 }, rk = id => RK[ITEMS[id].rar] || 0, CK = { pot: 0, scr: 1, etc: 2 };
-    bag.sort((a, b) => grp(a) - grp(b) || (grp(a) === 0 ? 0 : rk(b.id) - rk(a.id)) || (grp(a) === 1 ? (b.en || 0) - (a.en || 0) : 0) || (grp(a) === 2 ? (CK[invCat(ITEMS[a.id])] || 0) - (CK[invCat(ITEMS[b.id])] || 0) : 0) || so(a.id) - so(b.id) || ITEMS[a.id].name.localeCompare(ITEMS[b.id].name, 'ko'));
+    bag.sort((a, b) => grp(a) - grp(b) || rk(b.id) - rk(a.id) || (grp(a) <= 1 ? (b.en || 0) - (a.en || 0) : 0) ||   /* v181: 착용 장비도 높은 등급 먼저 */ (grp(a) === 2 ? (CK[invCat(ITEMS[a.id])] || 0) - (CK[invCat(ITEMS[b.id])] || 0) : 0) || so(a.id) - so(b.id) || ITEMS[a.id].name.localeCompare(ITEMS[b.id].name, 'ko'));
     render(); say('인벤토리를 정렬했습니다.', '#9c9682'); }
   // 스킬창: 1서클·2서클 마법(각 3칸) + 기사 기술 5칸. 안 배운 건 흐리게
   let skKey = '';
@@ -7271,6 +7272,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 181, items: ['결투장: 유저를 직접 찍고 쓴 파이어볼·미티어도 주변 유저·몬스터까지 범위로 맞아요. (파티원도 맞아요)', '인벤토리 [정렬]: 착용 중인 장비도 높은 등급부터 정렬돼요.', '지식의 반지 아이콘이 영웅 장비처럼 보라색으로 보이던 것을 희귀 등급 색(파랑)으로 고쳤어요.'] },
     { v: 180, items: ['물약 가격 조정: 주홍 물약 100 → 80골드, 맑은 물약 300 → 200골드.'] },
     { v: 179, items: ['보스 가호조각이 이제 바닥에 떨어지지 않아요. 보스 기여도가 1% 이상인 캐릭터의 가방에 1개씩 바로 들어와요.', '데스나이트의 모습을 새로 만들었어요. 뿔 달린 투구, 붉은 눈, 찢어진 붉은 망토, 불타는 대검.', '데스나이트 전용 효과음이 생겼어요 (공격 · 스킬 · 피격 · 사망).', '절전 모드: 획득 아이템이 많아져도 아래쪽 [밀어서 절전 해제]가 항상 화면에 보여요. 긴 목록은 창 안에서 스크롤돼요.'] },
     { v: 178, items: ['[자동/수동] 버튼의 초록색을 없앴어요. 자동·수동 모두 같은 색이고, 아이콘(회전 화살표 · 손)과 글씨만 바뀌어요.'] },
