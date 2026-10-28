@@ -164,7 +164,11 @@ function face(e,t){ const di=Math.sign(t.i-e.i), dj=Math.sign(t.j-e.j); if (di||
 
 // ---------- input ----------
 // v168: 모바일(폰·태블릿) — 터치 화면이면 가로 전용 HUD · 가상 조이스틱 (?mobile=1 로 강제, ?mobile=0 으로 끔)
-const MOBILE = /[?&]mobile=1/.test(location.search) || (!/[?&]mobile=0/.test(location.search) && (() => { try { return matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches; } catch (e) { return false; } })());
+const MOBILE = (() => { const q = location.search; if (/[?&]mobile=1/.test(q)) return true; if (/[?&]mobile=0/.test(q)) return false;   // v171: 갤럭시(S펜 지원 기종)·삼성 인터넷도 휴대폰으로 인식
+  try { const f = localStorage.getItem('aden_mob'); if (f === '1') return true; if (f === '0') return false; } catch (e) {}   // ESC 메뉴 [화면: PC용/모바일용]으로 직접 고른 것
+  const ua = navigator.userAgent || ''; if (/Electron/i.test(ua) || window.native) return false;
+  if (/Android|iPhone|iPad|iPod|Mobile|SamsungBrowser/i.test(ua)) return true; if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;   // 아이패드(데스크톱 모드)
+  try { return matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches; } catch (e) { return false; } })();
 let MOB_LOWQ = (() => { try { return localStorage.getItem('aden_lowq') === '1'; } catch (e) { return false; } })(), MOB_ZS = (() => { try { return +localStorage.getItem('aden_mz') || 0; } catch (e) { return 0; } })();   // 화질 절약 · 화면 크기(0 = 자동)
 if (MOBILE) document.documentElement.classList.add('mob');
 let UI_TOUCH_T = 0, UI_DOWN = 0; const UI_TOUCH = () => MOBILE && (UI_DOWN > 0 || performance.now() - UI_TOUCH_T < 650);   // 창 안을 누르는 중·막 뗐을 때는 가방 칸을 다시 그리지 않음 (톡·두 번 톡톡이 사라지지 않게)
@@ -715,7 +719,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 170;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 171;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -6990,6 +6994,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 171, items: ['갤럭시(S펜을 쓸 수 있는 기종)·삼성 인터넷에서 PC 화면이 나와 조작할 수 없던 문제를 고쳤어요. 이제 휴대폰 화면(조이스틱·큰 버튼)으로 열려요.', '휴대폰인데 PC 화면이 나오거나 그 반대라면 ESC 메뉴(휴대폰은 [메뉴 → 설정·종료])의 [화면: PC용/모바일용]을 누르면 저장하고 바꿔요.'] },
     { v: 170, items: ['ESC 메뉴에 [📲 앱 설치 주소 복사]가 생겼어요. 누르면 휴대폰 웹 주소(jungkyu9797.github.io/aden-world)가 복사돼요. 카카오톡 등으로 휴대폰에 보내서 브라우저로 열고 [📲 앱 설치]를 누르면 앱처럼 설치돼요.', '휴대폰을 세로로 들었을 때 나오는 [가로로 돌려 주세요] 화면에 [📱 가로 화면으로 돌리기] 버튼이 생겼어요. 갤럭시는 누르면 바로 전체 화면 가로로 바뀌어요. 아이폰은 웹에서 화면을 직접 돌릴 수 없어서, 누르면 화면 방향 잠금을 끄는 방법을 알려 줘요.'] },
     { v: 169, items: ['아이템 도감에 [마법인형] 탭이 생겼어요. 1·2·3단계 인형 18종의 능력치와 얻는 법(주머니에서 나올 확률 · 합성 성공 확률)을 단계별로 볼 수 있어요.', '[마법인형 주머니]는 도감의 [펫·주머니·기타] 탭으로 옮겼어요.', '휴대폰에 아덴 월드를 앱처럼 설치할 수 있어요! 휴대폰 브라우저(Safari·Chrome·삼성 인터넷)로 jungkyu9797.github.io/aden-world 에 들어가서 로그인 화면이나 [메뉴]의 [📲 앱 설치]를 누르세요. 홈 화면 아이콘을 누르면 주소창 없이 전체 화면 가로 모드로 열려요.', '카카오톡·네이버 앱 안에서 주소를 열었다면 [다른 브라우저로 열기]를 먼저 눌러 주세요. (앱 안의 브라우저에서는 설치가 안 돼요)', 'PC와 휴대폰은 같은 계정·캐릭터로 이어서 할 수 있어요.'] },
     { v: 168, items: ['이제 휴대폰(아이폰·갤럭시)과 태블릿 브라우저에서도 아덴 월드를 할 수 있어요! 휴대폰을 가로로 눕혀서 플레이해요. (PC 버전 화면은 그대로예요)', '이동: 왼쪽 아래 조이스틱을 끌거나, 가고 싶은 곳을 톡 누르세요. 몬스터를 누르면 공격해요.', '오른쪽 아래: [공격]은 가장 가까운 몬스터를 공격 · [자동]은 자동사냥 켜기/끄기 · [설정]은 자동사냥 설정 · [줍기]는 주변 아이템 줍기 · 물약 칸을 누르면 자동 물약 설정.', '단축칸 1~12: 누르면 사용, 누르고 있으면 계속 사용해요. 등록은 가방·스킬창에서 아이템이나 스킬을 톡 누르면 뜨는 정보창의 [단축칸] 번호를 누르면 돼요. (같은 번호를 다시 누르면 해제)', '가방: 한 번 톡 = 정보 · 두 번 톡톡 = 사용/착용 (창고가 열려 있으면 창고에 넣기) · 길게 누르기 = 자세한 정보. 몬스터가 겹쳐 있거나 다른 유저 메뉴를 열 때는 화면을 길게 누르세요. (PC의 오른쪽 클릭)', '위 오른쪽 [채팅]·[가방]·[캐릭터]·[지도]·[메뉴]. 메뉴에는 자동사냥 설정·자동 물약·연금술·도감·절전 모드·배경음악·화면 크기·화질(배터리 절약)·설정이 있어요. 왼쪽의 알림 칸을 눌러도 채팅을 쓸 수 있어요.', 'PC와 휴대폰을 오가며 같은 계정으로 해도 안전해요. 나중에 접속한 쪽이 이어서 하고, 먼저 켜 둔 쪽은 접속이 끊기며 더 이상 저장하지 않아요. 휴대폰에서 다른 앱으로 가거나 화면을 끄면 그 순간 바로 저장해서, PC로 옮겨도 직전까지 그대로 이어져요.', '자동사냥을 켜 두면 휴대폰 화면이 저절로 꺼지지 않아요. 휴대폰은 화면을 끄거나 다른 앱으로 가면 브라우저가 게임을 멈추니, 오래 사냥할 때는 [메뉴 → 절전 모드]를 켜 두세요.'] },
@@ -7659,7 +7664,9 @@ const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https
   function sync() { for (const id of ['lg-app', 'mm-app']) { const b = $a(id); if (b) b.hidden = !can(); } }
   function guide() { const g = $a('app-guide'); if (!g) return; $a('ag-ios').hidden = !ios || inApp; $a('ag-and').hidden = ios || inApp; $a('ag-inapp').hidden = !inApp; $a('ag-kakao').hidden = !kakao; g.hidden = false; }
   function install() { if (evt && !inApp) { const e = evt; evt = null; try { e.prompt(); e.userChoice.then(r => { if (r.outcome !== 'accepted') evt = e; sync(); }).catch(() => {}); } catch (x) { guide(); } return; } guide(); }
-  function init() { sync(); { const eb = $a('esc-app'); if (eb) eb.onclick = () => copyUrl(eb); } const lb = $a('lg-app'), mb = $a('mm-app'); if (lb) lb.onclick = install; if (mb) mb.addEventListener('click', install);
+  function init() { sync(); { const eb = $a('esc-app'); if (eb) eb.onclick = () => copyUrl(eb); }
+    { const mb = $a('esc-mob'); if (mb) { mb.hidden = !(MOBILE || navigator.maxTouchPoints > 0); mb.textContent = MOBILE ? '화면: 모바일용 (누르면 PC용으로)' : '화면: PC용 (누르면 모바일용으로)';   // v171: 휴대폰인데 PC 화면이 나오거나 그 반대일 때
+      mb.onclick = async () => { mb.disabled = true; mb.textContent = '저장하고 바꾸는 중…'; try { localStorage.setItem('aden_mob', MOBILE ? '0' : '1'); } catch (e) {} try { await Promise.race([SAVE.now(true, true), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} location.reload(); }; } } const lb = $a('lg-app'), mb = $a('mm-app'); if (lb) lb.onclick = install; if (mb) mb.addEventListener('click', install);
     const x = $a('ag-x'), ok = $a('ag-ok'), g = $a('app-guide'); const close = () => { if (g) g.hidden = true; }; if (x) x.onclick = close; if (ok) ok.onclick = close; if (g) g.addEventListener('click', ev => { if (ev.target === g) close(); });
     const kb = $a('ag-kakao'); if (kb) kb.onclick = () => { location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href.replace(/[?&]app=1/, '')); };
     try { matchMedia('(display-mode: fullscreen), (display-mode: standalone)').addEventListener('change', sync); } catch (e) {} }
