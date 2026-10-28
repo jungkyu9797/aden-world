@@ -630,6 +630,77 @@ body.title-on .fullscr{background:transparent}
 #dupkick .dk-box button{padding:9px 22px;font:700 14px "Noto Sans KR";color:#2a1a08;background:linear-gradient(#ffe2a0,#d9a84a);border:1px solid #7a5a20;border-radius:4px;cursor:pointer}
 </style>
 <canvas id="cv"></canvas>
+<style>
+/* v168: 모바일 (html.mob) — 가로 전용 · 조이스틱 · 위 오른쪽 버튼 · 메뉴 */
+#mob-ui,#mob-send{display:none}
+html.mob #mob-ui{display:block}
+html.mob .topbar{display:none!important}
+html.mob,html.mob body{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+html.mob input,html.mob textarea{-webkit-user-select:text;user-select:text}
+html.mob #chatlog{display:none!important}
+#mob-stick{position:fixed;z-index:4;left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:124px;height:124px;border-radius:50%;background:radial-gradient(circle,rgba(30,22,14,.28) 0,rgba(30,22,14,.5) 62%,rgba(10,8,6,.62) 100%);border:2px solid rgba(210,169,76,.42);box-shadow:inset 0 0 18px rgba(0,0,0,.6);touch-action:none}
+#mob-stick::before{content:'';position:absolute;inset:18px;border-radius:50%;border:1px dashed rgba(232,200,120,.2)}
+#mob-stick b{position:absolute;font:700 9px "Noto Sans KR",sans-serif;color:rgba(232,220,192,.5);left:0;right:0;bottom:-15px;text-align:center;pointer-events:none}
+#mob-stick i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#9a7a40,#3a2810 72%);border:2px solid #d2a94c;box-shadow:0 3px 10px rgba(0,0,0,.6);pointer-events:none;transition:transform .12s}
+#mob-stick.on{border-color:rgba(242,217,138,.85)} #mob-stick.on i{transition:none;border-color:#ffe08a}
+#mob-top{position:fixed;z-index:6;top:calc(6px + env(safe-area-inset-top,0px));right:calc(6px + env(safe-area-inset-right,0px));display:flex;gap:4px}
+#mob-top button{width:46px;height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;border-radius:6px;color:#f0e2bc;font:700 10px "Noto Sans KR",sans-serif;padding:0;position:relative;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+#mob-top button:active,#mob-menu button:active{filter:brightness(1.35)}
+#mob-top svg{width:18px;height:18px;fill:none;stroke:#f2d98a;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#mob-top button.dot::after{content:'';position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#ff5a3a;box-shadow:0 0 6px #ff5a3a}
+#mob-menu{position:fixed;z-index:30;top:calc(54px + env(safe-area-inset-top,0px));right:calc(6px + env(safe-area-inset-right,0px));width:min(372px,calc(100vw - 20px));max-height:calc(100dvh - 64px);overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px;background:linear-gradient(160deg,#3a3732,#1a1917);border:2px solid #6e624a;border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.7)}
+#mob-menu[hidden]{display:none!important}
+#mob-menu button{min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;border-radius:4px;color:#f0e2bc;font:700 12px "Noto Sans KR",sans-serif;padding:4px}
+#mob-menu button[hidden]{display:none}
+#mob-menu button small{font:500 9.5px "Noto Sans KR",sans-serif;color:#b8ac90;min-height:11px}
+#mob-menu #mm-upd{border-color:#ff8a5a;color:#ffd0b0}
+html.mob #chat-in{display:none!important}
+html.mob.mob-chat #chat-in{display:block!important;left:50%!important;top:calc(8px + env(safe-area-inset-top,0px))!important;transform:translateX(-50%);width:min(60vw,480px)!important;height:40px!important;font-size:16px!important;caret-color:#fff!important;z-index:40!important;border-color:#d2a94c!important}
+html.mob.mob-chat #mob-send{display:block;position:fixed;z-index:40;top:calc(8px + env(safe-area-inset-top,0px));left:calc(50% + min(30vw,240px) + 6px);height:40px;padding:0 14px;background:linear-gradient(#5a4418,#2a1c06);border:1px solid #d2a94c;border-radius:4px;color:#ffe9a8;font:800 13px "Noto Sans KR",sans-serif}
+#mob-rot{display:none}
+@media (orientation:portrait){html.mob #mob-rot{display:flex;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:radial-gradient(#221a12,#0a0806);color:#f0e2bc;text-align:center;font-family:"Noto Sans KR",sans-serif;padding:24px}}
+.mr-box svg{width:96px;height:96px;animation:mrRot 2.4s ease-in-out infinite} .mr-box b{display:block;font-size:19px;margin:16px 0 8px;color:#f2d98a} .mr-box small{display:block;font-size:13px;line-height:1.5;color:#b8ac90}
+@keyframes mrRot{0%,18%{transform:rotate(0)}50%,82%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+html.mob .gw{max-height:calc(100dvh - 12px);overflow-y:auto;overscroll-behavior:contain}
+html.mob :is(#charwin,#invwin,#storewin,#sellwin,#colowin,#craftwin,#bulkwin,#petwin,#autowin,#godpanel){top:calc(52px + env(safe-area-inset-top,0px))!important;bottom:auto!important;max-height:calc(100dvh - 58px - env(safe-area-inset-top,0px))}
+html.mob #codexwin{height:calc(100dvh - 16px)}
+@media (max-height:600px){html.mob .dg-gacha .dg-gt{top:calc(50% + 12vh)} html.mob .dg-gacha .dg-zz{font-size:24px} html.mob .dg-gacha .dg-gt span{font-size:14px} html.mob .dg-gacha .dg-gok{top:calc(50% + 36vh)}}
+html.mob #saver{gap:6px;justify-content:flex-start;padding:8px 0 10px;overflow-y:auto} html.mob .sv-clock{font-size:26px} html.mob .sv-top{font-size:13px;gap:10px}
+html.mob .sv-card{padding:10px 14px;gap:6px} html.mob .sv-who b{font-size:18px} html.mob .sv-who small{font-size:13px} html.mob .sv-bar{height:17px} html.mob .sv-bar span{font-size:11.5px;line-height:17px}
+html.mob .sv-st{font-size:13px} html.mob .sv-grid div{padding:4px 6px} html.mob .sv-grid b{font-size:15px} html.mob .sv-grid small{font-size:11px} html.mob .sv-h{font-size:12.5px;margin-top:2px} html.mob .sv-items{max-height:20vh} html.mob .sv-items li{font-size:13px}
+html.mob .tl-wrap{gap:6px;padding:8px 12px 20px;max-height:100dvh} html.mob .fullscr{place-items:start center} html.mob .tb-crest{display:none} html.mob .tb-title{font-size:30px!important}
+html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;padding:8px 6px 10px} html.mob .cs-card canvas{width:96px;height:116px}
+.iw-mh{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px} .iw-mh span{font:700 11px "Noto Sans KR",sans-serif;color:#cfc6ae;margin-right:2px}
+.iw-mh button{width:30px;height:30px;padding:0!important;font:800 12px "Noto Sans KR",sans-serif!important;background:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;border-radius:4px;color:#f0e2bc}
+.iw-mh button.on{border-color:#ffd040;color:#ffe08a;box-shadow:0 0 6px rgba(255,208,64,.55);background:linear-gradient(#5a4418,#2a1c06)}
+</style>
+<div id="mob-ui">
+<div id="mob-stick" aria-label="이동 (끌어서 움직이기)"><i></i><b>이동</b></div>
+<div id="mob-top">
+<button type="button" id="mob-chat-b" aria-label="채팅"><svg viewBox="0 0 20 20"><path d="M3 4h14v9H8l-4 3v-3H3z"/></svg>채팅</button>
+<button type="button" id="mob-bag-b" aria-label="가방"><svg viewBox="0 0 20 20"><path d="M6 7V5.5a4 4 0 0 1 8 0V7"/><path d="M3.5 7h13l-1 10h-11z"/></svg>가방</button>
+<button type="button" id="mob-char-b" aria-label="캐릭터"><svg viewBox="0 0 20 20"><circle cx="10" cy="6" r="3.2"/><path d="M3.5 17.5c.6-4 3.2-6 6.5-6s5.9 2 6.5 6"/></svg>캐릭터</button>
+<button type="button" id="mob-map-b" aria-label="지도"><svg viewBox="0 0 20 20"><path d="M2.5 5l5-2 5 2 5-2v12l-5 2-5-2-5 2z"/><path d="M7.5 3v12M12.5 5v12"/></svg>지도</button>
+<button type="button" id="mob-menu-b" aria-label="메뉴"><svg viewBox="0 0 20 20"><path d="M4 5.5h12M4 10h12M4 14.5h12"/></svg>메뉴</button>
+</div>
+<div id="mob-menu" hidden role="menu">
+<button type="button" id="mm-upd" hidden>⬇ 업데이트<small>새 버전 받기</small></button>
+<button type="button" id="mm-auto">자동사냥 설정<small>사냥터·물약·버프</small></button>
+<button type="button" id="mm-pot">자동 물약<small>HP 물약 설정</small></button>
+<button type="button" id="mm-home" hidden>마을로 귀환<small>&nbsp;</small></button>
+<button type="button" id="mm-alch">연금술<small>장비 합성</small></button>
+<button type="button" id="mm-codex">아이템 도감<small>&nbsp;</small></button>
+<button type="button" id="mm-mp" hidden>월드 서버<small></small></button>
+<button type="button" id="mm-saver">절전 모드<small>화면 끄고 사냥</small></button>
+<button type="button" id="mm-bgm">배경음악<small></small></button>
+<button type="button" id="mm-zoom">화면 크기<small></small></button>
+<button type="button" id="mm-q">화질<small></small></button>
+<button type="button" id="mm-fs" hidden>전체 화면<small>주소창 숨기기</small></button>
+<button type="button" id="mm-esc">설정 · 종료<small>소리·캐릭터 선택</small></button>
+</div>
+<div id="mob-rot"><div class="mr-box"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="6" width="24" height="52" rx="4" fill="#2a2016" stroke="#d2a94c" stroke-width="2.5"/><rect x="24" y="12" width="16" height="38" rx="1.5" fill="#4a3a22"/><circle cx="32" cy="54" r="1.8" fill="#d2a94c"/></svg><b>가로로 돌려 주세요</b><small>아덴 월드는 휴대폰을 가로로 눕혀서 플레이해요.<br>화면 자동 회전이 꺼져 있으면 켜 주세요.</small></div></div>
+</div>
+<button type="button" id="mob-send">보내기</button>
 <div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>서버 연결 중…</button><button id="btn-alch" type="button">연금술</button><button id="btn-codex" type="button">아이템 도감</button><button id="btn-saver" type="button" title="화면 그리기를 멈추고 사냥은 계속 (밀어서 해제)">절전</button></div>
 <audio id="bgm" src="assets/sound/bgm_town.mp3" loop preload="auto"></audio><audio id="bgm-island" src="assets/sound/bgm_island.mp3" loop preload="auto"></audio><audio id="bgm-desert" src="assets/sound/bgm_desert.mp3" loop preload="none"></audio><audio id="bgm-orc" src="assets/sound/bgm_orc.mp3" loop preload="none"></audio><audio id="bgm-bugbear" src="assets/sound/bgm_bugbear.mp3" loop preload="none"></audio><audio id="bgm-boss" src="assets/sound/bgm_boss.mp3" loop preload="auto"></audio>
 <div class="ovl" id="shop" hidden><div class="pn shop"><h2><span id="shop-title">상점</span><button type="button" data-close aria-label="닫기">×</button></h2>
