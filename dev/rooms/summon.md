@@ -19,5 +19,5 @@
 
 ## 시뮬
 - `python3 dev/mkkt.py && python3 dev/mksim.py` → `bash dev/runkt.sh "dev/sim/summon_boss_sim.js A baphomet,kaspar,deathknight,ice_queen,drake_king dev/out/A.json 1"`
-- 조건: 카리스마 12(3마리), 촐기·용기, 맑은 물약 55%, Lv40·45 중급 장비, Lv48+ 영웅급 +5~7 (`dev/sim/pvpbuilds.js`). 미로 보스(카스파·데스나이트)는 13번 지역에서.
+- 조건: 카리스마 12(3마리), 촐기·용기, 맑은 물약 55%, Lv40·45 중급 장비, Lv48+ 영웅급 +5~7 (`dev/sim/pvpbuilds.js`). 미로 보스(카스파·데스나이트)는 8번 지역(버그베어밭 2구간)에서 — 13번 소환의 제단은 자동사냥이 안 돼서 시뮬이 안 맞음.
 - 10/29 결과(한 번씩): 지금 = 얼음여왕만 성공(6분) · 1~4 = 얼음여왕 3분 50초·드레이크 킹 11분 30초 성공 · 바포메트(Lv40) 20~35% 남기고 사망 · 카스파 패밀리 7초 사망 · 데스나이트 30~78초 사망. 원인은 마법사가 먼저 죽음(범위 마법·MP 0).

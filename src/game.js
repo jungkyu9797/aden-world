@@ -453,7 +453,10 @@ function updateHero(dt){
   if (hero.t<1) return;
   if (BUFF.root>0){ const T=BUFF.abar>0?null:hero.target; if (T&&!T.dead&&inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); } return; }
   const T=BUFF.abar>0?null:hero.target;   /* v149: 앱솔루트 배리어 중에는 공격 안 함 (이동만) */
-  if (T){ if (T.dead||(T.isRemote&&!(PVPZ()&&NET.alive(T)))){ hero.target=null; return; } if (inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); return; }
+  if (T){ if (T.dead||(T.isRemote&&!(PVPZ()&&NET.alive(T)))){ hero.target=null; return; }
+    if (!T.isRemote&&AUTO.on()&&CLASS==='wizard'&&MOB[T.kind]&&MOB[T.kind].boss&&LEARNED.has('summon')&&INV.autoSk('summon')&&PET.sumBal.tank){ const d=cheb(T.i,T.j,hero.i,hero.j);   /* v189: 서먼 자동 마법사는 보스와 3~6칸 떨어져 소환수 뒤에서 마법만 (지팡이로 붙지 않음) */
+      if (d>=3&&d<=7&&FLOS(hero,T)){ face(hero,T); return; } const p=MAZE()?[]:astar(hero,(i,j)=>{ const dd=cheb(i,j,T.i,T.j); return dd>=3&&dd<=6&&FLOS({ i, j },T); },T.i,T.j); if (p.length) beginStep(hero,p[0]); else if (inRng(T)&&hero.cool<=0){ face(hero,T); heroAttack(T); } return; }
+    if (inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); return; }
     const RR=heroRange(), p=MAZE()?mzPath(hero,T.i,T.j):astar(hero,(i,j)=>{ const d=cheb(i,j,T.i,T.j); return d>=1&&d<=RR&&(d<=1||!AUTO.on()||FLOS({ i, j },T)); },T.i,T.j); if (p.length) beginStep(hero,p[0]); return; }
   if (moveGoal){ if (hero.i===moveGoal[0]&&hero.j===moveGoal[1]){ if (!holding) moveGoal=null; return; }
     const p=MAZE()?mzPath(hero,moveGoal[0],moveGoal[1]):astar(hero,(i,j)=>i===moveGoal[0]&&j===moveGoal[1],moveGoal[0],moveGoal[1]); if (!p.length||!beginStep(hero,p[0])){ if (!holding) moveGoal=null; } }
@@ -656,10 +659,10 @@ function breathFx(f, ux, uz, len) { const [x0, y0] = W2P(f.x + ux * 0.45, f.z + 
   mxAdd('scorch', mxAt(f.x + ux * len * 0.6, f.z + uz * len * 0.6, 0), { gnd: 1, r: len * K * 0.9, life: 2.5 });
   if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.7, 900, 200, 0.28); tone(t0, 'sawtooth', 130, 55, 0.6, 0.07); } }
 // v139: 보스 기술 대상 — 다른 플레이어를 노리고 있으면 그 사람 (내가 없어도 씀) · 아니면 나 · 아니면 가까운 다른 플레이어
-function bossTarget(f) { const T = f.tgt; if (T && T.isRemote && NET.alive(T)) return T; if (hero.hp > 0 && SCENE !== 'town' && !(BUFF.invis > 0) && !DEATH) return hero; return NET.nearRemote(f, 10); }
+function bossTarget(f) { const T = f.tgt; if (T && T.isRemote && NET.alive(T)) return T; if (T && T.sum && !T.dead && PET.sumBal.tank && MOB[f.kind] && MOB[f.kind].boss) return T;   /* v189: 보스가 소환수를 노리는 동안엔 범위 기술도 소환수 쪽으로 */ if (hero.hp > 0 && SCENE !== 'town' && !(BUFF.invis > 0) && !DEATH) return hero; return NET.nearRemote(f, 10); }
 function bossSkills(f, S, dt){
   const list = BOSS_SKILL[f.kind]; if (!list || f.dead || !f.aggro) return false;
-  f.sk = f.sk || {}; if (f.casting){ f.casting.t -= dt; const C = f.casting, CT = C.tg && (C.tg === hero ? hero.hp > 0 && !DEATH : NET.alive(C.tg)) ? C.tg : bossTarget(f); face(f, CT || hero);
+  f.sk = f.sk || {}; if (f.casting){ f.casting.t -= dt; const C = f.casting, CT = C.tg && (C.tg === hero ? hero.hp > 0 && !DEATH : C.tg.sum ? !C.tg.dead : NET.alive(C.tg)) ? C.tg : bossTarget(f); face(f, CT || hero);
     if (C.t <= 0){ const k = C.k; f.casting = null; if (!CT) return true; const a0 = AOES.length, seed = (Math.random() * 2147483646 + 1) | 0, R = Math.random, mul = (S && S.solo ? SOLO_MUL : 1) * ((S && S.atkMul) || 1) * enrMul(f);
       BT = CT; Math.random = AO_RNG(seed); try { k.use(f); } finally { Math.random = R; BT = null; }   // 같은 씨앗으로 → 다른 사람 화면에서도 같은 자리에 범위가 그려짐
       for (let q = a0; q < AOES.length; q++) { AOES[q].mul = mul; AOES[q].src = f; } /* v118: 범위 공격에 보스 표시 (기절 판정) · 공격력 배율 */
@@ -819,7 +822,7 @@ function castSkill(id, onto){ if (DEATH) { deadSay(); return false; } if (TWM.bl
   const b0 = SKCD[id] || 0, r = castSkill0(id, onto); if (k && k.kind === 'magic' && (SKCD[id] || 0) > b0 + 1e-6) { SKCD._mag = Math.min(3, SKCD[id]); MAGMAX = Math.max(0.1, SKCD._mag);   /* v149: 다른 마법이 잠기는 공용 대기는 최대 3초 (그 마법 자체는 자기 쿨타임) */ } return r; }
 function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun > 0) { stunSay(); return; } if (!LEARNED.has(id)) { say(`아직 배우지 않은 ${k.kind === 'magic' ? '마법' : k.kind === 'spirit' ? '정령마법' : '기술'}입니다.`, '#f08a7a'); return; }
   if (k.kind === 'spirit' && hero.lv < (k.lv || 1) && !GOD_MP) { say(`${k.name}: ${k.lv}레벨부터 쓸 수 있어요.`, '#f08a7a'); return; }
-  if ((SKCD[id] || 0) > 0) return; if (!GOD_MP && hero.mp < k.mp) { say('MP가 부족합니다.', '#8aa8ff'); return; }
+  if ((SKCD[id] || 0) > 0) return; if (!GOD_MP && hero.mp < (id === 'summon' ? PET.sumMp() : k.mp)) { say('MP가 부족합니다.', '#8aa8ff'); return; }
   const OT = onto && !onto.dead ? onto : null, T = OT || (hero.target && !hero.target.dead ? hero.target : null), [hx, hy] = W2P(hero.x, hero.z);
   if (id === 'heal' || id === 'xheal' || id === 'gheal' || id === 'immune' || id === 'advspirit' || id === 'rcurse') { const PTY_ = id === 'immune' || id === 'advspirit' || id === 'rcurse', PM_ = OT && !PTY_ ? null : NET.hoverParty(), tg = !PTY_ && OT ? OT : PM_ ? { i: Math.floor(PM_.pr.x), j: Math.floor(PM_.pr.y) } : null;   /* v124: 대상에게 거는 힐·이뮨도 8칸 · 장애물 (이뮨은 던전 벽만) */
     if (tg) { if (cheb(tg.i, tg.j, hero.i, hero.j) > 8) { say(`${k.name}: 8칸 안의 대상에게 쓸 수 있어요.`, '#9c9682'); return; } if (PTY_ ? !DGLOS(hero, tg) : !FLOS(hero, tg)) { say('장애물이 있습니다.', '#9c9682'); return; } } }
@@ -842,7 +845,8 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     if (!SPELL[id] && id !== 'triple_arrow') { say(`${k.name}: 결투장에서 다른 유저에게는 쓸 수 없어요. (스턴·공격 마법·정령마법·트리플 애로우만)`, '#9c9682'); return; } }
   if (id === 'summon') { const cap = PET.sumCap(), live = PET.sumLive();   /* v144: 서먼 몬스터 */
     if (live >= cap) { INV.askYesNo('소환수를 돌려보낼까요?', `지금 ${live}마리가 나와 있어요. (최대 ${cap}마리 · 카리스마 4마다 1마리) 다시 부르려면 서먼 몬스터를 쓰면 돼요.`, () => PET.sumClear('dismiss')); return; }
-    if (!GOD_MP) hero.mp -= k.mp; SKCD[id] = k.cd / heroSpd(); if (!hero.atk) hero.atk = { t: 0, dur: 0.5 / GSPD, hit: true, v: 'cast' }; mxCast('ebolt', hero); PET.sumCast(cap - live); return; }
+    if (live > 0 && PET.sumLocked()) { say('소환수가 대인전에서 쓰러져서, 남은 소환수가 모두 쓰러져야 다시 부를 수 있어요.', '#d0a8ff'); return; }   /* v189 */
+    if (!GOD_MP) hero.mp -= PET.sumMp(); SKCD[id] = k.cd / heroSpd(); if (!hero.atk) hero.atk = { t: 0, dur: 0.5 / GSPD, hit: true, v: 'cast' }; mxCast('ebolt', hero); PET.sumCast(cap - live); return; }
   if (id === 'stun') { if (!T || cheb(T.i, T.j, hero.i, hero.j) > 1) { say('스턴: 바로 옆의 대상을 선택하세요.', '#9c9682'); return; }
     if (!GOD_MP) hero.mp -= k.mp; SKCD[id] = k.cd / heroSpd(); face(hero, T); hero.atk = { t: 0, dur: 0.5, hit: true, f: T };
     const S = MOB[T.kind], ch = Math.max(0.1, Math.min(0.9, 0.5 + 0.05 * (hero.lv - S.lv) - (S.boss ? 0.25 : 0))); const [fx, fy] = W2P(T.x, T.z);
@@ -3656,7 +3660,11 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   // v144: 서먼 몬스터 (마법사 6서클 · Lv24) — 펫처럼 따라다니며 싸움 · 귀환·텔레포트·사냥터 이동해도 따라옴 · 시간 제한 없음
   //   내가 쓰러지거나 소환수가 쓰러지면 사라짐 · 다시 쓰면 돌려보내기 · 마리 수 = 카리스마 4마다 1 (최대 3) · 경험치·골드·드랍은 모두 나에게
   // 소환수 밸런스 (보스전): bossK = 보스에게 주는 피해 배율 · tank = 보스가 소환수를 계속 노림 · take = 보스에게 받는 피해 배율 · lv = 소환 단계 레벨보다 1 높을 때마다 HP·공격 +lv · hp/dmg = 기본 배율
-  const SUMB = { bossK: 0.5, tank: false, take: 1, lv: 0, hp: 1, dmg: 1, heroLv: false };   // heroLv = 소환수 레벨을 마법사 레벨로 (명중·회피)
+  const SUMB = { bossK: 1, tank: true, take: 0.5, lv: 0.03, hp: 1, dmg: 1, heroLv: false, bossMp: 15, reMp: 5, aoeTake: 0.5, mpKeep: 15 };   // aoeTake = 보스 범위 기술이 소환수에게 주는 피해 추가 배율 · mpKeep = 보스전에서 서먼 자동이면 공격 마법이 남겨 둘 MP   // v189: 보스전 강화 · heroLv = 소환수 레벨을 마법사 레벨로 · bossMp = 보스전 서먼 MP · reMp = 보스에게 쓰러진 소환수 하나를 바로 다시 부르는 MP (0이면 끔)
+  let SUMQ = 0, SUMQT = 0, SUMLOCK = false;   // SUMQ = 바로 다시 부를 소환수 수 · SUMLOCK = 대인전(유저·봇)에게 쓰러짐 → 남은 소환수가 다 쓰러져야 다시
+  const bossNear = () => foxes.some(f => !f.dead && !f.gone && f.aggro && !f.bot && MOB[f.kind] && MOB[f.kind].boss && cheb(f.i, f.j, hero.i, hero.j) <= 20);
+  const sumMp = () => bossNear() ? SUMB.bossMp : SK.summon.mp;
+  const sumLocked = () => { if (SUMLOCK && sumLive() === 0) SUMLOCK = false; return SUMLOCK; };
   const SUM_TIER = [[52, 'dv_lizard'], [48, 'ettin'], [42, 'ice_golem'], [36, 'king_bugbear'], [30, 'cerberus'], [24, 'bugbear']];
   const sumKind = () => (SUM_TIER.find(t => hero.lv >= t[0]) || SUM_TIER[SUM_TIER.length - 1])[1];
   const sumCap = () => Math.max(1, Math.min(3, Math.floor(((INV.stat() || {}).cha || 0) / 4))), sumLive = () => L.filter(p => p.sum && !p.dead).length;
@@ -3694,10 +3702,12 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   const petHit = (d, S) => Math.max(0.2, Math.min(0.95, PET_KIND[d.kind].hit + 0.02 * (petEff(d) - S.lv) - (10 - (S.mac ?? 10)) * 0.02));
   function gainExp(p, n) { const d = p.d; d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? 10 : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
       if (AC && SFX_ON) { const t = AC.currentTime; [659, 784, 1047].forEach((f, k) => tone(t + k * 0.08, 'triangle', f, f, 0.25, 0.08)); } } refresh(); }
-  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && SUMB.take !== 1 && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take)); dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
+  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
     const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, String(dmg), { color: '#ff8a6a', size: 11 });
     if (src) { const [sx, sy] = W2P(src.x, src.z); const vx = px - sx, vy = py - sy, l = Math.hypot(vx, vy) || 1; p.kx = vx / l; p.ky = vy / l; } p.hitD = 0.3; p.hitT = 0.3; p.kmag = 4;
-    if (d.hp <= 0) { d.hp = 0; p.dead = true; p.deadT = 0; d.state = 'dead'; p.lunge = 0; for (const f of foxes) if (f.tgt === p) f.tgt = null; say(p.sum ? `소환수 ${JOSA(nm(d), '이', '가')} 쓰러져 사라집니다.` : `${JOSA(nm(d), '이', '가')} 쓰러졌습니다... 부활 주문서로 되살릴 수 있습니다.`, '#f08a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 420, 120, 0.5, 0.12); }
+    if (d.hp <= 0) { d.hp = 0; p.dead = true; p.deadT = 0; d.state = 'dead'; p.lunge = 0; { const nx = p.sum && SUMB.tank ? PETS_HERE.find(q => q !== p && q.sum && !q.dead) : null; for (const f of foxes) if (f.tgt === p) f.tgt = nx && MOB[f.kind] && MOB[f.kind].boss ? nx : null; }   /* v189: 보스는 남은 소환수로 */
+      if (p.sum) { if (p.pvpHit) SUMLOCK = true; else if (SUMB.reMp > 0 && bossNear()) SUMQ++; }   /* v189: 보스전 — 하나 쓰러지면 바로 다시 (MP 5) · 대인전에게 쓰러지면 다 쓰러져야 다시 */
+      say(p.sum ? `소환수 ${JOSA(nm(d), '이', '가')} 쓰러져 사라집니다.` : `${JOSA(nm(d), '이', '가')} 쓰러졌습니다... 부활 주문서로 되살릴 수 있습니다.`, '#f08a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 420, 120, 0.5, 0.12); }
     refresh(); }
   function hurtBy(p, f, S) { if (Math.random() < Math.max(0.2, Math.min(0.95, 0.55 + 0.04 * (S.lv - petEff(p.d)) + (petAC(p.d) - 8) * 0.03))) hurt(p, mobDmg(S, f), f); else { const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, 'MISS', { color: '#c8d0d8', size: 10 }); } }
   function revive(e, ent) { const d = e.pet; if (!d || d.state !== 'dead') { say('부활시킬 대상이 아닙니다.', '#9c9682'); return false; } if (!INV.take('revive_scroll')) { say('부활 주문서가 없습니다.', '#f08a7a'); return false; }
@@ -3733,6 +3743,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
     for (let q = L.length - 1; q >= 0; q--) if (L[q].sum && L[q].dead && L[q].deadT > 1.5) L.splice(q, 1);   // v144: 쓰러진 소환수는 사라짐
     for (const p of L) { if (p.zone !== z || (p.dead && jump)) { const dd = p.dead, dt0 = p.deadT; place(p); if (dd) { p.dead = true; p.deadT = Math.max(dt0, 1.4); } } }   // 쓰러진 펫: 걸어갈 땐 그 자리에 누워 있고, 텔레포트·맵 이동 땐 옆에 같이 떨어짐
     PETS_HERE = L.filter(p => p.zone === z);
+    if (SUMQ > 0) { SUMQT -= dt; if (!bossNear() || hero.hp <= 0 || DEATH) SUMQ = 0; else if (SUMQT <= 0 && sumLive() < sumCap() && hero.mp >= SUMB.reMp && !sumLocked()) { SUMQT = 0.4; SUMQ--; if (!GOD_MP) hero.mp -= SUMB.reMp; const np = sumSpawn(sumKind()); if (np) { L1.summon(np); try { spellFx('cast', np, '#d0a8ff'); } catch (e) {} } } }   // v189: 보스에게 쓰러진 소환수를 바로 다시 부름
     for (const p of PETS_HERE) { const d = p.d; if (p.barkT > 0) p.barkT = Math.max(0, p.barkT - dt); if (p.hitT > 0) p.hitT = Math.max(0, p.hitT - dt); p.flash = Math.max(0, p.flash - dt); if (p.dead) { p.deadT += dt; continue; }
       p.cool = Math.max(0, p.cool - dt); p.potCd = Math.max(0, p.potCd - dt); if (d.haste > 0) d.haste = Math.max(0, d.haste - dt); const hm = d.haste > 0 ? (d.hasteLv === 2 ? 1.4 : 1.2) : 1;
       if (!foxes.some(f => f.tgt === p && !f.dead)) d.hp = Math.min(MXH(d), d.hp + dt * (0.15 + d.lv * 0.04));
@@ -3740,7 +3751,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (p.lunge > 0) { const was = p.lunge; p.lunge -= dt; const T = p.target; if (was > 0.15 && p.lunge <= 0.15 && T && !T.dead && cheb(p.i, p.j, T.i, T.j) === 1) { const S = MOB[T.kind];
           if (Math.random() < petHit(d, S)) { const dm = S.boss ? Math.max(1, Math.round(petDmg(d) * (p.sum ? SUMB.bossK : 0.5))) : petDmg(d); sfxBite();   // v155: 펫·소환수가 보스에게 주는 피해 −50% (일반 몬스터는 그대로)
             mobHurt(T, dm, '#ffd27a', p); if (!T.dead && (p.sum && SUMB.tank && S.boss ? !(T.tgt && T.tgt.sum && !T.tgt.dead) : Math.random() < 0.35)) T.tgt = p; }
-          else { const [fx, fy] = W2P(T.x, T.z); floatText(fx, fy - headY(T) - 4, 'MISS', { color: '#c8d0d8', size: 10 }); } } }
+          else { if (p.sum && SUMB.tank && S.boss && !T.dead && !(T.tgt && T.tgt.sum && !T.tgt.dead)) T.tgt = p; const [fx, fy] = W2P(T.x, T.z); floatText(fx, fy - headY(T) - 4, 'MISS', { color: '#c8d0d8', size: 10 }); } } }
       if (p.t < 1) continue;
       if (cheb(p.i, p.j, hero.i, hero.j) > 16 && d.mode !== 'rest') { place(p); continue; }
       if (p.scatterT > 0) { p.scatterT -= dt; if (p.scatter && (p.i !== p.scatter[0] || p.j !== p.scatter[1])) { const st = astar(p, (i, j) => i === p.scatter[0] && j === p.scatter[1], p.scatter[0], p.scatter[1]); if (!st.length || !beginStep(p, st[0])) p.scatter = null; } continue; }
@@ -3799,7 +3810,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       const can = kind === 'find' ? d.state === 'stored' : d.state === 'out' || d.state === 'dead';
       row.innerHTML = `<span class="ic">${ICON(eIcon(e))}</span><span class="nm">${esc(d.name)} <small>Lv.${d.lv} ${PET_KIND[d.kind].name}</small></span><span class="info">HP ${Math.ceil(d.hp)}/${MXH(d)} · ${({ out: '소환 중', stored: '보관소에 있음', dead: '쓰러짐' })[d.state]}</span><button type="button" class="buy"${can ? '' : ' disabled'}>${kind === 'find' ? '소환' : '맡기기'}</button>`;
       row.querySelector('.buy').onclick = () => { if (kind === 'find') summon(e); else store(e); shopPanel(kind, list); }; list.appendChild(row); } }
-  return { sumBal: SUMB, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
+  return { sumBal: SUMB, sumMp, sumLocked, bossNear, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
 })();
 
 // ============================================================ 인벤토리 · 캐릭터 정보 (기획팀)
@@ -5407,14 +5418,14 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   let sumHoldSaid = false;
   function skAuto(dt) { skT -= dt; if (skT > 0) return; skT = 0.3; if (SCENE === 'town' || hero.hp <= 0) return;
     const holdSum = !!AUTOSK.summon && LEARNED.has('summon') && huntOn() && PET.sumLive() === 0;
-    if (!holdSum) sumHoldSaid = false; else if (!sumHoldSaid && hero.mp < SK.summon.mp) { sumHoldSaid = true; say(`소환수가 모두 쓰러졌어요. 서먼 몬스터 MP(${SK.summon.mp})가 찰 때까지 다른 자동 마법은 쉬어요. (힐은 계속)`, '#d0a8ff'); }
-    for (const id of Object.keys(AUTOSK).sort((a, b) => skPri(a) - skPri(b))) { const k = SK[id], kind = skAutoKind(id); if (!k || !kind || !LEARNED.has(id) || skBusy(id) || hero.mp < k.mp) continue;
+    if (!holdSum) sumHoldSaid = false; else if (!sumHoldSaid && hero.mp < PET.sumMp()) { sumHoldSaid = true; say(`소환수가 모두 쓰러졌어요. 서먼 몬스터 MP(${PET.sumMp()})가 찰 때까지 다른 자동 마법은 쉬어요. (힐은 계속)`, '#d0a8ff'); }
+    for (const id of Object.keys(AUTOSK).sort((a, b) => skPri(a) - skPri(b))) { const k = SK[id], kind = skAutoKind(id); if (!k || !kind || !LEARNED.has(id) || skBusy(id) || hero.mp < (id === 'summon' ? PET.sumMp() : k.mp)) continue;
       if (TW() && (id === 'summon' || id === 'abarrier' || id === 'blizzard')) continue;   // 수호탑 대전에서 못 쓰는 마법은 자동 사용도 건너뜀
-      if (holdSum && kind !== 'summon' && kind !== 'heal' && kind !== 'barrier') continue; if (BUFF.abar > 0 || (BUFF.mlock > 0 && k.kind === 'magic')) continue;
+      if (holdSum && kind !== 'summon' && kind !== 'heal' && kind !== 'barrier') continue; if ((kind === 'attack' || kind === 'aoe') && PET.sumBal.mpKeep > 0 && AUTOSK.summon && LEARNED.has('summon') && hero.mp - k.mp < PET.sumBal.mpKeep && PET.bossNear()) continue;   /* v189: 보스전 서먼 자동 — 다시 부를 MP는 남김 */ if (BUFF.abar > 0 || (BUFF.mlock > 0 && k.kind === 'magic')) continue;
       if (kind === 'buff') { if (BUFF[k.buff] > 0) continue; }
       else if (kind === 'heal') { if (hero.hp / hero.max > 0.5) continue; }
       else if (kind === 'mana') { if (hero.mp / Math.max(1, hero.maxmp) > 0.5 || hero.hp / hero.max < 0.6) continue; }
-      else if (kind === 'summon') { if (PET.sumLive() >= PET.sumCap()) continue; }
+      else if (kind === 'summon') { if (PET.sumLive() >= PET.sumCap() || PET.sumLocked()) continue; }
       else if (kind === 'barrier') { if (hero.hp / hero.max > 0.3) continue; }
       else if (kind === 'cleanse') { if (!(BUFF.slow > 0 || BUFF.root > 0 || BUFF.poison > 0)) continue; }
       else if (kind === 'aoe') { const P = SPELL[id], inB = f => !f.dead && !f.gone && Math.abs(f.x - hero.x) <= P.box && Math.abs(f.z - hero.z) <= P.box && MOB[f.kind] && !MOB[f.kind].dummy; if (foxes.filter(inB).length < 3 && !foxes.some(f => inB(f) && MOB[f.kind].boss)) continue; }
