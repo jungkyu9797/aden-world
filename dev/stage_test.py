@@ -22,7 +22,10 @@ for b in brs:
     else: merged.append(b)
 r = subprocess.run(['node', '--check', 'src/game.js'])
 if r.returncode: git('checkout', '-q', back); sys.exit('합친 game.js 문법 오류 — 테스트 판을 만들지 않았어요')
+try: os.remove('dev/out/build.json')
+except OSError: pass
 subprocess.run([sys.executable, 'dev/build_test.py'], check=True)
+if not os.path.exists('dev/out/build.json'): git('checkout', '-q', back); sys.exit('판 번호(build.json)가 없어요 — origin/main의 dev/build_test.py가 예전 판인지 확인')
 kc = subprocess.run(['bash', 'dev/keycheck.sh'], capture_output=True, text=True).stdout
 if any(l.strip() and not l.strip().endswith(' 0') for l in kc.splitlines()): git('checkout', '-q', back); sys.exit('운영자 키 검사 실패 — 올리지 마세요\n' + kc)
 b = json.load(open('dev/out/build.json')); b.update(n=len(merged), branches=merged, skipped=skipped)
