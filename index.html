@@ -191,6 +191,7 @@ html.sktgt .pb-m{cursor:crosshair;border-color:#ffe08a;box-shadow:0 0 6px rgba(2
 .slot:disabled{cursor:default;opacity:.55} .slot.empty{cursor:default;opacity:.55} .slot.dropk{outline:2px solid #ffd86a;outline-offset:-2px;opacity:1} .slot:not(:disabled):hover{border-color:#c9a24a}
 .slot .on{position:absolute;left:2px;top:1px;font:800 9px "Noto Sans KR";color:#7fe0ff;font-style:normal;text-shadow:0 1px 2px #000}
 .slot b{position:absolute;right:2px;bottom:0;font:800 10px "Noto Sans KR";color:#fff;text-shadow:0 1px 2px #000,0 0 2px #000}
+.slot .ab{position:absolute;left:1px;bottom:1px;padding:0 2px;font:800 9.5px/12px "Noto Sans KR",sans-serif;color:#fff2c8;font-style:normal;letter-spacing:-.4px;white-space:nowrap;max-width:62%;overflow:hidden;background:rgba(0,0,0,.62);border-radius:2px;pointer-events:none;text-shadow:0 1px 1px #000} .slot:has(.lk) .ab{left:13px;max-width:50%}
 .inv-sort{background:#2a2620;border:1px solid #6e624a;color:#e9e2cf;font:700 11px "Noto Sans KR",sans-serif;padding:2px 10px;border-radius:2px;cursor:pointer} .inv-sort:hover{color:#f2d98a;border-color:#d2a94c}
 .inv-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#bdb39a} .inv-foot b{color:#e8d080;font-variant-numeric:tabular-nums}
 .inv-help{font-size:11px;color:#8a8270;margin-top:4px}.inv-help-row{display:flex;align-items:center;gap:8px}.inv-help-row .inv-help{flex:1}.inv-trash{flex:none;width:40px;height:40px;margin-top:4px;display:flex;align-items:center;justify-content:center;border:1px solid #5a4a30;border-radius:4px;background:rgba(0,0,0,.35);transition:background .12s,border-color .12s}.inv-trash.over{border-color:#e0503a;background:rgba(130,24,14,.55)}.inv-trash.over svg path{stroke:#ffb0a0}
@@ -332,7 +333,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 body.cursor-hammer,body.cursor-hammer *{cursor:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M13 12 L28 27 L25.5 29.5 L10.5 14.5 Z' fill='%238a5a2a' stroke='%232a1608' stroke-width='1.2'/%3E%3Cpath d='M4 7 L12 1 L17 6 L15 8 L19 12 L14 17 L10 13 L8 15 L3 10 Z' fill='%23c8ccd4' stroke='%231e2228' stroke-width='1.3'/%3E%3Cpath d='M5 8 L11 3.5' stroke='%23ffffff' stroke-width='1.2' opacity='.8'/%3E%3Cpath d='M14.5 9.5 L17 12' stroke='%235a606a' stroke-width='1'/%3E%3C/svg%3E") 6 5,crosshair!important}
 
 .slot .en.neg,.eq .en.neg,.iw-ic .en.neg{color:#d890ff}
-/* ===== 장비 일괄 강화 창 ===== */
+/* ===== 장비 강화 창 (예전 일괄 강화 창 자리) ===== */
 #bulkwin{z-index:25;right:calc(300px + 2vw);top:calc(70px + env(safe-area-inset-top,0px));width:440px;max-width:calc(100vw - 24px);padding:12px 14px 12px;background-image:var(--cbl),var(--cbr),var(--damask),var(--leather),linear-gradient(160deg,#3a2f24 0%,#221b14 50%,#15110d 100%)!important;background-repeat:no-repeat,no-repeat,repeat,repeat,no-repeat!important;background-position:left 1px bottom 1px,right 1px bottom 1px,0 0,0 0,0 0!important}
 .bk-help{font-size:12px;color:#b8ad92;margin:0 0 6px;line-height:1.5} .bk-help b{color:#f2d98a}
 .bk-list{display:flex;flex-direction:column;gap:4px;height:210px;overflow-y:auto;padding:5px;background:#0a0806;border:1px solid #5a4424;box-shadow:inset 0 0 10px #000}
@@ -350,6 +351,105 @@ body.cursor-hammer,body.cursor-hammer *{cursor:url("data:image/svg+xml;utf8,%3Cs
 .bk-chk-r{margin-left:auto} .bk-t{margin-right:0!important} .bk-have{display:flex;gap:5px;align-items:center;margin-left:auto;flex-wrap:nowrap}
 .bk-have .hv{display:inline-flex;align-items:baseline;gap:3px;padding:4px 9px;border:1px solid #8a6a2a;border-radius:3px;background:linear-gradient(#2e2212,#150f08);font:700 12px "Noto Sans KR",sans-serif;color:#e8d8b0;white-space:nowrap}
 .bk-have .hv b{display:inline-block;font:900 17px "Noto Sans KR",sans-serif;color:#fff;min-width:1.4em;text-align:right} .bk-have .hv i{font-style:normal;font-size:11px;color:#c9b88a} .bk-have .hv i b{font-size:13px;min-width:0}
+/* ===== v186: 장비 강화 창 (단일·다중) ===== */
+.en-tabs{display:flex;gap:4px;margin:2px 0 8px}
+.en-tabs button{flex:1;padding:8px 6px;font:800 13.5px "Noto Sans KR",sans-serif;color:#cbbf9f;background:linear-gradient(#2a2016,#16110b);border:1px solid #5a4424;border-radius:4px 4px 0 0;cursor:pointer;text-shadow:0 1px 0 #000}
+.en-tabs button.on{color:#ffe6a8;background:linear-gradient(#5a3e1a,#2a1d0e);border-color:#d2a94c;box-shadow:inset 0 -2px 0 #f2c86a}
+.en-tabs button:hover:not(.on){color:#f2e2b4;border-color:#8a6a2a}
+.en-stage{display:flex;align-items:center;justify-content:center;padding:12px 0 4px;background:radial-gradient(ellipse at 50% 55%,rgba(110,74,30,.38),rgba(0,0,0,0) 68%)}
+.en-hex{position:relative;width:84px;height:96px;display:grid;place-items:center;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(160deg,#6a5230,#2a1e10);cursor:pointer;flex:none}
+.en-hex::before{content:"";position:absolute;inset:3px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radial-gradient(circle at 50% 40%,#2c2419,#0b0907)}
+.en-hex > *{position:relative} .en-hex > i{font:700 12px "Noto Sans KR",sans-serif;color:#8a7e66;font-style:normal}
+.en-hex .ic{display:grid;place-items:center} .en-hex .ic svg{width:50px;height:50px;filter:drop-shadow(0 2px 3px #000)}
+.en-hex em{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font:800 9px "Noto Sans KR",sans-serif;color:#7fe0ff;font-style:normal;text-shadow:0 1px 2px #000}
+.en-item.on{background:linear-gradient(160deg,var(--rar,#d2a94c),#2a1c0c 85%);animation:en-glow 1.8s ease-in-out infinite}
+@keyframes en-glow{50%{filter:brightness(1.3) drop-shadow(0 0 8px var(--rar,#d2a94c))}}
+.en-mat.on{background:linear-gradient(160deg,#8fd8ff,#183a6a 85%)} .en-mat.on.bl{background:linear-gradient(160deg,#ffe8a0,#7a5210 85%)} .en-mat.on.cu{background:linear-gradient(160deg,#d0a0ff,#341660 85%)}
+.en-mat b{position:absolute;right:15px;bottom:17px;font:800 11px "Noto Sans KR",sans-serif;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000}
+.en-link{display:flex;gap:5px;margin:0 4px} .en-link i{width:7px;height:7px;transform:rotate(45deg);background:#c9a24a;box-shadow:0 0 6px #ffcf6a;animation:en-dot 1.2s infinite} .en-link i:nth-child(2){animation-delay:.2s} .en-link i:nth-child(3){animation-delay:.4s}
+@keyframes en-dot{50%{opacity:.2}}
+.en-plus{display:flex;align-items:center;justify-content:center;gap:10px;font:900 24px "Noto Sans KR",sans-serif;min-height:34px} .en-plus .c{color:#d8ccb0} .en-plus span{color:#c9a24a;font-size:14px} .en-plus .n{color:#ffd86a;text-shadow:0 0 10px rgba(255,200,80,.55)} .en-plus .n.neg{color:#d8a8ff} .en-plus small{font-size:14px;color:#fff3c8}
+.en-stat{margin:4px 0 6px;padding:6px 10px;background:#0a0806;border:1px solid #4a3820;box-shadow:inset 0 0 8px #000;min-height:60px}
+.en-stat .en-nm{margin:0 0 4px;font:800 13px "Noto Sans KR",sans-serif;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.en-stat div{display:grid;grid-template-columns:1fr auto 18px auto;gap:6px;font:600 12.5px "Noto Sans KR",sans-serif;color:#cfc4a8;align-items:center;padding:1px 0}
+.en-stat em{font-style:normal;color:#e8dcc0;text-align:right;font-variant-numeric:tabular-nums} .en-stat i{color:#c9a24a;font-style:normal;text-align:center} .en-stat strong{color:#9fe0ff;font-variant-numeric:tabular-nums}
+.en-hint{margin:8px 0;font-size:12px;color:#9c937c;text-align:center;line-height:1.55}
+.en-mats{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:6px 0 2px}
+.en-mats button,.en-sr button{display:inline-flex;align-items:center;gap:4px;padding:3px 9px 3px 4px;background:linear-gradient(#2e2212,#150f08);border:1px solid #6a4e22;border-radius:3px;color:#e8d8b0;font:700 12px "Noto Sans KR",sans-serif;cursor:pointer}
+.en-mats .ic,.en-sr .ic{display:grid;place-items:center} .en-mats .ic svg,.en-sr .ic svg{width:24px;height:24px} .en-mats b,.en-sr b{color:#fff;font-weight:900}
+.en-mats button.on,.en-sr button.on{border-color:#ffd86a;box-shadow:0 0 0 1px #ffd86a inset,0 0 10px rgba(255,210,100,.35);color:#fff3c8;background:linear-gradient(#4a3418,#22180c)}
+.en-mats button.bl .t,.en-sr button.bl{color:#ffe28a} .en-mats button.cu .t{color:#d8a8ff}
+.en-mats button:disabled,.en-sr button:disabled{opacity:.38;cursor:not-allowed}
+.en-rate{margin:6px 0 2px;text-align:center;font:700 12.5px "Noto Sans KR",sans-serif;min-height:19px;line-height:1.55} .en-rate .ok{color:#8fe08a} .en-rate .rk{color:#ffcf6a} .en-rate .no{color:#ff7a6a} .en-rate .cu{color:#d8a8ff} .en-rate small{color:#a89e86;font-weight:600}
+.en-go{display:block;width:100%;margin-top:6px;padding:11px;font:900 16px "Noto Sans KR",sans-serif;letter-spacing:6px;color:#fff1c8;background:linear-gradient(#9a4420,#4a1a0a);border:1px solid #f2c86a;border-radius:4px;cursor:pointer;text-shadow:0 1px 2px #000;box-shadow:0 0 14px rgba(255,180,80,.25),inset 0 1px 0 rgba(255,230,170,.35)}
+.en-go:hover:not(:disabled){filter:brightness(1.18);box-shadow:0 0 20px rgba(255,190,90,.45),inset 0 1px 0 rgba(255,230,170,.4)} .en-go:disabled{opacity:.42;cursor:not-allowed;filter:grayscale(.4)}
+.en-mh{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .en-mh span{margin-right:auto;font:800 13px "Noto Sans KR",sans-serif;color:#f2d98a} .en-mh b{color:#fff}
+.en-mh button{background-image:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;color:#f0e2bc;font:700 12px "Noto Sans KR",sans-serif;padding:5px 9px;border-radius:3px;cursor:pointer;text-shadow:0 1px 0 #000} .en-mh button:hover:not(:disabled){border-color:#e8c878;color:#fff3c8} .en-mh button:disabled{opacity:.45;cursor:not-allowed}
+.en-mlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:4px;height:150px;overflow-y:auto;align-content:start;margin-top:6px;padding:5px;background:#0a0806;border:1px solid #5a4424;box-shadow:inset 0 0 10px #000}
+.en-mi{position:relative;aspect-ratio:1;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2a2218,#0e0b08);border:1px solid var(--rar,#5a4424);border-radius:3px;cursor:pointer;padding:0} .en-mi:hover:not(:disabled){filter:brightness(1.25)}
+.en-mi .ic{display:grid;place-items:center} .en-mi .ic svg{width:34px;height:34px} .en-mi .en{position:absolute;right:2px;top:0;font:800 10px "Noto Sans KR",sans-serif;color:#ffd86a;font-style:normal;text-shadow:0 1px 2px #000}
+.en-mlist .bk-empty{grid-column:1/-1}
+.en-msc{margin-top:8px;display:flex;flex-direction:column;gap:5px} .en-ml{font:800 12.5px "Noto Sans KR",sans-serif;color:#f2d98a} .en-sr{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .en-sr .k{width:46px;font:800 12px "Noto Sans KR",sans-serif;color:#d8ccae}
+.en-goal{margin-top:8px} .en-goal>span{font:800 12.5px "Noto Sans KR",sans-serif;color:#f2d98a} .en-goals{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-top:4px}
+.en-goals button{padding:6px 0;font:800 12px "Noto Sans KR",sans-serif;color:#d8ccb0;background:linear-gradient(#2a2016,#120d08);border:1px solid #5a4424;border-radius:3px;cursor:pointer} .en-goals button:hover:not(.on){border-color:#a8843a;color:#fff0c8} .en-goals button.on{color:#1a1006;background:linear-gradient(#ffe28a,#c98a1a);border-color:#fff0b0;box-shadow:0 0 8px rgba(255,210,100,.5)}
+.en-mi.cur{outline:2px solid #ffd86a;outline-offset:1px;box-shadow:0 0 12px rgba(255,210,100,.8);z-index:1} .en-mi.done{box-shadow:inset 0 0 0 1px #8fe08a}
+.en-mi.ok-flash{animation:en-okf .7s ease-out} @keyframes en-okf{0%{filter:brightness(2.6) drop-shadow(0 0 10px #ffd86a)}100%{filter:none}}
+.en-hex.fx-ok{animation:en-fxok .9s ease-out!important} .en-hex.fx-bl{animation:en-fxbl 1.1s ease-out!important} .en-hex.fx-cu{animation:en-fxcu .9s ease-out!important}
+@keyframes en-fxok{0%{filter:brightness(2.8) drop-shadow(0 0 16px #9fe0ff)}100%{filter:none}} @keyframes en-fxbl{0%{filter:brightness(3) drop-shadow(0 0 18px #fff0a8)}50%{filter:brightness(1.6) hue-rotate(120deg) drop-shadow(0 0 14px #ff9ae0)}100%{filter:none}} @keyframes en-fxcu{0%{filter:brightness(.4) drop-shadow(0 0 16px #b070ff)}100%{filter:none}}
+.enfx-glow{position:fixed;z-index:9500;width:0;height:0;pointer-events:none}
+.enfx-glow i{position:absolute;left:-44px;top:-44px;width:88px;height:88px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.98),rgba(255,220,120,.8) 28%,rgba(255,180,60,0) 70%);animation:enfx-glow .95s ease-out forwards}
+.enfx-glow i::after{content:"";position:absolute;inset:-34px;border-radius:50%;background:repeating-conic-gradient(rgba(255,232,160,.6) 0 7deg,transparent 7deg 26deg);-webkit-mask:radial-gradient(circle,#000 18%,transparent 70%);mask:radial-gradient(circle,#000 18%,transparent 70%);animation:enfx-spin .95s linear}
+.enfx-glow.bl i{background:radial-gradient(circle,#fff,rgba(190,240,255,.85) 26%,rgba(255,170,230,.55) 48%,rgba(255,200,240,0) 70%)} .enfx-glow.bl i::after{background:repeating-conic-gradient(rgba(255,150,150,.6) 0 6deg,transparent 6deg 18deg,rgba(150,255,190,.6) 18deg 24deg,transparent 24deg 36deg,rgba(150,200,255,.6) 36deg 42deg,transparent 42deg 54deg)}
+.enfx-glow b{position:absolute;left:-60px;width:120px;top:-16px;text-align:center;font:900 17px "Noto Sans KR",sans-serif;color:#fff3c8;white-space:nowrap;text-shadow:0 0 8px #ffb020,0 1px 2px #000;animation:enfx-up 1.2s ease-out forwards} .enfx-glow.bl b{font-size:19px;color:#fff;text-shadow:0 0 8px #ff9ae0,0 0 16px #9ad8ff,0 1px 2px #000}
+@keyframes enfx-glow{0%{transform:scale(.2);opacity:1}55%{opacity:.95}100%{transform:scale(1.7);opacity:0}} @keyframes enfx-spin{to{transform:rotate(100deg)}}
+@keyframes enfx-up{0%{transform:translateY(0) scale(.6);opacity:0}18%{opacity:1;transform:translateY(-10px) scale(1.2)}100%{transform:translateY(-40px) scale(1);opacity:0}}
+.enfx-break{position:fixed;z-index:9500;pointer-events:none;filter:drop-shadow(0 0 3px #ff7a40) drop-shadow(0 0 8px rgba(255,90,40,.8))}
+.enfx-break .sh{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#8a6a48,#2a1a10 75%);animation:enfx-shard 1.05s cubic-bezier(.25,.7,.45,1) forwards} .enfx-break .sh svg{width:34px;height:34px}
+@keyframes enfx-shard{0%{transform:translate(0,0) rotate(0);opacity:1;filter:brightness(1.8) drop-shadow(0 0 6px #ff5a3a)}20%{transform:translate(calc(var(--dx) * .25),calc(var(--dy) * .25)) rotate(calc(var(--rt) * .2));filter:brightness(2.4) drop-shadow(0 0 8px #ff7a3a)}100%{transform:translate(var(--dx),calc(var(--dy) + 46px)) rotate(var(--rt));opacity:0;filter:brightness(.6)}}
+.enfx-break .fl{position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(circle,rgba(255,140,90,.95),rgba(255,60,30,0) 70%);animation:enfx-fl .55s ease-out forwards} @keyframes enfx-fl{0%{transform:scale(.3);opacity:1}100%{transform:scale(1.9);opacity:0}}
+.en-sr2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px} .en-sr2 button{display:grid;grid-template-columns:28px 1fr;grid-template-rows:auto auto;column-gap:6px;align-items:center;text-align:left;padding:5px 8px 5px 5px} .en-sr2 .ic{grid-row:1/3} .en-sr2 .nm{font:700 11.5px "Noto Sans KR",sans-serif;color:#e8d8b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .en-sr2 .hv{font:700 11px "Noto Sans KR",sans-serif;color:#b8ad92} .en-sr2 .hv b{font:900 15px "Noto Sans KR",sans-serif;color:#fff} .en-sr2 button.bl .nm{color:#ffe28a} .en-sr2 button.zero .hv b{color:#ff7a6a}
+.en-chk{display:flex;align-items:center;gap:6px;margin:4px 0 0;font:700 12.5px "Noto Sans KR",sans-serif;color:#e0d4b4;cursor:pointer;user-select:none} .en-chk input{accent-color:#d2a94c;width:15px;height:15px;cursor:pointer} .en-chk small{color:#9c937c;font-weight:600} .en-goal{position:relative} .en-chk-r{position:absolute;right:0;top:-3px;margin:0} .en-goals.off{pointer-events:none} .en-goals.off button:not(.on){opacity:.32}
+.en-mlog{max-height:150px;margin-top:8px} .en-mlog .hd{color:#f2d98a;font-weight:800} .en-mlog .no{color:#ff7a6a} .en-mlog .ok{color:#8fe08a}
+/* ===== 단일 강화 연출 (전체 화면) ===== */
+#enh-fx{position:fixed;inset:0;z-index:9000;user-select:none;--glow:#7fd8ff;--rar:#d2a94c;--hex:min(30vh,30vw,210px)}
+#enh-fx[hidden]{display:none}
+#enh-cv{position:absolute;inset:0;width:100%;height:100%}
+#enh-fx .ef-hexw{position:absolute;left:50%;top:44%;width:var(--hex);height:calc(var(--hex) * 1.1547);transform:translate(calc(-50% + var(--sx,0px)),calc(-50% + var(--sy,0px)));filter:drop-shadow(0 0 14px var(--glow)) drop-shadow(0 0 30px var(--glow))}
+#enh-fx .ef-hex{position:absolute;inset:0;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(160deg,#ffffff,var(--glow) 30%,#1a2238 70%,var(--glow))}
+#enh-fx .ef-in{position:absolute;inset:5px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:radial-gradient(circle at 50% 42%,#2a3654,#0a0e1a 70%);display:grid;place-items:center}
+#ef-ic{width:58%;height:58%;display:grid;place-items:center;filter:brightness(calc(1 + var(--bst,0) * .9)) drop-shadow(0 0 calc(var(--bst,0) * 14px) var(--glow))} #ef-ic svg{width:100%;height:100%;filter:drop-shadow(0 0 10px var(--rar)) drop-shadow(0 3px 4px #000)}
+#ef-plus{position:absolute;right:17%;bottom:19%;font:900 clamp(18px,3.4vh,30px) "Noto Sans KR",sans-serif;color:#fff;text-shadow:0 0 8px var(--glow),0 0 2px #000,0 2px 3px #000}
+#ef-title{position:absolute;left:0;right:0;top:calc(44% - var(--hex) * 1.1547 / 2 - 2.6em);margin:0;text-align:center;font:900 clamp(30px,6vh,58px) "Nanum Myeongjo","Noto Sans KR",serif;letter-spacing:.12em;color:transparent;background:linear-gradient(#ffffff,#fff0b8 35%,#ffcf5a 60%,#b8780e);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 14px rgba(255,200,90,.75)) drop-shadow(0 3px 2px rgba(0,0,0,.9));pointer-events:none}
+#ef-sub{position:absolute;left:8%;right:8%;top:calc(44% + var(--hex) * 1.1547 / 2 + 22px);margin:0;text-align:center;font:700 clamp(14px,2.2vh,18px) "Noto Sans KR",sans-serif;color:#e8dcc0;text-shadow:0 2px 4px #000}
+#ef-btn{position:absolute;left:50%;transform:translateX(-50%);top:calc(44% + var(--hex) * 1.1547 / 2 + 64px);min-width:180px;padding:12px 26px;font:900 17px "Noto Sans KR",sans-serif;letter-spacing:4px;color:#fff3cc;background:linear-gradient(#5a3a14,#2a180a);border:1px solid #ffd86a;border-radius:4px;cursor:pointer;text-shadow:0 1px 2px #000;box-shadow:0 0 18px rgba(255,200,90,.45),inset 0 1px 0 rgba(255,235,180,.4);animation:ef-btn 1.4s ease-in-out infinite}
+#ef-btn:hover{filter:brightness(1.2)} @keyframes ef-btn{50%{box-shadow:0 0 30px rgba(255,210,110,.8),inset 0 1px 0 rgba(255,235,180,.5)}}
+#enh-fx.ph-charge .ef-hexw{animation:ef-charge .9s ease-in-out infinite} @keyframes ef-charge{50%{filter:drop-shadow(0 0 22px var(--glow)) drop-shadow(0 0 48px var(--glow)) brightness(1.25)}}
+#enh-fx.ph-charge #ef-ic{animation:ef-float 1.6s ease-in-out infinite} @keyframes ef-float{50%{transform:translateY(-5%) scale(1.04)}}
+#enh-fx:is(.ph-ok,.ph-bless) .ef-hexw{animation:ef-pop .7s cubic-bezier(.2,1.8,.4,1)} @keyframes ef-pop{0%{transform:translate(-50%,-50%) scale(.6)}60%{transform:translate(-50%,-50%) scale(1.16)}100%{transform:translate(-50%,-50%) scale(1)}}
+#enh-fx:is(.ph-ok,.ph-bless) #ef-title{animation:ef-title .75s cubic-bezier(.2,1.6,.4,1) both} @keyframes ef-title{0%{opacity:0;transform:scale(2.2);letter-spacing:.6em}100%{opacity:1;transform:scale(1);letter-spacing:.12em}}
+#enh-fx:is(.ph-ok,.ph-bless) #ef-plus{animation:ef-plus .8s cubic-bezier(.2,1.9,.4,1) both;color:#fff6c8} @keyframes ef-plus{0%{transform:scale(3);opacity:0}100%{transform:scale(1);opacity:1}}
+#enh-fx.ph-bless #ef-title{background:linear-gradient(90deg,#ffffff,#fff2a8,#a8f0ff,#ffd0f0,#fff2a8,#ffffff);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;animation:ef-title .75s cubic-bezier(.2,1.6,.4,1) both,ef-shine 2.4s linear infinite} @keyframes ef-shine{to{background-position:200% 0}}
+#enh-fx.hi #ef-title{font-size:clamp(34px,7vh,66px)}
+#enh-fx:is(.ph-ok,.ph-bless) #ef-sub,#enh-fx.ph-boom #ef-sub,#enh-fx.ph-curse #ef-sub{animation:ef-sub .5s .25s ease-out both} @keyframes ef-sub{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+#enh-fx.ph-boom #ef-title{background:linear-gradient(#ffd8d0,#ff6a50 45%,#a01010);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 14px rgba(255,60,40,.8)) drop-shadow(0 3px 2px rgba(0,0,0,.9));animation:ef-glitch .5s steps(2) 3,ef-title .5s ease-out both}
+@keyframes ef-glitch{0%{transform:translate(0)}25%{transform:translate(-6px,2px) skewX(8deg)}50%{transform:translate(5px,-2px) skewX(-6deg)}75%{transform:translate(-3px,1px)}100%{transform:translate(0)}}
+#enh-fx.ph-boom .ef-hexw{animation:ef-break .45s ease-in forwards} @keyframes ef-break{0%{transform:translate(-50%,-50%) scale(1)}20%{transform:translate(calc(-50% - 8px),-50%) scale(1.05) rotate(-3deg)}40%{transform:translate(calc(-50% + 8px),-50%) scale(1.08) rotate(3deg);opacity:1}100%{transform:translate(-50%,-50%) scale(1.5);opacity:0;filter:brightness(3) drop-shadow(0 0 30px #ff4a2a)}}
+#enh-fx.ph-curse #ef-title{background:linear-gradient(#f2e4ff,#c890ff 45%,#5a1a9a);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 14px rgba(170,90,255,.8)) drop-shadow(0 3px 2px rgba(0,0,0,.9));animation:ef-title .7s ease-out both}
+#enh-fx.ph-curse .ef-hexw{animation:ef-curse 1.4s ease-out both} @keyframes ef-curse{0%{filter:brightness(2.2) drop-shadow(0 0 30px #b070ff)}100%{filter:brightness(.8) saturate(.6) drop-shadow(0 0 16px #7a2ad8)}}
+#enh-fx.ph-curse #ef-plus{color:#e0c0ff}
+#ef-slide{position:absolute;left:50%;transform:translateX(-50%);top:calc(44% + var(--hex) * 1.1547 / 2 + 58px);width:min(380px,84vw)} #ef-slide[hidden]{display:none} #ef-slide.full .ef-track{border-color:#ffe9a8;box-shadow:inset 0 2px 10px #000,0 0 34px rgba(255,225,130,.9)} #ef-slide.full .ef-knob{animation:ef-full .45s ease-in-out infinite alternate} @keyframes ef-full{to{filter:brightness(1.45) drop-shadow(0 0 10px #ffe9a8)}}
+.ef-track{position:relative;height:58px;border-radius:29px;background:linear-gradient(#0c0f1a,#1c2236);border:1px solid rgba(255,220,140,.6);box-shadow:inset 0 2px 10px #000,0 0 22px rgba(255,200,100,.28);overflow:hidden}
+.ef-fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:29px;background:linear-gradient(90deg,rgba(255,210,110,.08),rgba(255,214,120,.6));box-shadow:0 0 18px rgba(255,210,110,.5)}
+.ef-hint{position:absolute;inset:0;display:grid;place-items:center;padding-left:44px;font:800 15.5px "Noto Sans KR",sans-serif;letter-spacing:4px;color:transparent;background:linear-gradient(90deg,#8a7a5a 0%,#8a7a5a 38%,#fff6d0 50%,#8a7a5a 62%,#8a7a5a 100%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;animation:ef-sweep 1.8s linear infinite;opacity:calc(1 - var(--p,0) * 1.5);pointer-events:none}
+@keyframes ef-sweep{from{background-position:110% 0}to{background-position:-110% 0}}
+.ef-knob{position:absolute;left:4px;top:4px;width:50px;height:50px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#fffbe8,#ffd36a 45%,#b8780e);box-shadow:0 0 16px rgba(255,210,100,.85),0 2px 6px #000;display:grid;place-items:center;cursor:grab;touch-action:none;animation:ef-knob 1.2s ease-in-out infinite}
+.ef-knob.dn{cursor:grabbing;animation:none;filter:brightness(1.2)} .ef-knob svg{width:26px;height:26px} .ef-knob path{fill:none;stroke:#5a3a0a;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+@keyframes ef-knob{50%{box-shadow:0 0 26px rgba(255,220,120,1),0 2px 6px #000}}
+#ef-btn{top:calc(44% + var(--hex) * 1.1547 / 2 + 62px)!important}
+#enh-fx.ph-bless #ef-title{font-size:clamp(46px,9vh,86px);letter-spacing:.08em;filter:drop-shadow(0 0 18px rgba(255,240,180,.95)) drop-shadow(0 0 40px rgba(255,160,220,.6)) drop-shadow(0 4px 2px rgba(0,0,0,.9))}
+#enh-fx.ph-bless .ef-hexw{animation:ef-pop .8s cubic-bezier(.2,1.9,.4,1),ef-rainbow 2.2s linear .8s infinite} @keyframes ef-rainbow{0%{filter:drop-shadow(0 0 16px #ff8a8a) drop-shadow(0 0 34px #ffd86a)}33%{filter:drop-shadow(0 0 16px #8affb0) drop-shadow(0 0 34px #8ad8ff)}66%{filter:drop-shadow(0 0 16px #c8a0ff) drop-shadow(0 0 34px #ff9ae0)}100%{filter:drop-shadow(0 0 16px #ff8a8a) drop-shadow(0 0 34px #ffd86a)}}
+#enh-fx.ph-bless #ef-plus{font-size:clamp(24px,4.6vh,40px);color:#fff;text-shadow:0 0 10px #fff3a0,0 0 22px #ff9ae0,0 2px 3px #000}
+@media (prefers-reduced-motion:reduce){#enh-fx *{animation-duration:.01s!important;animation-iteration-count:1!important}}
 .bk-have .hv.cur{border-color:#ffd86a;box-shadow:0 0 0 1px #ffd86a inset,0 0 10px rgba(255,200,90,.45)} .bk-have .hv.zero b{color:#ff7a6a} .bk-have .hv.tick > b{animation:bkTick .4s ease-out}
 .bk-row-t{flex-wrap:nowrap} .bk-have{min-width:0;overflow:hidden} .bk-have .bk-hl{font-size:11px;color:#a89e86;margin-right:1px;white-space:nowrap} .bk-have.many .bk-hl{display:none} .bk-have.many .hv{padding:3px 6px;font-size:11px} .bk-have.many .hv b{font-size:14px;min-width:0} .bk-have .none{font-size:11.5px;color:#8a826e;white-space:nowrap}
 @keyframes bkTick{0%{color:#ff9a6a;transform:scale(1.45)}100%{color:#fff;transform:scale(1)}}
@@ -538,7 +638,7 @@ svg.bl-svg{overflow:visible;animation:blShim 2.4s ease-in-out infinite}
 
 /* ===== 장비 도감: 착용 제한 · 투명 망토 · 갓 모드 아이템 지급 ===== */
 .iw-lines li.req{color:#9fd08a;font-weight:700} .iw-lines li.req.no{color:#ff5a4a} .iw-lines li.req small{font-weight:400;color:inherit;opacity:.85}
-.iw-ctl .iw-invis{border-color:#9fc8f0!important;color:#dff0ff!important}
+.iw-ctl .iw-invis{border-color:#9fc8f0!important;color:#dff0ff!important} .iw-enw{border-color:#e8c46a!important;color:#ffe9a8!important}
 #godpanel{width:300px;max-height:calc(100vh - 72px);overflow-y:auto;overscroll-behavior:contain}
 .gp-give{margin-top:10px;border-top:1px solid rgba(232,200,120,.25);padding-top:8px} .gp-give>small{display:block;color:#9c937c;font-size:11px;margin:2px 0 6px}
 .gp-tabs{display:flex;flex-wrap:wrap;gap:3px} #godpanel .gp-tabs button{padding:3px 6px;font-size:11.5px;font-weight:700}
@@ -741,7 +841,7 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 <div class="gw" id="invwin" hidden><span class="gw-plate">인벤토리</span><button class="x" type="button" data-closewin="invwin">닫기</button>
  <div class="inv-tabs" id="inv-tabs" role="tablist" aria-label="가방 분류"><button type="button" role="tab" data-t="all" aria-selected="true">전체 <small></small></button><button type="button" role="tab" data-t="eq" aria-selected="false">장비 <small></small></button><button type="button" role="tab" data-t="pot" aria-selected="false">물약 <small></small></button><button type="button" role="tab" data-t="scr" aria-selected="false">주문서 <small></small></button></div>
  <div class="inv-grid" id="inv-grid"></div>
- <div class="inv-foot"><span>무게 <b id="inv-w">0%</b></span><button type="button" id="inv-sort" class="inv-sort">정렬</button><button type="button" id="inv-bulk" class="inv-sort">일괄 강화</button><span>골드 <b id="inv-coin">0</b></span></div>
+ <div class="inv-foot"><span>무게 <b id="inv-w">0%</b></span><button type="button" id="inv-sort" class="inv-sort">정렬</button><button type="button" id="inv-bulk" class="inv-sort">강화</button><span>골드 <b id="inv-coin">0</b></span></div>
  <div class="inv-help-row"><div class="inv-help">더블클릭(또는 우클릭): 착용·벗기·사용<br>끌어서 아래 단축키 칸에 놓으면 등록</div><div id="inv-trash" class="inv-trash" title="휴지통 — 아이템을 끌어다 놓으면 삭제" aria-label="휴지통: 아이템을 끌어다 놓으면 삭제"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 7h14l-1.2 13.2a1.6 1.6 0 0 1-1.6 1.4H7.8a1.6 1.6 0 0 1-1.6-1.4Z" fill="#3a2e22" stroke="#c9a24a" stroke-width="1.3"/><path d="M3.5 6.5h17M9.5 6.5V4.6c0-.6.5-1.1 1.1-1.1h2.8c.6 0 1.1.5 1.1 1.1v1.9" fill="none" stroke="#c9a24a" stroke-width="1.4" stroke-linecap="round"/><path d="M10 10.5v7.5M14 10.5v7.5" stroke="#c9a24a" stroke-width="1.2" stroke-linecap="round"/></svg></div></div>
  <div class="skillbox"><div class="sk-tabs" role="tablist"><button type="button" class="sk-tab" role="tab" data-tab="magic" aria-selected="true">마법</button><button type="button" class="sk-tab" role="tab" data-tab="skill" aria-selected="false">기술</button></div><h3><small id="sk-cls">기사</small></h3><div class="sk-grid" id="sk-grid"></div><div class="sk-help">마법서·기술서로 배워요 · 배운 스킬은 끌어서 단축키에 등록</div></div>
 </div>
@@ -774,14 +874,25 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
  <div class="sl-tabs" role="tablist" aria-label="제작 메뉴"><button type="button" role="tab" data-ct="make" aria-selected="true">가호 제작</button><button type="button" role="tab" data-ct="mix" aria-selected="false">가호 조합</button><button type="button" role="tab" data-ct="gear" aria-selected="false">장비 제작</button><button type="button" role="tab" data-ct="doll" aria-selected="false">인형 합성</button></div>
  <div class="cr-list" id="cr-list"></div>
  <p class="cr-note" id="cr-note"></p></div>
-<div class="gw" id="bulkwin" hidden role="dialog" aria-label="장비 일괄 강화"><span class="gw-plate">장비 일괄 강화</span><button class="x" type="button" data-closewin="bulkwin">닫기</button>
- <p class="bk-help">인벤토리에서 무기·방어구·장신구(능력치 반지·목걸이)를 클릭해 넣고 빼세요. 착용 중인 장비는 넣을 수 없어요. 하나를 넣고 <b>같은 장비 모두 넣기</b>를 누르면 같은 장비가 한꺼번에 들어옵니다.</p>
- <div id="bk-list" class="bk-list"></div>
- <div class="bk-row"><button type="button" id="bk-same">같은 장비 모두 넣기</button><button type="button" id="bk-clear">비우기</button><label class="bk-chk bk-chk-r"><input type="checkbox" id="bk-bless">축복 주문서 먼저</label></div>
- <div class="bk-row bk-row-t"><span class="bk-t">목표 강화 + <button type="button" id="bk-m" aria-label="목표 1 낮추기">−</button><input id="bk-target" type="number" min="1" max="15" value="7" aria-label="목표 강화 수치"><button type="button" id="bk-p" aria-label="목표 1 올리기">+</button></span><span class="bk-have" id="bk-have" aria-live="polite"></span></div>
- <div class="bk-row"><button type="button" id="bk-safe" class="bk-go">안전 강화까지</button><button type="button" id="bk-go" class="bk-go">목표까지 강화</button></div>
- <p class="bk-scrolls" id="bk-scrolls" hidden></p>
- <ol class="bk-log" id="bk-log" aria-live="polite"></ol></div>
+<div class="gw" id="bulkwin" hidden role="dialog" aria-label="장비 강화"><span class="gw-plate">장비 강화</span><button class="x" type="button" data-closewin="bulkwin">닫기</button>
+ <div class="en-tabs" role="tablist"><button type="button" data-et="one" class="on">단일 강화</button><button type="button" data-et="multi">다중 강화</button></div>
+ <section id="en-one" class="en-one">
+  <div class="en-stage"><div class="en-hex en-item" id="en-item" title="강화할 장비 (인벤토리에서 클릭 · 누르면 빼기)"><i>장비</i></div><div class="en-link" aria-hidden="true"><i></i><i></i><i></i></div><div class="en-hex en-mat" id="en-mat" title="강화 재료 (아래에서 고르기)"><i>재료</i></div></div>
+  <div class="en-plus" id="en-plus"></div>
+  <div class="en-stat" id="en-stat"></div>
+  <div class="en-mats" id="en-mats"></div>
+  <p class="en-rate" id="en-rate"></p>
+  <label class="en-chk"><input type="checkbox" id="en-safe1">안전 강화 단계까지 한 번에 강화 <small>(연출 없이 바로)</small></label>
+  <button type="button" class="en-go" id="en-go" disabled>강화</button>
+ </section>
+ <section id="en-multi" class="en-multi" hidden>
+  <div class="en-mh"><span>강화할 장비 <b id="en-mcount"></b></span><button type="button" id="en-same">동일 아이템 등록</button><button type="button" id="en-clear">모두 빼기</button></div>
+  <div class="en-mlist" id="en-mlist"></div>
+  <div class="en-msc" id="en-msc"></div>
+  <div class="en-goal"><span>최대 강화 수치</span><label class="en-chk en-chk-r"><input type="checkbox" id="en-safeM">안전 강화까지만</label><div id="en-goals" class="en-goals"></div></div>
+  <button type="button" class="en-go" id="en-mgo" disabled>강화 시작</button>
+  <ol class="bk-log en-mlog" id="en-mlog" aria-live="polite"></ol>
+ </section></div>
 <div class="gw" id="alchwin" hidden role="dialog" aria-label="연금술"><span class="gw-plate">연금술</span><button class="x" type="button" data-closewin="alchwin">닫기</button>
  <p class="al-lead">같은 등급의 장비 3개를 올리고 [조합]을 누르면, 확률에 따라 <b>한 단계 위 등급의 내 직업 장비</b>를 얻어요. 실패하면 재료 3개는 사라져요.</p>
  <div class="al-slots"><div class="al-slot" data-k="0"></div><div class="al-slot" data-k="1"></div><div class="al-slot" data-k="2"></div><div class="al-arrow" aria-hidden="true">➜</div><div class="al-out" id="al-out">?</div></div>
@@ -887,4 +998,5 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 <script src="admin_key.js" onerror="this.remove()"></script>
 <script src="src/game.js"></script>
 
+<div id="enh-fx" hidden role="dialog" aria-label="강화 결과"><canvas id="enh-cv"></canvas><h2 id="ef-title"></h2><div class="ef-hexw"><div class="ef-hex"><div class="ef-in"><div id="ef-ic"></div><b id="ef-plus"></b></div></div></div><p id="ef-sub"></p><div id="ef-slide" hidden><div class="ef-track"><div class="ef-fill"></div><span class="ef-hint">밀어서 결과 보기</span><div class="ef-knob" role="slider" aria-label="밀어서 결과 보기" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l6 7-6 7M13 5l6 7-6 7"/></svg></div></div></div><button type="button" id="ef-btn" hidden>확인</button></div>
 </body></html>
