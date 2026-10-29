@@ -57,12 +57,12 @@
 
 ## 배포 담당 방 규칙
 - 배포 시점: 프로듀서가 메인방에 "업데이트"라고 할 때. 급한 버그는 프로듀서에게 묻고 바로.
-- 순서: `git fetch` → main에 **업데이트 대기(status `queued`) 카드의 갈래만** merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 그 카드들의 `notes` 반영(`silent`·첫 줄이 `# 잠수패치`인 `dev/notes` 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → `python3 dev/build_test.py` → 메인 테스트 페이지 publish → 소식안 채팅 + 승인 팝업 → 승인 시 `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 status `done` + `ver`, `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기 → 남은 승인 대기로 테스트 판 다시 올리기(위 작업방 규칙 7과 같은 방법).
+- 순서: `git fetch` → main에 **업데이트 대기(status `queued`) 카드의 갈래만** merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 그 카드들의 `notes` 반영(`silent`·첫 줄이 `# 잠수패치`인 `dev/notes` 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → (프로듀서의 "업데이트" 한마디가 승인) `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 status `done` + `ver`, `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기 → 채팅에 최종 소식안·배포 결과 → 남은 승인 대기로 테스트 판 다시 올리기(위 작업방 규칙 7과 같은 방법).
 - 메인방은 프로듀서가 말을 걸 때마다: 메모함(`ideas` status `new`)·`rework`가 있는 카드·`room_url` 없는 카드를 확인해서 분류·새 방 열기·전달.
 
 ## 테스트 아티팩트
 - 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에).
-- 배포 담당 방은 작업방이 테스트를 부탁하면 대기 중인 배포 후보(release/*)와 그 갈래를 임시로 합친 판을 메인 테스트 페이지에 올린다 (main·갈래에는 push하지 않음). 프로듀서 계정은 메인 테스트 페이지에만 있다.
+- 메인 테스트 페이지에는 언제나 origin/main + 승인 대기 갈래 전부를 합친 판(`dev/stage_test.py`)을 올린다 — 마지막으로 끝낸 방이 올리고, 배포 뒤에는 메인방이 다시 올린다. 프로듀서 계정은 메인 테스트 페이지에만 있다.
 - (예전 방식 · 쓰지 않음) 작업방 전용 새로 만들기: `python3 dev/build_test.py` → 새 아티팩트 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files=`첫 묶음 `python3 dev/asset_map.py 1` 출력) → 같은 url로 `files=`두 번째 묶음(`... 2`) → 그 뒤로는 `files={}`로 갱신.
 
 ## 코드·테스트 팁
