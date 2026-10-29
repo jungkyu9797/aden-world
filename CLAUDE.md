@@ -62,7 +62,7 @@
 - 메인방은 프로듀서가 말을 걸 때마다: 메모함(`ideas` status `new`)·`rework`가 있는 카드·`room_url` 없는 카드를 확인해서 분류·새 방 열기·전달, 그리고 `meta/test`에 없는 승인 대기 갈래가 있으면 묶음 테스트 판을 다시 올린다.
 
 ## 테스트 아티팩트
-- 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에).
+- 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에). 아티팩트 한 판에 파일은 511개까지라 거의 찼다(10/30 509개) — 몬스터 효과음(`assets/sound/sfx/*.mp3`)은 `dev/build_test.py`가 페이지 안에 넣으므로 files에 넣지 않는다. 새 그림이 많으면 같은 방식으로 페이지에 넣거나 안 쓰는 파일을 `null`로 뺀다.
 - 메인 테스트 페이지에는 언제나 origin/main + 승인 대기 갈래 전부를 합친 판(`dev/stage_test.py`)을 올린다 — 마지막으로 끝낸 방이 올리고, 배포 뒤에는 메인방이 다시 올린다. 프로듀서 계정은 메인 테스트 페이지에만 있다.
 - (예전 방식 · 쓰지 않음) 작업방 전용 새로 만들기: `python3 dev/build_test.py` → 새 아티팩트 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files=`첫 묶음 `python3 dev/asset_map.py 1` 출력) → 같은 url로 `files=`두 번째 묶음(`... 2`) → 그 뒤로는 `files={}`로 갱신.
 
