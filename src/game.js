@@ -121,7 +121,7 @@ const sfx = { swing(){ if(AC) nz(AC.currentTime,0.16,500,2200,0.2); },
 // 몬스터 효과음 (사운드팀 합성: 공격·피격·죽음) — assets/sound/sfx/<몬스터>_<종류>.mp3
 let SFX_ON = true;   // ESC 메뉴: 효과음 켜기/끄기
 // 소리 설정 (배경음·효과음 켜기/끄기 + 볼륨 0~100%) — 이 기기에 저장되고, 캐릭터 저장에도 함께 들어가 다른 PC에서도 그대로
-const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100 }; try { Object.assign(s, JSON.parse(localStorage.getItem('aden_snd') || '{}')); } catch (e) {}
+const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, enhOn: true };   /* v187: enhOn = 강화 배경음 (효과음 켜기/끄기와 별개) */ try { Object.assign(s, JSON.parse(localStorage.getItem('aden_snd') || '{}')); } catch (e) {}
   const keep = () => { try { localStorage.setItem('aden_snd', JSON.stringify(s)); } catch (e) {} };
   const set = o => { for (const k in o || {}) if (k in s) s[k] = typeof s[k] === 'boolean' ? !!o[k] : Math.max(0, Math.min(100, Math.round(+o[k] || 0))); keep(); };
   return { get: () => Object.assign({}, s), set, bgmK: () => s.bgm / 100, sfxK: () => s.sfx / 100,
@@ -744,7 +744,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 186;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 187;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3833,11 +3833,12 @@ const ENHFX = (() => {
   const MUS = { a: null, g: null, rate: 1, tm: 0, iv: 0 };
   const musV = () => Math.min(1, 0.5 * SND.sfxK());
   function duck(on) { window.__enhDuck = !!on; try { if (typeof TOWN !== 'undefined' && TOWN.syncBGM) TOWN.syncBGM(); } catch (e) {} }
-  function musOn() { try { if (typeof AC === 'undefined' || !AC || !SFX_ON) return; let a = MUS.a;
+  const enhOn = () => SND.get().enhOn !== false;   // v187: 강화 배경음 ON/OFF (옵션의 효과음 켜기/끄기와 별개 · 소리 크기는 효과음 볼륨을 따름)
+  function musOn() { try { if (typeof AC === 'undefined' || !AC || !enhOn()) return; let a = MUS.a;
       if (!a) { a = MUS.a = new Audio('assets/sound/enh_slide.mp3'); a.loop = true; a.preload = 'auto'; a.preservesPitch = a.mozPreservesPitch = a.webkitPreservesPitch = true;
-        if (/^https?:/.test(location.protocol)) { try { const s = AC.createMediaElementSource(a); MUS.g = AC.createGain(); s.connect(MUS.g); MUS.g.connect(master); } catch (e) { MUS.g = null; } } }
+        if (/^https?:/.test(location.protocol)) { try { const s = AC.createMediaElementSource(a); MUS.g = AC.createGain(); s.connect(MUS.g); MUS.g.connect(AC.destination); } catch (e) { MUS.g = null; } } }
       clearTimeout(MUS.tm); clearInterval(MUS.iv); MUS.tm = MUS.iv = 0;
-      if (MUS.g) { MUS.g.gain.cancelScheduledValues(AC.currentTime); MUS.g.gain.value = 1.25; } else a.volume = musV();
+      if (MUS.g) { MUS.g.gain.cancelScheduledValues(AC.currentTime); MUS.g.gain.value = musV(); } else a.volume = musV();
       a.playbackRate = MUS.rate = 1; try { a.currentTime = 0; } catch (e) {} bangEl(); const p = a.play(); if (p && p.catch) p.catch(() => {}); duck(true); } catch (e) {} }
   // 결과가 열릴 때 "빵빵" (같은 노래의 3~5초 부분 · assets/sound/enh_bang.mp3)
   function bangEl() { let b = MUS.b; if (!b) { b = MUS.b = new Audio('assets/sound/enh_bang.mp3'); b.preload = 'auto'; if (/^https?:/.test(location.protocol)) { try { const s = AC.createMediaElementSource(b); MUS.bg = AC.createGain(); MUS.bg.gain.value = 1.25; s.connect(MUS.bg); MUS.bg.connect(master); } catch (e) { MUS.bg = null; } } } return b; }
@@ -3847,9 +3848,10 @@ const ENHFX = (() => {
     try { if (MUS.g) { const t = AC.currentTime; MUS.g.gain.cancelScheduledValues(t); MUS.g.gain.setValueAtTime(MUS.g.gain.value, t); MUS.g.gain.linearRampToValueAtTime(0.0001, t + ms / 1000); }
       else { const v0 = a.volume, t0 = performance.now(); clearInterval(MUS.iv); MUS.iv = setInterval(() => { const f = Math.min(1, (performance.now() - t0) / ms); try { a.volume = v0 * (1 - f); } catch (e) {} if (f >= 1) { clearInterval(MUS.iv); MUS.iv = 0; } }, 25); }
       clearTimeout(MUS.tm); MUS.tm = setTimeout(() => { try { a.pause(); a.currentTime = 0; a.playbackRate = MUS.rate = 1; } catch (e) {} }, ms + 30); } catch (e) { try { a.pause(); } catch (e2) {} } }
-  function humOn() { if (S) S.drag = true; if (MUS.a && MUS.a.paused && S && S.phase === 'charge' && SFX_ON) { const p = MUS.a.play(); if (p && p.catch) p.catch(() => {}); } }
+  function humOn() { if (S) S.drag = true; if (MUS.a && MUS.a.paused && S && S.phase === 'charge' && enhOn()) { const p = MUS.a.play(); if (p && p.catch) p.catch(() => {}); } }
   function humOff() { if (S) S.drag = false; }
-  const slideShow = on => { const tr = $e('ef-slide'); if (!tr) return; slideInit(); tr.hidden = !on; if (on && tr._reset) tr._reset(); };
+  const bgmBtn = () => { const b = $e('ef-bgm'); if (!b) return; if (!b._ok) { b._ok = 1; b.addEventListener('pointerdown', ev => ev.stopPropagation()); b.addEventListener('click', ev => { ev.stopPropagation(); ev.preventDefault(); const v = !enhOn(); SND.set({ enhOn: v }); bgmBtn(); if (v) { if (S && S.phase === 'charge') musOn(); } else musOff(); try { b.blur(); } catch (e) {} }); } const on = enhOn(); b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on); b.innerHTML = `♪ 강화 BGM <b>${on ? 'ON' : 'OFF'}</b>`; };
+  const slideShow = on => { const tr = $e('ef-slide'); if (!tr) return; slideInit(); tr.hidden = !on; if (on && tr._reset) tr._reset(); const b = $e('ef-bgm'); if (b) { b.hidden = !on; if (on) bgmBtn(); } };
   // res: { kind:'ok'|'bless'|'boom'|'curse', cur, en, add }, info: { icon(HTML), rar(색), name(강화 전 이름), after()(강화 뒤 이름), th('ok'|'bless'|'curse' — 재료 색) }
   function play(res, info, onReveal, onClose) { const el = $e('enh-fx'); if (!el) { if (onReveal) onReveal(); if (onClose) onClose(); return; }
     if (S) close(); S = { res, info, onReveal, onClose, t0: performance.now(), phase: 'charge', P: [], R: [], F: [], B: [], bt: 0, shown: false, th: TH[info.th] || TH.ok, flash: 0, shakeT: 0 };
@@ -5444,7 +5446,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     L_ = Math.max(4, Math.min(innerWidth - W_ - 4, L_)); const T_ = Math.max(4, Math.min(innerHeight - H_ - 4, r.top - 20)); w.style.left = L_ + 'px'; w.style.top = T_ + 'px'; w.style.right = 'auto'; }
   let pvEn = null, pvFor = null;   // 강화 미리보기 수치 (null = 실제 강화)
   const canPv = d => d && (d.slot === 'weapon' || ARMOR_SLOTS.has(d.slot));
-  function showDetail(e, x, y) { const w = $('itemwin'); if (!w || (!bag.includes(e) && !e.preview)) { hideDetail(); return; } const d = ITEMS[e.id]; if (pvFor !== e) { pvEn = null; pvFor = e; } dwE = e; dwSk = null; if (x != null) dwPos = [x, y]; { const pl = w.querySelector('.gw-plate'); if (pl) pl.textContent = '아이템 정보'; }
+  function showDetail(e, x, y) { const w = $('itemwin'); if (!w || (!bag.includes(e) && !e.preview)) { hideDetail(); return; } const d = ITEMS[e.id]; if (pvFor !== e || w.hidden) { pvEn = null; pvFor = e; } dwE = e;   /* v187: 창을 닫았다 다시 열면 강화 미리보기는 원래 수치로 */ dwSk = null; if (x != null) dwPos = [x, y]; { const pl = w.querySelector('.gw-plate'); if (pl) pl.textContent = '아이템 정보'; }
     const ve = pvEn != null && canPv(d) ? Object.assign({}, e, { en: pvEn }) : e;   // 미리보기면 강화 수치만 바꾼 가상 장비
     const rc = rarC(e.id), A = AUTO, ctl = [];
     if (d.slot) ctl.push(`<button type="button" data-act="use">${e.on ? '벗기' : '착용하기'}</button>`);
@@ -5481,7 +5483,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       else el.onclick = () => { if (act === 'use') { const keep = !(d.use === 'enchant' || d.use === 'attr' || d.use === 'accchg'); use(e); if (keep && bag.includes(e)) showDetail(e); else hideDetail(); } else { setAuto(act.slice(5), e.id); showDetail(e); } }; });
     w.hidden = false; if (!wasHidden && x == null) { showCompare(e, pvEn); return; } const W_ = w.offsetWidth, H_ = w.offsetHeight; let L_ = dwPos[0] + 18, T_ = dwPos[1] - 20; if (L_ + W_ > innerWidth - 8) L_ = dwPos[0] - W_ - 18; L_ = Math.max(8, L_); T_ = Math.max(8, Math.min(innerHeight - H_ - 8, T_));
     w.style.left = L_ + 'px'; w.style.top = T_ + 'px'; w.style.right = 'auto'; showCompare(e, pvEn); }
-  function hideDetail() { dwRef = null; const w = $('itemwin'); if (w) w.hidden = true; const c = $('cmpwin'); if (c) c.hidden = true; dwE = null; dwSk = null; }
+  function hideDetail() { dwRef = null; pvEn = null; pvFor = null; const w = $('itemwin'); if (w) w.hidden = true; const c = $('cmpwin'); if (c) c.hidden = true; dwE = null; dwSk = null; }
   // 안 낀 장비를 꾹 누르면 옆에 지금 낀 장비와 비교 (초록=좋아짐, 빨강=나빠짐)
   function statOf(e) { const d = ITEMS[e.id], en = e.en || 0, at = e.attr ? ATTR_DMG[e.attr.lv] : 0; const eb = enBonus(d, en); return { dmg: d.dmg ? [d.dmg[0] + eb + at, d.dmg[1] + eb + at] : null, ac: (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? eb + (e.blessed ? 1 : 0) : 0), hp: d.hp || 0, mp: d.mp || 0, hit: d.hit || 0, xdmg: d.xdmg || 0, mr: d.mr || 0, wr: d.wr || 0, en, attr: e.attr ? e.attr.lv : 0, blessed: !!e.blessed, w: d.w || 0, x: Object.fromEntries(CMP_X.map(([k]) => [k, d[k] || 0])), fx: cmpFx(d, en) }; }
   // v116: 비교창 추가 옵션 — 능력치·SP·공속·이속·치명타·피해 감소·저항·MP 회복·특수 효과까지
@@ -8044,6 +8046,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 187, items: ['강화 연출의 [밀어서 결과 보기] 아래에 [♪ 강화 BGM ON/OFF] 버튼이 생겼어요. 끄면 강화 배경음만 꺼져요. 옵션의 효과음 켜기/끄기와는 따로 움직이고, 고른 설정은 다음에도 그대로예요.', '아이템 상세 정보 창에서 [강화 미리보기]로 수치를 바꾼 뒤 창을 닫고 다시 열면, 미리보기가 풀리고 원래 강화 수치로 보여요.'] },
     { v: 186, items: ['장비 강화 창이 새로 바뀌었어요. 인벤토리 아래 [강화] 버튼을 누르면 [단일 강화]·[다중 강화] 두 탭으로 강화할 수 있어요. (예전 일괄 강화 창은 다중 강화로 바뀌었어요 · 아이템 상세 정보 창의 [강화] 버튼을 누르면 그 장비가 단일 강화에 들어간 채로 이 창이 열려요) 강화 확률은 예전과 같아요.', '단일 강화: 인벤토리에서 장비 1개를 클릭해 넣고 재료(일반·축복·저주 주문서)를 골라 [강화]를 눌러요. 강화 전후 수치와 성공 확률을 미리 보여 주고, 착용 중인 장비도 강화할 수 있어요. 안전 강화 안(성공 100%)과 저주 주문서는 연출 없이 바로 결과가 나와요.', '안전 강화를 넘긴 강화는 육각 진 안에서 장비가 빛을 모으는 연출이 나오고, 아래 손잡이를 오른쪽 끝까지 [밀어서 결과 보기]를 하면 결과가 나와요. (오른쪽으로 많이 밀수록 뒤의 육각 진 회전·빛 모으기와 강화 음악이 점점 빨라져요 · 끝까지 밀고 손(마우스 버튼)을 떼면 "빵빵!" 소리와 함께 결과가 열려요 · 중간에 놓으면 제자리로 · 키보드는 → 키) 성공은 금빛 폭발·광선·번개, 실패는 균열·파편·연기와 함께 보여 줘요.', '축복 주문서로 +2가 오르면 [대성공!]이 떠요. 무지갯빛 광선·고리와 화면 곳곳에서 터지는 불꽃놀이로 더 화려하게 보여 줘요.', '다중 강화: 인벤토리에서 장비를 하나씩 클릭해 넣거나 [동일 아이템 등록]으로 같은 장비를 한꺼번에 넣고, 쓸 주문서(일반·축복)와 최대 강화 수치(+1~+10)를 골라 [강화 시작]을 눌러요. 쓰는 주문서가 달라서 한 번에 한 종류(무기·방어구·장신구)만 넣을 수 있고, 그 부위 주문서의 보유 수량이 보여요. 안전 강화까지는 한 번에 올리고, 그 뒤로는 한 개씩 차례대로 강화해요. 성공하면 그 장비가 빛나고, 실패해서 파괴되면 그 장비가 쪼개지는 효과가 나와요. 도중에 [중지]할 수 있어요.', '[안전 강화 단계까지 한 번에] 체크(단일 강화)와 [안전 강화까지만] 체크(다중 강화)가 생겼어요. 켜면 안전 강화 수치까지만 연출 없이 한 번에 강화해요. 다중 강화에서 켜면 아래 강화 수치가 넣은 장비의 안전 강화 수치(무기 +6 · 방어구 +4)로 바뀌어요.', '인벤토리·창고 칸에 단축 슬롯처럼 줄임말이 보여요. (예: 빨물·순간·부적·축무 · 마법서는 그 마법 이름) 착용 직업이나 레벨 제한이 적히는 장비는 빼요.', '화면 왼쪽 아래 레벨 옆 아이디 자리에 전투력이 보여요.', '전투력에서 배운 마법은 빼고 순수 능력치로만 계산해요. 마법사는 마법 공격력·지능·SP 마법 배율·마법 치명타·명중으로 계산하고, Lv55 · 영웅급 +5~7 장비 기준 세 직업 모두 약 9,300이에요.'] },
     { v: 185, items: ['전용 게임 서버(서울)가 생겼어요. 이제 공용 서버 대신 전용 서버로 접속해서 반응이 훨씬 빨라져요. (응답 시간: 예전 공용 서버 약 170ms → 전용 서버 약 6ms) 전용 서버에 접속이 안 되면 예전 공용 서버로 자동 접속하고, 1분마다 다시 확인해서 되면 전용 서버로 옮겨 가요.', '한 번에 주고받을 수 있는 정보량이 약 15배(3.9KB → 60KB)로 늘었어요. 그래서 수호탑 대전에서 다른 사람 화면에 봇·수호탑이 보였다 안 보였다 하던 문제가 사라져요. 다른 지역에 있는 사람의 정보는 0.5초마다 가볍게만 받아서 통신량은 오히려 줄었어요.', '업데이트 전 버전과는 서로 다른 서버라 안 보여요. 같이 하는 분도 꼭 업데이트를 받아 주세요.', '전투력이 생겼어요. 레벨·HP·MP·공격(무기·강화·힘/민첩·명중·치명타·공격 속도 / 마법사는 지능·SP와 배운 공격 마법)·방어 AC·마법 방어 MR·회피·받는 피해 감소·속성 저항을 모두 합친 점수예요. 캐릭터 정보창 레벨 아래에 보이고, [전투력]에 마우스를 올리면 항목별 점수가 나와요. (물약·버프 효과는 빼고 계산해서 언제 봐도 같은 숫자예요)', '같은 투자 수준이면 직업이 달라도 전투력이 비슷하게 나오도록 맞췄어요. (예: Lv55 · 영웅급 +5~7 장비 = 기사 약 9,300 · 요정 약 9,300 · 마법사 약 9,600 · Lv1은 약 300)', '접속자 목록에도 각자의 전투력이 보여요. 수호탑 대전 봇의 기준이 되는 "가장 센 유저"도 이 전투력으로 골라요.'] },
     { v: 184, items: ['교환창: 두 사람이 동시에 수량을 바꾸면 게임이 멈추던 문제를 고쳤어요. (바뀐 칸만 다시 그리고, 가방 설명은 마우스를 올릴 때 만들어요)',
