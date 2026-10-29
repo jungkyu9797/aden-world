@@ -744,7 +744,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 184;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 185;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1046,6 +1046,26 @@ function huntToggle() { try { AUTO.toggle(); } catch (e) {} }   // v152: 단축�
 function huntOn() { try { return !!AUTO.on(); } catch (e) { return false; } }   // 자동사냥 켜짐 (INV 안에서는 AUTO가 물약 설정이라 이걸로)
 const healMul = () => 1 + (spellMul() - 1) * 0.5;
 const spellMulPvP = () => 1 + (spellMul() - 1) * 0.5;   // 대인전(유저·수호탑 봇): 지능·SP 배율을 절반만 (사냥은 그대로) — 고스펙 법사 순삭 방지
+// v185: 전투력 — 레벨·HP·MP·공격(무기·강화·힘/민첩·명중·치명타·공격 속도 / 마법사는 지능·SP 마법 배율·배운 공격 마법)·방어 AC·마법 방어 MR·받는 피해 감소·회피·속성 저항을 합친 점수
+//  · 물약·버프 같은 일시 효과는 빼고 계산 (언제 봐도 같은 숫자) · 공격은 같은 레벨 상대(AC −레벨 · MR 40) 기준 초당 기대 피해
+//  · 같은 투자 수준(Lv55 · 영웅급 +5~7)이면 직업이 달라도 비슷하게 나오도록 직업별 공격 점수 배율을 맞춤
+const CP_K = { lv: 40, hp: 2, mp: 0.6, ac: 22, mr: 12, atk: { melee: 60, bow: 77, staff: 60, magic: 20.5 }, dr: 90, ev: 25, res: 2 };
+function combatPower() { const keep = {}; for (const k in BUFF) { keep[k] = BUFF[k]; BUFF[k] = 0; }
+  try { const st = INV.stat(), W_ = INV.eqE('weapon'), wt = W_ && ITEMS[W_.id] ? ITEMS[W_.id].wtype : null, T = { lv: hero.lv, ac: -hero.lv };   /* 기준 상대: 같은 레벨 · AC −(레벨) */
+    let atk = 0, ak = '';
+    if (CLASS === 'wizard') { const B = magicDmg(), staff = (B[0] + B[1]) / 2 * pvpHitP(T, 'magic') / (1.15 / GSPD); let best = 0;
+      for (const id of LEARNED) { const S_ = SPELL[id], K = SK[id]; if (!S_ || !K || !S_.dmg) continue; const v = (S_.dmg[0] + S_.dmg[1]) / 2 * (S_.mul || 1) / Math.max(1, K.cd || 2); if (v > best) best = v; }
+      const mag = best * spellMul() * (1 + spellCritP({ lv: hero.lv, mr: 40 }) * 0.5); ak = mag * CP_K.atk.magic >= staff * CP_K.atk.staff ? 'magic' : 'staff'; atk = ak === 'magic' ? mag : staff; }
+    else { const R = INV.dmg(), bow = wt === 'bow', avg = (R[0] + R[1]) / 2 + (INV.blessHit() ? 0.35 * 1.5 : 0), crit = Math.min(1, 0.12 + INV.cx('crit') / 100);
+      atk = avg * pvpHitP(T, bow ? 'bow' : undefined) * (1 + crit * 0.8) * (1 + INV.cx('atkSpd') / 100) / ((bow ? 1.0 : 0.9) / GSPD); ak = bow ? 'bow' : 'melee'; }
+    const ac = INV.ac(), mr = INV.cx('mr'), ev = Math.min(30, Math.floor(st.dex / 3)), res = ['earthRes', 'waterRes', 'fireRes', 'windRes'].reduce((a, k) => a + (INV.cx(k) || 0), 0), dr = (INV.cx('dr') || 0) + (INV.cx('drMelee') || 0) * 0.5;
+    const P = { lv: hero.lv * CP_K.lv, hp: hero.max * CP_K.hp, mp: hero.maxmp * CP_K.mp, atk: atk * (CP_K.atk[ak] || 60), ac: Math.max(0, 10 - ac) * CP_K.ac, mr: mr * CP_K.mr, etc: dr * CP_K.dr + ev * CP_K.ev + res * CP_K.res };
+    for (const k in P) P[k] = Math.max(0, Math.round(P[k])); const total = Object.values(P).reduce((a, b) => a + b, 0);
+    return { total, P, raw: { atk: +atk.toFixed(2), ak, ac, mr, ev, res, dr } }; }
+  catch (e) { return { total: 0, P: {}, raw: {} }; }
+  finally { for (const k in keep) BUFF[k] = keep[k]; } }
+let CP_C = null, CP_AT = -9; const myCP = () => { const n = performance.now(); if (!CP_C || n - CP_AT > 1000) { CP_C = combatPower(); CP_AT = n; } return CP_C; };
+const cpFmt = n => (n | 0).toLocaleString('ko-KR');
 const PVP_AOE_MAX = 6;   // 대인전 범위 마법: 캐릭터(유저·봇)는 최대 6명까지 (몬스터는 제한 없음)   // v146: 힐 회복량도 지능·SP로 커짐 (공격 마법 배율의 절반만)
 const HEAL_B = { heal: [6, 5], xheal: [18, 10], gheal: [36, 16], healall: [20, 10] };
 const healAmt = id => { const [b0, r0] = HEAL_B[id]; return Math.max(1, Math.round((b0 + Math.floor(Math.random() * r0)) * healMul())); };
@@ -5286,7 +5306,9 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     }
     if (!$('charwin').hidden) {
       const s = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-      s('cw-lv', hero.lv); s('cw-exp', (hero.exp / needExp(hero.lv) * 100).toFixed(2) + '%'); s('cw-hp', `${Math.ceil(hero.hp)}/${hero.max}`); s('cw-mp', `${Math.ceil(hero.mp)}/${hero.maxmp}`);
+      s('cw-lv', hero.lv); { const C = myCP(), el = $('cw-cp'); s('cw-cp', cpFmt(C.total)); const dt = el && el.previousElementSibling, P = C.P || {}, nm = { melee: '근거리', bow: '활', staff: '지팡이', magic: '공격 마법' }[(C.raw || {}).ak] || '공격';
+        if (dt) dt.dataset.tip = `레벨·HP·MP·공격·방어·마법 방어 등 모든 능력치를 합친 점수예요. (물약·버프 효과 제외)<br>레벨 ${cpFmt(P.lv)} · HP ${cpFmt(P.hp)} · MP ${cpFmt(P.mp)}<br>공격(${nm}) ${cpFmt(P.atk)} · 방어 AC ${cpFmt(P.ac)} · MR ${cpFmt(P.mr)}<br>회피·피해 감소·속성 저항 ${cpFmt(P.etc)}`; }
+      s('cw-exp', (hero.exp / needExp(hero.lv) * 100).toFixed(2) + '%'); s('cw-hp', `${Math.ceil(hero.hp)}/${hero.max}`); s('cw-mp', `${Math.ceil(hero.mp)}/${hero.maxmp}`);
       s('cw-ac', ac()); s('cw-w', Math.round(wPct() * 100) + '%' + [beltWR() ? `벨트 −${beltWR()}%` : '', BUFF.decwt > 0 ? '디크리즈' : ''].filter(Boolean).map(t => ' (' + t + ')').join('')); const d = dmg(); s('cw-dmg', `${d[0]} ~ ${d[1]}`);
       for (const k in BASE) { const el = $('cw-' + k); if (el) { const h = `${STAT[k]}${BONUS[k] ? ` <small>(+${BONUS[k]})</small>` : ''}${hero.bonusPts > 0 ? ` <button type="button" class="sp" data-st="${k}" aria-label="${NAMES_ST[k]} 올리기">+</button>` : ''}`; if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; } } }
       s('cw-bp', hero.bonusPts); const cw = $('charwin'); if (!cw.dataset.sp) { cw.dataset.sp = 1; cw.addEventListener('click', ev => { const b = ev.target.closest('button.sp'); if (b) askYesNo(`${NAMES_ST[b.dataset.st]}을(를) 올리시겠습니까?`, `보너스 포인트 1개를 사용합니다. (남은 포인트 ${hero.bonusPts})`, () => addStat(b.dataset.st)); }); } s('cw-er', Math.min(30, Math.floor(STAT.dex / 3)) + '%'); s('cw-mb', intMB(STAT.int)); s('cw-ml', magicLv()); s('cw-sp', heroSP()); s('cw-mm', '×' + spellMul().toFixed(2)); s('cw-mc', Math.round(spellCritP({ lv: hero.lv }) * 100) + '%'); s('cw-mr', sum('mr') + (BUFF.rmagic > 0 ? 10 : 0)); s('cw-res', `${sum('earthRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('waterRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('fireRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('windRes') + (BUFF.relem > 0 ? 10 : 0)}`);
@@ -6695,15 +6717,15 @@ const NET = (() => {
   function groundOut() { const pos = [[hero.x, hero.z], ...watchersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
-  function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp,
+  function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
       e: eqIds(), eg: glowOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
-    const sz = () => TE.encode(JSON.stringify(P)).length;
-    if (P.tw && sz() > 3900) { P.tw = Object.assign({}, P.tw, { fx: (P.tw.fx || []).slice(-4) }); if (sz() > 3900) P.tw.fx = []; }   // 수호탑 대전: 패킷이 넘치면 연출부터 줄이고 봇·수호탑 목록은 지킴
-    while (sz() > 3900 && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
+    const sz = () => TE.encode(JSON.stringify(P)).length, CAP = window.__bigNet ? 60000 : 3900;   /* v185: 전용 서버는 60KB까지 (공용 MQTT·아티팩트는 3.9KB) */
+    if (P.tw && sz() > CAP) { P.tw = Object.assign({}, P.tw, { fx: (P.tw.fx || []).slice(-4) }); if (sz() > CAP) P.tw.fx = []; }   // 수호탑 대전: 패킷이 넘치면 연출부터 줄이고 봇·수호탑 목록은 지킴
+    while (sz() > CAP && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
   // ----- 게스트: 호스트 몬스터·바닥 아이템 반영
   function applyHost(o) { const list = o.pr.m; const seen = new Set(); { const M = new Map(Array.isArray(o.pr.bt) ? o.pr.bt : []); for (const f of foxes) if (f.uid != null && MOB[f.kind] && MOB[f.kind].boss) f.netAg = M.get(f.uid) || ''; } applyTk(o);
     for (const [uid, k, x10, z10, row, pct, fl] of list) { seen.add(uid); let f = foxes.find(q => q.uid === uid);
@@ -7146,7 +7168,7 @@ const TWM = (() => {
     const b = specOf(f.uid); if (!b) return false; const st = statOf(b, S.ref); gearOf(b); const k = f.max ? f.hp / f.max : 1; f.bot = b; if (f.max !== st.hp) { f.max = st.hp; f.hp = Math.max(f.dead ? 0 : 1, Math.round(st.hp * k)); } f.dispName = b.name; return true; }
   // ----- 기준 전투력 (presence 'twr')
   function myRef() { const R = CLASS === 'wizard' ? magicDmg() : INV.dmg(), d = (R[0] + R[1]) / 2, ac = INV.ac(), mr = Math.round(mrTotal());
-    return { lv: hero.lv, c: CLASS, hp: hero.max, ac, mr, d: Math.round(d * 10) / 10, cp: Math.round(hero.lv * 12 + d * 6 + hero.max * 0.25 + Math.max(0, 10 - ac) * 4 + mr * 1.5) }; }
+    return { lv: hero.lv, c: CLASS, hp: hero.max, ac, mr, d: Math.round(d * 10) / 10, cp: myCP().total }; }   /* v185: 전투력(캐릭터 창과 같은 값)으로 가장 센 유저를 고름 */
   const refOf = peer => { const o = NET.others().find(q => q.peer === peer); return (o && o.pr.twr) || {}; };
   const inZone = () => NET.others().filter(o => o.pr.z === TW_ZK);
   // ----- 상태 공유
@@ -7790,6 +7812,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 185, items: ['전용 게임 서버(서울)가 생겼어요. 이제 공용 서버 대신 전용 서버로 접속해서 반응이 훨씬 빨라져요. (응답 시간: 예전 공용 서버 약 170ms → 전용 서버 약 6ms) 전용 서버에 접속이 안 되면 예전 공용 서버로 자동 접속하고, 1분마다 다시 확인해서 되면 전용 서버로 옮겨 가요.', '한 번에 주고받을 수 있는 정보량이 약 15배(3.9KB → 60KB)로 늘었어요. 그래서 수호탑 대전에서 다른 사람 화면에 봇·수호탑이 보였다 안 보였다 하던 문제가 사라져요. 다른 지역에 있는 사람의 정보는 0.5초마다 가볍게만 받아서 통신량은 오히려 줄었어요.', '업데이트 전 버전과는 서로 다른 서버라 안 보여요. 같이 하는 분도 꼭 업데이트를 받아 주세요.', '전투력이 생겼어요. 레벨·HP·MP·공격(무기·강화·힘/민첩·명중·치명타·공격 속도 / 마법사는 지능·SP와 배운 공격 마법)·방어 AC·마법 방어 MR·회피·받는 피해 감소·속성 저항을 모두 합친 점수예요. 캐릭터 정보창 레벨 아래에 보이고, [전투력]에 마우스를 올리면 항목별 점수가 나와요. (물약·버프 효과는 빼고 계산해서 언제 봐도 같은 숫자예요)', '같은 투자 수준이면 직업이 달라도 전투력이 비슷하게 나오도록 맞췄어요. (예: Lv55 · 영웅급 +5~7 장비 = 기사 약 9,300 · 요정 약 9,300 · 마법사 약 9,600 · Lv1은 약 300)', '접속자 목록에도 각자의 전투력이 보여요. 수호탑 대전 봇의 기준이 되는 "가장 센 유저"도 이 전투력으로 골라요.'] },
     { v: 184, items: ['교환창: 두 사람이 동시에 수량을 바꾸면 게임이 멈추던 문제를 고쳤어요. (바뀐 칸만 다시 그리고, 가방 설명은 마우스를 올릴 때 만들어요)',
       '자동 스킬: 기사 스턴 같은 공격 기술을 평타가 들어간 직후에도 쓰고, 못 쓰는 자동 스킬이 있어도 다음 스킬로 넘어가요.',
       '수호탑 대전: 아군 봇이 길을 막으면 자리를 바꿔 지나갈 수 있어요.',
@@ -7934,7 +7957,11 @@ const MQ = (() => {
 })();
 const MPP = (() => {
   // 공용 MQTT 서버 (앞에서부터 시도) — window.ADEN_MQTT 로 바꿀 수 있음 (시험·자체 서버)
-  const BROKERS = () => window.ADEN_MQTT ? [window.ADEN_MQTT] : ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'];
+  // v185: 전용 서버(서울)를 맨 앞에 — 접속이 안 되면 공용 서버로 넘어가고, 공용에 붙어 있는 동안 1분마다 전용 서버를 다시 확인해서 되면 옮겨 감
+  const OWN_URL = 'wss://3-39-241-77.sslip.io/mqtt';   /* 전용 중계 서버 (AWS 서울 · EC2 t4g.micro · 고정 IP 3.39.241.77) */
+  const OWN = () => window.ADEN_SERVER || OWN_URL;
+  const BROKERS = () => window.ADEN_MQTT ? [window.ADEN_MQTT] : [OWN(), 'wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'].filter(Boolean);
+  let curUrl = null, ownProbeAt = 0;
   const $ = id => document.getElementById(id), CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', WORLD = window.ADEN_WORLD || 'WORLD1';   // 모든 PC가 같은 방(월드 서버) 하나에 접속
   let want = false, nextTry = 0;
   let cli = null, code = null, myId = null, mine = {}, others = new Map(), sendT = 0, state = 'off', tries = 0, timer = 0;
@@ -7945,18 +7972,24 @@ const MPP = (() => {
   function msg(t, ok) { const m = $('mp-msg'); if (m) { m.textContent = t; m.className = 'nm-msg ' + (ok ? 'ok' : 'no'); } render(); }
   function render() { const n = NET.count(), on = state === 'on' || NET.hasArtRoom(); const b = $('btn-mp'); if (b) b.textContent = on ? `접속 ${n}명` : '서버 연결 중…'; const w = $('mpwin'); if (!w || w.hidden) return;
     $('mp-status').textContent = on ? `월드 서버 · ${n}명 접속 중` : state === 'connecting' ? '월드 서버에 연결하는 중…' : '연결 대기 중 (자동으로 다시 시도해요)';
-    const pid = NET.partyId(), me = { n: PNAME(), c: CLASS, lv: hero.lv, z: null, me: 1 }, L = [me, ...NET.others().map(o => ({ ...o.pr, peer: o.peer }))], E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-    $('mp-list').innerHTML = on ? L.map(p => { const pm = !p.me && pid && p.pt === pid; return `<div class="mp-pl${p.me ? ' me' : ''}"><b style="color:${p.me ? '#ffffff' : pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(p.n)}${p.me ? ' (나)' : ''}</b><span>${E(CLASS_NAME[p.c] || '')} Lv.${p.lv | 0}</span><span class="mp-z">${E(zoneTitle(p.z))}</span>${p.me || pm ? '<i></i>' : `<button type="button" class="mp-sm" data-inv="${E(p.peer)}">파티 초대</button>`}</div>`; }).join('') : '';
+    const pid = NET.partyId(), me = { n: PNAME(), c: CLASS, lv: hero.lv, z: null, me: 1, cp: myCP().total }, L = [me, ...NET.others().map(o => ({ ...o.pr, peer: o.peer }))], E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    $('mp-list').innerHTML = on ? L.map(p => { const pm = !p.me && pid && p.pt === pid; return `<div class="mp-pl${p.me ? ' me' : ''}"><b style="color:${p.me ? '#ffffff' : pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(p.n)}${p.me ? ' (나)' : ''}</b><span>${E(CLASS_NAME[p.c] || '')} Lv.${p.lv | 0}${p.cp ? ` · 전투력 ${cpFmt(p.cp)}` : ''}</span><span class="mp-z">${E(zoneTitle(p.z))}</span>${p.me || pm ? '<i></i>' : `<button type="button" class="mp-sm" data-inv="${E(p.peer)}">파티 초대</button>`}</div>`; }).join('') : '';
     $('mp-list').querySelectorAll('[data-inv]').forEach(x => x.onclick = () => NET.invite(x.dataset.inv)); }
   function start(c) { code = c; myId = 'w' + Math.random().toString(36).slice(2, 10); others.clear(); state = 'connecting'; tries = 0; render(); tryBroker(); }
   function tryBroker() { const L = BROKERS(); if (tries >= L.length) { state = 'off'; nextTry = performance.now() + 15000; msg('월드 서버에 연결하지 못했어요. 15초 뒤 다시 시도해요. (인터넷 연결을 확인해 주세요)', false); return; }
-    const url = L[tries++]; msg(`서버 ${tries}/${L.length}에 연결하는 중…`, true); clearTimeout(timer); timer = setTimeout(() => { if (state === 'connecting') { try { cli && cli.close(); } catch (e) {} cli = null; tryBroker(); } }, 6000);
+    const url = L[tries++]; curUrl = url; msg(`서버 ${tries}/${L.length}에 연결하는 중…`, true); clearTimeout(timer); timer = setTimeout(() => { if (state === 'connecting') { try { cli && cli.close(); } catch (e) {} cli = null; tryBroker(); } }, 6000);
     cli = MQ.connect(url, myId + '_' + Math.random().toString(36).slice(2, 6), (topic, text) => { const id = topic.split('/').pop(); if (id === myId) return; let pr; try { pr = JSON.parse(text); } catch (e) { return; } if (!pr || typeof pr !== 'object') return; others.set(id, { peer: id, presence: pr, at: Date.now() }); },
-      st => { if (st === 'open') { clearTimeout(timer); state = 'on'; cli.sub(base() + '/p/+'); NET.setRoom(room); msg('', true); say('***** 월드 서버에 접속했습니다 *****', '#8fe08a'); }
+      st => { if (st === 'open') { clearTimeout(timer); state = 'on'; window.__bigNet = !!OWN() && curUrl === OWN(); ownProbeAt = performance.now() + 60000; cli.sub(base() + '/p/+'); NET.setRoom(room); msg('', true); say('***** 월드 서버에 접속했습니다 *****', '#8fe08a'); }
         else if (st === 'failed' && state === 'connecting') { clearTimeout(timer); tryBroker(); }
-        else if (st === 'closed' && state === 'on') { NET.setRoom(null); state = 'off'; nextTry = performance.now() + 3000; msg('서버 연결이 끊겼어요. 잠시 뒤 자동으로 다시 접속해요.', false); say('월드 서버 연결이 끊겼습니다. 다시 접속하는 중…', '#f08a7a'); } }); }
-  function leave() { clearTimeout(timer); if (cli) cli.close(); cli = null; NET.setRoom(null); others.clear(); if (state !== 'off') say('멀티플레이 방에서 나왔습니다.', '#9c9682'); state = 'off'; msg('', true); }
+        else if (st === 'closed' && state === 'on') { window.__bigNet = false; NET.setRoom(null); state = 'off'; nextTry = performance.now() + 3000; msg('서버 연결이 끊겼어요. 잠시 뒤 자동으로 다시 접속해요.', false); say('월드 서버 연결이 끊겼습니다. 다시 접속하는 중…', '#f08a7a'); } }); }
+  function leave() { clearTimeout(timer); window.__bigNet = false; if (cli) cli.close(); cli = null; NET.setRoom(null); others.clear(); if (state !== 'off') say('멀티플레이 방에서 나왔습니다.', '#9c9682'); state = 'off'; msg('', true); }
   function open() { const w = $('mpwin'); if (!w) return; w.hidden = !w.hidden; render(); }
+  // 공용 서버에 붙어 있으면 1분마다 전용 서버 확인 → 열리면 조용히 옮겨 감 (모두가 같은 서버에 모이도록)
+  function probeOwn() { const u = OWN(); if (!u || window.ADEN_MQTT || state !== 'on' || curUrl === u || performance.now() < ownProbeAt) return; ownProbeAt = performance.now() + 60000;
+    let ws; try { ws = new WebSocket(u, ['mqtt']); } catch (e) { return; } const kill = setTimeout(() => { try { ws.close(); } catch (e) {} }, 5000);
+    ws.onopen = () => { clearTimeout(kill); try { ws.close(); } catch (e) {} if (state !== 'on' || curUrl === u) return; clearTimeout(timer); window.__bigNet = false; const c0 = cli; cli = null; try { c0 && c0.close(); } catch (e) {} NET.setRoom(null); state = 'off'; nextTry = 0; say('더 빠른 전용 서버로 옮겨 접속합니다…', '#8fe08a'); };
+    ws.onerror = () => {}; }
+  setInterval(probeOwn, 5000);
   function autoJoin() { if (SESS.kicked() || !window.__gameOn || NET.hasArtRoom() || /[?&]mp=bc/.test(location.search) || state !== 'off' || performance.now() < nextTry) return; want = true; start(WORLD); }
   setInterval(autoJoin, 1000);
   // 아티팩트(claude.ai)에서는 room이 있어 자동 멀티 — 버튼은 PC 실행 파일·로컬 파일에서만

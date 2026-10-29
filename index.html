@@ -169,7 +169,7 @@ html.sktgt .pb-m{cursor:crosshair;border-color:#ffe08a;box-shadow:0 0 6px rgba(2
 .cw dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:center}
 .cw dt{font-family:"Nanum Myeongjo",serif;font-weight:800;color:#d9cfb5;font-size:13px}
 .cw dd{margin:0;background:#141311;border:1px solid #3e382c;box-shadow:inset 0 1px 2px #000;padding:1px 8px;text-align:right;font-variant-numeric:tabular-nums;min-width:60px}
-.cw .sep{grid-column:1/-1;height:6px}
+.cw .sep{grid-column:1/-1;height:6px} .cw dd.cp{color:#ffd86a;font-weight:800}
 .cw .big dt{font-size:16px;color:#f2d98a}
 .doll{position:relative;display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(5,48px);gap:4px;align-content:start;padding-top:2px}
 .doll::before{content:"";position:absolute;inset:20px 30px;background:radial-gradient(ellipse at 50% 40%,rgba(200,190,160,.10),transparent 70%);pointer-events:none}
@@ -729,7 +729,7 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 
 <div class="gw" id="charwin" hidden><span class="gw-plate">캐릭터 정보</span><button class="x" type="button" data-closewin="charwin">닫기</button>
  <div class="cw"><dl>
-  <div class="big" style="display:contents"><dt>레벨</dt><dd id="cw-lv">-</dd></div><dt>경험치</dt><dd id="cw-exp">-</dd><i class="sep"></i>
+  <div class="big" style="display:contents"><dt>레벨</dt><dd id="cw-lv">-</dd></div><dt data-tip="레벨·HP·MP·공격·방어·마법 방어 등 모든 능력치를 합친 점수예요.">전투력</dt><dd id="cw-cp" class="cp">-</dd><dt>경험치</dt><dd id="cw-exp">-</dd><i class="sep"></i>
   <dt>HP</dt><dd id="cw-hp">-</dd><dt>MP</dt><dd id="cw-mp">-</dd><dt data-tip="낮을수록 몬스터의 공격을 덜 맞고 피해도 줄어듭니다.">방어 AC</dt><dd id="cw-ac">-</dd><dt>공격</dt><dd id="cw-dmg">-</dd><i class="sep"></i>
   <dt data-tip="가진 물건의 무게입니다. 들 수 있는 양은 힘과 체력에 따라 달라집니다.<br>무거우면 HP·MP 회복이 멈추고 더 무거우면 공격·이동이 느려집니다.">무게</dt><dd id="cw-w">-</dd><i class="sep"></i>
   <dt data-tip="근거리 공격력과 근거리 명중률이 올라갑니다.<br>들 수 있는 무게도 늘어납니다.">힘 STR</dt><dd id="cw-str">-</dd><dt data-tip="원거리 공격력과 원거리 명중률이 올라갑니다.">민첩 DEX</dt><dd id="cw-dex">-</dd><dt data-tip="최대 HP(14 넘는 1포인트당 +1)와 전투 밖 HP 회복량(12 넘는 1포인트당 초당 +0.08)이 올라갑니다.<br>들 수 있는 무게도 늘어납니다.">체력 CON</dt><dd id="cw-con">-</dd><dt data-tip="마법 공격력과 마법 성공률이 올라갑니다.">지능 INT</dt><dd id="cw-int">-</dd><dt data-tip="MP 회복량이 올라갑니다.">지혜 WIS</dt><dd id="cw-wis">-</dd><dt data-tip="12를 넘는 1포인트마다 펫의 체력·공격력이 2%씩 올라갑니다.<br>(펫은 40레벨부터 2마리까지 데리고 다닐 수 있어요)">카리스마 CHA</dt><dd id="cw-cha">-</dd><i class="sep"></i>
