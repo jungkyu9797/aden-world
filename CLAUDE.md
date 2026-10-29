@@ -25,6 +25,19 @@
 - 저장: 구글 파이어베이스 Firestore `users/{uid}/chars/{직업}` — 그 계정 로그인으로만 열림. 실시간: 서울 AWS 중계 서버(`wss://3-39-241-77.sslip.io/mqtt`) — 저장은 안 함.
 - 작업판(진행 상황): https://claude.ai/artifact/XemyTMkY4DDuWZsAUJ3pQX
 
+## 작업판 운영 (모든 방 공통)
+- 작업판: https://claude.ai/artifact/XemyTMkY4DDuWZsAUJ3pQX · 데이터는 ArtifactData로 `tasks/<id>` 문서.
+- 프로듀서가 새로 말한 일은 내용을 보고 직접 분류해서 카드로 만든다(묻지 않음). `cat`:
+  - `new` 신규 컨텐츠 — 새로 만드는 창작(새 지역·이벤트·몬스터·아이템·시스템·연출)
+  - `balance` 밸런스 — 수치·확률·전투·보상·성장 조정
+  - `fix` 기타 수정 — 기존 것의 수정·버그·편의·UI·작은 변경
+  - `bot` AI 봇 — 수호탑 봇·필드 상주 봇
+- `status`(누구 차례): `doing` Claude 작업 중(`phase`에 단계: 제작 중·테스트 중·시뮬 중 등) · `wait` 내 차례·답변 필요 · `test` 내 차례·테스트 확인 · `ready` 내 차례·배포 승인 · `hold` 보류 · `done` 끝남. 상태가 바뀌는 순간 바로 고친다.
+- 카드 필드: `title`, `cat`, `status`, `phase`, `next`(다음 할 일 — 내 차례면 프로듀서가 할 일), `note`, `room`, `room_url`(그 작업 대화방 주소), `branch`, `test`(테스트 페이지), `updated`(ISO). 프로듀서가 카드에 남긴 메모는 `pnote` — 방은 작업을 시작할 때와 보고하기 전에 꼭 읽는다.
+- 작업방은 시작하자마자 자기 카드의 `room_url`에 이 대화방 주소(커밋 끝 `Claude-Session:` 줄의 주소)를 적는다.
+- 메모장으로 전달된 아이디어(`ideas` 문서, status `new`)는 배포 담당 방이 분류해서 카드로 옮기고 그 아이디어의 status를 `taken`으로 바꾼다.
+- 작업량이 크거나 오래 걸리는 새 작업은 배포 담당 방이 새 대화방을 만든다: `create_trigger`(run_once_at = 1~2분 뒤, 한 번만)로 첫 메시지에 "저장소 연결 → CLAUDE.md·dev/rooms/<이름>.md 읽기 → work/<이름> 갈래 → 작업판 카드 room_url 등록 후 진행"을 넣는다. 필요하면 먼저 `dev/rooms/<이름>.md`를 써서 main에 올린다.
+
 ## 대화방 역할
 - **배포 담당 방**: 작업방 결과 합치기, GAME_VER·업데이트 소식, 승인, 배포, 메인 테스트 페이지, 원래 컴퓨터 게임 폴더 반영, 서버 관리.
 - **작업방**(할로윈 / 서먼·보스 밸런스 / AI 봇 / 버그·작은 수정 …): 자기 갈래(브랜치)에서만 작업. 방마다 `dev/rooms/<이름>.md`에 할 일과 맥락이 있다.
