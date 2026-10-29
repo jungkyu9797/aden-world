@@ -121,7 +121,7 @@ const sfx = { swing(){ if(AC) nz(AC.currentTime,0.16,500,2200,0.2); },
 // 몬스터 효과음 (사운드팀 합성: 공격·피격·죽음) — assets/sound/sfx/<몬스터>_<종류>.mp3
 let SFX_ON = true;   // ESC 메뉴: 효과음 켜기/끄기
 // 소리 설정 (배경음·효과음 켜기/끄기 + 볼륨 0~100%) — 이 기기에 저장되고, 캐릭터 저장에도 함께 들어가 다른 PC에서도 그대로
-const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, enhOn: true };   /* v187: enhOn = 강화 배경음 (효과음 켜기/끄기와 별개) */ try { Object.assign(s, JSON.parse(localStorage.getItem('aden_snd') || '{}')); } catch (e) {}
+const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, enhOn: false };   /* v187: enhOn = 강화 배경음 (효과음 켜기/끄기와 별개) · v188: 처음엔 꺼짐 */ try { Object.assign(s, JSON.parse(localStorage.getItem('aden_snd') || '{}')); } catch (e) {}
   const keep = () => { try { localStorage.setItem('aden_snd', JSON.stringify(s)); } catch (e) {} };
   const set = o => { for (const k in o || {}) if (k in s) s[k] = typeof s[k] === 'boolean' ? !!o[k] : Math.max(0, Math.min(100, Math.round(+o[k] || 0))); keep(); };
   return { get: () => Object.assign({}, s), set, bgmK: () => s.bgm / 100, sfxK: () => s.sfx / 100,
@@ -344,7 +344,7 @@ function pvpStrike(p, mode){ if (!PVPZ() || !NET.alive(p)) { hero.target = null;
   impact(x, y - 40, 'hit', crit ? '#ffd24a' : '#ffffff'); hitstop = crit ? 0.1 : 0.05; if (mode === 'bow') { if (!MSFX('elf', 'arrowhit', crit ? 0.75 : 0.6)) sfx.hit(crit); } else sfx.hit(crit); hero.lastHitT = time; }
 function strike(f, mode){ if (f && f.isRemote) return pvpStrike(f, mode); if (ADMIN.on()) { hero.target=null; return; } const S=MOB[f.kind]; breakInvis(); if (f.bindUntil>time){ bindNo(f); return; } if (!GOD_OHK && Math.random()>(f.bot || f.twr ? TWM.hitP(f, mode) : heroHit(S, mode, f))){ const [mx,my]=W2P(f.x,f.z); floatText(mx+(Math.random()*18-9),my-headY(f)-12,'MISS',{color:'#c8d0d8',size:11}); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); return; } const crit=Math.random()<0.12+INV.cx('crit')/100; const DR=mode==='magic'?magicDmg():INV.dmg(); let d=DR[0]+Math.floor(Math.random()*(DR[1]-DR[0]+1)); { const A=mode!=='magic'&&INV.wAttr(); if (A){ const am=attrMult(A.el,f); d=Math.max(1,d+ATTR_DMG[A.lv]*(am-1)); if (am===2&&Math.random()<0.35){ const [ax,ay]=W2P(f.x,f.z); floatText(ax+16,ay-headY(f)-22,'약점!',{color:ATTR_C[A.el],size:10}); } } } if (ISLE&&ISLE.def.sand) d+=INV.cx('sandDmg'); if (S.undead) d+=INV.cx('undeadDmg'); if (S.dragon) d+=INV.cx('dragonDmg'); if (crit) d=Math.round(d*1.8); if (S.pdr && mode!=='magic') d=Math.max(1,Math.round(d*(1-S.pdr))); { const gd=INV.gaho('dmg'); if (gd) d=Math.floor(d*(1+gd/100)+Math.random()); } if (f.bot || f.twr) d=TWM.inDmg(f, d, mode || 'melee'); if (GOD_OHK) d=Math.max(d,f.hp);
   dmgMob(f, d); if (INV.blessHit()&&f.hp>0&&Math.random()<0.35){ const ex=1+Math.floor(Math.random()*2); dmgMob(f, ex); const [ex1,ey1]=W2P(f.x,f.z); floatText(ex1+10,ey1-headY(f)-18,'추가 타격 '+ex,{color:'#ffd86a',size:11}); } cxProcs(f);
-  if (f.hp>0) MSFX(f.kind,'hit',0.5); f.flash=0.09; mobHitFx(f,crit); hero.lastHit=f; hero.lastHitT=time; if (f.tgt&&Math.random()<0.4) f.tgt=null; f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); hitstop=crit?0.12:0.07; if (crit) shake=0.18; if (S.dummy) {} else if (mode==='bow') { if (!MSFX('elf','arrowhit',crit?0.75:0.6)) sfx.hit(crit); } else sfx.hit(crit);   /* v124: 허수아비는 맞는 소리 없음 */
+  if (f.hp>0) MSFX(f.kind,'hit',0.5); f.flash=0.09; mobHitFx(f,crit); hero.lastHit=f; hero.lastHitT=time; if (f.tgt&&Math.random()<0.4&&!(PET.sumBal.tank&&f.tgt.sum&&!f.tgt.dead&&S.boss)) f.tgt=null; f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); hitstop=crit?0.12:0.07; if (crit) shake=0.18; if (S.dummy) {} else if (mode==='bow') { if (!MSFX('elf','arrowhit',crit?0.75:0.6)) sfx.hit(crit); } else sfx.hit(crit);   /* v124: 허수아비는 맞는 소리 없음 */
   { const [fx,fy]=W2P(f.x,f.z), top=fy-headY(f)-4;
     if (crit){ floatText(fx,top-12,'CRITICAL!',{color:'#ffd24a',size:14,big:true,life:1.1,rise:30}); floatText(fx,top+4,String(d),{color:'#ff9a3a',size:16,big:true,life:1.0}); bursts.push({x:fx,y:fy-headY(f)*0.5,t:0}); }
     else floatText(fx+(Math.random()*18-9),top-8,String(d),{color:'#ffffff',size:12}); }
@@ -744,7 +744,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 187;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 188;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -3637,7 +3637,7 @@ const PET = (() => {
   const GOLDF = 'sepia(1) saturate(5) hue-rotate(-12deg) brightness(1.25)', needOf = d => petNeed(d.lv) * (d.evo ? 2 : 1);
 const EVO_IMG = {}; for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_pet_doberman_evo_${a}.webp`; i.decode && i.decode().catch(() => {}); EVO_IMG[a] = i; }   /* v126: 진화 펫 = 전투견 (징 목걸이·가죽 마구·어깨 철판) — 왕관·금빛 대신 */
 const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete && EVO_IMG[a].naturalWidth);   /* v124: 진화 펫은 레벨업 경험치 2배 */
-  function petRange(d) { const K = PET_KIND[d.kind], E = d.evo && d.eb, gl = E ? K.dmgLv * 1.5 : K.dmgLv, b0 = E ? E.dmg : K.dmg, m = chaMul(); return [Math.round((b0[0] + Math.floor((d.lv - 1) * gl * 0.5)) * m), Math.round((b0[1] + Math.floor((d.lv - 1) * gl)) * m)]; }
+  function petRange(d) { const K = PET_KIND[d.kind], E = d.evo && d.eb, gl = E ? K.dmgLv * 1.5 : K.dmgLv, b0 = E ? E.dmg : K.dmg, m = chaMul() * (d.sd || 1); return [Math.round((b0[0] + Math.floor((d.lv - 1) * gl * 0.5)) * m), Math.round((b0[1] + Math.floor((d.lv - 1) * gl)) * m)]; }
   function petGold(g, p, x, y) { if (!p.d.evo || p.dead) return; const h = headY(p), top = y - h - 2, bob = Math.sin(time * 3 + p.hi) * 1.2;   /* 진화 펫: 금빛 왕관 · 발밑 금테 · 반짝임 */
     g.save(); g.globalCompositeOperation = 'lighter'; g.translate(x, y); g.scale(1, 0.5); g.globalAlpha = 0.55 + 0.15 * Math.sin(time * 2.4 + p.hi); g.strokeStyle = 'rgba(255,214,110,.9)'; g.lineWidth = 1.6; g.beginPath(); g.arc(0, 0, 16, 0, 7); g.stroke(); g.restore();
     g.save(); g.translate(x, y - h - 4 + bob); g.scale(1.35, 1.35); g.fillStyle = '#ffd24a'; g.strokeStyle = '#7a5208'; g.lineWidth = 1; g.beginPath(); g.moveTo(-7, 3); g.lineTo(-7, -2); g.lineTo(-4, 1); g.lineTo(0, -5); g.lineTo(4, 1); g.lineTo(7, -2); g.lineTo(7, 3); g.closePath(); g.fill(); g.stroke();
@@ -3655,11 +3655,14 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   const K_ = p => PET_KIND[p.d.kind];
   // v144: 서먼 몬스터 (마법사 6서클 · Lv24) — 펫처럼 따라다니며 싸움 · 귀환·텔레포트·사냥터 이동해도 따라옴 · 시간 제한 없음
   //   내가 쓰러지거나 소환수가 쓰러지면 사라짐 · 다시 쓰면 돌려보내기 · 마리 수 = 카리스마 4마다 1 (최대 3) · 경험치·골드·드랍은 모두 나에게
+  // 소환수 밸런스 (보스전): bossK = 보스에게 주는 피해 배율 · tank = 보스가 소환수를 계속 노림 · take = 보스에게 받는 피해 배율 · lv = 소환 단계 레벨보다 1 높을 때마다 HP·공격 +lv · hp/dmg = 기본 배율
+  const SUMB = { bossK: 0.5, tank: false, take: 1, lv: 0, hp: 1, dmg: 1, heroLv: false };   // heroLv = 소환수 레벨을 마법사 레벨로 (명중·회피)
   const SUM_TIER = [[52, 'dv_lizard'], [48, 'ettin'], [42, 'ice_golem'], [36, 'king_bugbear'], [30, 'cerberus'], [24, 'bugbear']];
   const sumKind = () => (SUM_TIER.find(t => hero.lv >= t[0]) || SUM_TIER[SUM_TIER.length - 1])[1];
   const sumCap = () => Math.max(1, Math.min(3, Math.floor(((INV.stat() || {}).cha || 0) / 4))), sumLive = () => L.filter(p => p.sum && !p.dead).length;
   function sumDef(mk) { const id = 'sum_' + mk; if (!PET_KIND[id]) { const S = MOB[mk]; PET_KIND[id] = { name: S.name, hp: S.hp, hpLv: 0, dmg: [Math.max(1, Math.round(S.dmg[0] * 0.8)), Math.max(2, Math.round(S.dmg[1] * 0.8))], dmgLv: 0, hit: S.hit || 0.8, ac: S.mac ?? 5, spd: Math.max(3.4, S.run || 3), mob: mk, sum: true, lv: S.lv, cd: S.cd || 1.6 }; } return id; }
   function sumSpawn(mk, hpK) { if (!MOB[mk]) return null; const id = sumDef(mk), K = PET_KIND[id], d = { kind: id, name: K.name, lv: K.lv, exp: 0, hp: K.hp, maxhp: K.hp, inv: [null, null, null, null], state: 'out', mode: 'attack', haste: 0, hasteLv: 0 };
+    { const tr = SUM_TIER.find(t => t[1] === mk), lk = 1 + SUMB.lv * Math.max(0, hero.lv - (tr ? tr[0] : hero.lv)); d.sh = lk * SUMB.hp; d.sd = lk * SUMB.dmg; d.maxhp = Math.round(K.hp * d.sh); if (SUMB.heroLv) d.lv = Math.max(d.lv, hero.lv); }
     d.hp = Math.max(1, Math.round(MXH(d) * (hpK == null ? 1 : Math.max(0.05, Math.min(1, hpK)))));
     const p = { isPet: true, sum: true, kind: mk, e: null, d, i: 0, j: 0, fi: 0, fj: 0, t: 1, x: 0, z: 0, row: 4, dist: 0, cool: 0, lunge: 0, atkT: null, hitT: 0, hitD: 0.3, kx: 0, ky: 0, kmag: 4, flash: 0, dead: false, deadT: 0, potCd: 0, scatter: null, scatterT: 0, zone: '', hi: Math.random() * 8, target: null };
     place(p); L.push(p); return p; }
@@ -3691,7 +3694,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   const petHit = (d, S) => Math.max(0.2, Math.min(0.95, PET_KIND[d.kind].hit + 0.02 * (petEff(d) - S.lv) - (10 - (S.mac ?? 10)) * 0.02));
   function gainExp(p, n) { const d = p.d; d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? 10 : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
       if (AC && SFX_ON) { const t = AC.currentTime; [659, 784, 1047].forEach((f, k) => tone(t + k * 0.08, 'triangle', f, f, 0.25, 0.08)); } } refresh(); }
-  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
+  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && SUMB.take !== 1 && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take)); dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
     const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, String(dmg), { color: '#ff8a6a', size: 11 });
     if (src) { const [sx, sy] = W2P(src.x, src.z); const vx = px - sx, vy = py - sy, l = Math.hypot(vx, vy) || 1; p.kx = vx / l; p.ky = vy / l; } p.hitD = 0.3; p.hitT = 0.3; p.kmag = 4;
     if (d.hp <= 0) { d.hp = 0; p.dead = true; p.deadT = 0; d.state = 'dead'; p.lunge = 0; for (const f of foxes) if (f.tgt === p) f.tgt = null; say(p.sum ? `소환수 ${JOSA(nm(d), '이', '가')} 쓰러져 사라집니다.` : `${JOSA(nm(d), '이', '가')} 쓰러졌습니다... 부활 주문서로 되살릴 수 있습니다.`, '#f08a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 420, 120, 0.5, 0.12); }
@@ -3735,8 +3738,8 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (!foxes.some(f => f.tgt === p && !f.dead)) d.hp = Math.min(MXH(d), d.hp + dt * (0.15 + d.lv * 0.04));
       if (!p.sum) petUse(p); stepMove(p, dt, K_(p).spd * GSPD * hm); if (p.atkT != null) { p.atkT += dt; if (p.atkT > (p.sum ? ATK_T : 0.5)) p.atkT = null; }
       if (p.lunge > 0) { const was = p.lunge; p.lunge -= dt; const T = p.target; if (was > 0.15 && p.lunge <= 0.15 && T && !T.dead && cheb(p.i, p.j, T.i, T.j) === 1) { const S = MOB[T.kind];
-          if (Math.random() < petHit(d, S)) { const dm = S.boss ? Math.max(1, Math.round(petDmg(d) * 0.5)) : petDmg(d); sfxBite();   // v155: 펫·소환수가 보스에게 주는 피해 −50% (일반 몬스터는 그대로)
-            mobHurt(T, dm, '#ffd27a', p); if (!T.dead && Math.random() < 0.35) T.tgt = p; }
+          if (Math.random() < petHit(d, S)) { const dm = S.boss ? Math.max(1, Math.round(petDmg(d) * (p.sum ? SUMB.bossK : 0.5))) : petDmg(d); sfxBite();   // v155: 펫·소환수가 보스에게 주는 피해 −50% (일반 몬스터는 그대로)
+            mobHurt(T, dm, '#ffd27a', p); if (!T.dead && (p.sum && SUMB.tank && S.boss ? !(T.tgt && T.tgt.sum && !T.tgt.dead) : Math.random() < 0.35)) T.tgt = p; }
           else { const [fx, fy] = W2P(T.x, T.z); floatText(fx, fy - headY(T) - 4, 'MISS', { color: '#c8d0d8', size: 10 }); } } }
       if (p.t < 1) continue;
       if (cheb(p.i, p.j, hero.i, hero.j) > 16 && d.mode !== 'rest') { place(p); continue; }
@@ -3796,7 +3799,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       const can = kind === 'find' ? d.state === 'stored' : d.state === 'out' || d.state === 'dead';
       row.innerHTML = `<span class="ic">${ICON(eIcon(e))}</span><span class="nm">${esc(d.name)} <small>Lv.${d.lv} ${PET_KIND[d.kind].name}</small></span><span class="info">HP ${Math.ceil(d.hp)}/${MXH(d)} · ${({ out: '소환 중', stored: '보관소에 있음', dead: '쓰러짐' })[d.state]}</span><button type="button" class="buy"${can ? '' : ' disabled'}>${kind === 'find' ? '소환' : '맡기기'}</button>`;
       row.querySelector('.buy').onclick = () => { if (kind === 'find') summon(e); else store(e); shopPanel(kind, list); }; list.appendChild(row); } }
-  return { sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
+  return { sumBal: SUMB, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
 })();
 
 // ============================================================ 인벤토리 · 캐릭터 정보 (기획팀)
@@ -3833,7 +3836,7 @@ const ENHFX = (() => {
   const MUS = { a: null, g: null, rate: 1, tm: 0, iv: 0 };
   const musV = () => Math.min(1, 0.5 * SND.sfxK());
   function duck(on) { window.__enhDuck = !!on; try { if (typeof TOWN !== 'undefined' && TOWN.syncBGM) TOWN.syncBGM(); } catch (e) {} }
-  const enhOn = () => SND.get().enhOn !== false;   // v187: 강화 배경음 ON/OFF (옵션의 효과음 켜기/끄기와 별개 · 소리 크기는 효과음 볼륨을 따름)
+  const enhOn = () => SND.get().enhOn === true;   // v187: 강화 배경음 ON/OFF (옵션의 효과음 켜기/끄기와 별개 · 소리 크기는 효과음 볼륨을 따름)
   function musOn() { try { if (typeof AC === 'undefined' || !AC || !enhOn()) return; let a = MUS.a;
       if (!a) { a = MUS.a = new Audio('assets/sound/enh_slide.mp3'); a.loop = true; a.preload = 'auto'; a.preservesPitch = a.mozPreservesPitch = a.webkitPreservesPitch = true;
         if (/^https?:/.test(location.protocol)) { try { const s = AC.createMediaElementSource(a); MUS.g = AC.createGain(); s.connect(MUS.g); MUS.g.connect(AC.destination); } catch (e) { MUS.g = null; } } }
@@ -3842,12 +3845,13 @@ const ENHFX = (() => {
       a.playbackRate = MUS.rate = 1; try { a.currentTime = 0; } catch (e) {} bangEl(); const p = a.play(); if (p && p.catch) p.catch(() => {}); duck(true); } catch (e) {} }
   // 결과가 열릴 때 "빵빵" (같은 노래의 3~5초 부분 · assets/sound/enh_bang.mp3)
   function bangEl() { let b = MUS.b; if (!b) { b = MUS.b = new Audio('assets/sound/enh_bang.mp3'); b.preload = 'auto'; if (/^https?:/.test(location.protocol)) { try { const s = AC.createMediaElementSource(b); MUS.bg = AC.createGain(); MUS.bg.gain.value = 1.25; s.connect(MUS.bg); MUS.bg.connect(master); } catch (e) { MUS.bg = null; } } } return b; }
-  function bang() { try { if (typeof AC === 'undefined' || !AC || !SFX_ON) { snd('unlock'); return; } const b = bangEl(); if (!MUS.bg) b.volume = musV(); try { b.currentTime = 0; } catch (e) {} const p = b.play(); if (p && p.catch) p.catch(() => snd('unlock')); } catch (e) { snd('unlock'); } }
-  function musRate(b) { const a = MUS.a; if (!a || a.paused) return; const r = Math.round((1 + 0.375 * b) * 40) / 40;   /* 빨라지는 정도는 처음(최대 2.5배)의 1/4 → 최대 약 1.4배 */ if (r !== MUS.rate) { MUS.rate = r; try { a.playbackRate = r; } catch (e) {} } }
-  function musOff(fast) { const a = MUS.a; if (window.__enhDuck) duck(false); if (!a || a.paused) return; const ms = fast ? 140 : 320;
+  function bang() { musOff(true); try { if (MUS.a && !MUS.a.paused) MUS.a.playbackRate = MUS.rate = 1; } catch (e) {}   /* v188: 결과가 열릴 땐 빨라진 음악을 바로 원래 속도로 되돌리고 짧게 끔 → 빵빵은 원래 속도로 */
+    try { if (typeof AC === 'undefined' || !AC || !SFX_ON) { snd('unlock'); return; } const b = bangEl(); b.playbackRate = 1; if (!MUS.bg) b.volume = musV(); try { b.currentTime = 0; } catch (e) {} const p = b.play(); if (p && p.catch) p.catch(() => snd('unlock')); } catch (e) { snd('unlock'); } }
+  function musRate(b) { const a = MUS.a; if (!a || a.paused || MUS.tm) return; const r = Math.round((1 + 0.375 * b) * 40) / 40;   /* 빨라지는 정도는 처음(최대 2.5배)의 1/4 → 최대 약 1.4배 */ if (r !== MUS.rate) { MUS.rate = r; try { a.playbackRate = r; } catch (e) {} } }
+  function musOff(fast) { const a = MUS.a; if (window.__enhDuck) duck(false); if (!a || a.paused || MUS.tm) return; const ms = fast ? 140 : 320;
     try { if (MUS.g) { const t = AC.currentTime; MUS.g.gain.cancelScheduledValues(t); MUS.g.gain.setValueAtTime(MUS.g.gain.value, t); MUS.g.gain.linearRampToValueAtTime(0.0001, t + ms / 1000); }
       else { const v0 = a.volume, t0 = performance.now(); clearInterval(MUS.iv); MUS.iv = setInterval(() => { const f = Math.min(1, (performance.now() - t0) / ms); try { a.volume = v0 * (1 - f); } catch (e) {} if (f >= 1) { clearInterval(MUS.iv); MUS.iv = 0; } }, 25); }
-      clearTimeout(MUS.tm); MUS.tm = setTimeout(() => { try { a.pause(); a.currentTime = 0; a.playbackRate = MUS.rate = 1; } catch (e) {} }, ms + 30); } catch (e) { try { a.pause(); } catch (e2) {} } }
+      clearTimeout(MUS.tm); MUS.tm = setTimeout(() => { MUS.tm = 0; try { a.pause(); a.currentTime = 0; a.playbackRate = MUS.rate = 1; } catch (e) {} }, ms + 30); } catch (e) { try { a.pause(); } catch (e2) {} } }
   function humOn() { if (S) S.drag = true; if (MUS.a && MUS.a.paused && S && S.phase === 'charge' && enhOn()) { const p = MUS.a.play(); if (p && p.catch) p.catch(() => {}); } }
   function humOff() { if (S) S.drag = false; }
   const bgmBtn = () => { const b = $e('ef-bgm'); if (!b) return; if (!b._ok) { b._ok = 1; b.addEventListener('pointerdown', ev => ev.stopPropagation()); b.addEventListener('click', ev => { ev.stopPropagation(); ev.preventDefault(); const v = !enhOn(); SND.set({ enhOn: v }); bgmBtn(); if (v) { if (S && S.phase === 'charge') musOn(); } else musOff(); try { b.blur(); } catch (e) {} }); } const on = enhOn(); b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on); b.innerHTML = `♪ 강화 BGM <b>${on ? 'ON' : 'OFF'}</b>`; };
@@ -8046,6 +8050,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 188, items: ['[♪ 강화 BGM]은 처음엔 꺼져 있어요. 한 번 켜면 다음에도 켜진 채로 유지돼요.', '[밀어서 결과 보기]로 결과가 열릴 때, 빨라졌던 강화 음악은 바로 원래 속도로 돌아오며 꺼지고 "빵빵" 효과음은 원래 속도로 나와요.'] },
     { v: 187, items: ['강화 연출의 [밀어서 결과 보기] 아래에 [♪ 강화 BGM ON/OFF] 버튼이 생겼어요. 끄면 강화 배경음만 꺼져요. 옵션의 효과음 켜기/끄기와는 따로 움직이고, 고른 설정은 다음에도 그대로예요.', '아이템 상세 정보 창에서 [강화 미리보기]로 수치를 바꾼 뒤 창을 닫고 다시 열면, 미리보기가 풀리고 원래 강화 수치로 보여요.'] },
     { v: 186, items: ['장비 강화 창이 새로 바뀌었어요. 인벤토리 아래 [강화] 버튼을 누르면 [단일 강화]·[다중 강화] 두 탭으로 강화할 수 있어요. (예전 일괄 강화 창은 다중 강화로 바뀌었어요 · 아이템 상세 정보 창의 [강화] 버튼을 누르면 그 장비가 단일 강화에 들어간 채로 이 창이 열려요) 강화 확률은 예전과 같아요.', '단일 강화: 인벤토리에서 장비 1개를 클릭해 넣고 재료(일반·축복·저주 주문서)를 골라 [강화]를 눌러요. 강화 전후 수치와 성공 확률을 미리 보여 주고, 착용 중인 장비도 강화할 수 있어요. 안전 강화 안(성공 100%)과 저주 주문서는 연출 없이 바로 결과가 나와요.', '안전 강화를 넘긴 강화는 육각 진 안에서 장비가 빛을 모으는 연출이 나오고, 아래 손잡이를 오른쪽 끝까지 [밀어서 결과 보기]를 하면 결과가 나와요. (오른쪽으로 많이 밀수록 뒤의 육각 진 회전·빛 모으기와 강화 음악이 점점 빨라져요 · 끝까지 밀고 손(마우스 버튼)을 떼면 "빵빵!" 소리와 함께 결과가 열려요 · 중간에 놓으면 제자리로 · 키보드는 → 키) 성공은 금빛 폭발·광선·번개, 실패는 균열·파편·연기와 함께 보여 줘요.', '축복 주문서로 +2가 오르면 [대성공!]이 떠요. 무지갯빛 광선·고리와 화면 곳곳에서 터지는 불꽃놀이로 더 화려하게 보여 줘요.', '다중 강화: 인벤토리에서 장비를 하나씩 클릭해 넣거나 [동일 아이템 등록]으로 같은 장비를 한꺼번에 넣고, 쓸 주문서(일반·축복)와 최대 강화 수치(+1~+10)를 골라 [강화 시작]을 눌러요. 쓰는 주문서가 달라서 한 번에 한 종류(무기·방어구·장신구)만 넣을 수 있고, 그 부위 주문서의 보유 수량이 보여요. 안전 강화까지는 한 번에 올리고, 그 뒤로는 한 개씩 차례대로 강화해요. 성공하면 그 장비가 빛나고, 실패해서 파괴되면 그 장비가 쪼개지는 효과가 나와요. 도중에 [중지]할 수 있어요.', '[안전 강화 단계까지 한 번에] 체크(단일 강화)와 [안전 강화까지만] 체크(다중 강화)가 생겼어요. 켜면 안전 강화 수치까지만 연출 없이 한 번에 강화해요. 다중 강화에서 켜면 아래 강화 수치가 넣은 장비의 안전 강화 수치(무기 +6 · 방어구 +4)로 바뀌어요.', '인벤토리·창고 칸에 단축 슬롯처럼 줄임말이 보여요. (예: 빨물·순간·부적·축무 · 마법서는 그 마법 이름) 착용 직업이나 레벨 제한이 적히는 장비는 빼요.', '화면 왼쪽 아래 레벨 옆 아이디 자리에 전투력이 보여요.', '전투력에서 배운 마법은 빼고 순수 능력치로만 계산해요. 마법사는 마법 공격력·지능·SP 마법 배율·마법 치명타·명중으로 계산하고, Lv55 · 영웅급 +5~7 장비 기준 세 직업 모두 약 9,300이에요.'] },
     { v: 185, items: ['전용 게임 서버(서울)가 생겼어요. 이제 공용 서버 대신 전용 서버로 접속해서 반응이 훨씬 빨라져요. (응답 시간: 예전 공용 서버 약 170ms → 전용 서버 약 6ms) 전용 서버에 접속이 안 되면 예전 공용 서버로 자동 접속하고, 1분마다 다시 확인해서 되면 전용 서버로 옮겨 가요.', '한 번에 주고받을 수 있는 정보량이 약 15배(3.9KB → 60KB)로 늘었어요. 그래서 수호탑 대전에서 다른 사람 화면에 봇·수호탑이 보였다 안 보였다 하던 문제가 사라져요. 다른 지역에 있는 사람의 정보는 0.5초마다 가볍게만 받아서 통신량은 오히려 줄었어요.', '업데이트 전 버전과는 서로 다른 서버라 안 보여요. 같이 하는 분도 꼭 업데이트를 받아 주세요.', '전투력이 생겼어요. 레벨·HP·MP·공격(무기·강화·힘/민첩·명중·치명타·공격 속도 / 마법사는 지능·SP와 배운 공격 마법)·방어 AC·마법 방어 MR·회피·받는 피해 감소·속성 저항을 모두 합친 점수예요. 캐릭터 정보창 레벨 아래에 보이고, [전투력]에 마우스를 올리면 항목별 점수가 나와요. (물약·버프 효과는 빼고 계산해서 언제 봐도 같은 숫자예요)', '같은 투자 수준이면 직업이 달라도 전투력이 비슷하게 나오도록 맞췄어요. (예: Lv55 · 영웅급 +5~7 장비 = 기사 약 9,300 · 요정 약 9,300 · 마법사 약 9,600 · Lv1은 약 300)', '접속자 목록에도 각자의 전투력이 보여요. 수호탑 대전 봇의 기준이 되는 "가장 센 유저"도 이 전투력으로 골라요.'] },
