@@ -3660,7 +3660,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   // v144: 서먼 몬스터 (마법사 6서클 · Lv24) — 펫처럼 따라다니며 싸움 · 귀환·텔레포트·사냥터 이동해도 따라옴 · 시간 제한 없음
   //   내가 쓰러지거나 소환수가 쓰러지면 사라짐 · 다시 쓰면 돌려보내기 · 마리 수 = 카리스마 4마다 1 (최대 3) · 경험치·골드·드랍은 모두 나에게
   // 소환수 밸런스 (보스전): bossK = 보스에게 주는 피해 배율 · tank = 보스가 소환수를 계속 노림 · take = 보스에게 받는 피해 배율 · lv = 소환 단계 레벨보다 1 높을 때마다 HP·공격 +lv · hp/dmg = 기본 배율
-  const SUMB = { bossK: 1, tank: true, take: 0.5, lv: 0.03, hp: 1, dmg: 1, heroLv: false, bossMp: 15, reMp: 5, aoeTake: 1, mpKeep: 0 };   // aoeTake = 보스 범위 기술이 소환수에게 주는 피해 추가 배율 · mpKeep = 보스전에서 서먼 자동이면 공격 마법이 남겨 둘 MP   // v189: 보스전 강화 · heroLv = 소환수 레벨을 마법사 레벨로 · bossMp = 보스전 서먼 MP · reMp = 보스에게 쓰러진 소환수 하나를 바로 다시 부르는 MP (0이면 끔)
+  const SUMB = { bossK: 1, tank: true, take: 0.5, lv: 0.03, hp: 1, dmg: 1, heroLv: false, bossMp: 15, reMp: 5, aoeTake: 0.5, mpKeep: 15 };   // aoeTake = 보스 범위 기술이 소환수에게 주는 피해 추가 배율 · mpKeep = 보스전에서 서먼 자동이면 공격 마법이 남겨 둘 MP   // v189: 보스전 강화 · heroLv = 소환수 레벨을 마법사 레벨로 · bossMp = 보스전 서먼 MP · reMp = 보스에게 쓰러진 소환수 하나를 바로 다시 부르는 MP (0이면 끔)
   let SUMQ = 0, SUMQT = 0, SUMLOCK = false;   // SUMQ = 바로 다시 부를 소환수 수 · SUMLOCK = 대인전(유저·봇)에게 쓰러짐 → 남은 소환수가 다 쓰러져야 다시
   const bossNear = () => foxes.some(f => !f.dead && !f.gone && f.aggro && !f.bot && MOB[f.kind] && MOB[f.kind].boss && cheb(f.i, f.j, hero.i, hero.j) <= 20);
   const sumMp = () => bossNear() ? SUMB.bossMp : SK.summon.mp;
