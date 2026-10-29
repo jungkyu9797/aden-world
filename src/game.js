@@ -1874,8 +1874,32 @@ function prescaled(img, sc) { const W0 = img && (img.naturalWidth || img.width);
   const w = Math.max(1, Math.round(W0 * sc)), h = Math.max(1, Math.round((img.naturalHeight || img.height) * sc)), c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, w, h); return (m[k] = c); }
 // 임시로 물들인 몬스터(오크숲): 그릴 크기로 줄인 프레임을 한 번 물들여 저장 (매 프레임 filter는 아주 느림)
 const TFR = new Map();
+// 화룡의 둥지: 용암 피부 — 우리 스프라이트 위에 코드로 만든 용암 무늬(검붉은 바위 · 갈라진 틈이 빛남)를 입힘. 그림 원본 복사·트레이싱 없음 (무늬는 무작위 점으로 만든 보로노이 균열)
+//   mode 'rock' = 몸 전체가 용암 바위 (용암 골렘) · 'skin' = 그을린 몸에 빛나는 용암 균열만 (불꽃 전사·궁수)
+let LAVA_TEX = null;
+function lavaTex() { if (LAVA_TEX) return LAVA_TEX; const N = 256, R = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(9091), P = [], H = [];
+  for (let i = 0; i < 520; i++) { P.push([R() * N, R() * N]); H.push(R()); }   // 작은 덩어리 520개 (덩어리마다 열기가 다름)
+  const rock = document.createElement('canvas'), crack = document.createElement('canvas'); rock.width = crack.width = N; rock.height = crack.height = N;
+  const gr = rock.getContext('2d'), gc = crack.getContext('2d'), A = gr.createImageData(N, N), B = gc.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { let d1 = 1e9, d2 = 1e9, id = 0;
+    for (let k = 0; k < P.length; k++) { let dx = Math.abs(x - P[k][0]); if (dx > 20 && dx < N - 20) continue; let dy = Math.abs(y - P[k][1]); if (dy > 20 && dy < N - 20) continue; if (dx > N / 2) dx = N - dx; if (dy > N / 2) dy = N - dy; const d = dx * dx + dy * dy; if (d < d1) { d2 = d1; d1 = d; id = k; } else if (d < d2) d2 = d; }
+    const e = Math.sqrt(d2) - Math.sqrt(d1), cr = Math.max(0, 1 - e / 2.2), hv = H[id], core = Math.max(0, 1 - Math.sqrt(d1) / 6) * (hv > .55 ? hv : hv * .35);
+    const heat = Math.min(1, Math.max(cr * .95, .12 + hv * .38 + core * .7)), i4 = (y * N + x) * 4;
+    A.data[i4] = 46 + 209 * Math.min(1, heat * 1.5); A.data[i4 + 1] = 10 + 200 * Math.pow(heat, 1.9); A.data[i4 + 2] = 5 + 70 * Math.pow(heat, 3.2); A.data[i4 + 3] = 255;
+    const hot = Math.min(1, Math.max(cr, core * .85)); B.data[i4] = 255; B.data[i4 + 1] = 70 + 170 * hot; B.data[i4 + 2] = 12 + 90 * Math.pow(hot, 3); B.data[i4 + 3] = Math.round(Math.pow(hot, 1.25) * 255); }
+  gr.putImageData(A, 0, 0); gc.putImageData(B, 0, 0); return (LAVA_TEX = { rock, crack, N }); }
+function lavaSkin(c, mode, fr, row) { const w = c.width, h = c.height, T = lavaTex(), g = c.getContext('2d'), tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; const t = tmp.getContext('2d');
+  const ox = -((fr * 4 + row * 37) % T.N), oy = -((fr * 3 + row * 53) % T.N);   // 동작 프레임마다 무늬가 조금씩 흘러 일렁임
+  let S = null; try { S = g.getImageData(0, 0, w, h).data; } catch (e) {}
+  const layer = src => { const L = document.createElement('canvas'); L.width = w; L.height = h; const q = L.getContext('2d'); for (let y = oy; y < h; y += T.N) for (let x = ox; x < w; x += T.N) q.drawImage(src, x, y);
+    if (S) { const D = q.getImageData(0, 0, w, h); for (let i = 3; i < S.length; i += 4) D.data[i] = D.data[i] * Math.max(0, Math.min(1, (S[i] - 150) / 80)); q.putImageData(D, 0, 0); } else { q.globalCompositeOperation = 'destination-in'; q.drawImage(c, 0, 0); } return L; };   // 몸(불투명한 곳)에만 · 바닥 그림자는 빼고
+  const rockL = layer(T.rock), crackL = mode === 'rock' ? null : layer(T.crack); t.drawImage(rockL, 0, 0);
+  g.save();
+  if (mode === 'rock') { const base = document.createElement('canvas'); base.width = w; base.height = h; const bg = base.getContext('2d'); bg.filter = 'grayscale(1) brightness(1.7) contrast(1.1)'; bg.drawImage(c, 0, 0); g.globalCompositeOperation = 'source-atop'; g.drawImage(tmp, 0, 0); g.globalCompositeOperation = 'multiply'; g.globalAlpha = .55; g.drawImage(base, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = .35; g.drawImage(tmp, 0, 0); }
+  else { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = .38; g.drawImage(rockL, 0, 0); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .9; g.drawImage(crackL, 0, 0); }
+  g.restore(); }
 function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) return c; if (TFR.size > 900) TFR.clear();
-  const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); TFR.set(key, c); return c; }
+  const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; if (M.lava) lavaSkin(c, M.lava, fr, row); TFR.set(key, c); return c; }
 function drawSheet(g, img, meta, frame, row, x, y, alpha=1, filter=null){
   if (!img.complete) return; g.save(); g.globalAlpha=alpha; const flash=filter&&filter.startsWith('brightness(2.6)'); if (filter&&!flash) g.filter=filter;
   const sc=meta.s||1; if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; }
@@ -2704,11 +2728,11 @@ Object.assign(MSHEET, {   // v159: 용의 계곡 정식 렌더 (PC 블렌더 · 
   wyvern: { W: 227, H: 138, ax: 108, ay: 84, s: 1.0, af: 8, hh: 54, hw: 64, tint: 'brightness(1.3) sepia(.35) saturate(1.4) hue-rotate(-12deg) contrast(1.05)' },   // 와이번: 붉은 갈색 날개로 밝게
   drake: { W: 268, H: 239, ax: 108, ay: 194, s: 1.0, af: 8, hh: 149, hw: 85, tint: 'brightness(1.35) sepia(.45) saturate(1.3) hue-rotate(-8deg) contrast(1.05)' } });   // 드레이크: 공중에 떠서 날갯짓 (그림자는 땅) · 황갈색
 Object.assign(MS_ALIAS, {   // 화룡의 둥지 임시 그림 (오리지널 렌더를 불빛으로 물들임 · 몸 둘레 불꽃은 코드로) — 정식 렌더가 들어오면 MSHEET가 대신함
-  fn_warrior: ['elmore_warrior', 1.0, 'grayscale(.4) sepia(1) saturate(3.2) hue-rotate(-28deg) brightness(.72) contrast(1.25)'], fn_archer: ['dark_elf', 1.0, 'grayscale(.3) sepia(1) saturate(2.8) hue-rotate(-18deg) brightness(.85) contrast(1.15)'],
-  fn_golem: ['ogre', 0.66, 'grayscale(.6) sepia(1) saturate(2.6) hue-rotate(-30deg) brightness(.62) contrast(1.5)'], fn_fly: ['wyvern', 0.42, 'sepia(1) saturate(3.4) hue-rotate(-12deg) brightness(1.2) contrast(1.1)'],
+  fn_warrior: ['elmore_warrior', 1.0, 'grayscale(.7) brightness(.68) contrast(1.3) sepia(.35) hue-rotate(-12deg)', 'skin'], fn_archer: ['dark_elf', 1.0, 'grayscale(.7) brightness(.72) contrast(1.25) sepia(.35) hue-rotate(-12deg)', 'skin'],   // v190: 그을린 몸 + 빛나는 용암 균열
+  fn_golem: ['dv_lizard', 0.95, 'grayscale(1) brightness(.85) contrast(1.25)', 'rock'],   // v190: 무기 없는 덩치(트롤 렌더)에 몸 전체 용암 바위 fn_fly: ['wyvern', 0.42, 'sepia(1) saturate(3.4) hue-rotate(-12deg) brightness(1.2) contrast(1.1)'],
   fn_salamander: ['basilisk', 1.15, 'sepia(1) saturate(3.2) hue-rotate(-30deg) brightness(.72) contrast(1.25)'], fn_hcerberus: ['cerberus', 1.12, 'sepia(1) saturate(3.4) hue-rotate(-16deg) brightness(.78) contrast(1.4)'],
   fn_ashtazio: ['baphomet', 0.6, 'grayscale(.3) sepia(1) saturate(2.6) hue-rotate(-22deg) brightness(.62) contrast(1.35)'], phoenix: ['wyvern', 1.55, 'sepia(1) saturate(4.2) hue-rotate(-6deg) brightness(1.4) contrast(1.1)'] });
-for (const k in MS_ALIAS) if (!MSHEET[k]) { const [src, sc, tint] = MS_ALIAS[k], M = MSHEET[src]; MSHEET[k] = { ...M, s: M.s * sc, hh: Math.round(M.hh * sc), hw: Math.round(M.hw * sc), src, tint }; }
+for (const k in MS_ALIAS) if (!MSHEET[k]) { const [src, sc, tint, lava] = MS_ALIAS[k], M = MSHEET[src]; MSHEET[k] = { ...M, s: M.s * sc, hh: Math.round(M.hh * sc), hw: Math.round(M.hw * sc), src, tint, lava }; }
 // 선공 몬스터(먼저 덤비는 몹, 보스 제외)는 1.3배 크게 그려 멀리서도 잘 보이게
 Object.assign(MOB, {   // v183: 수호탑 대전 — AI 봇(기사·요정·마법사)과 수호탑 (능력치는 판마다 TWM이 정함)
   tw_k: { name: '기사', lv: 1, hp: 400, dmg: [1, 2], walk: 2, run: 3, cd: 1, hit: 0.8, mac: 0, sc: 1, hw: 18, hh: 100, art: 'twbot', exp: 0, coin: [0, 0], twb: 1 },
