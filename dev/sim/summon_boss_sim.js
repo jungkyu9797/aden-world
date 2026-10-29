@@ -4,6 +4,8 @@
 const { chromium } = require('playwright'); const B = require('./pvpbuilds.js');
 const [SC, BL, OUT, TR] = process.argv.slice(2); const TRIALS = +(TR || 2);
 const SCN = {
+  N: {},
+  P: { aoeTake: 0.5, mpKeep: 15 },   // N + 보스 범위 기술 소환수 피해 추가 −50% + 공격 마법이 MP 15 남김   // 지금 코드 기본값 그대로 (v189: 1~4 + ① + ②)
   cur: { bossK: 0.5, tank: false, take: 1, lv: 0, hp: 1, dmg: 1, heroLv: false },
   A: { bossK: 1, tank: true, take: 0.5, lv: 0.03, hp: 1, dmg: 1, heroLv: false },
   B: { bossK: 1, tank: true, take: 0.5, lv: 0, hp: 1, dmg: 1, heroLv: false },
