@@ -54,7 +54,7 @@
 
 ## 배포 담당 방 규칙
 - 묶음 배포: 작업판 '다음 배포 묶음'을 모아 하루 1~2번. 급한 버그는 바로.
-- 순서: `git fetch` → main에 `work/*` merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 `dev/notes/*` 반영 → 테스트 → `python3 dev/build_test.py` → 메인 테스트 페이지 publish → 소식안 채팅 + 승인 팝업 → 승인 시 `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 '배포됨', `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기.
+- 순서: `git fetch` → main에 `work/*` merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 `dev/notes/*` 반영(첫 줄이 `# 잠수패치`인 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → `python3 dev/build_test.py` → 메인 테스트 페이지 publish → 소식안 채팅 + 승인 팝업 → 승인 시 `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 '배포됨', `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기.
 
 ## 테스트 아티팩트
 - 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에).
