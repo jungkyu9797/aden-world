@@ -7401,8 +7401,8 @@ const TWL = { A: { cx: 36.5, cz: 59.5, tw: [36, 59], gate: 51, hold: 54, back: 6
 // v190(할로윈): 할로윈 이벤트 지역 — 마을의 할로윈 허수아비 잭에게 모자를 사서 입장 · 하루 2시간(새벽 5시 초기화) · 허수아비로 변신 · 근거리 공격만 · 피해 1 고정 · 마법·펫 불가
 function HW() { return !!(ISLE && ISLE.def && ISLE.def.hw && SCENE === 'field'); }
 let hwNoT = 0; function hwNo(what) { if (time - hwNoT < 3) return; hwNoT = time; say(`할로윈 이벤트 지역에서는 ${what}을(를) 쓸 수 없어요. (초록 물약·용기의 물약·순간이동·귀환 주문서만)`, '#f0a060'); }
-// 근거리 한 대: 피해 = 기본 1 + 가방 모자 중 가장 높은 강화 수치 (이벤트 몬스터에게만) · 명중 100% · 치명타·추가 타격·속성 없음
-function hwStrike(f) { const S = MOB[f.kind]; breakInvis(); const d = HWC.DMG_OUT + (S && S.hwEv ? Math.max(0, INV.hwHat()) : 0); dmgMob(f, d); f.flash = 0.09; mobHitFx(f, false); hero.lastHit = f; hero.lastHitT = time; f.aggro = true; hitstop = 0.06; sfx.hit(false);
+// 근거리 한 대: 피해 1 고정 · 모자 강화 1당 필요한 타수 −1 (몬스터마다 내 첫 타에 강화 수치만큼 더 들어감 → +0 호박괴물 15대 · +9 6대) · 명중 100% · 치명타·추가 타격·속성 없음
+function hwStrike(f) { const S = MOB[f.kind]; breakInvis(); const first = !(f.dmgBy && f.dmgBy.get && f.dmgBy.get(hero) > 0), d = HWC.DMG_OUT + (S && S.hwEv && first ? Math.max(0, INV.hwHat()) : 0); dmgMob(f, d); f.flash = 0.09; mobHitFx(f, false); hero.lastHit = f; hero.lastHitT = time; f.aggro = true; hitstop = 0.06; sfx.hit(false);
   { const [fx, fy] = W2P(f.x, f.z); floatText(fx + (Math.random() * 18 - 9), fy - headY(f) - 12, String(d), { color: '#ffb050', size: 13 }); } if (f.hp > 0) MSFX(f.kind, 'hit', 0.5); killCheck(f); }
 // 호박 처치 보상: 호박씨(항상) + 주문서(확률 · 따로 굴림) — 경험치·골드는 몬스터 수치(HWC.mob)로 기존 방식대로
 function hwLoot(f) { const C = HWC.mob[f.kind]; if (!C) return; GROUND.drop('hw_seed', rint(C.seed), f.i, f.j);
