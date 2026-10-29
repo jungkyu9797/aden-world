@@ -48,7 +48,7 @@
 3. `GAME_VER`와 게임 안 업데이트 소식 목록은 건드리지 않는다. 소식안은 `dev/notes/<이름>.md`에 적는다.
 4. 수정은 `dev/rep.py`의 `apply(path, [(old, new)])`(정확히 한 번 일치해야 바꿈)로 하고, 매번 `node --check src/game.js`.
 5. 테스트: `python3 dev/mkkt.py` → `bash dev/runkt.sh <테스트.js>` (로그인은 `dev/tq.js`, 예시 `dev/tests/`). 스크린샷은 `dev/out/`. 빠른 시뮬은 `python3 dev/mksim.py` 뒤 `_sim2.html`.
-6. 프로듀서 확인용 테스트 페이지는 작업방 전용 아티팩트로 만든다(아래). 메인 테스트 페이지는 배포 담당 방만 쓴다.
+6. 테스트 페이지는 **메인 테스트 페이지 하나만** 쓴다 (프로듀서 계정·캐릭터가 그 페이지에만 저장돼 있음). 작업방은 따로 아티팩트를 만들지 않고, 갈래를 push한 뒤 작업판 카드 `next`에 "메인 테스트 페이지에 올려 주세요"를 적고 프로듀서에게 배포 담당 방에 넘겨 달라고 한다.
 7. 끝나면: `origin/main`을 자기 갈래에 merge해서 충돌 정리·재테스트 → push → 작업판 카드를 '다음 배포 묶음'(status `ready`)으로 바꾸고 소식안 파일을 note에 적기 → 프로듀서에게 "배포 담당 방에 넘겨 주세요" 한 줄.
 8. 작업판은 진행할 때마다 갱신: ArtifactData로 `tasks/<id>` 문서 update (`status` doing·wait·test·ready·hold·done, `next`, `note`, `room`, `branch`, `test`(https 주소), `updated`(ISO 시각)). 새 작업이면 새 문서.
 
@@ -58,7 +58,8 @@
 
 ## 테스트 아티팩트
 - 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에).
-- 작업방 전용 새로 만들기: `python3 dev/build_test.py` → 새 아티팩트 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files=`첫 묶음 `python3 dev/asset_map.py 1` 출력) → 같은 url로 `files=`두 번째 묶음(`... 2`) → 그 뒤로는 `files={}`로 갱신.
+- 배포 담당 방은 작업방이 테스트를 부탁하면 대기 중인 배포 후보(release/*)와 그 갈래를 임시로 합친 판을 메인 테스트 페이지에 올린다 (main·갈래에는 push하지 않음). 프로듀서 계정은 메인 테스트 페이지에만 있다.
+- (예전 방식 · 쓰지 않음) 작업방 전용 새로 만들기: `python3 dev/build_test.py` → 새 아티팩트 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files=`첫 묶음 `python3 dev/asset_map.py 1` 출력) → 같은 url로 `files=`두 번째 묶음(`... 2`) → 그 뒤로는 `files={}`로 갱신.
 
 ## 코드·테스트 팁
 - 테스트 중 Math.random을 바꾸면 게임 루프가 먹는다 → 클릭 직후 바로 되돌린다.
