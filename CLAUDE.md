@@ -6,7 +6,7 @@
 ## 프로듀서와 일하는 방식
 - 한국어로, 짧게, 결과 위주로 말한다. 영어로 답하지 않는다.
 - 사소한 건 알아서 정하고, 방향이 갈리는 것만 짧은 팝업 질문(AskUserQuestion)으로 묻는다.
-- 게임 업데이트는 바로 배포하지 않는다. 최종 업데이트 소식안을 대화창에 먼저 보여 주고 승인 팝업 → 승인하면 배포, 안 하면 보류. 승인 대기 중인 게 있으면 팝업으로 다시 알린다. **배포는 배포 담당 방에서만.**
+- 게임 업데이트는 바로 배포하지 않는다. 끝난 작업은 작업판 **승인 대기**에 올리고, 프로듀서가 작업판에서 하나씩 [승인] → **업데이트 대기**. 프로듀서가 메인방에 **"업데이트"**라고 쓰면 업데이트 대기 전부를 한 번에 배포하고 최종 소식안을 채팅에 보여 준다(그 한마디가 승인 — 팝업 다시 안 띄움). 공개 저장소 배포는 채팅에서 받은 말로만(작업판 버튼만으로는 안 함). **배포는 메인방(배포 담당 방)에서만.**
 - 일일 제한·초기화 기준은 새벽 5시.
 - 몬스터·아이템은 리니지 DB 사이트(인벤 리마스터/클래식 DB, 린클인포 등)의 컨셉·분위기·밸런스를 참고하되 그림은 직접 만든 오리지널. 복사·트레이싱 금지. 리니지 클라이언트에서 뽑은 리소스는 게임에 쓰지 않는다.
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다.
@@ -26,6 +26,8 @@
 - 작업판(진행 상황): https://claude.ai/artifact/XemyTMkY4DDuWZsAUJ3pQX
 
 ## 작업판 운영 (모든 방 공통)
+- 흐름(10/29 프로듀서 결정): **메인방**(배포 담당 방 = https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D)에서 프로듀서가 자유롭게 말함 → 메인방이 분류해서 작업마다 카드 + 작업방 → 작업방이 끝내면 **승인 대기**(먼저 끝난 순서) → 프로듀서가 작업판에서 [승인] → **업데이트 대기** → 메인방에 "업데이트" → 한 번에 배포 → **업데이트 기록**. 메모함은 프로듀서가 자리 비울 때 쓰는 우체통(메인방이 말을 걸 때마다 확인).
+- 이미 열린 방에는 자동으로 말을 보낼 수 없다(다른 세션에 메시지·예약 작업 즉시 실행이 막힘). 그래서 새 작업은 메인방이 `create_trigger`로 **작업마다 새 방**을 연다(갈래 `work/<카드 id>`, 방 메모 `dev/rooms/<카드 id>.md`). 한두 줄 고치는 작은 일은 메인방이 직접 한다.
 - 작업판: https://claude.ai/artifact/XemyTMkY4DDuWZsAUJ3pQX · 데이터는 ArtifactData로 `tasks/<id>` 문서.
 - 프로듀서가 새로 말한 일은 내용을 보고 직접 분류해서 카드로 만든다(묻지 않음). `cat`:
   - `new` 신규 컨텐츠 — 새로 만드는 창작(새 지역·이벤트·몬스터·아이템·시스템·연출)
@@ -33,7 +35,8 @@
   - `fix` 기타 수정 — 기존 것의 수정·버그·편의·UI·작은 변경
   - `bot` AI 봇 — 수호탑 봇·필드 상주 봇
 - `status`(누구 차례): `doing` Claude 작업 중(`phase`에 단계: 제작 중·테스트 중·시뮬 중 등) · `wait` 내 차례·답변 필요 · `test` 내 차례·테스트 확인 · `ready` 내 차례·배포 승인 · `queued` 다음 배포에 포함(결정 끝, 배포 담당 방이 묶을 때 넣음 — 잠수패치 포함) · `hold` 보류 · `done` 끝남. 상태가 바뀌는 순간 바로 고친다. 작업판에서 프로듀서는 상태를 고르지 않고 보기만 한다 — 상태는 그 작업 방이 실제 진행에 맞게 적는다.
-- 카드 필드: `title`, `cat`, `status`, `phase`, `next`(다음 할 일 — 내 차례면 프로듀서가 할 일), `note`, `room`, `room_url`(그 작업 대화방 주소), `branch`, `test`(테스트 페이지), `updated`(ISO). 프로듀서가 카드에 남긴 메모는 `pnote` — 방은 작업을 시작할 때와 보고하기 전에 꼭 읽는다.
+- 카드 필드: `title`, `cat`, `status`, `phase`, `next`(다음 할 일 — 내 차례면 프로듀서가 할 일), `note`, `room`, `room_url`(그 작업 대화방 주소), `branch`, `test`(테스트 페이지), `updated`(ISO), `readyAt`(승인 대기에 올린 시각 — 이 순서로 줄 섬), `notes`(업데이트 소식안 문장 배열 — 승인 대기에서 프로듀서가 읽음), `silent`(true = 잠수패치, 소식에 안 넣음), `approvedAt`·`ver`(배포한 버전). 프로듀서가 카드에 남긴 메모는 `pnote`, 승인 대기에서 누른 [수정 요청]은 `rework: {text, at}`(status가 doing으로 돌아옴) — 방은 작업을 시작할 때와 보고하기 전에 꼭 읽는다.
+- 작업판의 [승인]은 status `ready`→`queued`, [승인 취소]는 되돌림 — 프로듀서가 누르는 유일한 상태 변경이다.
 - 작업방은 시작하자마자 자기 카드의 `room_url`에 이 대화방 주소(커밋 끝 `Claude-Session:` 줄의 주소)를 적는다.
 - 메모장으로 전달된 아이디어(`ideas` 문서, status `new`)는 배포 담당 방이 분류해서 카드로 옮기고 그 아이디어의 status를 `taken`으로 바꾼다.
 - 작업량이 크거나 오래 걸리는 새 작업은 배포 담당 방이 새 대화방을 만든다: `create_trigger`(run_once_at = 1~2분 뒤, 한 번만)로 첫 메시지에 "저장소 연결 → CLAUDE.md·dev/rooms/<이름>.md 읽기 → work/<이름> 갈래 → 작업판 카드 room_url 등록 후 진행"을 넣는다. 필요하면 먼저 `dev/rooms/<이름>.md`를 써서 main에 올린다.
@@ -48,13 +51,14 @@
 3. `GAME_VER`와 게임 안 업데이트 소식 목록은 건드리지 않는다. 소식안은 `dev/notes/<이름>.md`에 적는다.
 4. 수정은 `dev/rep.py`의 `apply(path, [(old, new)])`(정확히 한 번 일치해야 바꿈)로 하고, 매번 `node --check src/game.js`.
 5. 테스트: `python3 dev/mkkt.py` → `bash dev/runkt.sh <테스트.js>` (로그인은 `dev/tq.js`, 예시 `dev/tests/`). 스크린샷은 `dev/out/`. 빠른 시뮬은 `python3 dev/mksim.py` 뒤 `_sim2.html`.
-6. 테스트 페이지는 **메인 테스트 페이지 하나만** 쓴다 (프로듀서 계정·캐릭터가 그 페이지에만 저장돼 있음). 작업방은 따로 아티팩트를 만들지 않고, 갈래를 push한 뒤 작업판 카드 `next`에 "메인 테스트 페이지에 올려 주세요"를 적고 프로듀서에게 배포 담당 방에 넘겨 달라고 한다.
-7. 끝나면: `origin/main`을 자기 갈래에 merge해서 충돌 정리·재테스트 → push → 작업판 카드를 '다음 배포 묶음'(status `ready`)으로 바꾸고 소식안 파일을 note에 적기 → 프로듀서에게 "배포 담당 방에 넘겨 주세요" 한 줄.
+6. 테스트 페이지는 **메인 테스트 페이지 하나만** 쓴다 (프로듀서 계정·캐릭터가 그 페이지에만 저장돼 있음). 메인 테스트 페이지에는 항상 **승인 대기 전부**가 들어간 판을 올린다(아래 7).
+7. 끝나면: `origin/main`을 자기 갈래에 merge해서 충돌 정리·재테스트 → push → 작업판 카드 status `ready` + `readyAt`(지금 ISO) + `notes`(소식안 문장들, 잠수패치면 `silent: true`) + `phase` "승인 대기" → **승인 대기 묶음 판 올리기**: 작업판에서 status `ready`·`test`인 카드의 `branch`를 모두 모아 `python3 dev/stage_test.py <갈래들>` → 메인 테스트 아티팩트를 한 번 `read`한 뒤 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files={}`, 새 에셋이 있으면 그 경로만) → 테스트 아티팩트 db `tbuild/cur` = `dev/out/build.json`의 `{id, at, n}` (열려 있는 테스트 페이지가 10초 뒤 새로고침) → 작업판 db `meta/test` = 같은 값 + `branches` → 프로듀서에게 "승인 대기에 올렸어요 · 테스트 페이지에서 확인해 주세요" 한 줄. 충돌로 빠진 갈래가 있으면 그 방에 알리거나 직접 합쳐서 정리.
 8. 작업판은 진행할 때마다 갱신: ArtifactData로 `tasks/<id>` 문서 update (`status` doing·wait·test·ready·hold·done, `next`, `note`, `room`, `branch`, `test`(https 주소), `updated`(ISO 시각)). 새 작업이면 새 문서.
 
 ## 배포 담당 방 규칙
-- 묶음 배포: 작업판 '다음 배포 묶음'을 모아 하루 1~2번. 급한 버그는 바로.
-- 순서: `git fetch` → main에 `work/*` merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 `dev/notes/*` 반영(첫 줄이 `# 잠수패치`인 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → `python3 dev/build_test.py` → 메인 테스트 페이지 publish → 소식안 채팅 + 승인 팝업 → 승인 시 `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 '배포됨', `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기.
+- 배포 시점: 프로듀서가 메인방에 "업데이트"라고 할 때. 급한 버그는 프로듀서에게 묻고 바로.
+- 순서: `git fetch` → main에 **업데이트 대기(status `queued`) 카드의 갈래만** merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 그 카드들의 `notes` 반영(`silent`·첫 줄이 `# 잠수패치`인 `dev/notes` 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → `python3 dev/build_test.py` → 메인 테스트 페이지 publish → 소식안 채팅 + 승인 팝업 → 승인 시 `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 status `done` + `ver`, `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기 → 남은 승인 대기로 테스트 판 다시 올리기(위 작업방 규칙 7과 같은 방법).
+- 메인방은 프로듀서가 말을 걸 때마다: 메모함(`ideas` status `new`)·`rework`가 있는 카드·`room_url` 없는 카드를 확인해서 분류·새 방 열기·전달.
 
 ## 테스트 아티팩트
 - 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에).
