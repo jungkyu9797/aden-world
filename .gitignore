@@ -1,0 +1,10 @@
+# 테스트 중에 생기는 파일 (올리지 않음)
+_kt2.html
+_sim2.html
+src/_kt2.js
+src/_sim2.js
+dev/out/
+node_modules/
+__pycache__/
+# 운영자 개인키 — 절대 올리지 말 것
+admin_key.js
