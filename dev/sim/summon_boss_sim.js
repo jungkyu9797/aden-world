@@ -13,8 +13,8 @@ const SCN = {
 };
 const BOSS = {
   baphomet: { lv: 40, zone: 8, gear: 'mid', kinds: ['baphomet'] },
-  kaspar: { lv: 45, zone: 13, gear: 'mid', kinds: ['kaspar', 'merkyor', 'balthazar', 'sema'] },
-  deathknight: { lv: 48, zone: 13, gear: 'high', kinds: ['deathknight'] },
+  kaspar: { lv: 45, zone: 8, gear: 'mid', kinds: ['kaspar', 'merkyor', 'balthazar', 'sema'] },
+  deathknight: { lv: 48, zone: 8, gear: 'high', kinds: ['deathknight'] },
   ice_queen: { lv: 52, zone: 12, gear: 'high', kinds: ['ice_queen'] },
   drake_king: { lv: 55, zone: 17, gear: 'high', kinds: ['drake_king'] },
 };
@@ -47,7 +47,7 @@ const MID = [['cx_st3', 'weapon', 6], ['leather_helm', 'helm', 4], ['cx_ts1', 's
         const MX = ms.reduce((a, m) => a + m.hp, 0), pot0 = T.INV.count('clear_potion'); if (!T.AUTO.on()) T.AUTO.toggle();
         const t0 = S.time; let minHp = 1, deaths = 0, wasTown = false, sumDeaths = 0, lastLive = PET.sumLive(), sumT = 0;
         const fin = o => { window.__FAST = 0; window.__HOOK = null; done(Object.assign({ boss: bk, t: +(S.time - t0).toFixed(1), deaths, pots: pot0 - T.INV.count('clear_potion'), minHp: +minHp.toFixed(2), casts, sumDeaths, sumUp: +(sumT / Math.max(1, S.time - t0)).toFixed(2), bossLeft: +(ms.reduce((a, m) => a + Math.max(0, m.dead ? 0 : m.hp), 0) / MX).toFixed(2), bossHp: MX, sumDmg: window.__SUMDMG, sumHit: window.__SUMHIT, sumMiss: window.__SUMMISS, tr }, o)); };
-        window.__SUMDMG = 0; window.__SUMHIT = 0; window.__SUMMISS = 0; const tr = []; let nt = 0; window.__HOOK = () => { for (const f of S.foxes) if (!ms.includes(f) && !f.gone) f.gone = true; const st = S.STATE; if (S.time - t0 >= nt) { nt += 5; tr.push([Math.round(S.time - t0), Math.round(st.hp), Math.round(st.mp), PET.sumLive(), ms.reduce((a, m) => a + Math.max(0, m.dead ? 0 : m.hp), 0), window.__SUMDMG, window.__SUMHIT, window.__SUMMISS]); } minHp = Math.min(minHp, st.hp / st.max); const live = PET.sumLive(); if (live < lastLive) sumDeaths += lastLive - live; if (live > lastLive) casts += live - lastLive; lastLive = live; if (live > 0) sumT += 0.05;
+        window.__SUMDMG = 0; window.__SUMHIT = 0; window.__SUMMISS = 0; const tr = []; let nt = 0; window.__HOOK = () => { for (const f of S.foxes) if (!ms.includes(f) && !f.gone) f.gone = true; const st = S.STATE; if (S.time - t0 >= nt) { nt += 5; tr.push([Math.round(S.time - t0), Math.round(st.hp), Math.round(st.mp), PET.sumLive(), ms.reduce((a, m) => a + Math.max(0, m.dead ? 0 : m.hp), 0), Math.max(Math.abs(ms[0].i - H.i), Math.abs(ms[0].j - H.j)), ms[0].tgt ? (ms[0].tgt.sum ? 'S' : 'o') : 'H', H.atk ? (H.atk.v || 'a') : '-']); } minHp = Math.min(minHp, st.hp / st.max); const live = PET.sumLive(); if (live < lastLive) sumDeaths += lastLive - live; if (live > lastLive) casts += live - lastLive; lastLive = live; if (live > 0) sumT += 0.05;
           const town = T.SCENE === 'town'; if (town && !wasTown) deaths++; wasTown = town;
           if (town || T.DEATH) return fin({ win: false, died: true });
           if (ms.every(m => m.dead || m.hp <= 0)) return fin({ win: true });

@@ -453,7 +453,10 @@ function updateHero(dt){
   if (hero.t<1) return;
   if (BUFF.root>0){ const T=BUFF.abar>0?null:hero.target; if (T&&!T.dead&&inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); } return; }
   const T=BUFF.abar>0?null:hero.target;   /* v149: 앱솔루트 배리어 중에는 공격 안 함 (이동만) */
-  if (T){ if (T.dead||(T.isRemote&&!(PVPZ()&&NET.alive(T)))){ hero.target=null; return; } if (inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); return; }
+  if (T){ if (T.dead||(T.isRemote&&!(PVPZ()&&NET.alive(T)))){ hero.target=null; return; }
+    if (!T.isRemote&&AUTO.on()&&CLASS==='wizard'&&MOB[T.kind]&&MOB[T.kind].boss&&LEARNED.has('summon')&&INV.autoSk('summon')&&PET.sumBal.tank){ const d=cheb(T.i,T.j,hero.i,hero.j);   /* v189: 서먼 자동 마법사는 보스와 3~6칸 떨어져 소환수 뒤에서 마법만 (지팡이로 붙지 않음) */
+      if (d>=3&&d<=7&&FLOS(hero,T)){ face(hero,T); return; } const p=MAZE()?[]:astar(hero,(i,j)=>{ const dd=cheb(i,j,T.i,T.j); return dd>=3&&dd<=6&&FLOS({ i, j },T); },T.i,T.j); if (p.length) beginStep(hero,p[0]); else if (inRng(T)&&hero.cool<=0){ face(hero,T); heroAttack(T); } return; }
+    if (inRng(T)){ face(hero,T); if (hero.cool<=0) heroAttack(T); return; }
     const RR=heroRange(), p=MAZE()?mzPath(hero,T.i,T.j):astar(hero,(i,j)=>{ const d=cheb(i,j,T.i,T.j); return d>=1&&d<=RR&&(d<=1||!AUTO.on()||FLOS({ i, j },T)); },T.i,T.j); if (p.length) beginStep(hero,p[0]); return; }
   if (moveGoal){ if (hero.i===moveGoal[0]&&hero.j===moveGoal[1]){ if (!holding) moveGoal=null; return; }
     const p=MAZE()?mzPath(hero,moveGoal[0],moveGoal[1]):astar(hero,(i,j)=>i===moveGoal[0]&&j===moveGoal[1],moveGoal[0],moveGoal[1]); if (!p.length||!beginStep(hero,p[0])){ if (!holding) moveGoal=null; } }
@@ -3748,7 +3751,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (p.lunge > 0) { const was = p.lunge; p.lunge -= dt; const T = p.target; if (was > 0.15 && p.lunge <= 0.15 && T && !T.dead && cheb(p.i, p.j, T.i, T.j) === 1) { const S = MOB[T.kind];
           if (Math.random() < petHit(d, S)) { const dm = S.boss ? Math.max(1, Math.round(petDmg(d) * (p.sum ? SUMB.bossK : 0.5))) : petDmg(d); sfxBite();   // v155: 펫·소환수가 보스에게 주는 피해 −50% (일반 몬스터는 그대로)
             mobHurt(T, dm, '#ffd27a', p); if (!T.dead && (p.sum && SUMB.tank && S.boss ? !(T.tgt && T.tgt.sum && !T.tgt.dead) : Math.random() < 0.35)) T.tgt = p; }
-          else { const [fx, fy] = W2P(T.x, T.z); floatText(fx, fy - headY(T) - 4, 'MISS', { color: '#c8d0d8', size: 10 }); } } }
+          else { if (p.sum && SUMB.tank && S.boss && !T.dead && !(T.tgt && T.tgt.sum && !T.tgt.dead)) T.tgt = p; const [fx, fy] = W2P(T.x, T.z); floatText(fx, fy - headY(T) - 4, 'MISS', { color: '#c8d0d8', size: 10 }); } } }
       if (p.t < 1) continue;
       if (cheb(p.i, p.j, hero.i, hero.j) > 16 && d.mode !== 'rest') { place(p); continue; }
       if (p.scatterT > 0) { p.scatterT -= dt; if (p.scatter && (p.i !== p.scatter[0] || p.j !== p.scatter[1])) { const st = astar(p, (i, j) => i === p.scatter[0] && j === p.scatter[1], p.scatter[0], p.scatter[1]); if (!st.length || !beginStep(p, st[0])) p.scatter = null; } continue; }
