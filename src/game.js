@@ -6396,6 +6396,7 @@ const TOWN = (() => {
       $('gp-apply').onclick = () => { lvDirty = false; setLevel(inp.value); }; inp.onkeydown = ev => { ev.stopPropagation(); if (ev.key === 'Enter') { lvDirty = false; setLevel(inp.value); } };
       $('gp-full').onclick = () => { hero.hp = hero.max; hero.mp = hero.maxmp; say('갓 모드: 체력·마나를 가득 채웠습니다.', '#ffd86a'); };
       $('gp-gold').onclick = () => { coins += 100000; INV.render(); say('갓 모드: 골드 +100,000', '#ffd86a'); };
+      if ($('gp-hw')) $('gp-hw').onclick = () => { for (const [id, n] of [['hw_hat', 3], ['hw_seed', 1000], ['hw_scroll', 50], ['hw_bscroll', 10], ['hw_pouch', 10], ['hw_pouch_r', 5], ['hw_pouch_h', 3], ['hw_candy', 3], ['hw_lantern', 2], ['green_potion', 20], ['brave_potion', 20]]) INV.add(id, n, true); INV.render(); say('갓 모드: 할로윈 테스트 묶음 — 모자 3 · 호박씨 1,000 · 호박 강화 주문서 50 · 축복 10 · 호박/희귀/영웅 주머니 10/5/3 · 사탕 3 · 잭오랜턴 2 · 초록·용기 물약 20', '#ffa040'); };   // 할로윈 테스트용
       $('gp-dn').onclick = () => { DN.toggle(); say('낮/밤을 바꿨습니다.', '#9c9682'); };
       // 허수아비 세우기 (내 앞 빈칸) · 모두 치우기
       document.querySelectorAll('#godpanel [data-dm]').forEach(b => b.onclick = () => { const L = +b.dataset.dm, k = 'dummy' + L; let at = null;
