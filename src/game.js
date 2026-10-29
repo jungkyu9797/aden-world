@@ -2511,7 +2511,8 @@ const HWC = {
   // 호박 주머니 사슬 [결과, 확률%] — 'doll:N' = N단계 마법인형(1 고급 · 2 희귀 · 3 영웅) 중 하나 · 'hero' = 영웅 장비 중 하나 (1주일 평균 영웅 인형 약 2개)
   pouch: { hw_pouch: [['doll:1', 80], ['hw_pouch_r', 20]], hw_pouch_r: [['doll:2', 84], ['hw_pouch_h', 16]], hw_pouch_h: [['hero', 50], ['doll:3', 50]] },
   CANDY_EXP: 20,                                       // 호박 사탕: 30분 동안 몬스터 경험치 +%
-  OK: new Set(['green_potion', 'brave_potion', 'tele_scroll', 'return_scroll', 'hw_hat', 'hw_seed', 'hw_scroll', 'hw_bscroll', 'hw_pouch']) };   // 이벤트 지역 안에서 쓸 수 있는 아이템
+  NO_USE: new Set(['pet', 'petevo', 'soul', 'poly', 'counterm']),   // v189: 이벤트 지역에서 못 쓰는 소모품 종류 (펫·펫 진화·영혼석(보스 소환)·변신 주문서(허수아비 변신 유지)·카운터 매직(마법)) — 나머지 소모품은 모두 사용
+  useOK: id => { const d = ITEMS[id]; return !!d && !HWC.NO_USE.has(d.use); } };
 // 수치: 리니지 클래식 커뮤니티 자료를 참고해 자체 조정 (밸런스팀 확정 전 임시값)
 const MOB = {
   hw_pumpkin:      { name: '할로윈 호박괴물', lv: 52, hp: HWC.mob.hw_pumpkin.hp, dmg: [1, 1], mac: 10, hit: 0.8, exp: HWC.mob.hw_pumpkin.exp, coin: HWC.mob.hw_pumpkin.coin, walk: 1.1, run: 2.6, cd: 1.5, art: 'pumpkin', hwEv: true, sc: 1, hw: 24, hh: 46, atkTxt: '박치기' },
@@ -3079,7 +3080,7 @@ const ISLAND = (() => {
          mobs: [['wyvern', 23], ['drake', 21], ['lesser_dragon', 3]], groups: [] },   // v159: 2구역 개체 수 1.5배 (31 → 47)
     // 할로윈 이벤트 지역 (21번): 음침한 호박밭 — 귀신이 떠다니고 핏빛 살육터 소품 · 시야는 늘 낮처럼 · 마을 NPC 할로윈 허수아비 잭으로만 입장 · 나가려면 귀환 주문서
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
-         hello: '으스스한 호박밭에 들어왔습니다... 호박 머리 허수아비로 변신했어요! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. 호박괴물을 쓰러뜨려 호박씨를 모으세요. (주는 피해 1 + 모자 강화 · 받는 피해 1 · 나가려면 귀환 주문서)',
+         hello: '으스스한 호박밭에 들어왔습니다... 호박 머리 허수아비로 변신했어요! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. 호박괴물을 쓰러뜨려 호박씨를 모으세요. (주는 피해 1 + 모자 강화 · 받는 피해 1 · 나가려면 귀환 주문서·귀환 부적)',
          mobs: [['hw_pumpkin', HWC.mob.hw_pumpkin.n], ['hw_pumpkin_boss', HWC.mob.hw_pumpkin_boss.n]], groups: [] },
   };
   const ARRIVE = { 1: { town: [37, 37], 2: [8, 8] }, 2: { 1: [56, 56], town: [56, 56] }, 3: { town: [48, 48], 4: [7, 7] }, 4: { 3: [57, 57], town: [57, 57] }, 5: { town: [48, 48], 6: [7, 7] }, 6: { 5: [57, 57], town: [57, 57] }, 7: { town: [48, 48], 8: [7, 7] }, 8: { 7: [57, 57], town: [57, 57] }, 11: { town: [52, 52], 12: [7, 7] }, 12: { 11: [57, 57], town: [57, 57] }, 13: { town: [18, 27] }, 14: { town: [12, 12] }, 15: { town: [17, 8] }, 16: { town: [52, 52], 17: [7, 7] }, 17: { 16: [57, 57], town: [57, 57] }, 20: { town: [36, 64] }, 21: { town: [22, 22] } };
@@ -4695,6 +4696,7 @@ function cxOpt(txt) { const o = {}; if (!txt || txt === '—' || /롱소드/.tes
     else if ((m = p.match(/^(물|바람|땅) 저항 \+(\d+)$/))) { const k = { 물: 'waterRes', 바람: 'windRes', 땅: 'earthRes' }[m[1]]; o[k] = (o[k] || 0) + +m[2]; }
     else if ((m = p.match(/^모든 속성 저항 \+(\d+)$/))) for (const k of ['fireRes', 'waterRes', 'windRes', 'earthRes']) o[k] = (o[k] || 0) + +m[1];
     else if ((m = p.match(/^MP 회복 \+(\d+)$/))) o.mpRegen = +m[1];
+    else if ((m = p.match(/^강화 1당 MR \+(\d+)$/))) o.mrEn = +m[1];   /* v189: 거대 여왕 개미의 금빛 날개 — 강화 1당 MR */
     else if ((m = p.match(/^타격 시 (\d+)% (번개|화염) 추가 피해 (\d+)~(\d+)$/))) o.proc = { kind: m[2] === '번개' ? 'lightning' : 'fire', p: m[1] / 100, dmg: [+m[3], +m[4]] };
     else if ((m = p.match(/^타격 시 (\d+)% 출혈 \((\d+)초, 초당 (\d+)\)$/))) o.proc = { kind: 'bleed', p: m[1] / 100, dur: +m[2], dps: +m[3] };
     else if ((m = p.match(/^타격 시 (\d+)% 상대 명중 -(\d+) \((\d+)초\)$/))) o.proc = { kind: 'hitdown', p: m[1] / 100, v: +m[2], dur: +m[3] };
@@ -4709,6 +4711,7 @@ function cxOpt(txt) { const o = {}; if (!txt || txt === '—' || /롱소드/.tes
     else if ((m = p.match(/^사용 시 (\d+)초 투명 \(재사용 (\d+)분\)$/))) o.invis = { dur: +m[1], cd: m[2] * 60 };
     else console.warn('장비 도감: 해석하지 못한 옵션', p); }
   return o; }
+const mrEnOf = (d, en) => d && d.mrEn && en > 0 ? d.mrEn * en : 0;   // v189: 강화 1당 MR (거대 여왕 개미의 금빛 날개)
 const CX_METAL = /철|판금|사슬|강철|비늘|커츠|데스나이트|지휘관/;   // 기사 그림: 금속 방어구는 판금 그림(p), 나머지는 가죽 그림(l)
 const CX_PRICE = { long_sword: 3000, wood_shield: 300, leather_armor: 400, leather_boots: 150, plate_helm: 3000, plate_armor: 8000, plate_gloves: 2500, plate_boots: 3000, leather_helm: 250, leather_gloves: 200, cloak: 200, leather_belt: 150, silver_ring: 600, amulet: 800, cloth_shirt: 100 };
 let CX_MAKE = null;   // v139: 도감 장비 만들기 (나중에 붙이는 장비도 같은 규칙)
@@ -4888,7 +4891,7 @@ const CX139 = {};
 // v146: 불멸의 가호 — 가방에 지니고 있으면 사망 손실 없음 · 쓰러지면 1개가 타서 [타버린 불멸의 가호]로 그 자리에 떨어짐 (되팔면 2만 5천)
 ITEMS.immortal_ward = { name: '불멸의 가호', icon: 'immortal_ward', w: 0.1, stack: true, rar: '희귀', sellFix: 25000, desc: '가방에 지니고 있으면 쓰러져도 사망 손실(경험치·골드)이 없어요. 대신 쓰러질 때 1개가 타 버려서 그 자리에 [타버린 불멸의 가호]로 떨어져요. (결투장·콜로세움에서는 타지 않음 · 잡화상점 5만 골드)' };
 ITEMS.burnt_ward = { name: '타버린 불멸의 가호', icon: 'burnt_ward', w: 0.1, stack: true, rar: '고급', sellFix: 25000, desc: '불멸의 가호가 대신 타고 남은 것. 상점에 2만 5천 골드에 팔 수 있어요.' };
-{ const K = ITEMS.cx_cl6; ITEMS.qa_wing = Object.assign({}, K, { name: '거대 여왕 개미의 금빛 날개', icon: 'qa_wing', optTxt: [], src: '제작 장인 브론 (금빛 날개 10개 + 은빛 날개 10개 · 100%)', desc: '거대 여왕개미의 금빛·은빛 날개를 엮어 만든 망토. 모든 클래스가 걸칠 수 있다.' }); for (const k of ['cls', 'fireRes', 'waterRes', 'windRes', 'earthRes', 'price']) delete ITEMS.qa_wing[k]; }   // v146: 제작 장비 (커츠의 망토 수치 · 모든 클래스 · 모든 속성 저항 +10만 없음)
+{ const K = ITEMS.cx_cl6; ITEMS.qa_wing = Object.assign({}, K, { name: '거대 여왕 개미의 금빛 날개', icon: 'qa_wing', optTxt: ['강화 1당 MR +1'], mrEn: 1, src: '제작 장인 브론 (금빛 날개 10개 + 은빛 날개 10개 · 100%)', desc: '거대 여왕개미의 금빛·은빛 날개를 엮어 만든 망토. 모든 클래스가 걸칠 수 있다.' }); for (const k of ['cls', 'fireRes', 'waterRes', 'windRes', 'earthRes', 'price']) delete ITEMS.qa_wing[k]; }   // v146: 제작 장비 (커츠의 망토 수치 · 모든 클래스 · 모든 속성 저항 +10만 없음)
 for (const id of ['cx_sh13', 'cx_sh14']) if (ITEMS[id]) delete ITEMS[id].cls;   // v148: 메두사 방패·사이하의 방패 모든 클래스 착용
 CXI.sk_advspirit = '<defs><radialGradient id="g_adv" cx=".5" cy=".4" r=".85"><stop offset="0" stop-color="#d8ffe8"/><stop offset="1" stop-color="#145a3a"/></radialGradient></defs><rect x="2" y="2" width="30" height="30" rx="4" fill="url(#g_adv)" stroke="#0e1a14"/><path d="M17 5c4 5 7 8 7 13a7 7 0 0 1-14 0c0-3 2-5 3-7 1 3 2 4 4 4-2-3-1-7 0-10z" fill="#f4fff8" opacity=".92"/><path d="M17 15v8M13 19h8" stroke="#1a8a56" stroke-width="2.4" stroke-linecap="round"/>';
 CXI.sk_lstorm = '<defs><radialGradient id="g_lst" cx=".4" cy=".3" r=".9"><stop offset="0" stop-color="#6a8ab8"/><stop offset="1" stop-color="#0e1a34"/></radialGradient></defs><rect x="2" y="2" width="30" height="30" rx="4" fill="url(#g_lst)" stroke="#0a0e18"/><path d="M9 15a5 5 0 0 1 5-5 6 6 0 0 1 11 2 4 4 0 0 1 0 8H10a4 4 0 0 1-1-5z" fill="#c8d4e8"/><path d="M18 18l-4 6h3l-2 6 6-8h-3l2-4z" fill="#ffe680" stroke="#8a6a10" stroke-width=".5"/><path d="M10 22l-1 3M13 23l-1 3M24 22l-1 3M27 21l-1 3" stroke="#8ac8ff" stroke-width="1.3" stroke-linecap="round"/>';
@@ -5111,8 +5114,8 @@ const INV = (() => {
   const AUTOBUFF = Object.fromEntries(Object.keys(ITEMS).filter(id => !ITEMS[id].slot && buffKeyOf(ITEMS[id])).map(id => [id, false]));
   function setAutoBuff(id, on) { if (!(id in AUTOBUFF)) return; AUTOBUFF[id] = !!on; say(`자동 사용: ${ITEMS[id].name} ${on ? '켬' : '끔'}`, '#9fd0e8'); const el = document.getElementById('au-' + id); if (el) el.checked = !!on; if (dwE && dwE.id === id && !$('itemwin').hidden) showDetail(dwE); }
   function buffAuto() { if (SCENE === 'town' || hero.hp <= 0 || cd > 0) return;
-    for (const id in AUTOBUFF) { if (!AUTOBUFF[id] || (HW() && !HWC.OK.has(id))) continue; const d = ITEMS[id], k = buffKeyOf(d); if (!k || BUFF[k] > 0) continue; if (d.use === 'counterm' && cmcd > 0) continue; if (d.use === 'poly' && (hero.lv < ((POLY_TIER[d.tier] || {}).lv || 99) || (id === 'poly_dark' && AUTOBUFF.poly_silver && hero.lv >= POLY_TIER.silver.lv && count('poly_silver') > 0))) continue;   /* v167: 변신 주문서 — 레벨 안 되면 안 씀 · 둘 다 켜면 실버 먼저 */ const e = bag.find(x => x.id === id); if (e) { use(e); return; } } }
-  function autoTick(dt) { buffAuto(); skAuto(dt); if (HW()) return; for (const k of ['hp', 'mp']) { const A = AUTO[k]; A.warn = Math.max(0, A.warn - dt);
+    for (const id in AUTOBUFF) { if (!AUTOBUFF[id] || (HW() && !HWC.useOK(id))) continue; const d = ITEMS[id], k = buffKeyOf(d); if (!k || BUFF[k] > 0) continue; if (d.use === 'counterm' && cmcd > 0) continue; if (d.use === 'poly' && (hero.lv < ((POLY_TIER[d.tier] || {}).lv || 99) || (id === 'poly_dark' && AUTOBUFF.poly_silver && hero.lv >= POLY_TIER.silver.lv && count('poly_silver') > 0))) continue;   /* v167: 변신 주문서 — 레벨 안 되면 안 씀 · 둘 다 켜면 실버 먼저 */ const e = bag.find(x => x.id === id); if (e) { use(e); return; } } }
+  function autoTick(dt) { buffAuto(); skAuto(dt); for (const k of ['hp', 'mp']) { const A = AUTO[k]; A.warn = Math.max(0, A.warn - dt);
       if (k === 'hp') { if (hero.hp <= 0 || cd > 0 || hcd > 0) continue; const P = hpSlots(), cur = hero.hp / hero.max * 100; if (!HP3.some(id => P[id].on && cur <= P[id].pct)) continue;   // v176: 체크한 물약 중 지금 HP에 맞는 것만 (없으면 안 마심)
         const id = hpPick(), e = id && bag.find(x => x.id === id); if (!e) { if (!A.warn) { say('자동 물약: 체크한 물약이 없습니다.', '#f08a7a'); A.warn = 15; } continue; } A._last = id; A._lastT = performance.now(); use(e); continue; }
       if (!A.on || !A.id || hero.hp <= 0) continue;
@@ -5143,7 +5146,7 @@ const INV = (() => {
     if (AC && SFX_ON) { const T0 = AC.currentTime; nz(T0, 0.6, 3000, 800, 0.12); tone(T0, 'sine', 880, 1760, 0.5, 0.05); } render(); }
   function use(e) { if (DEATH) { deadSay(); return; } if (COLO_LOCK) { COLO.lockSay(); return; } if (BUFF.stun > 0) { stunSay(); return; } const d = ITEMS[e.id]; if (BUFF.abar > 0 && !(d && d.use === 'home')) { abSay('앱솔루트 배리어 중에는 귀환 주문서만 쓸 수 있어요.'); return; } if (d && !d.slot) TELE.use(e.id);
     if (d.slot) { e.on ? unequip(e) : equip(e); return; }
-    if (HW() && !HWC.OK.has(e.id)) { hwNo(d.name); return; }   // 할로윈 이벤트 지역: 초록·용기 물약 · 순간이동 · 귀환 주문서(+이벤트 아이템)만
+    if (HW() && !HWC.useOK(e.id)) { hwNo(d.name); return; }   // v189: 할로윈 이벤트 지역 — 펫·서먼·마법·변신만 막고 다른 소모품은 모두 사용
     if (cd > 0) return;
     if (d.use === 'heal') { if (hero.hp >= hero.max) { say('체력이 가득 차 있습니다.', '#9c9682'); return; } if (hcd > 0) return; const h = Math.max(1, Math.min(Math.ceil(hero.max - hero.hp), Math.round(rint(d.heal) * HEALK()))); hero.hp = Math.min(hero.max, hero.hp + h); take(e.id); cd = 0.5; hcd = HEAL_CD; drinkFx(e.id); if (AC) tone(AC.currentTime, 'sine', 520, 880, 0.18, 0.12); return; }
     if (d.use === 'antidote') { if (!(BUFF.poison > 0)) { say('독에 걸려 있지 않습니다.', '#9c9682'); return; } take(e.id); cd = 0.5; drinkFx(e.id); BUFF.poison = 0; mxSelf('cure', hero); say('해독제를 마셨습니다. 독이 나았습니다.', '#9ae06a'); return; }
@@ -5214,10 +5217,11 @@ const INV = (() => {
   // ===== 장비 일괄 강화: 창을 연 채 인벤토리 장비를 클릭해 넣고 빼기 · 같은 장비 모두 넣기 · 목표 수치까지 / 안전 강화까지 =====
   const BK = { list: [], busy: false, stop: false };
   const bkAcc = d => !!accKey(d);   // v154: 능력치 반지·목걸이도 (장신구 마법 주문서 · 안전 강화 없음 · 최대 +8)
-  const bkOK = e => !!(e && ITEMS[e.id] && (ITEMS[e.id].slot === 'weapon' || ARMOR_SLOTS.has(ITEMS[e.id].slot) || bkAcc(ITEMS[e.id])));
-  const bkKind = td => td.slot === 'weapon' ? '무기' : bkAcc(td) ? '장신구' : '갑옷', bkTy = td => td.slot === 'weapon' ? 'w' : bkAcc(td) ? 'c' : 'a';
+  const bkHat = d => d === ITEMS.hw_hat;   // v189: 할로윈 모자도 강화 창에서 (호박 강화 주문서 · 안전 +4 · 최대 +9)
+  const bkOK = e => !!(e && ITEMS[e.id] && (ITEMS[e.id].slot === 'weapon' || ARMOR_SLOTS.has(ITEMS[e.id].slot) || bkAcc(ITEMS[e.id]) || bkHat(ITEMS[e.id])));
+  const bkKind = td => bkHat(td) ? '호박' : td.slot === 'weapon' ? '무기' : bkAcc(td) ? '장신구' : '갑옷', bkTy = td => bkHat(td) ? 'h' : td.slot === 'weapon' ? 'w' : bkAcc(td) ? 'c' : 'a';
   const bkScroll = (td, bless) => { const w = td.slot === 'weapon', a = bkAcc(td), n = w ? 'scroll_weapon' : a ? 'scroll_acc' : 'scroll_armor', b = w ? 'bscroll_weapon' : a ? 'bscroll_acc' : 'bscroll_armor'; return bless && count(b) ? b : count(n) ? n : count(b) ? b : null; };
-  const bkMax = td => bkAcc(td) ? 8 : 15, bkSafe = td => bkAcc(td) ? 0 : SAFE_EN(td);
+  const bkMax = td => bkHat(td) ? HWC.HAT_MAX : bkAcc(td) ? 8 : 15, bkSafe = td => bkAcc(td) ? 0 : SAFE_EN(td);
   function enchOnce(t, sid) { const sd = ITEMS[sid], td = ITEMS[t.id], safe = SAFE_EN(td), cur = t.en || 0; if (bkAcc(td) && cur >= 8) return 'none'; if (!take(sid)) return 'none'; const before = nameOf(t);
     if (bkAcc(td)) { if (Math.random() >= ACC_P[cur]) { if (t.on) unequip(t, true); const k = bag.indexOf(t); if (k >= 0) bag.splice(k, 1); say(`${JOSA(before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다. (성공 확률 ${Math.round(ACC_P[cur] * 100)}%)`, '#ff6a5a'); return 'boom'; }
       const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = Math.min(8, cur + add); if (t.en >= 7) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 8 ? '#ff9a3a' : '#9fe0ff'); return t.en - cur; }   // v154: 장신구 (안전 강화 없음 · ACC_P 확률)
@@ -5227,19 +5231,19 @@ const INV = (() => {
     return add; }
   // ===== v186: 장비 강화 창 — [단일 강화] 장비 1개 + 재료 → 강화 연출 → [결과 보기] / [다중 강화] 여러 장비를 목표 수치까지 동시에 (연출 없음) · 확률은 기존 강화와 같음 =====
   const ENH = { tab: 'one', one: null, sid: null, tsid: {}, goal: 7, busy: false, stop: false };
-  const EN_SC = { w: ['scroll_weapon', 'bscroll_weapon', 'cscroll_weapon'], a: ['scroll_armor', 'bscroll_armor', 'cscroll_armor'], c: ['scroll_acc', 'bscroll_acc'] };
+  const EN_SC = { w: ['scroll_weapon', 'bscroll_weapon', 'cscroll_weapon'], a: ['scroll_armor', 'bscroll_armor', 'cscroll_armor'], c: ['scroll_acc', 'bscroll_acc'], h: ['hw_scroll', 'hw_bscroll'] };
   const enCnt = id => !ITEMS[id] ? 0 : GOD_INF(id) ? Infinity : count(id), enCntTxt = id => GOD_INF(id) ? '∞' : count(id);
-  const enMaxOf = td => bkAcc(td) ? 8 : 15, enFmt = n => (n >= 0 ? '+' : '') + n;
+  const enMaxOf = td => bkHat(td) ? HWC.HAT_MAX : bkAcc(td) ? 8 : 15, enFmt = n => (n >= 0 ? '+' : '') + n;
   function enOdds(t, sid) { const td = ITEMS[t.id], sd = ITEMS[sid], cur = t.en || 0, acc = bkAcc(td);   // 이번 한 번의 확률 (실제 판정과 같은 공식)
     if (sd.curse) return { p: 1, curse: true, cur, safe: true, low: cur <= -7 };
-    const p = acc ? (cur >= 8 ? 0 : ACC_P[cur]) : cur >= SAFE_EN(td) ? 1 / 3 : 1; return { p, cur, acc, safe: p >= 1, two: !!sd.bless && cur < 7, max: acc && cur >= 8 }; }
+    const p = acc ? (cur >= 8 ? 0 : ACC_P[cur]) : cur >= SAFE_EN(td) ? 1 / 3 : 1; if (bkHat(td) && cur >= HWC.HAT_MAX) return { p: 0, cur, safe: false, max: true }; return { p, cur, acc, safe: p >= 1, two: !!sd.bless && cur < 7, max: acc && cur >= 8 }; }
   // 판정만 하고 상태를 바꿈 (채팅·공지는 결과를 보여 줄 때)
   function enRoll(t, sid) { const sd = ITEMS[sid], td = ITEMS[t.id], cur = t.en || 0, before = nameOf(t), beforeH = nameHTML(t), acc = bkAcc(td);
     if (!take(sid)) return null;
     if (sd.curse) { t.en = cur - 1; return { kind: 'curse', t, td, sid, cur, en: t.en, add: -1, before, beforeH }; }
     const p = acc ? ACC_P[cur] : cur >= SAFE_EN(td) ? 1 / 3 : 1;
     if (Math.random() >= p) { if (t.on) unequip(t, true); const k = bag.indexOf(t); if (k >= 0) bag.splice(k, 1); return { kind: 'boom', t, td, sid, cur, before, beforeH, p }; }
-    const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = acc ? Math.min(8, cur + add) : cur + add;
+    const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = acc ? Math.min(8, cur + add) : bkHat(td) ? Math.min(HWC.HAT_MAX, cur + add) : cur + add;
     return { kind: t.en - cur > 1 ? 'bless' : 'ok', t, td, sid, cur, en: t.en, add: t.en - cur, before, beforeH, p }; }
   function enShout(r) { const td = r.td, acc = bkAcc(td); if ((r.kind === 'ok' || r.kind === 'bless') && r.en >= (acc ? 7 : td.slot === 'weapon' ? 8 : 7)) announce(`${PNAME()}님이 ${JOSA('+' + r.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, r.en >= (acc ? 8 : 9) ? '#ff9a3a' : '#9fe0ff'); }
   function enReveal(r) { if (!r || r.shown) return; r.shown = true; const nm = r.kind === 'boom' ? r.before : nameOf(r.t);
@@ -5249,7 +5253,7 @@ const INV = (() => {
     try { TELE.ev('ench', { kind: r.kind, tx: enFmt(r.en != null ? r.en : r.cur), id: r.t.id }); } catch (e) {} render(); bkRender(); }
   function bkRender() { const w = $('bulkwin'); if (!w || w.hidden) return; w.querySelectorAll('[data-et]').forEach(b => b.classList.toggle('on', b.dataset.et === ENH.tab)); $('en-one').hidden = ENH.tab !== 'one'; $('en-multi').hidden = ENH.tab !== 'multi'; if (ENH.tab === 'one') enRenderOne(); else enRenderMulti(); }
   function enRenderOne() { const t = ENH.one && bag.includes(ENH.one) ? ENH.one : (ENH.one = null), it = $('en-item'), mt = $('en-mat');
-    if (!t) { it.innerHTML = '<i>장비</i>'; it.className = 'en-hex en-item'; mt.innerHTML = '<i>재료</i>'; mt.className = 'en-hex en-mat'; $('en-plus').innerHTML = ''; $('en-stat').innerHTML = '<p class="en-hint">인벤토리에서 강화할 무기·방어구·장신구(능력치 반지·목걸이)를 클릭하세요.<br>착용 중인 장비도 강화할 수 있어요.</p>'; $('en-mats').innerHTML = ''; $('en-rate').innerHTML = ''; $('en-go').disabled = true; return; }
+    if (!t) { it.innerHTML = '<i>장비</i>'; it.className = 'en-hex en-item'; mt.innerHTML = '<i>재료</i>'; mt.className = 'en-hex en-mat'; $('en-plus').innerHTML = ''; $('en-stat').innerHTML = '<p class="en-hint">인벤토리에서 강화할 무기·방어구·장신구(능력치 반지·목걸이)·할로윈 모자를 클릭하세요.<br>착용 중인 장비도 강화할 수 있어요.</p>'; $('en-mats').innerHTML = ''; $('en-rate').innerHTML = ''; $('en-go').disabled = true; return; }
     const td = ITEMS[t.id], L = EN_SC[bkTy(td)].filter(id => ITEMS[id]); if (!ENH.sid || !L.includes(ENH.sid) || enCnt(ENH.sid) <= 0) ENH.sid = L.find(id => enCnt(id) > 0 && !ITEMS[id].curse) || L.find(id => enCnt(id) > 0) || null;
     it.innerHTML = `<span class="ic">${ICON(eIcon(t), t.blessed)}</span>${t.on ? '<em>착용</em>' : ''}`; it.className = 'en-hex en-item on'; it.style.setProperty('--rar', rarC(t.id));
     const sd = ENH.sid ? ITEMS[ENH.sid] : null; mt.innerHTML = sd ? `<span class="ic">${ICON(sd.icon)}</span><b>${enCntTxt(ENH.sid)}</b>` : '<i>재료 없음</i>'; mt.className = 'en-hex en-mat' + (sd ? ' on' + (sd.bless ? ' bl' : sd.curse ? ' cu' : '') : '');
@@ -5258,27 +5262,28 @@ const INV = (() => {
     const row = (k, a, b) => `<div><span>${k}</span><em>${a}</em><i>▶</i><strong>${b}</strong></div>`; let S_ = `<p class="en-nm" style="color:${rarC(t.id)}">${nameHTML(t)}</p>`;
     if (td.slot === 'weapon') { const b0 = enBonus(td, cur), b1 = enBonus(td, nxt), D = td.dmg || [1, 2]; S_ += row('공격', `${D[0] + b0}~${D[1] + b0}`, `${D[0] + b1}~${D[1] + b1}`) + row('강화 추가 피해', enFmt(b0), enFmt(b1)); }
     else if (bkAcc(td)) S_ += row(ACC_ST[accKey(td)] || '모든 능력치', enFmt(Math.max(0, cur)), enFmt(Math.max(0, nxt)));
-    else { const b0 = enBonus(td, cur), b1 = enBonus(td, nxt), a0 = td.ac || 0; S_ += row('방어 AC', '−' + (a0 + b0), '−' + (a0 + b1)); }
+    else if (bkHat(td)) { const H = HWC.mob.hw_pumpkin.hp, B = HWC.mob.hw_pumpkin_boss.hp, c0 = Math.max(0, cur), c1 = Math.max(0, Math.min(HWC.HAT_MAX, nxt)); S_ += row('호박괴물 타수', `${H - c0}대`, `${H - c1}대`) + row('호박대장 타수', `${B - c0}대`, `${B - c1}대`); }
+    else { const b0 = enBonus(td, cur), b1 = enBonus(td, nxt), a0 = td.ac || 0; S_ += row('방어 AC', '−' + (a0 + b0), '−' + (a0 + b1)); if (td.mrEn) S_ += row('MR', '+' + ((td.mr || 0) + mrEnOf(td, cur)), '+' + ((td.mr || 0) + mrEnOf(td, nxt))); }
     $('en-stat').innerHTML = S_;
     $('en-mats').innerHTML = L.map(id => { const d = ITEMS[id], n = enCnt(id); return `<button type="button" data-es="${id}" class="${ENH.sid === id ? 'on' : ''}${d.bless ? ' bl' : d.curse ? ' cu' : ''}" title="${d.name}"${n > 0 ? '' : ' disabled'}><span class="ic">${ICON(d.icon)}</span><span class="t">${d.bless ? '축복' : d.curse ? '저주' : '일반'}</span><b>${enCntTxt(id)}</b></button>`; }).join('');
-    let R = ''; if (!sd) R = `<span class="no">${bkKind(td)} 마법 주문서가 없어요.</span>`; else if (O.max) R = '<span class="no">이미 최고 강화(+8)예요.</span>'; else if (O.curse) R = O.low ? '<span class="no">더 낮출 수 없어요. (최저 −7)</span>' : '<span class="cu">저주: 강화 수치가 1 내려가요. (항상)</span>';
+    let R = ''; if (!sd) R = `<span class="no">${bkHat(td) ? '호박 강화' : bkKind(td) + ' 마법'} 주문서가 없어요.</span>`; else if (O.max) R = `<span class="no">이미 최고 강화(+${enMaxOf(td)})예요.</span>`; else if (O.curse) R = O.low ? '<span class="no">더 낮출 수 없어요. (최저 −7)</span>' : '<span class="cu">저주: 강화 수치가 1 내려가요. (항상)</span>';
     else R = (O.safe ? `<span class="ok">성공 확률 100%</span> <small>(안전 강화 +${SAFE_EN(td)}까지)</small>` : `<span class="rk">성공 확률 ${Math.round(O.p * 1000) / 10}%</span> · <span class="no">실패하면 장비가 증발해요</span>`) + (O.two ? '<br><small>축복: +1 또는 +2 (각 50%)</small>' : '');
     if (t.locked) R = '<span class="no">잠긴 아이템은 강화할 수 없어요. (상세 정보에서 잠금 해제)</span>';
     $('en-rate').innerHTML = R; $('en-go').disabled = !sd || O.max || (O.curse && O.low) || ENH.busy || !!t.locked; }
   function enRenderMulti() { BK.list = BK.list.filter(e => bag.includes(e) && (ENH.busy || !e.on));
     $('en-mlist').innerHTML = BK.list.length ? BK.list.map((e, k) => `<button type="button" class="en-mi" data-k="${k}" title="${nameOf(e).replace(/"/g, '&quot;')} · 클릭: 빼기" style="--rar:${rarC(e.id)}"${ENH.busy ? ' disabled' : ''}><span class="ic">${ICON(eIcon(e), e.blessed)}</span>${e.en ? `<i class="en">${enFmt(e.en)}</i>` : ''}</button>`).join('') : '<p class="bk-empty">인벤토리에서 장비를 하나씩 클릭해서 넣으세요. 하나를 넣고 [동일 아이템 등록]을 누르면 같은 장비가 한꺼번에 들어와요.<br>(착용 중·잠긴 장비는 넣을 수 없어요)</p>';
-    $('en-mcount').textContent = BK.list.length ? `${BK.list.length}개 · ${({ w: '무기', a: '방어구', c: '장신구' })[bkTy(ITEMS[BK.list[0].id])]}` : '';
-    const ks = ['w', 'a', 'c'].filter(k => BK.list.some(e => bkTy(ITEMS[e.id]) === k)), NM = { w: '무기', a: '방어구', c: '장신구' };
+    $('en-mcount').textContent = BK.list.length ? `${BK.list.length}개 · ${({ w: '무기', a: '방어구', c: '장신구', h: '할로윈 모자' })[bkTy(ITEMS[BK.list[0].id])]}` : '';
+    const ks = ['w', 'a', 'c', 'h'].filter(k => BK.list.some(e => bkTy(ITEMS[e.id]) === k)), NM = { w: '무기', a: '방어구', c: '장신구', h: '할로윈 모자' };
     $('en-msc').innerHTML = ks.length ? ks.map(k => { const L = EN_SC[k].filter(id => ITEMS[id] && !ITEMS[id].curse); if (!L.includes(ENH.tsid[k]) || enCnt(ENH.tsid[k]) <= 0) ENH.tsid[k] = L.find(id => enCnt(id) > 0) || L[0];
         return `<span class="en-ml">사용할 주문서 · ${NM[k]}</span><div class="en-sr en-sr2">${L.map(id => { const d = ITEMS[id], n = enCnt(id); return `<button type="button" data-ms="${k}:${id}" class="${ENH.tsid[k] === id ? 'on' : ''}${d.bless ? ' bl' : ''}${n > 0 ? '' : ' zero'}" title="${d.name}"${n > 0 ? '' : ' disabled'}><span class="ic">${ICON(d.icon)}</span><span class="nm">${d.name}</span><span class="hv">보유 <b>${enCntTxt(id)}</b>장</span></button>`; }).join('')}</div>`; }).join('') : '<p class="en-hint">장비를 넣으면 그 부위에 쓸 주문서와 보유 수량이 보여요. 다중 강화는 한 번에 한 종류(무기·방어구·장신구)만 할 수 있어요.</p>';
     const so = !!($('en-safeM') && $('en-safeM').checked), sv = new Set(BK.list.map(e => bkSafe(ITEMS[e.id])).filter(v => v > 0)); if (so && !sv.size) [6, 4].forEach(v => sv.add(v)); $('en-goals').classList.toggle('off', so);   /* 안전 강화까지만: 넣은 장비의 안전 강화 수치로 표시 (무기 +6 · 방어구 +4) */
     $('en-goals').innerHTML = Array.from({ length: 10 }, (_, i) => `<button type="button" data-g="${i + 1}" class="${(so ? sv.has(i + 1) : ENH.goal === i + 1) ? 'on' : ''}">+${i + 1}</button>`).join('');
     { const b = $('en-mgo'); b.disabled = !ENH.busy && !BK.list.length; b.textContent = ENH.busy ? '중지' : '강화 시작'; } ['en-same', 'en-clear'].forEach(id => { $(id).disabled = ENH.busy; }); }
-  function bulkToggle(e) { if (ENH.busy) return; if (!bkOK(e)) { say('강화할 수 있는 건 무기·방어구·장신구(힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이)예요.', '#f08a7a'); return; }
+  function bulkToggle(e) { if (ENH.busy) return; if (!bkOK(e)) { say('강화할 수 있는 건 무기·방어구·장신구(힘·민첩·지능·지혜·모든 능력치가 붙은 반지·목걸이)·할로윈 모자예요.', '#f08a7a'); return; }
     if (e.locked) { say(`${nameOf(e)}: 잠긴 아이템은 강화할 수 없어요.`, '#f08a7a'); return; }
     if (ENH.tab === 'one') { ENH.one = ENH.one === e ? null : e; ENH.sid = null; }
     else { if (e.on) { say(`${nameOf(e)}: 착용 중인 장비는 다중 강화에 넣을 수 없어요. (벗은 뒤 넣어 주세요)`, '#f08a7a'); return; } const k = BK.list.indexOf(e);
-      if (k < 0 && BK.list.length && bkTy(ITEMS[BK.list[0].id]) !== bkTy(ITEMS[e.id])) { const NM = { w: '무기', a: '방어구', c: '장신구' }; say(`다중 강화는 한 번에 한 종류만 할 수 있어요. 지금은 ${NM[bkTy(ITEMS[BK.list[0].id])]}만 넣을 수 있어요. (무기·방어구·장신구는 쓰는 주문서가 달라요)`, '#f08a7a'); return; }   /* v186: 부위 종류 하나씩 */
+      if (k < 0 && BK.list.length && bkTy(ITEMS[BK.list[0].id]) !== bkTy(ITEMS[e.id])) { const NM = { w: '무기', a: '방어구', c: '장신구', h: '할로윈 모자' }; say(`다중 강화는 한 번에 한 종류만 할 수 있어요. 지금은 ${NM[bkTy(ITEMS[BK.list[0].id])]}만 넣을 수 있어요. (무기·방어구·장신구·할로윈 모자는 쓰는 주문서가 달라요)`, '#f08a7a'); return; }   /* v186: 부위 종류 하나씩 */
       if (k >= 0) BK.list.splice(k, 1); else BK.list.push(e); }
     render(); bkRender(); }
   function bulkSame() { if (ENH.busy) return; const base = BK.list[BK.list.length - 1]; if (!base) { say('먼저 장비를 하나 넣어 주세요.', '#f08a7a'); return; } let n = 0;
@@ -5308,7 +5313,7 @@ const INV = (() => {
   function enGoMulti() { if (ENH.busy) { ENH.stop = true; return; } BK.list = BK.list.filter(e => bag.includes(e) && !e.on && !e.locked); if (!BK.list.length) { say('다중 강화할 장비를 먼저 넣어 주세요.', '#f08a7a'); return; }
     const safeOnly = !!($('en-safeM') && $('en-safeM').checked), goal = ENH.goal, goalOf = e => safeOnly ? Math.min(bkSafe(ITEMS[e.id]), enMaxOf(ITEMS[e.id])) : Math.min(goal, enMaxOf(ITEMS[e.id])), todo = BK.list.filter(e => (e.en || 0) < goalOf(e)), GL = safeOnly ? '안전 강화' : '+' + goal;
     if (!todo.length) { say(safeOnly ? '넣은 장비가 모두 이미 안전 강화 수치 이상이에요. (장신구는 안전 강화가 없어요)' : `넣은 장비가 모두 이미 +${goal} 이상이에요.`, '#9c9682'); return; }
-    const miss = [...new Set(todo.map(e => bkTy(ITEMS[e.id])))].filter(k => enCnt(ENH.tsid[k]) <= 0); if (miss.length) { say(`${miss.map(k => ({ w: '무기', a: '갑옷', c: '장신구' })[k]).join('·')} 마법 주문서가 없어요.`, '#f08a7a'); return; }
+    const miss = [...new Set(todo.map(e => bkTy(ITEMS[e.id])))].filter(k => enCnt(ENH.tsid[k]) <= 0); if (miss.length) { say(`${miss.map(k => ({ w: '무기 마법', a: '갑옷 마법', c: '장신구 마법', h: '호박 강화' })[k]).join('·')} 주문서가 없어요.`, '#f08a7a'); return; }
     const run = () => { ENH.busy = true; ENH.stop = false; let used = 0, ok = 0, boom = 0, done = 0; const ol = $('en-mlog'), lines = [];
       const log = t => { lines.push(t); ol.innerHTML = `<li class="hd" id="en-mhd">${GL}까지 강화 중… 성공 ${ok}회 · 증발 ${boom}개 · 주문서 ${used}장</li>` + lines.join(''); ol.scrollTop = ol.scrollHeight; };
       // 1) 안전 강화까지 한 번에 (모두 성공 · 축복은 +1~2)
@@ -5327,7 +5332,7 @@ const INV = (() => {
       const step = () => { if (ENH.stop) return finish('중지했어요.');
         while (Q.length && (!bag.includes(Q[0]) || (Q[0].en || 0) >= goalOf(Q[0]))) { const e0 = Q.shift(); if (bag.includes(e0)) { const c0 = cellOf(e0); if (c0) c0.classList.add('done'); } }
         if (!Q.length) return finish();
-        const e = Q[0], td = ITEMS[e.id], sid = ENH.tsid[bkTy(td)]; if (!sid || enCnt(sid) <= 0) return finish(`${bkKind(td)} 마법 주문서가 없어 멈췄어요.`);
+        const e = Q[0], td = ITEMS[e.id], sid = ENH.tsid[bkTy(td)]; if (!sid || enCnt(sid) <= 0) return finish(`${bkHat(td) ? '호박 강화' : bkKind(td) + ' 마법'} 주문서가 없어 멈췄어요.`);
         const c = cellOf(e); document.querySelectorAll('#en-mlist .en-mi.cur').forEach(x => x.classList.remove('cur')); if (c) { c.classList.add('cur'); try { c.scrollIntoView({ block: 'nearest' }); } catch (er) {} }
         const before = nameHTML(e), r = enRoll(e, sid); if (!r) return finish('주문서를 쓸 수 없어 멈췄어요.'); used++;
         if (r.kind === 'boom') { boom++; log(`<li class="no">${before} — 쪼개져 사라졌어요</li>`); try { enchSfx('boom'); } catch (er) {} NET.fx('boom', '증발…', r.before); enFxBreak(c); Q.shift(); render();
@@ -5394,7 +5399,7 @@ const INV = (() => {
     if (cur >= safe) askYesNo(`${nameOf(t)}을(를) 강화하시겠습니까?`, `${sd.name} 사용 · ${safe ? `안전 강화(+${safe})를 넘었습니다.` : '안전 강화가 없는 장비입니다. (안전 +0)'} 실패하면 장비가 증발할 수 있습니다. (성공 1/3)`, go); else go(); }
   // 계산 수치
   const dkSet = () => ['helm', 'armor', 'gloves', 'boots'].every(sl => eq[sl] && ITEMS[eq[sl].id].set === 'dk');
-  const sum = k => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id][k] || 0), 0) + (DK_SET_BONUS[k] && dkSet() ? DK_SET_BONUS[k] : 0);   // 데스나이트 세트 효과
+  const sum = k => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id][k] || 0) + (k === 'mr' ? mrEnOf(ITEMS[e.id], e.en) : 0), 0) + (DK_SET_BONUS[k] && dkSet() ? DK_SET_BONUS[k] : 0);   // v189: 강화 1당 MR (mrEn)   // 데스나이트 세트 효과
   const enSum = () => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id].slot !== 'weapon' && !ACC_SL.has(ITEMS[e.id].slot) ? enBonus(ITEMS[e.id], e.en || 0) : 0), 0);   // 장신구 강화는 방어를 올리지 않음
   const blessAc = () => Object.values(eq).reduce((s, e) => s + (e.blessed && ITEMS[e.id].slot !== 'weapon' && !ACC_BL.has(ITEMS[e.id].slot) ? 1 : 0), 0);
   const blessAccHit = () => Object.values(eq).reduce((s, e) => s + (e && e.blessed && ACC_BL.has(ITEMS[e.id].slot) ? 1 : 0), 0);   // v172: 축복받은 장신구 = 명중 +1
@@ -5421,7 +5426,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     if (e.blessed) L.push(d.slot === 'weapon' ? (d.wtype === 'staff' ? `축복: SP +${e.blessSp || 1}` : '축복: 추가 타격 (공격 시 가끔 한 번 더 피해)') : ACC_BL.has(d.slot) ? '축복: 명중 +1' : '축복: 방어 +1');
     if (e.attr) L.push(`${ATTR_N[e.attr.el]} 속성 ${e.attr.lv}단 · 추가 피해 +${ATTR_DMG[e.attr.lv]} (${ATTR_N[ATTR_OPP[e.attr.el]]} 몬스터 2배 · ${ATTR_N[e.attr.el]} 몬스터 0)`);
     if (d.hp && !d.codex && !d.doll) L.push(`HP +${d.hp}`); if (d.mp && !d.codex && !d.doll) L.push(`MP +${d.mp}`); if (d.doll) L.push(`${d.tier}단계 마법인형 · 인형 칸에 착용`, ...d.dTxt.split(' · '));
-    if (d.codex) { if (d.hit) L.push(`명중 +${d.hit}`); if (d.xdmg) L.push(`추가 피해 +${d.xdmg}`); if (d.mr) L.push(`마법 방어 MR +${d.mr}`);
+    if (d.codex) { if (d.hit) L.push(`명중 +${d.hit}`); if (d.xdmg) L.push(`추가 피해 +${d.xdmg}`); if (d.mr || d.mrEn) L.push(`마법 방어 MR +${(d.mr || 0) + mrEnOf(d, en)}`);
       for (const t of d.optTxt) { const k = Object.keys(cxOpt(t)).find(q => CX_LATER[q]); L.push(t + (k ? ` (${CX_LATER[k]})` : '')); }
       L.push(`얻는 곳: ${cxWhere(e.id)}`); }
     if (d.heal) L.push(`${d.use === 'mana' ? 'MP' : 'HP'} ${d.heal[0]}~${d.heal[1]} 회복`);
@@ -5548,7 +5553,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     w.style.left = L_ + 'px'; w.style.top = T_ + 'px'; w.style.right = 'auto'; showCompare(e, pvEn); }
   function hideDetail() { dwRef = null; pvEn = null; pvFor = null; const w = $('itemwin'); if (w) w.hidden = true; const c = $('cmpwin'); if (c) c.hidden = true; dwE = null; dwSk = null; }
   // 안 낀 장비를 꾹 누르면 옆에 지금 낀 장비와 비교 (초록=좋아짐, 빨강=나빠짐)
-  function statOf(e) { const d = ITEMS[e.id], en = e.en || 0, at = e.attr ? ATTR_DMG[e.attr.lv] : 0; const eb = enBonus(d, en); return { dmg: d.dmg ? [d.dmg[0] + eb + at, d.dmg[1] + eb + at] : null, ac: (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? eb + (e.blessed ? 1 : 0) : 0), hp: d.hp || 0, mp: d.mp || 0, hit: d.hit || 0, xdmg: d.xdmg || 0, mr: d.mr || 0, wr: d.wr || 0, en, attr: e.attr ? e.attr.lv : 0, blessed: !!e.blessed, w: d.w || 0, x: Object.fromEntries(CMP_X.map(([k]) => [k, d[k] || 0])), fx: cmpFx(d, en) }; }
+  function statOf(e) { const d = ITEMS[e.id], en = e.en || 0, at = e.attr ? ATTR_DMG[e.attr.lv] : 0; const eb = enBonus(d, en); return { dmg: d.dmg ? [d.dmg[0] + eb + at, d.dmg[1] + eb + at] : null, ac: (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? eb + (e.blessed ? 1 : 0) : 0), hp: d.hp || 0, mp: d.mp || 0, hit: d.hit || 0, xdmg: d.xdmg || 0, mr: (d.mr || 0) + mrEnOf(d, en), wr: d.wr || 0, en, attr: e.attr ? e.attr.lv : 0, blessed: !!e.blessed, w: d.w || 0, x: Object.fromEntries(CMP_X.map(([k]) => [k, d[k] || 0])), fx: cmpFx(d, en) }; }
   // v116: 비교창 추가 옵션 — 능력치·SP·공속·이속·치명타·피해 감소·저항·MP 회복·특수 효과까지
   const CMP_X = [['str', '힘'], ['dex', '민첩'], ['con', '체력'], ['int', '지능'], ['wis', '지혜'], ['cha', '카리스마'], ['all', '모든 능력치'], ['sp', 'SP'], ['atkSpd', '공격 속도', '%'], ['moveSpd', '이동 속도', '%'], ['crit', '치명타 확률', '%'], ['dr', '받는 피해 감소'], ['drMelee', '받는 근접 피해 감소'], ['fireRes', '화염 저항'], ['waterRes', '물 저항'], ['windRes', '바람 저항'], ['earthRes', '땅 저항'], ['mpRegen', 'MP 회복'], ['sandDmg', '모래 지역 추가 피해'], ['undeadDmg', '언데드 추가 피해'], ['dragonDmg', '용족 추가 피해'], ['coldMagic', '냉기 마법 피해', '%'], ['magicSucc', '마법 성공률', '%']];
   function cmpFx(d, en) { const L = [], P = d.proc; if (P) { const pe = Math.round((P.p + (P.kind === 'lightning' ? 0.03 * Math.max(0, en - 6) : 0)) * 100); L.push(P.kind === 'lightning' ? `번개 ${pe}% (${P.dmg[0]}~${P.dmg[1]})` : P.kind === 'fire' ? `화염 ${pe}% (${P.dmg[0]}~${P.dmg[1]})` : P.kind === 'bleed' ? `출혈 ${pe}% (${P.dur}초)` : P.kind === 'hitdown' ? `상대 명중 -${P.v} ${pe}%` : '특수'); }
@@ -7428,7 +7433,7 @@ const TWL = { A: { cx: 36.5, cz: 59.5, tw: [36, 59], gate: 51, hold: 54, back: 6
               R: 8.5, RR: 3.6, br: [33, 40, 21, 50], bx: [17, 54], gi: [31, 42], N: 72 };   // bx: 다리 칸을 기지 안쪽까지 이어 붙여 입구를 8칸으로
 // v190(할로윈): 할로윈 이벤트 지역 — 마을의 할로윈 허수아비 잭에게 모자를 사서 입장 · 하루 2시간(새벽 5시 초기화) · 허수아비로 변신 · 근거리 공격만 · 피해 1 고정 · 마법·펫 불가
 function HW() { return !!(ISLE && ISLE.def && ISLE.def.hw && SCENE === 'field'); }
-let hwNoT = 0; function hwNo(what) { if (time - hwNoT < 3) return; hwNoT = time; say(`할로윈 이벤트 지역에서는 ${what}을(를) 쓸 수 없어요. (초록 물약·용기의 물약·순간이동·귀환 주문서만)`, '#f0a060'); }
+let hwNoT = 0; function hwNo(what) { if (time - hwNoT < 3) return; hwNoT = time; say(`할로윈 이벤트 지역에서는 ${what}을(를) 쓸 수 없어요. (펫·서먼·마법·변신은 쓸 수 없고 다른 소모품은 모두 쓸 수 있어요)`, '#f0a060'); }
 // 근거리 한 대: 피해 1 고정 · 모자 강화 1당 필요한 타수 −1 (몬스터마다 내 첫 타에 강화 수치만큼 더 들어감 → +0 호박괴물 15대 · +9 6대) · 명중 100% · 치명타·추가 타격·속성 없음
 function hwStrike(f) { const S = MOB[f.kind]; breakInvis(); const first = !(f.dmgBy && f.dmgBy.get && f.dmgBy.get(hero) > 0), d = HWC.DMG_OUT + (S && S.hwEv && first ? Math.max(0, INV.hwHat()) : 0); dmgMob(f, d); f.flash = 0.09; mobHitFx(f, false); hero.lastHit = f; hero.lastHitT = time; f.aggro = true; hitstop = 0.06; sfx.hit(false);
   { const [fx, fy] = W2P(f.x, f.z); floatText(fx + (Math.random() * 18 - 9), fy - headY(f) - 12, String(d), { color: '#ffb050', size: 13 }); } if (f.hp > 0) MSFX(f.kind, 'hit', 0.5); killCheck(f); }
@@ -7450,7 +7455,7 @@ const HWM = (() => { let day = '', used = 0, last = 0, warned = 0;
   function open() { if (COLO_LOCK) { COLO.lockSay(); return; } const w = el('hwwin'); if (!w) return; w.hidden = false; render(); say('할로윈 허수아비 잭: 히히… 호박밭에 들어가 볼 텐가? 모자를 쓴 자만 들어갈 수 있지. 호박씨 100개를 모아 오면 주머니로 바꿔 주마!', '#ffa040'); }
   function buy() { if (coins < HWC.HAT_PRICE) { say(`골드가 부족합니다. (할로윈 모자 ${HWC.HAT_PRICE} 골드)`, '#f08a7a'); return; } coins -= HWC.HAT_PRICE; INV.add('hw_hat', 1); render(); }
   function enter() { if (SCENE !== 'town') return; if (INV.hwHat() < 0) { say('가방에 할로윈 모자가 있어야 들어갈 수 있어요.', '#f08a7a'); return; } if (left() <= 0) { say('오늘 이용 시간을 모두 썼습니다. 새벽 5시 뒤에 다시 들어올 수 있어요.', '#f08a7a'); return; }
-    el('hwwin').hidden = true; if (AUTO.on()) AUTO.toggle(); TOWN.toZone(HWC.ZID); say('호박 머리 허수아비로 변신했습니다! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. (나가려면 귀환 주문서)', '#ffa040'); }
+    el('hwwin').hidden = true; if (AUTO.on()) AUTO.toggle(); TOWN.toZone(HWC.ZID); say('호박 머리 허수아비로 변신했습니다! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. (나가려면 귀환 주문서·귀환 부적)', '#ffa040'); }
   function exch(all) { const s = INV.count('hw_seed'), n = all ? Math.floor(s / HWC.SEEDS) : Math.min(1, Math.floor(s / HWC.SEEDS)); if (n <= 0) return; INV.take('hw_seed', n * HWC.SEEDS); INV.add('hw_pouch', n, true); say(`호박씨 ${(n * HWC.SEEDS).toLocaleString()}개를 할로윈 호박 주머니 ${n}개로 바꿨습니다.`, '#ffa040'); render(); }
   const POUCH_NM = { 'doll:1': '고급 마법인형', 'doll:2': '희귀 마법인형', 'doll:3': '영웅 마법인형', hero: '영웅 장비' };
   const pouchTxt = id => (HWC.pouch[id] || []).map(([k, p]) => `${POUCH_NM[k] || (ITEMS[k] ? ITEMS[k].name : k)} ${p}%`).join(' · ');
@@ -8203,7 +8208,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
-    { v: 189, items: ["🎃 할로윈 이벤트가 열렸어요! 마을의 [할로윈 허수아비 잭]에게 할로윈 모자(100골드)를 사면 으스스한 [할로윈 호박밭]에 들어갈 수 있어요. (하루 2시간 · 새벽 5시 초기화 · 안에서는 화면 위에 남은 시간 표시)", "호박밭에 들어가면 누구나 호박 머리 허수아비로 변신해 근거리로 싸워요. 내 능력치·장비 효과는 무시되고 초록 물약·용기의 물약만 효과가 있어요. 마법·펫은 쓸 수 없고, 아이템은 초록 물약·용기의 물약·순간이동·귀환 주문서만 쓸 수 있어요.", "몬스터에게 주는 피해는 1, 받는 피해도 1로 고정이에요. 할로윈 모자를 강화하면 강화 1당 몬스터를 쓰러뜨리는 데 필요한 타수가 1대씩 줄어요 (+0 호박괴물 15대 · +9 6대 · 가방의 모자 중 가장 높은 강화로 계산).", "할로윈 호박괴물(HP 15)과 1.5배 크기의 호박대장(HP 25)이 나와요. 호박씨·호박 강화 주문서·축복받은 호박 강화 주문서(대장)를 떨어뜨려요.", "호박씨 100개를 잭에게 가져가면 [할로윈 호박 주머니]로 바꿔 줘요. 주머니를 열면 고급 마법인형(80%) 또는 [희귀 호박 주머니](20%)가 나오고, 희귀 주머니에서는 희귀 마법인형(84%) 또는 [영웅 호박 주머니](16%), 영웅 주머니에서는 영웅 장비 또는 영웅 마법인형(각 50%)이 나와요. 호박 강화 주문서는 사용한 뒤 강화할 할로윈 모자를 골라 클릭해요. (안전 +4 · 최대 +9)", "할로윈 호박밭에서도 자동사냥을 쓸 수 있어요.", "호박괴물·호박대장이 새 아이템을 떨어뜨려요: [호박 사탕](30분 동안 몬스터 경험치 +20%) · [잭오랜턴](1시간 동안 밤 시야가 넓어짐) · 호박대장은 아주 낮은 확률로 [할로윈 망토](희귀 · AC -3 · MR +10 · 최대 HP +20 · 얻으면 전체 공지).", "자동사냥 [설정] 아이템 줍기가 종류 × 등급 표로 바뀌었어요. 예를 들어 고급 장비는 줍지 않고 고급 재료는 줍도록 종류마다 따로 고를 수 있어요. (기존 설정은 그대로 옮겨져요)"] },
+    { v: 189, items: ["🎃 할로윈 이벤트가 열렸어요! 마을의 [할로윈 허수아비 잭]에게 할로윈 모자(100골드)를 사면 으스스한 [할로윈 호박밭]에 들어갈 수 있어요. (하루 2시간 · 새벽 5시 초기화 · 안에서는 화면 위에 남은 시간 표시)", "호박밭에 들어가면 누구나 호박 머리 허수아비로 변신해 근거리로 싸워요. 내 능력치·장비 효과는 무시되고 초록 물약·용기의 물약 효과만 적용돼요. 마법·서먼·펫·변신 주문서는 쓸 수 없고, 다른 소모품(물약·주문서·호박 주머니·귀환 부적 등)은 모두 쓸 수 있어요.", "몬스터에게 주는 피해는 1, 받는 피해도 1로 고정이에요. 할로윈 모자를 강화하면 강화 1당 몬스터를 쓰러뜨리는 데 필요한 타수가 1대씩 줄어요 (+0 호박괴물 15대 · +9 6대 · 가방의 모자 중 가장 높은 강화로 계산).", "할로윈 호박괴물(HP 15)과 1.5배 크기의 호박대장(HP 25)이 나와요. 호박씨·호박 강화 주문서·축복받은 호박 강화 주문서(대장)를 떨어뜨려요.", "호박씨 100개를 잭에게 가져가면 [할로윈 호박 주머니]로 바꿔 줘요. 주머니를 열면 고급 마법인형(80%) 또는 [희귀 호박 주머니](20%)가 나오고, 희귀 주머니에서는 희귀 마법인형(84%) 또는 [영웅 호박 주머니](16%), 영웅 주머니에서는 영웅 장비 또는 영웅 마법인형(각 50%)이 나와요. 호박 강화 주문서는 사용한 뒤 강화할 할로윈 모자를 골라 클릭해요. (안전 +4 · 최대 +9)", "장비 강화 창의 [단일 강화]·[다중 강화]에서도 할로윈 모자를 호박 강화 주문서로 강화할 수 있어요. (다중 강화는 모자끼리만 · 최대 +9)", "할로윈 호박밭에서도 자동사냥을 쓸 수 있어요.", "호박괴물·호박대장이 새 아이템을 떨어뜨려요: [호박 사탕](30분 동안 몬스터 경험치 +20%) · [잭오랜턴](1시간 동안 밤 시야가 넓어짐) · 호박대장은 아주 낮은 확률로 [할로윈 망토](희귀 · AC -3 · MR +10 · 최대 HP +20 · 얻으면 전체 공지).", "자동사냥 [설정] 아이템 줍기가 종류 × 등급 표로 바뀌었어요. 예를 들어 고급 장비는 줍지 않고 고급 재료는 줍도록 종류마다 따로 고를 수 있어요. (기존 설정은 그대로 옮겨져요)", "[거대 여왕 개미의 금빛 날개]에 강화 1당 MR +1 옵션이 생겼어요."] },
     { v: 188, items: ['[♪ 강화 BGM]은 처음엔 꺼져 있어요. 한 번 켜면 다음에도 켜진 채로 유지돼요.', '[밀어서 결과 보기]로 결과가 열릴 때, 빨라졌던 강화 음악은 바로 원래 속도로 돌아오며 꺼지고 "빵빵" 효과음은 원래 속도로 나와요.'] },
     { v: 187, items: ['강화 연출의 [밀어서 결과 보기] 아래에 [♪ 강화 BGM ON/OFF] 버튼이 생겼어요. 끄면 강화 배경음만 꺼져요. 옵션의 효과음 켜기/끄기와는 따로 움직이고, 고른 설정은 다음에도 그대로예요.', '아이템 상세 정보 창에서 [강화 미리보기]로 수치를 바꾼 뒤 창을 닫고 다시 열면, 미리보기가 풀리고 원래 강화 수치로 보여요.'] },
     { v: 186, items: ['장비 강화 창이 새로 바뀌었어요. 인벤토리 아래 [강화] 버튼을 누르면 [단일 강화]·[다중 강화] 두 탭으로 강화할 수 있어요. (예전 일괄 강화 창은 다중 강화로 바뀌었어요 · 아이템 상세 정보 창의 [강화] 버튼을 누르면 그 장비가 단일 강화에 들어간 채로 이 창이 열려요) 강화 확률은 예전과 같아요.', '단일 강화: 인벤토리에서 장비 1개를 클릭해 넣고 재료(일반·축복·저주 주문서)를 골라 [강화]를 눌러요. 강화 전후 수치와 성공 확률을 미리 보여 주고, 착용 중인 장비도 강화할 수 있어요. 안전 강화 안(성공 100%)과 저주 주문서는 연출 없이 바로 결과가 나와요.', '안전 강화를 넘긴 강화는 육각 진 안에서 장비가 빛을 모으는 연출이 나오고, 아래 손잡이를 오른쪽 끝까지 [밀어서 결과 보기]를 하면 결과가 나와요. (오른쪽으로 많이 밀수록 뒤의 육각 진 회전·빛 모으기와 강화 음악이 점점 빨라져요 · 끝까지 밀고 손(마우스 버튼)을 떼면 "빵빵!" 소리와 함께 결과가 열려요 · 중간에 놓으면 제자리로 · 키보드는 → 키) 성공은 금빛 폭발·광선·번개, 실패는 균열·파편·연기와 함께 보여 줘요.', '축복 주문서로 +2가 오르면 [대성공!]이 떠요. 무지갯빛 광선·고리와 화면 곳곳에서 터지는 불꽃놀이로 더 화려하게 보여 줘요.', '다중 강화: 인벤토리에서 장비를 하나씩 클릭해 넣거나 [동일 아이템 등록]으로 같은 장비를 한꺼번에 넣고, 쓸 주문서(일반·축복)와 최대 강화 수치(+1~+10)를 골라 [강화 시작]을 눌러요. 쓰는 주문서가 달라서 한 번에 한 종류(무기·방어구·장신구)만 넣을 수 있고, 그 부위 주문서의 보유 수량이 보여요. 안전 강화까지는 한 번에 올리고, 그 뒤로는 한 개씩 차례대로 강화해요. 성공하면 그 장비가 빛나고, 실패해서 파괴되면 그 장비가 쪼개지는 효과가 나와요. 도중에 [중지]할 수 있어요.', '[안전 강화 단계까지 한 번에] 체크(단일 강화)와 [안전 강화까지만] 체크(다중 강화)가 생겼어요. 켜면 안전 강화 수치까지만 연출 없이 한 번에 강화해요. 다중 강화에서 켜면 아래 강화 수치가 넣은 장비의 안전 강화 수치(무기 +6 · 방어구 +4)로 바뀌어요.', '인벤토리·창고 칸에 단축 슬롯처럼 줄임말이 보여요. (예: 빨물·순간·부적·축무 · 마법서는 그 마법 이름) 착용 직업이나 레벨 제한이 적히는 장비는 빼요.', '화면 왼쪽 아래 레벨 옆 아이디 자리에 전투력이 보여요.', '전투력에서 배운 마법은 빼고 순수 능력치로만 계산해요. 마법사는 마법 공격력·지능·SP 마법 배율·마법 치명타·명중으로 계산하고, Lv55 · 영웅급 +5~7 장비 기준 세 직업 모두 약 9,300이에요.'] },
