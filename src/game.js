@@ -6622,6 +6622,7 @@ const CHAT = (() => {
     const L = r.left + (x + 6) * z, T = r.top + (y + h - ih - 5) * z, W = (w - 14) * z, H = ih * z;
     if (e._k !== L + '|' + T + '|' + W) { e._k = L + '|' + T + '|' + W; Object.assign(e.style, { left: L + 'px', top: T + 'px', width: W + 'px', height: H + 'px', fontSize: Math.round(12 * z) + 'px' }); } }
   function send() { const e = el(), t = e.value.trim(); e.value = ''; if (!t) return;
+    if (/^\/운영자\s*(등록)?$/.test(t)) { ADMIN.devRequest(); return; }   // v190: 운영자 기기 등록 요청 (채팅으로 안 보냄)
     const all = t[0] === '!' && t.length > 1, tt = all ? t.slice(1).trim() : t; if (!tt) return; say(`${all ? '[전체] ' : ''}${PNAME()}: ${tt}`, all ? '#ffd28a' : '#ffffff', 1); hero.chat = { t: tt, until: time + 5 }; NET.chat(t); if (logScroll) logScroll = 0; }
   function bubble(g, h) { const [hx, hy] = W2P(h.x, h.z); g.save(); g.font = '700 11px "Noto Sans KR",sans-serif'; const maxW = 170, words = [...h.chat.t], lines = []; let cur = '';
     for (const ch of words) { if (g.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch; if (lines.length === 2) break; } else cur += ch; } if (lines.length < 2 && cur) lines.push(cur); else if (cur && lines.length === 2) lines[1] = lines[1].slice(0, -1) + '…';
@@ -6832,6 +6833,11 @@ const CODES = (() => { let used = [];
     w.hidden = false; setTimeout(() => { const i = w.querySelector('#code-in'); if (i) i.focus(); }, 50); }
   return { redeem, open, dump: () => used.slice(), load(a) { used = Array.isArray(a) ? a.slice(-200).map(String) : []; } };
 })();
+// v190: 운영자 기기 인증서 — 원래 컴퓨터의 운영자 키가 다른 기기의 공개 키에 서명한 것 {p: 기기 공개 키(JWK JSON), a: 계정, e: 만료(ms), s: 서명}. 받는 쪽은 인증서를 게임 속 공개 키로 확인한 뒤 그 기기 키로 명령을 확인
+const admCertOK = new Map();
+function admCertKey(c) { if (!c || typeof c.p !== 'string' || !c.s || !(+c.e > Date.now())) return Promise.resolve(null); const k = c.p + '|' + c.a + '|' + c.e + '|' + c.s; let v = admCertOK.get(k);
+  if (!v) { v = (async () => { if (!(await admVerify(`admcert|${c.a}|${c.p}|${c.e}`, c.s))) return null; const j = JSON.parse(c.p); return crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: j.x, y: j.y }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']); })().catch(() => null); admCertOK.set(k, v); } return v; }
+async function admVerifyC(msg, sig, c) { if (!c) return admVerify(msg, sig); try { const key = await admCertKey(c); if (!key || !sig) return false; return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, ub64u(sig), new TextEncoder().encode(msg)); } catch (e) { return false; } }
 async function admVerify(msg, sig) { try { if (!(window.crypto && crypto.subtle) || !sig) return false; return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, await admPub(), ub64u(sig), new TextEncoder().encode(msg)); } catch (e) { return false; } }
 const NET = (() => {
   const KINDS = Object.keys(MOB), RCOL = '#a8d8ff', PCOL = '#8fe08a', TE = new TextEncoder();
@@ -7002,11 +7008,11 @@ const NET = (() => {
   const admOK = new Map(), admPend = new Map(), admSeen = new Map(), arSeen = new Set(); let ADMS = [], arOut = [], admTok = null, admBusy = false;
   function admFilter() { ADMS = []; OTH = OTH.filter(o => { const a = o.pr.adm; if (!a || !a.s) return true;
       if (a.s === 'p') { const t0 = admPend.get(o.peer) || (admPend.set(o.peer, Date.now()), Date.now()); return Date.now() - t0 > 15000; }
-      const k = o.peer + '|' + a.t; let v = admOK.get(k); if (v === undefined) { admOK.set(k, 'wait'); admVerify(`adm|${o.peer}|${a.t}`, a.s).then(ok => admOK.set(k, !!ok)); v = 'wait'; }
+      const k = o.peer + '|' + a.t; let v = admOK.get(k); if (v === undefined) { admOK.set(k, 'wait'); admVerifyC(`adm|${o.peer}|${a.t}`, a.s, a.c).then(ok => admOK.set(k, !!ok)); v = 'wait'; }
       if (v === false) return true; if (v === true) ADMS.push(o); return false; });
     for (const o of ADMS) admCmds(o); if (ADMIN.on()) admResps(); }
   function admCmds(o) { const L = Array.isArray(o.pr.ac) ? o.pr.ac : [], mx = L.length ? Math.max(...L.map(x => +x[0] || 0)) : 0; if (!admSeen.has(o.peer)) { admSeen.set(o.peer, mx); return; } const last = admSeen.get(o.peer); if (mx <= last) return; admSeen.set(o.peer, mx);
-    for (const x of L) { if (!Array.isArray(x)) continue; const [sq, t, to, cmd, a, sig] = x; if (!(sq > last) || (to !== myPeer && to !== '*')) continue; admVerify(`${sq}|${t}|${to}|${cmd}|${a}|${o.peer}`, sig).then(ok => { if (ok) ADMIN.apply(cmd, a, o.peer, sq); }); } }
+    for (const x of L) { if (!Array.isArray(x)) continue; const [sq, t, to, cmd, a, sig] = x; if (!(sq > last) || (to !== myPeer && to !== '*')) continue; admVerifyC(`${sq}|${t}|${to}|${cmd}|${a}|${o.peer}`, sig, (o.pr.adm || {}).c).then(ok => { if (ok) ADMIN.apply(cmd, a, o.peer, sq); }); } }
   function admResps() { for (const o of OTH) { const L = o.pr.ar; if (!Array.isArray(L)) continue; for (const x of L) { if (!Array.isArray(x) || x[1] !== myPeer) continue; const k = o.peer + '|' + x[0] + '|' + x[2]; if (arSeen.has(k)) continue; arSeen.add(k); let d = null; try { d = JSON.parse(x[3]); } catch (e) {} ADMIN.onResp(o.peer, x[2], d, nmOf(o.pr)); } } }
   function admRespond(to, sq, cmd, data) { arOut.push([sq, to, cmd, JSON.stringify(data || {}), Date.now()]); if (arOut.length > 3) arOut.shift(); sendT = 0; }
   // ----- v131 부활 주문서: 요청(rv) → 상대가 '부활하시겠습니까?'에서 네/아니오(ra) → 네면 주문서 사용
@@ -7027,7 +7033,7 @@ const NET = (() => {
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
       e: eqIds(), eg: glowOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
-    if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
+    if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; if (ADMIN.cert()) P.adm.c = ADMIN.cert(); P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
@@ -7168,11 +7174,48 @@ const ADMIN = (() => {
   const K = () => window.ADEN_ADMIN;
   const mine = () => { const k = K(); try { return !!(k && k.acc && k.jwk && String(ACCOUNT.acc() || '').toLowerCase() === String(k.acc).toLowerCase()); } catch (e) { return false; } };
   async function sign(msg) { return b64u(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, priv, enc.encode(msg))); }
-  async function tryOn() { if (on || !mine() || !(window.crypto && crypto.subtle)) return false;
+  // v190: 운영자 기기 등록 — 키 파일이 없는 기기에서 운영자 계정으로 접속해 채팅에 /운영자등록 → 원래 컴퓨터(운영자 키)로 접속하면 [허락] 창 → 허락하면 그 기기의 공개 키에 운영자 키로 서명한 인증서를
+  //        그 계정 저장소(users/{uid}/chars/_admcert · 그 계정 로그인으로만 열림)에 둠 → 그 기기는 다음 접속부터 운영자. 기기의 비밀 키는 그 기기 안(IndexedDB, 꺼낼 수 없게)에만 있고, 운영자 키는 원래 컴퓨터 밖으로 안 나감.
+  //        인증서는 30일 · 원래 컴퓨터로 접속할 때마다 자동 연장 · 운영자 창 [운영자 기기]에서 삭제하면 그 기기는 다음 접속부터 꺼짐
+  let cert = null; const CERT_DAYS = 30, DAY = 864e5;
+  const idb = (op, key, val) => new Promise(res => { try { const rq = indexedDB.open('aden_adm', 1); rq.onupgradeneeded = () => rq.result.createObjectStore('k'); rq.onerror = () => res(null);
+      rq.onsuccess = () => { try { const tx = rq.result.transaction('k', op === 'get' ? 'readonly' : 'readwrite'), st = tx.objectStore('k'), r = op === 'get' ? st.get(key) : st.put(val, key); r.onsuccess = () => res(op === 'get' ? (r.result || null) : true); r.onerror = () => res(null); } catch (e) { res(null); } }; } catch (e) { res(null); } });
+  const accNow = () => String(ACCOUNT.acc() || '').toLowerCase(), docP = n => `users/${CLOUD.uid()}/chars/${n}`;
+  const jlist = async n => { try { const d = await CLOUD.get(docP(n)); const L = d && d.list ? JSON.parse(d.list) : []; return Array.isArray(L) ? L.filter(x => x && typeof x.p === 'string') : []; } catch (e) { return []; } };
+  const putList = (n, L) => CLOUD.set(docP(n), { list: JSON.stringify(L), at: new Date().toISOString() });
+  const cloudOK = () => { try { return !!(CLOUD.on() && CLOUD.uid() && window.crypto && crypto.subtle && window.indexedDB); } catch (e) { return false; } };
+  const devName = () => { const u = navigator.userAgent || ''; return (/Android|iPhone|iPad|Mobile/i.test(u) ? '모바일' : /Electron/i.test(u) ? 'PC 실행 파일' : 'PC 브라우저') + ' · ' + new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+  async function devKey(make) { const acc = accNow(); if (!acc) return null; let k = await idb('get', 'dev:' + acc);
+    if (!k && make) { const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign', 'verify']), j = await crypto.subtle.exportKey('jwk', kp.publicKey);
+      k = { priv: kp.privateKey, pub: JSON.stringify({ kty: 'EC', crv: 'P-256', x: j.x, y: j.y }) }; if (!(await idb('put', 'dev:' + acc, k))) return null; }
+    return k && k.priv && k.pub ? k : null; }
+  async function devOn() { if (!cloudOK()) return false; const acc = accNow(), k = await devKey(false); if (!k) return false;
+    const c = (await jlist('_admcert')).find(x => x.p === k.pub && String(x.a).toLowerCase() === acc && +x.e > Date.now()); if (!c) return false;
+    priv = k.priv; cert = { p: c.p, a: c.a, e: +c.e, s: c.s }; try { if (!(await admVerifyC('adm-test', await sign('adm-test'), cert))) throw 0; } catch (e) { priv = null; cert = null; return false; } return true; }
+  async function devRequest() { if (on) { say('이미 운영자 모드예요.', ADMC); return; } if (mine()) { say('이 컴퓨터에는 운영자 키가 있어요. 운영자 계정으로 접속하면 바로 켜져요.', ADMC); return; }
+    if (!cloudOK()) { say('계정 서버에 로그인한 상태에서만 운영자 기기 등록을 요청할 수 있어요.', '#f08a7a'); return; }
+    if (await devOn()) { on = true; afterOn(); return; }
+    const k = await devKey(true); if (!k) { say('이 기기에서는 기기 키를 만들 수 없어요.', '#f08a7a'); return; }
+    const L = await jlist('_admreq'); if (!L.some(x => x.p === k.pub)) { L.push({ p: k.pub, n: devName(), at: new Date().toISOString() }); while (L.length > 5) L.shift(); try { await putList('_admreq', L); } catch (e) { say('요청을 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', '#f08a7a'); return; } }
+    say('운영자 기기 등록을 요청했어요. 원래 컴퓨터(운영자 키가 있는 PC)에서 이 계정으로 접속하면 [허락] 창이 떠요. 허락한 뒤 이 기기에서 다시 접속하면 운영자 모드가 켜져요.', ADMC); }
+  async function masterSync() { if (cert || !on || !cloudOK()) return; try { const acc = accNow(), now = Date.now(); let certs = (await jlist('_admcert')).filter(c => +c.e > now - 7 * DAY), changed = false;
+      for (const c of certs) if (+c.e - now < 20 * DAY) { c.e = now + CERT_DAYS * DAY; c.a = acc; c.s = await sign(`admcert|${c.a}|${c.p}|${c.e}`); changed = true; }   // 자동 연장
+      if (changed) await putList('_admcert', certs);
+      const reqs = (await jlist('_admreq')).filter(r => !certs.some(c => c.p === r.p)); if (!reqs.length) return;
+      const next = () => { const r = reqs.shift(); if (!r) { putList('_admreq', []).catch(() => {}); drawDevs(); return; }
+        INV.askYesNo('운영자 기기 등록 요청이 왔어요', `${r.n || '새 기기'} — 이 기기도 운영자로 허락할까요? (${CERT_DAYS}일 · 이 PC로 접속할 때마다 자동 연장 · 운영자 창에서 언제든 삭제)`,
+          async () => { try { const e = Date.now() + CERT_DAYS * DAY, c = { p: r.p, a: acc, e, n: String(r.n || '').slice(0, 40), s: await sign(`admcert|${acc}|${r.p}|${e}`) }; certs = certs.filter(x => x.p !== r.p).concat([c]); await putList('_admcert', certs); say(`[운영자] ${c.n || '새 기기'}을(를) 운영자 기기로 허락했어요.`, ADMC); } catch (er) { say('허락을 저장하지 못했어요.', '#f08a7a'); } next(); },
+          () => { say(`[운영자] ${r.n || '새 기기'} 요청을 거절했어요.`, ADMC); next(); }); };
+      next(); } catch (e) {} }
+  async function drawDevs() { const el = $('adm-devs'); if (!el) return; if (cert) { el.innerHTML = `<span class="muted">이 기기는 등록된 운영자 기기예요 (${new Date(cert.e).toLocaleDateString('ko-KR')}까지 · 원래 컴퓨터로 접속하면 자동 연장).</span>`; return; }
+    if (!cloudOK()) { el.innerHTML = '<span class="muted">계정 서버에 연결된 상태에서만 보여요.</span>'; return; }
+    const L = await jlist('_admcert'); el.innerHTML = L.length ? L.map((c, i) => `<div class="row"><span>${String(c.n || '기기').replace(/[<>&]/g, '')}</span><span class="muted">· ${new Date(+c.e).toLocaleDateString('ko-KR')}까지</span><button type="button" data-devdel="${i}">삭제</button></div>`).join('') : '<span class="muted">등록된 기기 없음 · 다른 기기에서 이 계정으로 접속해 채팅에 /운영자등록</span>';
+    el.querySelectorAll('[data-devdel]').forEach(b => b.onclick = async () => { const L2 = await jlist('_admcert'), c = L2[+b.dataset.devdel]; if (!c) return; try { await putList('_admcert', L2.filter(x => x !== c)); say(`[운영자] ${c.n || '기기'} 삭제 — 그 기기는 다음 접속부터 운영자 모드가 꺼져요.`, ADMC); } catch (e) { say('삭제하지 못했어요.', '#f08a7a'); } drawDevs(); }); }
+  function afterOn() { BUFF.invis = Math.max(BUFF.invis || 0, 5); build(); say(`***** 운영자 모드가 켜졌습니다${cert ? ' (등록된 운영자 기기)' : ''}. 다른 유저와 몬스터에게 보이지 않아요. (상단 [운영자] 버튼) *****`, ADMC); try { GOD_BTN && GOD_BTN(); } catch (e) {} }
+  async function tryOn() { if (on || !(window.crypto && crypto.subtle)) return false; if (!mine()) { if (await devOn()) { on = true; afterOn(); return true; } return false; }
     try { priv = await crypto.subtle.importKey('jwk', K().jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']); if (!(await admVerify('adm-test', await sign('adm-test')))) throw new Error('key'); }
     catch (e) { priv = null; say('운영자 키가 이 게임 버전과 맞지 않아요. (운영자 모드 꺼짐)', '#f08a7a'); return false; }
-    on = true; BUFF.invis = Math.max(BUFF.invis || 0, 5); build(); say('***** 운영자 모드가 켜졌습니다. 다른 유저와 몬스터에게 보이지 않아요. (상단 [운영자] 버튼) *****', ADMC);
-    try { GOD_BTN && GOD_BTN(); } catch (e) {} return true; }
+    on = true; afterOn(); masterSync(); return true; }
   async function send(to, cmd, args) { if (!on) return false; const me = NET.me(); if (!me) { say('아직 월드에 연결되지 않았어요.', '#f08a7a'); return false; }
     seq = Math.max(seq + 1, Date.now()); const sq = seq, t = Date.now(), a = JSON.stringify(args || {}); const sig = await sign(`${sq}|${t}|${to}|${cmd}|${a}|${me}`);
     out.push([sq, t, to, cmd, a, sig]); if (out.length > 6) out.shift(); NET.poke(); return true; }
@@ -7213,7 +7256,7 @@ const ADMIN = (() => {
   const CLS_N = { knight: '기사', elf: '요정', wizard: '마법사' };
   const zoneName = z => { try { return zoneTitle(z); } catch (e) { return z || '-'; } };
   const nmOf = id => ITEMS[id] ? ITEMS[id].name : id;
-  function build() { if ($('admwin')) return; const tb = document.querySelector('.topbar'); if (tb) { const b = document.createElement('button'); b.type = 'button'; b.id = 'btn-adm'; b.textContent = '운영자'; b.style.cssText = 'color:#ffb8ee;border-color:#a0507f'; b.onclick = () => { const w = $('admwin'); w.hidden = !w.hidden; drawList(); drawDet(); }; tb.appendChild(b); }
+  function build() { if ($('admwin')) return; const tb = document.querySelector('.topbar'); if (tb) { const b = document.createElement('button'); b.type = 'button'; b.id = 'btn-adm'; b.textContent = '운영자'; b.style.cssText = 'color:#ffb8ee;border-color:#a0507f'; b.onclick = () => { const w = $('admwin'); w.hidden = !w.hidden; drawList(); drawDet(); if (!w.hidden) drawDevs(); }; tb.appendChild(b); }
     const st = document.createElement('style'); st.textContent = `#admwin{position:fixed;z-index:40;right:calc(16px + 1vw);top:calc(64px + env(safe-area-inset-top,0px));width:580px;max-width:calc(100vw - 24px);max-height:calc(100vh - 90px);overflow:auto;padding:10px 12px 12px;background:rgba(20,13,18,.97);border:1px solid #a0507f;border-radius:4px;color:#eadcc8;font:12px "Noto Sans KR",sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 #admwin h4{margin:10px 0 4px;color:#ffb8ee;font-size:12px} #admwin .row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin:3px 0} #admwin input{background:#140d10;border:1px solid #6a3a58;color:#f2e6d8;height:22px;padding:0 5px;font:inherit;min-width:0}
 #admwin button{background:#3a1f30;border:1px solid #8a4a70;color:#f6dcea;font:inherit;padding:2px 7px;border-radius:2px;cursor:pointer} #admwin button:hover{background:#55304a} #admwin table{width:100%;border-collapse:collapse} #admwin td{padding:3px 4px;border-bottom:1px solid #3a2632;vertical-align:middle}
@@ -7224,7 +7267,7 @@ const ADMIN = (() => {
       <h4>전체 공지</h4><div class="row"><input id="adm-nt" style="flex:1" maxlength="80" placeholder="모든 접속자 화면에 공지"><button type="button" id="adm-nts">보내기</button></div>
       <h4>내 캐릭터 (운영자)</h4><div class="row">아이템 <input id="adm-sit" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-sin" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-sie" type="number" value="0" style="width:44px"> <label><input id="adm-sib" type="checkbox"> 축복</label> <button type="button" id="adm-sgive">만들기</button></div>
       <div class="row">골드 <input id="adm-sg" type="number" style="width:120px" placeholder="금액"> <button type="button" id="adm-sgadd">만들기</button> &nbsp; 레벨 <input id="adm-sl" type="number" style="width:50px" min="1" max="99"> <button type="button" id="adm-slv">설정</button> <span class="muted">· 이동 5배 · 무적 · 몬스터 공격 안 함</span></div>
-      <h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><datalist id="adm-items"></datalist>`;
+      <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><datalist id="adm-items"></datalist>`;
     document.body.appendChild(w);
     $('adm-x').onclick = () => { w.hidden = true; }; w.addEventListener('keydown', ev => ev.stopPropagation());
     const selfIdOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === String(nm || '').trim() && !ITEMS[k].hidden);
@@ -7263,7 +7306,7 @@ const ADMIN = (() => {
       else if (c === 'kick') INV.askYesNo(`${o.pr.n}님을 추방할까요?`, '진행 상황을 저장한 뒤 접속을 끊어요.', () => send(sel, 'kick'));
       else send(sel, c); }); }
   function tick(dt) { if (!on) return; BUFF.invis = Math.max(BUFF.invis || 0, 5); GOD_INV = true; if (BUFF.stun > 0) BUFF.stun = 0; if (BUFF.slow > 0) BUFF.slow = 0; if (hero.target && foxes.includes(hero.target)) hero.target = null; if ((uiT -= dt) <= 0) { uiT = 1; drawList(); } }
-  return { on: () => on, pending: () => !on && mine(), tryOn, sign, out: () => out, apply, onResp, tick, send };
+  return { on: () => on, pending: () => !on && mine(), tryOn, sign, out: () => out, apply, onResp, tick, send, cert: () => cert, devRequest };
 })();
 // ============================================================ 교환 (마을에서 다른 유저 클릭 → 교환 신청 → 수락하면 양쪽에 교환창)
 // 각자 아이템·골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?" 한 번 더 → 둘 다 '예'면 서로 주고받음
