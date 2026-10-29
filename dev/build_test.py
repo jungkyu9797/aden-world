@@ -14,4 +14,23 @@ for f, h in [('src/map_data.js', '// 맵·스프라이트 메타데이터 (그�
     tag = f'<script src="{f}"></script>'; assert tag in s, tag
     s = s.replace(tag, '<script>\n' + h + '\n' + open(f, encoding='utf8').read() + '\n</script>')
 assert s.count('"d":"') == 0, '운영자 키가 들어 있음 — 올리지 마세요'
+# 판 번호: 열려 있는 테스트 페이지가 새 판을 알아채고 새로고침 (아티팩트 db tbuild/cur 에 같은 번호를 적으면 다른 판으로 봄)
+import hashlib, json, datetime
+BUILD = hashlib.sha1(s.encode('utf8')).hexdigest()[:12]
+WATCH = """<script>/* 테스트 판 바뀜 알림 */(()=>{const BUILD='%s';let shown=false;
+function bar(b,stuck){shown=true;const el=document.createElement('div');el.setAttribute('role','status');el.style.cssText='position:fixed;left:50%%;top:10px;transform:translateX(-50%%);z-index:2147483000;background:#1a1e26;color:#fff;border:1px solid #e09a4a;border-radius:10px;padding:9px 14px;font:600 14px/1.4 sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.45);display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:calc(100%% - 24px)';
+const what=b&&b.n?(' ('+b.n+'건)'):'';if(stuck){el.innerHTML='<span>🆕 테스트 판이 새로 올라왔어요'+what+' · 이 창을 닫았다가 다시 열어 주세요</span>';document.body.appendChild(el);return;}
+let left=10;el.innerHTML='<span>🆕 승인 대기에 새 항목이 들어왔어요'+what+' · <b id="tb-left">'+left+'</b>초 뒤 새로고침</span>';
+const now=document.createElement('button'),wait=document.createElement('button');[now,wait].forEach(x=>{x.style.cssText='font:700 13px sans-serif;border:0;border-radius:7px;padding:5px 10px;cursor:pointer';});now.textContent='지금';now.style.background='#e09a4a';now.style.color='#1a1e26';wait.textContent='잠깐만';wait.style.background='#3a4150';wait.style.color='#fff';
+el.append(now,wait);document.body.appendChild(el);const go=()=>{try{sessionStorage.setItem('tb_try',b.id)}catch(e){}location.reload();};
+const iv=setInterval(()=>{left--;const s=document.getElementById('tb-left');if(s)s.textContent=left;if(left<=0){clearInterval(iv);go();}},1000);
+now.onclick=go;wait.onclick=()=>{clearInterval(iv);el.firstChild.textContent='🆕 승인 대기에 새 항목이 들어왔어요'+what+' · 준비되면 새로고침을 눌러 주세요';wait.remove();now.textContent='새로고침';};}
+async function start(){let db=null;try{if(window.claude&&claude.use)db=await claude.use('db');}catch(e){}if(!db)return;
+try{db.doc('tbuild/cur').onSnapshot(d=>{const b=d.exists?d.data():null;if(!b||!b.id||b.id===BUILD||shown)return;let tried=null;try{tried=sessionStorage.getItem('tb_try')}catch(e){}bar(b,tried===b.id);},()=>{});}catch(e){}}
+setTimeout(start,4000);})();</script>""" % BUILD
+assert s.count('</body>') == 1, 'body 끝을 못 찾음'
+s = s.replace('</body>', WATCH + '</body>')
+os.makedirs('dev/out', exist_ok=True)
+json.dump({'id': BUILD, 'at': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}, open('dev/out/build.json', 'w'))
+print('build', BUILD, '(publish 뒤 테스트 아티팩트 db tbuild/cur 에 {id, at, n} 적기)')
 os.makedirs('dev/out', exist_ok=True); open('dev/out/publish.html', 'w', encoding='utf8').write(s); print('built dev/out/publish.html', len(s))
