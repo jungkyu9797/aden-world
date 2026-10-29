@@ -1,10 +1,10 @@
-// 할로윈 호박 주머니 300개 열기 · 호박 사탕 경험치 · 잭오랜턴 · 할로윈 망토 (bash dev/runkt.sh dev/tests/hw_pouch.js)
+// 할로윈 호박 주머니 사슬(호박→희귀→영웅) 열기 · 호박 사탕 경험치 · 잭오랜턴 · 할로윈 망토 (bash dev/runkt.sh dev/tests/hw_pouch.js)
 const { chromium } = require('playwright'); const login = require('../tq.js');
 (async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 800 } }); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await login(p, { cls: 'knight', name: 'hwP' });
-  await p.evaluate(() => { __T.INV.load({ bag: [{ id: 'hw_pouch', n: 300 }], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); __T.setCoins(0); __T.INV.setHot(11, 'hw_pouch'); });
-  for (let k = 0; k < 300; k++) { await p.evaluate(() => __T.INV.useHot(11)); await p.waitForTimeout(k % 20 ? 0 : 50); await p.evaluate(() => new Promise(r => setTimeout(r, 620))); }
-  console.log('got', JSON.stringify(await p.evaluate(() => { const o = {}; for (const e of __T.INV.dump().bag) o[__T.ITEMS[e.id].name] = (o[__T.ITEMS[e.id].name] || 0) + (e.n || 1); o['골드'] = __T.coins; return o; })));
+  await p.evaluate(() => { __T.INV.load({ bag: [{ id: 'hw_pouch', n: 60 }, { id: 'hw_pouch_r', n: 30 }, { id: 'hw_pouch_h', n: 10 }], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); __T.setCoins(0); });
+  for (const [id, n] of [['hw_pouch', 60], ['hw_pouch_r', 60], ['hw_pouch_h', 40]]) { await p.evaluate(id => __T.INV.setHot(11, id), id); for (let k = 0; k < n; k++) { if (!(await p.evaluate(id => __T.INV.count(id), id))) break; await p.evaluate(() => __T.INV.useHot(11)); await p.evaluate(() => new Promise(r => setTimeout(r, 620))); } }
+  console.log('got', JSON.stringify(await p.evaluate(() => { const o = {}; for (const e of __T.INV.dump().bag) { const d = __T.ITEMS[e.id], k = d.doll ? d.tier + '단계 인형' : d.rar === '영웅' && d.slot ? '영웅 장비' : d.name; o[k] = (o[k] || 0) + (e.n || 1); } return o; })));
   // 사탕: 경험치 +20%
   console.log('candy', JSON.stringify(await p.evaluate(() => { __T.INV.add('hw_candy', 1, true); __T.INV.setHot(10, 'hw_candy'); __T.INV.useHot(10); const e0 = __T.hero.exp; const f = __T.mkMob('hw_pumpkin', 3, 3); return { buff: __T.BUFF.hwexp }; })));
   await p.evaluate(() => __T.INV.add('hw_lantern', 1, true)); await p.waitForTimeout(700); await p.evaluate(() => { __T.INV.setHot(9, 'hw_lantern'); __T.INV.useHot(9); });

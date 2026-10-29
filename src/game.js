@@ -2190,7 +2190,7 @@ const HOT_AB = { 'sk:heal': '힐', 'sk:shieldm': '실드', 'sk:ebolt': '에볼',
   'sk:quake': '어퀘', 'sk:fstorm': '파스', 'sk:abarrier': '앱배', 'sk:advspirit': '어스', 'sk:lstorm': '라스', 'sk:disint': '디스', 'sk:meteor': '미티', 'sk:blizzard': '블리', 'sk:ghaste': '그헤', 'sk:resur': '리저', 'sk:stun': '스턴',
   'sk:reduction': '리덕', 'sk:bounce': '바운', 'sk:solid': '솔리', 'sk:counter': '카배', 'sk:resist_magic': '레매', 'sk:body_mind': '블소', 'sk:tele_tree': '시야', 'sk:clear_mind': '클마', 'sk:triple_arrow': '트리', 'sk:wind_shot': '윈샷',
   'sk:storm_shot': '스샷', 'sk:striker_gale': '게일', 'sk:earth_bind': '어바', 'sk:pollute_water': '폴워', 'sk:nature_bless': '네블', 'sk:resist_elem': '레엘', 'sk:summon': '서먼', 'act:pick': '줍기',
-  hw_scroll: '호강', hw_bscroll: '축호', hw_pouch: '호박', hw_candy: '사탕', hw_lantern: '랜턴', red_potion: '빨물', orange_potion: '주물', clear_potion: '맑물', antidote: '해독', candle: '양초', poly_dark: '다변', poly_silver: '실변', scroll_counterm: '카매', mana_potion: '마나', green_potion: '초록', brave_potion: '용기',
+  hw_scroll: '호강', hw_bscroll: '축호', hw_pouch: '호박', hw_pouch_r: '희호', hw_pouch_h: '영호', hw_candy: '사탕', hw_lantern: '랜턴', red_potion: '빨물', orange_potion: '주물', clear_potion: '맑물', antidote: '해독', candle: '양초', poly_dark: '다변', poly_silver: '실변', scroll_counterm: '카매', mana_potion: '마나', green_potion: '초록', brave_potion: '용기',
   scroll_weapon: '무주', scroll_armor: '갑주', scroll_acc: '장주', bscroll_acc: '축장', bscroll_weapon: '축무', bscroll_armor: '축갑', cscroll_weapon: '저무', cscroll_armor: '저갑', scroll_earth: '땅속', scroll_water: '물속', scroll_fire: '불속', scroll_wind: '바속',
   bless_scroll: '축부', bless_pouch: '축머', arka_pouch: '아르카', pet_fruit: '열매', pet_collar: '목걸이', revive_scroll: '부활', stat_reset: '초기화', return_scroll: '귀환', tele_scroll: '순간', return_charm: '부적', doll_pouch: '인형', acc_change: '변경' };
 function hotAbbr(id) { if (!id || id === 'act:auto') return ''; if (HOT_AB[id]) return HOT_AB[id]; if (id.startsWith('sk:')) { const k = SK[id.slice(3)]; return k ? k.name.replace(/\s+/g, '').slice(0, 2) : ''; }
@@ -2501,11 +2501,11 @@ const HWC = {
   DMG_OUT: 1, DMG_IN: 1, MOB_HIT: 0.5, COOL: 0.9,      // 주는 피해(+모자 강화) · 받는 피해 · 호박이 나를 맞힐 확률 · 공격 간격(초, 초록·용기 물약 적용)
   HAT_SAFE: 4, HAT_MAX: 9, SEEDS: 100,                 // 모자 안전 강화 · 최대 강화 · 주머니 1개 교환에 드는 호박씨
   mob: {
-    hw_pumpkin:      { n: 27, hp: 15, exp: 2460, coin: [620, 940],   seed: [1, 3], drops: [['hw_scroll', 0.10]] },
-    hw_pumpkin_boss: { n: 3,  hp: 25, exp: 4920, coin: [1240, 1880], seed: [3, 8], drops: [['hw_scroll', 0.20], ['hw_bscroll', 0.10]] } },
+    hw_pumpkin:      { n: 27, hp: 15, exp: 2460, coin: [620, 940],   seed: [1, 3], drops: [['hw_scroll', 0.10], ['hw_candy', 0.01], ['hw_lantern', 0.005]] },
+    hw_pumpkin_boss: { n: 3,  hp: 25, exp: 4920, coin: [1240, 1880], seed: [3, 8], drops: [['hw_scroll', 0.20], ['hw_bscroll', 0.10], ['hw_candy', 0.02], ['hw_lantern', 0.01], ['hw_cloak', 0.002]] } },
   // 호박 주머니 내용표 (임시 — 프로듀서 표를 받으면 교체) [아이템, 개수, 확률%]
-  pouch: [['hw_candy', 1, 25], ['green_potion', 10, 12], ['brave_potion', 5, 12], ['scroll_armor', 1, 12], ['hw_lantern', 1, 10], ['scroll_weapon', 1, 10], ['gold', 3000, 8], ['bless_scroll', 1, 4],
-          ['bscroll_armor', 1, 2.5], ['bscroll_weapon', 1, 2], ['arka_pouch', 1, 1.5], ['hw_cloak', 1, 1]],
+  // 호박 주머니 사슬 [결과, 확률%] — 'doll:N' = N단계 마법인형(1 고급 · 2 희귀 · 3 영웅) 중 하나 · 'hero' = 영웅 장비 중 하나 (1주일 평균 영웅 인형 약 2개)
+  pouch: { hw_pouch: [['doll:1', 80], ['hw_pouch_r', 20]], hw_pouch_r: [['doll:2', 84], ['hw_pouch_h', 16]], hw_pouch_h: [['hero', 50], ['doll:3', 50]] },
   CANDY_EXP: 20,                                       // 호박 사탕: 30분 동안 몬스터 경험치 +%
   OK: new Set(['green_potion', 'brave_potion', 'tele_scroll', 'return_scroll', 'hw_hat', 'hw_seed', 'hw_scroll', 'hw_bscroll', 'hw_pouch']) };   // 이벤트 지역 안에서 쓸 수 있는 아이템
 // 수치: 리니지 클래식 커뮤니티 자료를 참고해 자체 조정 (밸런스팀 확정 전 임시값)
@@ -3982,6 +3982,8 @@ const ICON = (() => {
     hw_lantern: '<path d="M16 3 Q17 5 15 7" stroke="#4a6a1a" stroke-width="2" fill="none"/><path d="M9 6 Q17 2 25 6" stroke="#5a4a3a" stroke-width="1.2" fill="none"/><ellipse cx="17" cy="19" rx="12" ry="10" fill="#e8781a" stroke="#6a2a06" stroke-width="1"/><path d="M11 10 Q9 19 11 28 M23 10 Q25 19 23 28" stroke="#b8500a" fill="none"/><path d="M11 17 L14 13.5 L15 18 Z M23 17 L20 13.5 L19 18 Z M10.5 22 Q17 27 23.5 22 L21.5 23 L19.5 21.6 L17 23.6 L14.5 21.6 L12.5 23 Z" fill="#fff07a" stroke="#ffb020" stroke-width=".4"/>',
     hw_cloak: '<path d="M12 5 L22 5 L28 29 L6 29 Z" fill="#2e1a40" stroke="#120a1c" stroke-width="1"/><path d="M13 9 L21 9 L25 27 L9 27 Z" fill="#e8781a" opacity=".85"/><path d="M12 5 L22 5 L20 9 L14 9 Z" fill="#7a40b0"/><circle cx="17" cy="7" r="1.6" fill="#ffd25a"/>',
     hw_pouch: '<path d="M11 10 Q17 13 23 10 L22 12.5 Q30 17 28 24 Q26 30 17 30 Q8 30 6 24 Q4 17 12 12.5 Z" fill="#e8781a" stroke="#6a2a06" stroke-width="1"/><path d="M11 10 Q17 6 23 10" fill="none" stroke="#5a3a1a" stroke-width="2"/><path d="M12 19 L14.5 16.5 L15.5 20 Z M22 19 L19.5 16.5 L18.5 20 Z M11.5 23 Q17 27 22.5 23 L21 24 L19.5 23 L17 24.6 L14.5 23 L13 24 Z" fill="#ffd25a" stroke="#6a2a06" stroke-width=".5"/>',
+    hw_pouch_r: '<path d="M11 10 Q17 13 23 10 L22 12.5 Q30 17 28 24 Q26 30 17 30 Q8 30 6 24 Q4 17 12 12.5 Z" fill="#8a4ad0" stroke="#2a1048" stroke-width="1"/><path d="M11 10 Q17 6 23 10" fill="none" stroke="#5a3a1a" stroke-width="2"/><path d="M12 19 L14.5 16.5 L15.5 20 Z M22 19 L19.5 16.5 L18.5 20 Z M11.5 23 Q17 27 22.5 23 L21 24 L19.5 23 L17 24.6 L14.5 23 L13 24 Z" fill="#ffd25a" stroke="#2a1048" stroke-width=".5"/>',
+    hw_pouch_h: '<path d="M11 10 Q17 13 23 10 L22 12.5 Q30 17 28 24 Q26 30 17 30 Q8 30 6 24 Q4 17 12 12.5 Z" fill="#f0c030" stroke="#6a4a06" stroke-width="1"/><path d="M11 10 Q17 6 23 10" fill="none" stroke="#5a3a1a" stroke-width="2"/><path d="M12 19 L14.5 16.5 L15.5 20 Z M22 19 L19.5 16.5 L18.5 20 Z M11.5 23 Q17 27 22.5 23 L21 24 L19.5 23 L17 24.6 L14.5 23 L13 24 Z" fill="#fff6c0" stroke="#6a4a06" stroke-width=".5"/>',
     sword: '<path d="M27 4 L30 7 L14 23 L11 20 Z" fill="url(#st)" stroke="#2a2e34" stroke-width=".8"/><path d="M8 19 L15 26 L13 28 L6 21 Z" fill="url(#gd)"/><path d="M8 26 L5 29" stroke="url(#wd)" stroke-width="3" stroke-linecap="round"/>',
     arrow: '<path d="M8 27 L24 11" stroke="#2a1a0c" stroke-width="3.2" stroke-linecap="round"/><path d="M8 27 L24 11" stroke="url(#wd)" stroke-width="1.8" stroke-linecap="round"/><path d="M28 7 L20 10 L25 15 Z" fill="url(#st)" stroke="#2a2e34" stroke-width=".7"/><path d="M10 25 L4 25 L7 22 Z M10 25 L10 31 L13 28 Z" fill="#c0342a" stroke="#5a120c" stroke-width=".5"/><path d="M13 22 L8 21 L10 19 Z M13 22 L14 27 L16 24 Z" fill="#e8dcc0"/>',
     shield: '<path d="M17 4 L28 8 C28 18 24 25 17 30 C10 25 6 18 6 8 Z" fill="url(#wd)" stroke="#2a1a0c" stroke-width="1"/><path d="M17 4 L28 8 C28 18 24 25 17 30 C10 25 6 18 6 8 Z" fill="none" stroke="url(#st)" stroke-width="2"/><circle cx="17" cy="16" r="3" fill="url(#st)"/>',
@@ -4138,10 +4140,12 @@ const ITEMS = {
   hw_seed: { name: '호박씨', icon: 'hw_seed', w: 0.01, stack: true, desc: '할로윈 호박괴물에게서 나온 씨앗. 100개를 할로윈 허수아비 잭에게 가져가면 할로윈 호박 주머니로 바꿔 줘요.' },
   hw_scroll: { name: '호박 강화 주문서', icon: 'hw_scroll', use: 'enchant', ench: 'hwhat', w: 0.6, stack: true, rar: '고급', desc: '할로윈 모자를 +1 강화합니다. (사용한 뒤 강화할 모자를 클릭) 안전 강화 +4 · 최대 +9 · 그 이상은 실패하면 모자가 증발해요.' },
   hw_bscroll: { name: '축복받은 호박 강화 주문서', icon: 'hw_bscroll', use: 'enchant', ench: 'hwhat', bless: true, w: 0.6, stack: true, rar: '희귀', desc: '할로윈 모자를 +1~2 강화합니다 (사용한 뒤 강화할 모자를 클릭) (+7부터는 +1 · 최대 +9). 안전 강화를 넘긴 모자는 실패하면 증발해요.' },
-  hw_pouch: { name: '할로윈 호박 주머니', icon: 'hw_pouch', use: 'hwpouch', w: 0.5, stack: true, rar: '희귀', get desc() { return '열면 하나가 나옵니다 — ' + HWC.pouch.map(([id, n, p]) => `${id === 'gold' ? n.toLocaleString() + ' 골드' : (ITEMS[id] ? ITEMS[id].name : id) + (n > 1 ? ' ' + n + '개' : '')} ${p}%`).join(' · '); } },
+  hw_pouch: { name: '할로윈 호박 주머니', icon: 'hw_pouch', use: 'hwpouch', w: 0.5, stack: true, rar: '고급', get desc() { return '호박씨 100개로 바꾼 주머니. 열면 하나가 나옵니다 — ' + HWM.pouchTxt('hw_pouch'); } },
+  hw_pouch_r: { name: '희귀 호박 주머니', icon: 'hw_pouch_r', use: 'hwpouch', w: 0.5, stack: true, rar: '희귀', get desc() { return '열면 하나가 나옵니다 — ' + HWM.pouchTxt('hw_pouch_r'); } },
+  hw_pouch_h: { name: '영웅 호박 주머니', icon: 'hw_pouch_h', use: 'hwpouch', w: 0.5, stack: true, rar: '영웅', get desc() { return '열면 하나가 나옵니다 — ' + HWM.pouchTxt('hw_pouch_h'); } },
   hw_candy: { name: '호박 사탕', icon: 'hw_candy', use: 'hwcandy', w: 0.1, stack: true, rar: '고급', desc: '달콤한 호박 맛 사탕. 먹으면 30분 동안 몬스터를 잡아 얻는 경험치 +20%. (다시 먹으면 30분으로 다시 채워짐 · 할로윈 호박밭 안에서는 못 먹어요)' },
   hw_lantern: { name: '잭오랜턴', icon: 'hw_lantern', use: 'candle', buff: 'light', ldur: 3600, w: 0.5, stack: true, rar: '고급', desc: '호박 속에 촛불을 켠 등불. 켜면 1시간 동안 밤 시야가 넓어져요. (양초 6개 분량)' },
-  hw_cloak: { name: '할로윈 망토', slot: 'cloak', icon: 'hw_cloak', ac: 3, mr: 10, hp: 20, w: 3, rar: '희귀', desc: '호박빛 안감을 댄 마녀의 망토. 할로윈 호박 주머니에서만 나와요. (AC -3 · MR +10 · 최대 HP +20)' },
+  hw_cloak: { name: '할로윈 망토', slot: 'cloak', icon: 'hw_cloak', ac: 3, mr: 10, hp: 20, w: 3, rar: '희귀', desc: '호박빛 안감을 댄 마녀의 망토. 할로윈 호박대장이 아주 낮은 확률로 떨어뜨려요. (AC -3 · MR +10 · 최대 HP +20)' },
   old_sword: { wtype: 'sword', name: '낡은 한손검', slot: 'weapon', icon: 'sword', dmg: [1, 5], w: 5 },
   short_sword: { wtype: 'sword', name: '한손검', slot: 'weapon', icon: 'sword', dmg: [1, 8], w: 6 },
   long_sword: { wtype: 'sword', name: '장검', slot: 'weapon', icon: 'sword', dmg: [2, 10], w: 7 },
@@ -5159,8 +5163,10 @@ const INV = (() => {
     if (d.use === 'twbox') { const r = TWM.roll(d.box); take(e.id); cd = 0.6; if (r.gold) { coins += r.gold; say(`${JOSA(d.name, '을', '를')} 열었습니다... 골드 ${r.gold.toLocaleString()}!`, '#ffd86a'); } else { add(r.id, r.n, true); const it = ITEMS[r.id], nm = it.name + (r.n > 1 ? ` ${r.n}개` : ''); say(`${JOSA(d.name, '을', '를')} 열었습니다... ${rarTag(r.id)}${JOSA(nm, '이', '가')} 나왔습니다!`, rarC(r.id)); } TELE.ev('twbox', { b: d.box, g: r.gold || 0, id: r.id || '' });
       spellFx('enbless', hero, '#ffd86a'); if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.18, 2600, 900, 0.12); [660, 880, 1100].forEach((f, k) => tone(t0 + 0.08 + k * 0.08, 'triangle', f, f, 0.25, 0.1)); } render(); return; }   // v183: 수호탑 상자
     if (d.use === 'hwcandy') { take(e.id); cd = 0.5; BUFF.hwexp = BUFF_DEF.hwexp.dur; drinkFx(e.id); spellFx('enok', hero, '#ffa040'); say(`호박 사탕을 먹었습니다. 30분 동안 몬스터 경험치 +${HWC.CANDY_EXP}%!`, '#ffa040'); render(); return; }
-    if (d.use === 'hwpouch') { const [id, n] = HWM.rollPouch(); if (id === 'gold') { take(e.id); cd = 0.6; coins += n; say(`할로윈 호박 주머니를 열었습니다... 골드 ${n.toLocaleString()}!`, '#ffd86a'); spellFx('enok', hero, '#ffd86a'); render(); return; } const it = ITEMS[id]; if (!it) return; take(e.id); cd = 0.6; add(id, n, true); say(`할로윈 호박 주머니를 열었습니다... ${rarTag(id)}${JOSA(it.name + (n > 1 ? ` ${n}개` : ''), '이', '가')} 나왔습니다!`, rarC(id)); spellFx(id === 'hw_cloak' ? 'enbless' : 'enok', hero, '#ffa040');
-      if (id === 'hw_cloak') { const msg = `${PNAME()}님이 할로윈 호박 주머니에서 [희귀] 할로윈 망토를 얻었습니다!`; announce(msg, '#ffa040'); NET.announceAll(msg); } render(); return; }
+    if (d.use === 'hwpouch') { const [id, n] = HWM.rollPouch(e.id), it = id && ITEMS[id]; if (!it) return; take(e.id); cd = 0.6; add(id, n, true); TELE.ev('hwpouch', { p: e.id, id });
+      say(`${JOSA(d.name, '을', '를')} 열었습니다... ${rarTag(id)}${JOSA(it.name, '이', '가')} 나왔습니다!`, rarC(id)); spellFx(it.rar === '영웅' || it.rar === '희귀' ? 'enbless' : 'enok', hero, RARITY_C[it.rar] || '#ffa040');
+      if (it.rar === '영웅') { const msg = `${PNAME()}님이 ${d.name}에서 [영웅] ${JOSA(it.name, '을', '를')} 얻었습니다!`; announce(msg, RARITY_C['영웅']); NET.announceAll(msg); }
+      if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.18, 2600, 900, 0.12); tone(t0 + 0.08, 'triangle', 660, 1320, 0.25, 0.1); if (id.startsWith('hw_pouch')) [784, 988].forEach((f, k) => tone(t0 + 0.2 + k * 0.09, 'triangle', f, f, 0.3, 0.1)); } render(); return; }
     if (d.use === 'hwhat') { say('할로윈 모자: 가방에 있으면 할로윈 이벤트 지역(마을의 할로윈 허수아비 잭)에 들어갈 수 있어요. 호박 강화 주문서로 강화합니다.', '#ffa040'); return; }
     if (d.use === 'pouch') { const [id, n] = POUCH.roll(), it = ITEMS[id], nm = it.name + (n > 1 ? ` ${n}장` : ''); take(e.id); cd = 0.6; add(id, n, true); TELE.ev('pouch', { id, n, r: it.rar || '' });
       say(`아르카의 마법주머니를 열었습니다... ${rarTag(id)}${JOSA(nm, '이', '가')} 나왔습니다!`, rarC(id));
@@ -7416,7 +7422,7 @@ function hwStrike(f) { const S = MOB[f.kind]; breakInvis(); const first = !(f.dm
   { const [fx, fy] = W2P(f.x, f.z); floatText(fx + (Math.random() * 18 - 9), fy - headY(f) - 12, String(d), { color: '#ffb050', size: 13 }); } if (f.hp > 0) MSFX(f.kind, 'hit', 0.5); killCheck(f); }
 // 호박 처치 보상: 호박씨(항상) + 주문서(확률 · 따로 굴림) — 경험치·골드는 몬스터 수치(HWC.mob)로 기존 방식대로
 function hwLoot(f) { const C = HWC.mob[f.kind]; if (!C) return; GROUND.drop('hw_seed', rint(C.seed), f.i, f.j);
-  for (const [id, p] of C.drops) if (Math.random() < p) { GROUND.drop(id, 1, f.i, f.j); say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); } }
+  for (const [id, p] of C.drops) if (Math.random() < p) { GROUND.drop(id, 1, f.i, f.j); say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); if (id === 'hw_cloak') { const msg = `${PNAME()}님이 할로윈 호박대장에게서 [희귀] 할로윈 망토를 얻었습니다!`; announce(msg, '#ffa040'); NET.announceAll(msg); } } }
 const HWM = (() => { let day = '', used = 0, last = 0, warned = 0;
   const roll = () => { const g = gameDay(); if (day !== g) { day = g; used = 0; warned = 0; } };
   const left = () => { roll(); return Math.max(0, HWC.DAY_SEC - used); };
@@ -7434,9 +7440,16 @@ const HWM = (() => { let day = '', used = 0, last = 0, warned = 0;
   function enter() { if (SCENE !== 'town') return; if (INV.hwHat() < 0) { say('가방에 할로윈 모자가 있어야 들어갈 수 있어요.', '#f08a7a'); return; } if (left() <= 0) { say('오늘 이용 시간을 모두 썼습니다. 새벽 5시 뒤에 다시 들어올 수 있어요.', '#f08a7a'); return; }
     el('hwwin').hidden = true; if (AUTO.on()) AUTO.toggle(); TOWN.toZone(HWC.ZID); say('호박 머리 허수아비로 변신했습니다! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. (나가려면 귀환 주문서)', '#ffa040'); }
   function exch(all) { const s = INV.count('hw_seed'), n = all ? Math.floor(s / HWC.SEEDS) : Math.min(1, Math.floor(s / HWC.SEEDS)); if (n <= 0) return; INV.take('hw_seed', n * HWC.SEEDS); INV.add('hw_pouch', n, true); say(`호박씨 ${(n * HWC.SEEDS).toLocaleString()}개를 할로윈 호박 주머니 ${n}개로 바꿨습니다.`, '#ffa040'); render(); }
-  function rollPouch() { const tot = HWC.pouch.reduce((a, q) => a + q[2], 0); let r = Math.random() * tot; for (const q of HWC.pouch) { r -= q[2]; if (r < 0) return q; } return HWC.pouch[0]; }
+  const POUCH_NM = { 'doll:1': '고급 마법인형', 'doll:2': '희귀 마법인형', 'doll:3': '영웅 마법인형', hero: '영웅 장비' };
+  const pouchTxt = id => (HWC.pouch[id] || []).map(([k, p]) => `${POUCH_NM[k] || (ITEMS[k] ? ITEMS[k].name : k)} ${p}%`).join(' · ');
+  const pick = L => L.length ? L[Math.floor(Math.random() * L.length)] : null;
+  // 주머니 하나 열기 → [아이템, 개수]: 인형은 그 단계 인형 중 하나, 영웅 장비는 모든 직업 영웅 장비 중 하나
+  function rollPouch(id) { const T = HWC.pouch[id] || HWC.pouch.hw_pouch, tot = T.reduce((a, q) => a + q[1], 0); let r = Math.random() * tot, k = T[0][0]; for (const q of T) { r -= q[1]; if (r < 0) { k = q[0]; break; } }
+    if (k.startsWith('doll:')) { const t = +k.slice(5); return [pick(Object.keys(ITEMS).filter(x => ITEMS[x].doll && ITEMS[x].tier === t)), 1]; }
+    if (k === 'hero') return [pick(Object.keys(ITEMS).filter(x => ITEMS[x].slot && ITEMS[x].rar === '영웅' && ITEMS[x].slot !== 'doll' && !REMOVED_ITEMS[x])), 1];
+    return [k, 1]; }
   setTimeout(() => { const b = id => el(id); if (!b('hwwin')) return; b('hw-buy').onclick = buy; b('hw-enter').onclick = enter; b('hw-ex1').onclick = () => exch(false); b('hw-exall').onclick = () => exch(true); }, 0);
-  return { tick, open, render, left, rollPouch, dump: () => ({ d: day, u: Math.round(used) }), load(o) { if (o && typeof o === 'object') { day = String(o.d || ''); used = Math.max(0, +o.u || 0); } roll(); } }; })();
+  return { tick, open, render, left, rollPouch, pouchTxt, dump: () => ({ d: day, u: Math.round(used) }), load(o) { if (o && typeof o === 'object') { day = String(o.d || ''); used = Math.max(0, +o.u || 0); } roll(); } }; })();
 
 // ===== 할로윈 이벤트 그림 (오리지널 · 캔버스로 직접 그림) =====
 // 호박 얼굴 (cx, cy 중심 · r 반지름 · 안에서 노랗게 빛남)
