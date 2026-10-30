@@ -1728,6 +1728,10 @@ const EN_ARMOR = ['armor', 'helm', 'gloves', 'boots', 'shield', 'cloak', 'shirt'
 const enTierOf = (id, en) => { const d = id && ITEMS[id]; if (!d || !d.slot || !(en > 0)) return 0; return Math.max(0, Math.min(4, en - SAFE_EN(d))); };
 const heroGlowT = (id, en) => { const d = id && ITEMS[id]; if (!d || !d.slot) return 0; if (d.rar === '영웅') return 5 + Math.max(0, Math.min(4, (en || 0) - SAFE_EN(d))); return enTierOf(id, en); };   // v136: 캐릭터 모습 빛 (영웅 장비는 +0부터 보라)
 const myGlowT = sl => heroGlowT(INV.equipped(sl), INV.enOf(sl));
+// 10/30: 장비 이펙트 켬/끔 (캐릭터 창 미리보기 밑 버튼) — 끔이면 강화·영웅 등급 빛(무기·방어구·몸 테두리·반짝임)과 데스나이트 세트 불티를 안 그림 · 내 화면에서만(나·다른 유저·봇·미리보기 모두) · 이 기기에 기억
+let EQFX = true; try { EQFX = localStorage.getItem('aden_eqfx') !== '0'; } catch (e) {}
+function eqFxBtn() { const b = document.getElementById('cw-fx'); if (!b) return; b.textContent = '장비 이펙트: ' + (EQFX ? '켬' : '끔'); b.setAttribute('aria-pressed', EQFX ? 'true' : 'false'); b.classList.toggle('off', !EQFX); }
+function setEqFx(on) { EQFX = !!on; try { localStorage.setItem('aden_eqfx', EQFX ? '1' : '0'); } catch (e) {} eqFxBtn(); if (window.LOOKPV) LOOKPV.kick(); }
 function glowOut() { const o = {}; let any = false; for (const sl of ['weapon', ...EN_ARMOR]) { const t = myGlowT(sl); if (t) { o[sl] = t; any = true; } } return any ? o : null; }   // 다른 유저에게 보내는 강화 빛 단계
 // 장비 그림 한 장(한 칸)의 빛: 실루엣을 그 색으로 칠해 흐리게 번진 판 + 실루엣 자체 — 칸마다 한 번 만들어 저장 (매 프레임 filter는 느림)
 const GLC = new Map();
@@ -1774,7 +1778,7 @@ function drawClassLayers(g, cls, anim, fr, row, x, y, hurtF, eqf, gl) { const D 
     g.drawImage(src, k * M.W, row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
     if (gl && L !== 'body') { const t = gl(CL_SLOT[L.replace(/_[lp]$/, '')]); if (t) layerGlow(g, img, M, k, row, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), sc, t, D.pfx + L + ':' + a, CL_SLOT[L.replace(/_[lp]$/, '')] === 'weapon' ? 1 : 0.85); } }
   return true; }
-function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
+function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (!EQFX) gl = null;   /* 장비 이펙트 끔 */ if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
   { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf, gl)) return true; }   // 변신 (데스나이트 세트 등)
   if (cls !== 'knight' && CL_DEF[cls] && drawClassLayers(g, cls, anim, fr, row, x, y, hf, eqf, gl)) return true;
   if (cls !== 'knight') { const M = CLSM[cls], a = anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2') ? 'attack' : 'idle', img = M && clsImg(cls, a);
@@ -2968,7 +2972,7 @@ function drawPoly(g, pk, anim, fr, row, x, y, hf, gl) { const P = POLY[pk], pmS 
   if (!img || !img.complete || !img.naturalWidth) return false; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s }; drawSheet(g, img, M2, Math.min(7, fr), row, x, y, 1, hf); g.restore();
   if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, Math.min(7, fr), row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
   else if (gl && pmS) { const wt = gl('weapon') || 0, at = Math.max(0, ...EN_ARMOR.map(sl => gl(sl) || 0)), t = Math.max(wt, at); if (t) layerGlow(g, img, M2, Math.min(7, fr), row, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s), M2.s, t, 'poly:' + P.sheet + ':' + a, 1.35, true); }   /* v165: 변신 중에도 강화·등급 장비 빛 (평소보다 조금 진하게) */
-  if (Math.random() < (P.fx ? 0.1 : 0.18)) mxP(x + mxR(-14, 14), y - mxR(0, 50), { k: 'ember', c: P.fx || '255,110,50', s: 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
+  if ((EQFX || !P.set) && Math.random() < (P.fx ? 0.1 : 0.18)) mxP(x + mxR(-14, 14), y - mxR(0, 50), { k: 'ember', c: P.fx || '255,110,50', s: 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
   return true; }
 // 데스나이트 세트 효과 (네 부위 모두): AC -3 · 추가 피해 +2 · 불 저항 +20
 const DK_SET_BONUS = { ac: 3, xdmg: 2, fireRes: 20 };
@@ -6625,7 +6629,8 @@ window.LOOKPV = (() => { let row = 1, t0 = 0, raf = 0; const cvs = () => documen
     g.save(); g.translate(c.width / 2, c.height - 20); g.scale(1.8, 1.8); const fr = Math.floor((ts || 0) / 1000 * 6) % 8; drawHeroSprite(g, 'idle', fr, row, 0, 0); g.restore();
     raf = requestAnimationFrame(draw); }
   function kick() { if (!raf) raf = requestAnimationFrame(draw); }
-  document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'cw-look') { row = (row + 1) % 8; kick(); } });
+  document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'cw-look') { row = (row + 1) % 8; kick(); } else if (ev.target && ev.target.id === 'cw-fx') { setEqFx(!EQFX); say(`장비 이펙트 ${EQFX ? '켬 — 강화·등급 장비 빛이 보여요' : '끔 — 강화·등급 장비 빛을 그리지 않아요 (내 화면만)'}`, EQFX ? '#9fe0a0' : '#9c9682'); } });
+  eqFxBtn();
   return { kick };
 })();
 
