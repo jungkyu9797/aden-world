@@ -2744,7 +2744,7 @@ Object.assign(MOB, {
   fn_ashtazio:  { name: '아시타지오', lv: 57, hp: 3000, dmg: [90, 135], mac: 1, hit: 0.95, mr: 55, exp: 19500, coin: [4900, 8700], walk: 1.0, run: 2.6, cd: 2.0, range: 6, spell: 'fire', aggr: 7, el: 'fire', skills: true, resp: 240, art: 'ashtazio', sc: 0.9, hw: 30, hh: 90, atkTxt: '파이어볼' },
   fn_egg:       { name: '파이어에그', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
   fn_ifrit:     { name: '이프리트', lv: 58, hp: 18000, dmg: [89, 144], mac: 0, hit: 0.96, mr: 40, exp: 75000, coin: [17500, 29000], walk: 1.2, run: 3.2, cd: 1.4, aggr: 7, burn: true, el: 'fire', skills: true, midb: true, art: 'ifrit', sc: 0.92, hw: 32, hh: 110, atkTxt: '불꽃 주먹' },
-  phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
+  phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
 // 렌더링된 몬스터 스프라이트 (그래픽팀) — 있는 몬스터는 정식 그림, 없으면 임시 그림
 const MSHEET = {
@@ -3626,7 +3626,7 @@ const ISLAND = (() => {
          mobs: [['fn_warrior', 12], ['fn_archer', 9], ['fn_golem', 5], ['fn_bomb', 5]], groups: [['fn_fly', [['fn_fly', 2]], 3]] },   // 10/30: 40마리 (24 → 40 · 비율 그대로 · 드래곤 플라이 3마리×3무리)
     23: { name: '화룡의 둥지 2구역', tier: 2, seed: 2311, N: 66, gore: true, valley: true, fire: true, sites: 3, camps: 0, lava: 9, streams: 3, lavaDmg: [32, 44], bombDmg: [14, 21], bombGap: [11, 17],
          portals: [{ i: 60, j: 60, to: 22, label: '▼ 1구역으로' }], tone: 'rgba(130,26,6,.28)',
-         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 사라만다의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다! 피닉스의 가호조각을 모아 가호를 만들면 용암·화산탄 피해를 받지 않아요. 이곳에도 이따금 불의 정령 이프리트가 소리 없이 나타납니다.',
+         hello: '화룡이 잠든 둥지입니다. 피닉스를 빼면 이곳의 몬스터는 모두 먼저 덤빕니다! 사라만다의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다! 피닉스의 가호조각을 모아 가호를 만들면 용암·화산탄 피해를 받지 않아요. 이곳에도 이따금 불의 정령 이프리트가 소리 없이 나타납니다.',
          mobs: [['fn_salamander', 16], ['fn_hcerberus', 16], ['fn_ashtazio', 3], ['fn_egg', 5]], groups: [] },   // 10/30: 40마리 (25 → 40 · 드문 아시타지오는 2 → 3만)
     // 할로윈 이벤트 지역 (21번): 음침한 호박밭 — 귀신이 떠다니고 핏빛 살육터 소품 · 시야는 늘 낮처럼 · 마을 NPC 할로윈 허수아비 잭으로만 입장 · 나가려면 귀환 주문서
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
