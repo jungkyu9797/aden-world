@@ -2385,7 +2385,7 @@ const TELE = (() => { const N = () => (window.native && native.logAppend) ? nati
 // 전체 공지: 게임 화면 위쪽 가운데에 큰 글씨로 6초간 (보스 등장·토벌, 영웅 아이템 획득, 고강화 성공) — 채팅창에도 남김
 const PNAME = () => hero.pname || (() => { try { return localStorage.getItem('aden_pname'); } catch (e) { return null; } })() || '용사';
 function announce(t, c = '#ffd86a', kind = '') {
-  say('[공지] ' + t, c);
+  say('[공지] ' + t, c); try { GLOG.add(t, c); } catch (e) {}
   let box = document.getElementById('announce');
   if (!box) { box = document.createElement('div'); box.id = 'announce'; box.setAttribute('role', 'status'); box.setAttribute('aria-live', 'polite');
     Object.assign(box.style, { position: 'fixed', left: '50%', top: 'calc(64px + env(safe-area-inset-top,0px))', transform: 'translateX(-50%)', zIndex: 35, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', pointerEvents: 'none', width: 'min(760px,calc(100vw - 32px))' });
@@ -2399,6 +2399,21 @@ function announce(t, c = '#ffd86a', kind = '') {
   setTimeout(() => { el.style.opacity = 0; el.style.transform = 'translateY(-6px)'; setTimeout(() => el.remove(), 400); }, 6000);
   if (AC && SFX_ON) { const t0 = AC.currentTime; tone(t0, 'triangle', kind === 'boss' ? 330 : 660, kind === 'boss' ? 220 : 990, 0.35, 0.07); tone(t0 + 0.18, 'triangle', kind === 'boss' ? 247 : 880, kind === 'boss' ? 165 : 1320, 0.45, 0.06); }
 }
+// 게임 기록: 전체 공지(보스 등장·토벌 · 영웅·전설 획득 · 고강화 성공 · 운영자 공지 …)를 시각과 함께 최대 200줄 — 이 기기에 저장, 상단 [게임 기록]으로 언제든 열기 (접속 알림은 뺌)
+const GLOG = (() => { const KEY = 'aden_glog', MAX = 200; let L = null; const g = id => document.getElementById(id), f2 = n => String(n).padStart(2, '0');
+  const load = () => { if (L) return L; try { L = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { L = []; } if (!Array.isArray(L)) L = []; L = L.filter(x => x && x.t && x.at); return L; };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(L)); } catch (e) {} };
+  const isOpen = () => { const w = g('logwin'); return !!w && !w.hidden; };
+  function render() { const box = g('glog-list'); if (!box) return; load(); const fr = document.createDocumentFragment(), now = new Date(), today = now.toDateString(), yest = new Date(now.getTime() - 864e5).toDateString(); let day = '';
+    for (let i = L.length - 1; i >= 0; i--) { const x = L[i], d = new Date(x.at), ds = d.toDateString();
+      if (ds !== day) { day = ds; const h = document.createElement('div'); h.className = 'gl-day'; h.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일` + (ds === today ? ' · 오늘' : ds === yest ? ' · 어제' : ''); fr.appendChild(h); }
+      const r = document.createElement('div'); r.className = 'gl-row'; const tm = document.createElement('time'); tm.textContent = `${f2(d.getHours())}:${f2(d.getMinutes())}`; tm.dateTime = d.toISOString(); const sp = document.createElement('span'); sp.textContent = x.t; if (x.c) sp.style.color = x.c; r.append(tm, sp); fr.appendChild(r); }
+    box.textContent = ''; if (!L.length) { const p = document.createElement('p'); p.className = 'gl-empty'; p.textContent = '아직 기록이 없어요. 보스 등장·토벌, 영웅·전설 획득, 고강화 성공 같은 전체 공지가 여기에 시각과 함께 쌓여요.'; box.appendChild(p); } else box.appendChild(fr);
+    const n = g('glog-n'); if (n) n.textContent = `${L.length} / ${MAX}줄`; }
+  function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); L.push({ at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }); if (L.length > MAX) L.splice(0, L.length - MAX); save(); if (isOpen()) render(); }
+  function open(v) { const w = g('logwin'); if (!w) return; w.hidden = v === undefined ? !w.hidden : !v; if (!w.hidden) { render(); const b = g('glog-list'); if (b) b.scrollTop = 0; } }
+  { const b = g('btn-glog'); if (b) b.onclick = () => open(); }
+  return { add, open, render, list: () => load().slice() }; })();
 hero.lv = 1; hero.exp = 0; hero.baseHP = 16; hero.baseMP = 2; hero.hp = hero.max = 16; hero.mp = hero.maxmp = 2; hero.bonusPts = 0; let coins = 100, potions = 20, potCd = 0;
 // 단축키: 브라우저·윈도우 기본 기능(F5 새로고침 등)을 막고 게임 기능으로만 씀
 function usePotion(){ INV.usePotion(); }
@@ -7018,7 +7033,7 @@ const TOWN = (() => {
   function askTown() { if (SCENE === 'town') { closeAll(); return; } if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
   // ESC: 열린 창을 마지막에 연 것부터 하나씩 닫음 → 다 닫혀 있으면 게임 메뉴
-  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin'], popStack = [];
+  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'logwin'], popStack = [];
   POPS.forEach(id => { const el = $(id); if (!el) return; new MutationObserver(() => { const k = popStack.indexOf(id); if (k >= 0) popStack.splice(k, 1); if (!el.hidden) popStack.push(id); }).observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
   function closePop(id) { if (id === 'shop' || id === 'wmap') closeAll(); else if (id === 'itemwin') INV.hideDetail(); else if (id === 'bulkwin') INV.bulkClose(); else $(id).hidden = true; }
   // 다른 지역으로 가면(텔레포트·월드맵·귀환·수호탑 등) 마을 NPC 창(상점·판매·창고·제작·콜로세움)은 닫음
@@ -9902,7 +9917,7 @@ const MUI = (() => {
     const on = (id, f) => { const b = $m(id); if (b) b.addEventListener('click', ev => { ev.stopPropagation(); f(); }); };
     on('mob-chat-b', () => { menu(false); openChat(); }); on('mob-bag-b', () => { menu(false); INV.toggleWin('invwin'); }); on('mob-char-b', () => { menu(false); INV.toggleWin('charwin'); }); on('mob-map-b', () => { menu(false); $m('btn-map').click(); }); on('mob-menu-b', () => menu());
     const mm = (id, f, keep) => on(id, () => { f(); if (!keep) menu(false); else syncMenu(); });
-    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
+    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-glog', () => GLOG.open(true)); mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
     mm('mm-saver', () => $m('btn-saver').click()); mm('mm-bgm', () => { $m('btn-bgm').click(); try { SND.set({ bgmOn: $m('btn-bgm').getAttribute('aria-pressed') === 'true' }); } catch (e) {} }, true);
     mm('mm-zoom', () => { const i = ZS.indexOf(MOB_ZS); MOB_ZS = ZS[(i + 1) % ZS.length]; try { localStorage.setItem('aden_mz', String(MOB_ZS)); } catch (e) {} zoomT = zoom = mobZ(); pixel = Number.isInteger(zoomT); say(`화면 크기: ${ZL[MOB_ZS]}`, '#9c9682'); }, true);
     mm('mm-q', () => { MOB_LOWQ = !MOB_LOWQ; try { localStorage.setItem('aden_lowq', MOB_LOWQ ? '1' : '0'); } catch (e) {} resize(); say(`화질: ${MOB_LOWQ ? '절약 (배터리·발열 줄임)' : '선명'}`, '#9c9682'); }, true);
