@@ -2961,9 +2961,11 @@ const PCARD = [['goblin', '일반'], ['orc', '일반'], ['dwarf', '일반'], ['o
 const PM_RC = {
   sword: { nm: '소드', by: { knight: [0.04, 0.98, 1.35], wizard: [0.28, 1, 1.7], elf: [0.08, 1, 1.5] },   /* 차가운 푸른 강철 · 청록 망토 · 청록 빛 칼날 */
     metal: [[0, 6, 10, 21], [0.3, 22, 42, 78], [0.55, 50, 90, 145], [0.78, 108, 160, 210], [1, 212, 240, 255]], cloak: [[0, 2, 8, 14], [0.5, 8, 40, 62], [0.8, 16, 82, 110], [1, 48, 150, 178]],
+    robe: [[0, 3, 8, 22], [0.3, 14, 36, 92], [0.55, 30, 82, 160], [0.78, 92, 166, 226], [1, 206, 242, 255]],   /* 마법사 로브: 짙은 남색 → 얼음빛 (갑옷보다 천 느낌) */
     blade: [[0, 26, 128, 178], [0.5, 90, 230, 255], [1, 217, 255, 255]], halo: '60,215,255', ha: 0.85, em: '120,230,255', pr: 0.07 },
   arc: { nm: '아크', by: { knight: [0.04, 0.98, 1.2], wizard: [0.28, 1, 1.5], elf: [0.08, 1, 1.35] },   /* 백금·금빛 갑옷 · 보랏빛 망토 · 보랏빛 비전 무기 · 몸 둘레 금빛 불티 */
     metal: [[0, 16, 10, 3], [0.3, 92, 60, 18], [0.55, 178, 134, 52], [0.78, 236, 205, 122], [1, 255, 251, 228]], cloak: [[0, 8, 2, 18], [0.5, 50, 18, 100], [0.8, 84, 40, 152], [1, 136, 94, 214]],
+    robe: [[0, 12, 4, 26], [0.28, 70, 30, 104], [0.5, 162, 104, 92], [0.72, 228, 182, 100], [1, 255, 246, 214]],   /* 마법사 로브: 보랏빛 그림자 → 금빛 (금 조각상처럼 보이지 않게) */
     blade: [[0, 90, 40, 185], [0.5, 160, 112, 255], [1, 240, 232, 255]], halo: '145,85,255', ha: 1, em: '255,200,90', em2: '200,140,255', pr: 0.17 } };
 const PM_BASE = { knight: 'pm_sknight', wizard: 'pm_smage', elf: 'pm_sranger' }, PM_JOB = { knight: ['knight', '나이트'], wizard: ['mage', '메이지'], elf: ['ranger', '레인저'] }, PC_CLS_SPD = { 영웅: 10, 전설: 18 };
 [['sword', '영웅', 'knight', { xdmgM: 1 }], ['sword', '영웅', 'wizard', { sp: 1 }], ['sword', '영웅', 'elf', { xdmgR: 1 }],
@@ -3004,7 +3006,7 @@ const PMRC = new Map(), PMRC_LUT = {};
 function pmRcLut(rc, job) { const key = rc + ':' + job; if (PMRC_LUT[key]) return PMRC_LUT[key]; const S = PM_RC[rc], [l0, l1, gm] = S.by[job] || S.by.knight;
   const mk = (st, raw) => { const o = new Uint8ClampedArray(768); for (let L = 0; L < 256; L++) { let t = L / 255; if (!raw) t = Math.max(0, Math.min(1, (t - l0) / (l1 - l0))) ** gm; let j = 1; while (j < st.length - 1 && st[j][0] < t) j++;
     const A = st[j - 1], B = st[j], f = Math.max(0, Math.min(1, (t - A[0]) / ((B[0] - A[0]) || 1))); for (let c = 0; c < 3; c++) o[L * 3 + c] = A[c + 1] + (B[c + 1] - A[c + 1]) * f; } return o; };
-  return (PMRC_LUT[key] = { m: mk(S.metal), c: mk(S.cloak), b: mk(S.blade, true) }); }
+  return (PMRC_LUT[key] = { m: mk(job === 'wizard' && S.robe || S.metal), c: mk(S.cloak), b: mk(S.blade, true) }); }
 function pmRcFrame(pk, a, k, row) { const key = pk + '|' + a + '|' + k + '|' + row; let e = PMRC.get(key); if (e) { PMRC.delete(key); PMRC.set(key, e); return e; }
   const P = POLY[pk], M = PMSHEET[P.sheet], G = PMGLOW[P.sheet], S = PM_RC[P.rc], img = pmImg(P.sheet, a), gi = pmGlowImg(P.sheet), ai = G ? G.an.indexOf(a) : -1;
   if (!M || !S || !img || !img.complete || !img.naturalWidth || !gi || ai < 0) return null;
