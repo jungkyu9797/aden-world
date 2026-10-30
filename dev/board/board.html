@@ -274,7 +274,7 @@ function card(t, ask) {
     ${t.next ? `<div class="next"><b>${ask ? '내가 할 일' : '다음'}</b>${esc(t.next)}</div>` : ''}
     ${t.rework ? `<div class="note"><b>내 수정 요청:</b> ${esc(t.rework.text || '')}</div>` : ''}
     ${t.note ? `<div class="note">${esc(t.note)}</div>` : ''}
-    ${canWrite && (ask || t.pnote) ? `<label><span hidden>내 메모</span><textarea class="pnote" data-pn="${esc(t.id)}" placeholder="여기에 답을 적어 두면 메인방이 읽어요">${esc(t.pnote || '')}</textarea></label>` : ''}
+    ${canWrite && (ask || t.pnote) ? `<label><span hidden>내 메모</span><textarea class="pnote" data-pn="${esc(t.id)}" placeholder="여기에 답을 적어 두면 메인방이 읽어요">${esc(t.pnote || '')}</textarea></label><div class="acts"><button type="button" class="ghost" data-pnsend="${esc(t.id)}">메모 보내기</button><span class="hint">적으면 자동 저장돼요 · 메인방에 한마디 하면 바로 확인해요</span></div>` : ''}
     <div class="foot">${url && s !== 'doing' ? `<a href="${esc(url)}" target="_blank" rel="noopener">테스트</a>` : ''}<span>${esc(ago(t.updated))}</span></div>
   </article>`;
 }
@@ -302,6 +302,7 @@ function bind() {
   document.querySelectorAll('[data-rwsend]').forEach(b => b.onclick = () => { const id = b.dataset.rwsend, ta = document.querySelector(`textarea[data-rw="${CSS.escape(id)}"]`), text = (ta && ta.value || '').trim().slice(0, 2000); if (!text) { toast('고칠 내용을 적어 주세요'); return; }
     UI.rework = null; UI.open = null; if (ta) ta.blur(); upd(id, { status: 'doing', phase: '수정 요청 받음', rework: { text, at: nowIso() }, pnote: text, pnoteAt: nowIso() }, '수정 요청을 남겼어요 → 진행 중'); });
   document.querySelectorAll('textarea[data-pn]').forEach(t => { t.onchange = () => upd(t.dataset.pn, { pnote: t.value.slice(0, 2000), pnoteAt: nowIso() }, '메모를 남겼어요'); t.onblur = () => setTimeout(() => { if (pendR) render(); }, 50); });
+  document.querySelectorAll('[data-pnsend]').forEach(b => b.onclick = () => { const id = b.dataset.pnsend, ta = document.querySelector(`textarea[data-pn="${CSS.escape(id)}"]`); if (!ta) return; ta.onchange = null; ta.blur(); upd(id, { pnote: ta.value.slice(0, 2000), pnoteAt: nowIso() }, '메모를 보냈어요 · 메인방에 말을 걸면 바로 확인해요'); });
   document.querySelectorAll('textarea[data-rw]').forEach(t => { t.onblur = () => setTimeout(() => { if (pendR && document.activeElement !== t) render(); }, 200); });
 }
 async function start() {
