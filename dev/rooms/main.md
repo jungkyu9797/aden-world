@@ -21,14 +21,13 @@
   - 소리: `dev/sfx/fn_sfx.py`처럼 numpy로 합성 → `assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3` → `MSFX`의 `has` 목록에 몹 이름 추가(보스 스킬음이 있으면 `K2`에도).
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
-## 지금 상태 (10/30 18:40 KST)
-- 마지막 배포 **v193** (화룡의 둥지 · 화룡 갑옷 3종 · 강화 BGM OFF). v191·v192·v193 모두 원래 컴퓨터 폴더에는 못 넣음(클라우드 방 · 컴퓨터 연결 없음).
-- **승인 대기 6개** (테스트 판 = 다 합친 `work/stage-all`): polymon(`work/polygacha` 변신 카드 + 소드·아크) · aibot(혈맹·필드 봇) · tgtline(고른 대상 빨간 테두리 4px) · phxresp(피닉스 5~6시간) · aggro1(선공 +1칸) · fnminhit(몹 공격 회피 구간 — 사냥터별 기준 구간 20%, AC 10방마다 5%, 캐릭터 창 [몹 공격 회피]).
-  - 배포 때 겹치는 곳(rerere에 기록됨): tgtline↔aibot(drawMobBody 첫 줄 — 테두리 분기 + `fb_` 조건 유지) · aggro1↔fnminhit(파일 끝 블록 — 지금 fnminhit은 끝 블록 없음) · polygacha↔main(이미 해결).
-- 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT` (예약 작업으로 방 열기는 자동 권한 검사에서 막힘). 큰 일은 20~30분 조각으로. 끝나면 `git worktree remove --force`.
-- 메모리 부족: 테스트를 3개 이상 동시에 돌리면 OOM으로 브라우저가 죽을 수 있음(dmesg). 2개까지만.
-- 보류: 아시타지오·이프리트 공격 때 끊김(프로듀서: 더 확인되면 알려 줌 — 테스트 기기에선 재현 안 됨, 측정 스크립트는 지움).
-- 다음 후보: 변신 카드 2단계(합성·도감 보너스) · 필드 봇 2단계 · 대인전 대상 빨간 테두리 · 용계 등 다른 사냥터 몹 마법 명중.
+## 지금 상태 (10/30 23:50 KST)
+- 마지막 배포 **v196** (게임 기록 · 인벤 [마법인형] 칸 · 턴 언데드 3초). v194 회피 구간(AC 1방 단위) → 기준 캐릭터가 용계·화둥에서 죽어 v195에서 급히 v193 방식으로 되돌림. v191~v196 모두 원래 컴퓨터 폴더에는 못 넣음(클라우드 방 · 컴퓨터 연결 없음).
+- **승인 대기 3개** (테스트 판 = 다 합친 `work/stage-all`): polymon(`work/polygacha` 변신 카드 + 소드·아크) · aibot(혈맹·필드 봇) · evadetune(`work/defbal` 방어 v2).
+  - 방어 v2(프로듀서 설계): 사냥터 물리 명중 95%−AC×0.15% · 물리 감소 AC÷(AC+60) · 몹 물리·마법 강타 20%×1.4(AC·MR 1당 0.3% 덜) · 마법 0.7~1.3배 ×100÷(100+MR) · 같은 속성 몹 ×100÷(100+저항) · MR·저항 200까지 · 요정 민첩4=AC1·MR+10·저항+10, 법사 MR+10 · 사냥터별 배율(`v2P`/`v2M`/`coinX`). 시뮬은 `dev/sim/fn_sim.js` + `dev/sim/v2sum.py`, 테스트 `dev/tests/defv2.js`.
+  - 겹치는 곳(rerere): polygacha↔defbal(`polyBonus` + `DEFMODE.spdAdd`) · aibot↔defbal(killCheck FBOT 줄 + `coinX()`) · polygacha↔defbal(index 캐릭터 창: defbal 줄 + polygacha [변신 카드] 버튼) · polygacha↔gamelog(POPS·모바일 메뉴·상단 버튼 둘 다).
+- 기다림: nextzone(다음 사냥터 컨셉 — 프로듀서 답 필요). 보류: 캐릭터 바꾸기 아이디어 · 아시타지오·이프리트 공격 때 끊김(프로듀서: 더 확인되면 알려 줌).
+- 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT` (예약 작업으로 방 열기는 자동 권한 검사에서 막힘). 끝나면 `git worktree remove --force`. 테스트는 동시에 2개까지(OOM). `pgrep -f`에 포트 번호를 넣으면 자기 셸이 걸려서 끝없이 기다림 — 끝 표시 파일로 기다린다.
 
 ## 메인방 도구·요령
 - 묶음 테스트 판: 작업판에서 ready·test·queued 카드의 branch → `python3 dev/stage_test.py <갈래들>` → 테스트 아티팩트(https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6) publish `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` → 테스트 db `tbuild/cur` = build.json의 {id, at, n} → 작업판 db `meta/test` = 같은 값 + branches. (다른 대화에서 처음 올릴 때는 먼저 Artifact read 한 번 — 페이지가 4.5MB라 읽기가 막히면 publish를 바로 해 보고, 거절되면 돌려준 판 위에 다시 올린다.)
