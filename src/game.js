@@ -44,22 +44,24 @@ let SCENE='field', ZONE='새벽 들판', PROPS=META.props, ISLE=null;
 const propAt = new Map(); META.props.forEach(p=>propAt.set(p.j*MAP+p.i,p));
 // ============================================================ 낮과 밤 (24분 주기: 낮 16분 · 밤 8분, 전환 1분)
 const DN = (() => {
-  const DAY = 16*60, NIGHT = 8*60, CYC = DAY + NIGHT, FADE = 60;
+  const DAY = 30*60, NIGHT = 30*60, CYC = DAY + NIGHT, FADE = 60;   // v197: 현실 시각 30분 낮 · 30분 밤 (매시 정각~30분 낮 · 30분~정각 밤 — 모든 사람이 같은 시각)
   let t = 3*60, was = null, dark = 0, force = null;
+  const clk = () => (Date.now() / 1000) % CYC, phaseN = () => force != null ? force === 1 : clk() >= DAY;
   const BLOCK = new Set(['tree','rock','house','wall','dwall']);
   let bset = null, bsrc = null, vis = new Map(), vkey = '';
-  function target(){ if (ISLE && ISLE.def && ISLE.def.dark) return 1; if (ISLE && ISLE.def && (ISLE.def.arena || ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) return 0; if (force!=null) return force; const u = t % CYC;
-    if (u < DAY - FADE) return 0; if (u < DAY) return (u-(DAY-FADE))/FADE; if (u < CYC - FADE) return 1; return 1-(u-(CYC-FADE))/FADE; }
-  const isNight = () => dark > 0.5;
+  function target(){ if (ISLE && ISLE.def && ISLE.def.dark) return 1; if (ISLE && ISLE.def && (ISLE.def.arena || ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) return 0; if (force!=null) return force; const u = clk();
+    if (u < FADE) return 1-u/FADE; if (u < DAY) return 0; if (u < DAY + FADE) return (u-DAY)/FADE; return 1; }   // 바뀐 뒤 1분 동안 서서히 어두워짐·밝아짐
+  const isNight = () => phaseN();   // v197: 화면 어둡기와 상관없이 현실 시각 기준 (던전 안에서도 바깥이 밤이면 밤)
   function blockers(){ if (bsrc!==PROPS){ bsrc=PROPS; bset=new Set(); for (const p of PROPS) if (BLOCK.has(p.type)) bset.add(p.j*MAP+p.i); } return bset; }
   const vd = () => (BUFF.esight > 0 || window.DEMO_MODE) && !(ISLE && ISLE.def && ISLE.def.dark) ? 0 : dark;   /* v159: 테스트(데모) 페이지는 밤에도 어둡지 않음 (던전은 그대로) */   /* v124: 요정의 시야 — 필드·마을의 밤을 낮처럼 (던전은 그대로) */
   const R = () => ISLE && ISLE.def && ISLE.def.dark ? 7.5 + (BUFF.light > 0 ? 3 : 0) : 13 - 7*vd() + (BUFF.light > 0 ? 3*vd() : 0);   // 던전: 6.5칸 (양초 +3)   // 시야 반경(칸): 낮 13 → 밤 6
   function los(i0,j0,i1,j1,B){ const x0=i0+.5, y0=j0+.5, x1=i1+.5, y1=j1+.5, n=Math.ceil(Math.hypot(x1-x0,y1-y0)*3);
     for (let k=1;k<n;k++){ const x=Math.floor(x0+(x1-x0)*k/n), y=Math.floor(y0+(y1-y0)*k/n); if ((x!==i0||y!==j0)&&(x!==i1||y!==j1)&&B.has(y*MAP+x)) return false; } return true; }
   let quietT = 0;
-  function update(dt){ t += dt; dark += (target()-dark)*Math.min(1,dt*1.5);
-    if (ISLE && ISLE.def && ISLE.def.dark) quietT = 5; else quietT = Math.max(0, quietT - dt);
-    const n = isNight(); if (quietT > 0) { was = n; return; } if (was!==null && n!==was) say(n ? '밤이 되었습니다. 시야가 좁아지고 언데드 몬스터가 강해집니다.' : '날이 밝았습니다.', n ? '#a8b8f0' : '#f2e6a8'); was = n; }
+  let nsT = 0; function nightSync(dt){ if ((nsT -= dt) > 0) return; nsT = 0.25; const k = nightK();   // 밤: 모든 몬스터(보스 포함) 체력 +20% — 남은 체력 비율은 그대로
+    for (const f of foxes) { if (f.bot || f.twr || f.fb || f.isPet || f.sum) continue; const S = MOB[f.kind]; if (!S || S.dummy) continue; const k0 = f.nk || 1; if (k0 === k) continue; const r = k / k0; f.max = Math.max(1, Math.round(f.max * r)); if (!f.dead) f.hp = Math.min(f.max, Math.max(1, f.hp * r)); f.nk = k; } }
+  function update(dt){ t += dt; dark += (target()-dark)*Math.min(1,dt*1.5); nightSync(dt);
+    const n = isNight(); if (was!==null && n!==was) say(n ? '밤이 되었습니다. 시야가 좁아지고 모든 몬스터가 강해집니다. (보스 포함 · 체력·공격력 +20%)' : '날이 밝았습니다. 몬스터가 원래 힘으로 돌아왔어요.', n ? '#a8b8f0' : '#f2e6a8'); was = n; }
   const limited = () => SCENE==='field' && vd() > 0.05;
   function visMap(){ const key=hero.i+','+hero.j+','+Math.round(R()*4)+','+(PROPS.length)+SCENE; if (key===vkey) return vis; vkey=key; vis=new Map();
     const r=R(), B=blockers(), rr=Math.ceil(r)+2;
@@ -91,11 +93,12 @@ const DN = (() => {
     const lit=(wx,wz,hh,hw,a)=>{ const [px,py]=W2P(wx,wz), X0=px+ox, Y0=py+oy-hh*0.48, rx=hw+16, ry=hh*0.62+14; c.save(); c.translate(X0,Y0); c.scale(1,ry/rx); const lg=c.createRadialGradient(0,0,rx*0.15,0,0,rx); lg.addColorStop(0,`rgba(0,0,0,${a})`); lg.addColorStop(0.65,`rgba(0,0,0,${a*0.75})`); lg.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=lg; c.beginPath(); c.arc(0,0,rx,0,7); c.fill(); c.restore(); };
     for (const f of foxes){ if (f.dead||f.gone||!seen(f.i,f.j)) continue; const S=MOB[f.kind]; lit(f.x,f.z,S.hh||Math.round(62*S.sc),S.hw||Math.round(14*S.sc+6),0.9); }
     lit(hero.x,hero.z,74,24,0.85); c.restore(); }
-  function label(){ if (ISLE && ISLE.def && ISLE.def.dark) return '☾ 던전 · 항상 어두움'; const u=t%CYC, n=isNight(), left=n ? (u<DAY?CYC:CYC)-u : DAY-u; const m=Math.max(0,Math.ceil((n?(CYC-u):(DAY-u))/60)); return (n?'☾ 밤':'☀ 낮')+(force!=null?' (고정)':` · ${m}분 뒤 ${n?'낮':'밤'}`); }
-  return { update, draw, seen, isNight, dark: () => dark, label, toggle(){ force = force==null ? (isNight()?0:1) : (force===1?0:1); } };
+  function label(){ const u=clk(), n=isNight(), m=Math.max(0,Math.ceil((n?(CYC-u):(DAY-u))/60)), tl=force!=null?' (고정)':` · ${m}분 뒤 ${n?'낮':'밤'}`; if (ISLE && ISLE.def && ISLE.def.dark) return `☾ 던전 · 바깥은 ${n?'밤':'낮'}`+tl; return (n?'☾ 밤':'☀ 낮')+tl; }
+  return { update, draw, seen, isNight, dark: () => dark, label, toggle(){ force = force==null ? (isNight()?0:1) : (force===1?0:1); }, set(v){ force = v == null ? null : v ? 1 : 0; } };
 })();
-const nightUp = S => S.undead && DN.isNight() && !MAZE();   // 던전은 늘 어두워서 밤 보너스 없음 (수치에 이미 반영)
-const ENR_SPD = 1.5, ENR_DMG = 1.2, enrMul = f => f && f.enraged ? ENR_DMG : 1;   /* v126: 보스 광폭화 */
+const nightUp = S => false;   // v197: 언데드만 밤에 공격 1.5배·명중 +10% → 모든 몬스터가 밤에 체력·공격력 +20% (nightK)로 통일
+const NIGHT_K = 1.2, nightK = () => DN.isNight() && SCENE !== 'town' && !(ISLE && ISLE.def && (ISLE.def.arena || ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) ? NIGHT_K : 1;   // 밤: 보스 포함 모든 몬스터 (던전도 바깥 시각을 따름 · 결투장·콜로세움·수호탑·이벤트 지역은 없음)
+const ENR_SPD = 1.5, ENR_DMG = 1.2, enrMul = f => (f && f.enraged ? ENR_DMG : 1) * (f && !f.bot && !f.twr && !f.fb ? nightK() : 1);   /* v197: 밤 공격력 +20% (몬스터의 근접·화살·마법·범위 공격 모두 여기를 거침) */   /* v126: 보스 광폭화 */
 const mobDmg = (S, f) => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1) * (S.boss ? 1.5 : 1) * (S.solo ? SOLO_MUL : 1) * (S.atkMul || 1) * enrMul(f));   // v109: 보스 기본 공격 ×1.5 · v112: 단일 보스 ×1.4 더
 const lowLvMul = S => { const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };   // v111: 내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치 −5% (최대 −50%)
 const gahoExp = n => { const g = n > 0 ? INV.gaho('exp') : 0, r = g ? Math.round(n * (1 + g / 100)) : n; return n > 0 && BUFF.hwexp > 0 ? Math.round(r * (1 + HWC.CANDY_EXP / 100)) : r; };   // 할로윈 호박 사탕: 경험치 +%   // v153: 드레이크 킹의 가호 — 몬스터 처치 경험치 +%
@@ -257,7 +260,7 @@ let hotDrag=null;
 // 몬스터 상태 아이콘 (선택하거나 마우스를 올린 몬스터 이름 위): 디버프 = 붉은 테 · 버프 = 초록 테 · 정보(속성·언데드) = 금색 테 · 아래 숫자 = 남은 초 · 아이콘에 마우스를 올리면 이름
 function mobStatus(f){ const S=MOB[f.kind], L=[];
   if (S.el) L.push({ k:'el', n:`${ATTR_N[S.el]} 속성 (약점: ${ATTR_N[ATTR_OPP[S.el]]} 속성)`, ty:'info', el:S.el });
-  if (S.undead) L.push({ k:'undead', n:'언데드 — 턴 언데드 가능 · 밤에 강해짐', ty:'info' });
+  if (S.undead) L.push({ k:'undead', n:'언데드 — 턴 언데드 가능', ty:'info' });
   if (f.stunT>0) L.push(f.bindUntil>time ? { k:'bind', n:'어스 바인드 — 바위에 묶여 움직이지도 공격하지도 못함', t:f.stunT, ty:'de', ic:'sk_earth_bind' } : { k:'stun', n:'스턴 — 움직이지도 공격하지도 못함', t:f.stunT, ty:'de', ic:'sk_stun' });
   if (f.slowT>0) L.push({ k:'slow', n:'슬로우 — 이동·공격 1.3배 느림', t:f.slowT, ty:'de', ic:'sk_slow' });
   if (f.galeUntil>time) L.push({ k:'gale', n:'스트라이커 게일 — 이 대상에게 쏘는 활 명중 +50%', t:f.galeUntil-time, ty:'de', ic:'sk_striker_gale' });
@@ -265,7 +268,7 @@ function mobStatus(f){ const S=MOB[f.kind], L=[];
   if (f.bleed) L.push({ k:'bleed', n:`출혈 — 초당 ${f.bleed.dps} 피해`, t:f.bleed.t, ty:'de' });
   if (f.hitDn>0) L.push({ k:'hitdn', n:`명중 저하 −${f.hitDnV||0}`, t:f.hitDn, ty:'de' });
   if (f.regenOn) L.push({ k:'regen', n:'체력 회복 중 — 2분 동안 아무도 때리지 않음', ty:'buf' });
-  if (nightUp(S)) L.push({ k:'night', n:'밤의 힘 — 공격력 1.5배 · 명중 +10%', ty:'buf' });
+  if (nightK() > 1 && !S.dummy) L.push({ k:'night', n:'밤의 힘 — 체력·공격력 +20%', ty:'buf' });
   return L; }
 function stGlyph(g, q, x, y){ g.save(); g.translate(x,y); g.textAlign='center'; g.textBaseline='middle';
   if (q.k==='el'){ g.fillStyle=ATTR_C[q.el]; g.beginPath(); g.moveTo(0,-4.6); g.lineTo(4.6,0); g.lineTo(0,4.6); g.lineTo(-4.6,0); g.closePath(); g.fill(); g.fillStyle='#120e08'; g.font='900 5.5px "Noto Sans KR",sans-serif'; g.fillText(ATTR_N[q.el][0],0,0.4); }
@@ -2706,7 +2709,7 @@ const MOB = {
   atuba_orc:    { name: '아투바 오크', lv: 22, hp: 200, dmg: [8, 17], mac: 2, hit: 0.82, exp: 120, coin: [60, 120], walk: 1.2, run: 3.0, cd: 1.4, art: 'vil', tint: 'hue-rotate(20deg) saturate(1.3) brightness(.6) contrast(1.2)', sc: 1.2, atkTxt: '검' },
   gast:         { name: '가스트', lv: 23, hp: 235, dmg: [9, 19], mac: 2, hit: 0.84, exp: 140, coin: [70, 130], walk: 1.0, run: 3.2, cd: 1.5, aggr: 5, art: 'vil', tint: 'sepia(.6) hue-rotate(50deg) saturate(1.2) brightness(.6)', sc: 1.15, atkTxt: '몽둥이' },
   ogre:         { name: '오우거', lv: 28, hp: 3600, dmg: [14, 30], mac: 0, hit: 0.88, exp: 4000, coin: [7000, 12000], walk: 0.9, run: 2.4, cd: 1.9, art: 'vil', tint: 'sepia(.5) saturate(1.3) hue-rotate(-20deg) brightness(.8)', sc: 2.4, boss: true, aggr: 6, hw: 70, hh: 150 },
-  // ----- 버그베어밭 (Lv20~30) — 살육의 땅. 1구간: 해골 궁수(활, 선공)·좀비(느리고 질김)·버그베어 / 2구간: 버그베어·켈베로스(불 물기)·킹 버그베어(선공) + 보스 바포메트. 해골·좀비는 언데드(밤에 강해짐)
+  // ----- 버그베어밭 (Lv20~30) — 살육의 땅. 1구간: 해골 궁수(활, 선공)·좀비(느리고 질김)·버그베어 / 2구간: 버그베어·켈베로스(불 물기)·킹 버그베어(선공) + 보스 바포메트. 해골·좀비는 언데드
   skeleton_archer: { name: '해골 궁수', lv: 21, hp: 140, dmg: [7, 15], mac: 4, hit: 0.84, exp: 115, coin: [55, 110], walk: 1.1, run: 3.0, cd: 1.7, range: 6, aggr: 6, undead: true, art: 'vil', tint: 'grayscale(1) brightness(1.5) contrast(1.2)', sc: 1.0, atkTxt: '활' },
   zombie:       { name: '좀비', lv: 22, hp: 240, dmg: [8, 16], mac: 5, hit: 0.78, exp: 140, coin: [50, 100], walk: 0.6, run: 1.8, cd: 1.8, undead: true, art: 'vil', tint: 'grayscale(.7) sepia(.5) hue-rotate(35deg) brightness(.6)', sc: 1.05, atkTxt: '할퀴기' },
   bugbear:      { name: '버그베어', lv: 24, hp: 270, dmg: [9, 19], mac: 3, hit: 0.84, exp: 145, coin: [70, 135], walk: 1.2, run: 3.1, cd: 1.5, art: 'vil', tint: 'sepia(.9) saturate(1.4) hue-rotate(-12deg) brightness(.7)', sc: 1.25, atkTxt: '몽둥이' },
@@ -6955,7 +6958,7 @@ const TOWN = (() => {
     ['talking_island', '이야기섬', '초보', '1~10', 205, 560, '1구간(Lv 1~5): 고블린·오크·오크 궁수·난쟁이, 먼저 덤비지 않음. 2구간(Lv 5~10): 오크 전사·홉고블린 무리와 늑대인간, 그리고 수시로 나타나는 대왕거미 셸로브.'],
     ['knight_village', '사막필드', '중급', '10~20', 420, 470, '기사마을 남쪽의 뜨거운 사막. 1구간(Lv 10~15): 리자드맨·거대개미, 드물게 먼저 덤비는 스콜피온. 2구간(Lv 15~20): 스콜피온·바실리스크·거대불개미, 그리고 보스 거대 여왕개미(잡으면 3시간~3시간 30분 뒤 다시 등장).'],
     ['orc_forest', '오크숲', '중급', '15~25', 560, 395, '오크 부족이 터를 잡은 울창한 숲. 1구간(Lv 15~20): 로바 오크(주먹)·두다마라 오크(창)·오크 마법사(파이어볼), 드물게 먼저 덤비는 다크엘프(활). 2구간(Lv 20~25): 다크엘프·아투바 오크(검)·먼저 덤비는 꼽추 오크 가스트, 그리고 보스 오우거(잡으면 3시간~3시간 30분 뒤 다시 등장).'],
-    ['bugbear_field', '버그베어밭', '중급', '20~30', 470, 300, '시체와 핏자국이 널린 어둡고 끔찍한 살육의 땅. 1구간(Lv 20~25): 먼저 활을 쏘는 해골 궁수·좀비(해골·좀비는 밤에 강해짐)·버그베어. 2구간(Lv 25~30): 버그베어·불을 무는 켈베로스·먼저 덤비는 킹 버그베어, 그리고 보스 바포메트(잡으면 3시간~3시간 30분 뒤 다시 등장). 버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 잘 떨어뜨린다.'],
+    ['bugbear_field', '버그베어밭', '중급', '20~30', 470, 300, '시체와 핏자국이 널린 어둡고 끔찍한 살육의 땅. 1구간(Lv 20~25): 먼저 활을 쏘는 해골 궁수·좀비·버그베어. 2구간(Lv 25~30): 버그베어·불을 무는 켈베로스·먼저 덤비는 킹 버그베어, 그리고 보스 바포메트(잡으면 3시간~3시간 30분 뒤 다시 등장). 버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 잘 떨어뜨린다.'],
     ['dark_knight_field', '본토던전', '상급', '30~40', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 30~35): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 35~40): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
     ['dragon_valley', '용의 계곡', '상급', '47~54', 900, 300, '용족이 지배하는 검붉은 협곡 (불 속성 — 물 속성 무기·마법이 잘 듭니다). 1구역(Lv 47~50): 먼저 덤비는 빠른 해골 돌격병·해골 궁수, 3마리씩 무리 지은 트롤. 2구역(Lv 50~54, 모두 선공): 와이번(독)·불 숨결을 뿜는 드레이크·드물게 번개와 토네이도를 쓰는 흑장로, 그리고 보스 드레이크 킹(약 3시간마다, 2인 이상). 용의 비늘·드레이크의 발톱·용의 심장으로 제작 장인 브론에게서 직업 무기(드래곤 슬레이어·용의 지팡이·용의 활)를 만들 수 있어요.'],
     ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(잡힌 뒤 5~6시간마다, 3~4명 · 한 번 되살아남). 1·2구역 어딘가에는 이따금 불의 정령 이프리트(중간 보스)가 알림 없이 나타나요 — 쓰러뜨리면 화룡 갑옷의 핵심 재료인 이프리트의 심장을 얻을 수 있어요. 화룡의 비늘·아시타지오의 재·피닉스의 깃털·이프리트의 심장으로 제작 장인 브론에게서 화룡 갑옷 3종(화룡의 갑옷·화룡의 로브·화룡의 가죽갑옷 · 영웅 · 직업 전용 · 화염 저항 +50)을 만들 수 있어요.'],
