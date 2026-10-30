@@ -121,7 +121,7 @@ const sfx = { swing(){ if(AC) nz(AC.currentTime,0.16,500,2200,0.2); },
 // 몬스터 효과음 (사운드팀 합성: 공격·피격·죽음) — assets/sound/sfx/<몬스터>_<종류>.mp3
 let SFX_ON = true;   // ESC 메뉴: 효과음 켜기/끄기
 // 소리 설정 (배경음·효과음 켜기/끄기 + 볼륨 0~100%) — 이 기기에 저장되고, 캐릭터 저장에도 함께 들어가 다른 PC에서도 그대로
-const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, enhOn: false };   /* v187: enhOn = 강화 배경음 (효과음 켜기/끄기와 별개) · v188: 처음엔 꺼짐 */ try { Object.assign(s, JSON.parse(localStorage.getItem('aden_snd') || '{}')); } catch (e) {}
+const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, enhOn: false };   /* v187: enhOn = 강화 배경음 (효과음 켜기/끄기와 별개) · v188: 처음엔 꺼짐 */ try { Object.assign(s, JSON.parse(localStorage.getItem('aden_snd') || '{}')); } catch (e) {} s.enhOn = false;   /* 10/30 프로듀서: 강화 BGM은 게임을 켤 때마다 꺼진 채로 시작 (켜면 그 접속 동안만 켜짐 · 예전 저장값 ON 무시) */
   const keep = () => { try { localStorage.setItem('aden_snd', JSON.stringify(s)); } catch (e) {} };
   const set = o => { for (const k in o || {}) if (k in s) s[k] = typeof s[k] === 'boolean' ? !!o[k] : Math.max(0, Math.min(100, Math.round(+o[k] || 0))); keep(); };
   return { get: () => Object.assign({}, s), set, bgmK: () => s.bgm / 100, sfxK: () => s.sfx / 100,
