@@ -21,13 +21,13 @@
   - 소리: `dev/sfx/fn_sfx.py`처럼 numpy로 합성 → `assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3` → `MSFX`의 `has` 목록에 몹 이름 추가(보스 스킬음이 있으면 `K2`에도).
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
-## 지금 상태 (10/30 23:50 KST)
-- 마지막 배포 **v196** (게임 기록 · 인벤 [마법인형] 칸 · 턴 언데드 3초). v194 회피 구간(AC 1방 단위) → 기준 캐릭터가 용계·화둥에서 죽어 v195에서 급히 v193 방식으로 되돌림. v191~v196 모두 원래 컴퓨터 폴더에는 못 넣음(클라우드 방 · 컴퓨터 연결 없음).
-- **승인 대기 3개** (테스트 판 = 다 합친 `work/stage-all`): polymon(`work/polygacha` 변신 카드 + 소드·아크) · aibot(혈맹·필드 봇) · evadetune(`work/defbal` 방어 v2).
-  - 방어 v2(프로듀서 설계): 사냥터 물리 명중 95%−AC×0.15% · 물리 감소 AC÷(AC+60) · 몹 물리·마법 강타 20%×1.4(AC·MR 1당 0.3% 덜) · 마법 0.7~1.3배 ×100÷(100+MR) · 같은 속성 몹 ×100÷(100+저항) · MR·저항 200까지 · 요정 민첩4=AC1·MR+10·저항+10, 법사 MR+10 · 사냥터별 배율(`v2P`/`v2M`/`coinX`). 시뮬은 `dev/sim/fn_sim.js` + `dev/sim/v2sum.py`, 테스트 `dev/tests/defv2.js`.
-  - 겹치는 곳(rerere): polygacha↔defbal(`polyBonus` + `DEFMODE.spdAdd`) · aibot↔defbal(killCheck FBOT 줄 + `coinX()`) · polygacha↔defbal(index 캐릭터 창: defbal 줄 + polygacha [변신 카드] 버튼) · polygacha↔gamelog(POPS·모바일 메뉴·상단 버튼 둘 다).
-- 기다림: nextzone(다음 사냥터 컨셉 — 프로듀서 답 필요). 보류: 캐릭터 바꾸기 아이디어 · 아시타지오·이프리트 공격 때 끊김(프로듀서: 더 확인되면 알려 줌).
-- 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT` (예약 작업으로 방 열기는 자동 권한 검사에서 막힘). 끝나면 `git worktree remove --force`. 테스트는 동시에 2개까지(OOM). `pgrep -f`에 포트 번호를 넣으면 자기 셸이 걸려서 끝없이 기다림 — 끝 표시 파일로 기다린다.
+## 지금 상태 (10/31 06:20 KST)
+- 마지막 배포 **v199** (직업 밸런스: 마법 (지능+SP−12) 40 넘는 부분 절반 · 서먼 공격 ×0.75 · 기사 몬스터 피해 ×1.25 · 밤 어둠 안전장치 잠수). v196~v199: 게임 기록 · 인벤 마법인형 칸 · 방어 v2 · 화룡 갑옷 강화 불저항 · 어디서나 교환 · 마법사 재사용 +1초 · 서먼 와이번 · 낮/밤 1시간(한국 시각 짝수 시 낮) + 밤 몹 +20%·보상 +20% + 밤 아이콘 · 턴 언데드 보스 제외. 원래 컴퓨터 폴더에는 계속 못 넣음(클라우드 방).
+- **승인 대기 2개** (테스트 판 = `work/stage-all` = main + polygacha + aibot): polymon(`work/polygacha` — 10/31 프로듀서 기획안 반영 2차: 상단 [변신] 창 · 1회 39,900/11회 399,000 · 확정 칸 없음 · 마일리지 1000 · 합성 30/30/10/10 · 천장 7/10 · 변신 칸 · 뒤집기 연출, 인수인계 `dev/rooms/polymon.md`) · aibot(혈맹·필드 봇).
+  - 합칠 때 겹치는 곳(rerere 기록됨): polygacha↔main(polyBonus+DEFMODE.spdAdd · INV sum fireEnOf+pcStat · 가방 ondrop · POPS/모바일 메뉴/상단 버튼 둘 다 · 캐릭터 창 dl) · aibot↔main(killCheck FBOT 줄 + coinX · onDmg FBOT 줄 + shareExp nightR).
+- 결정 대기: 기사 리덕션 아머 레벨 비례(추천 20%+51렙부터 1%, 최대 35%) · 다음 사냥터 컨셉(nextzone) · 밤 전용 재료(달빛 조각 등) 아이디어.
+- 시뮬: `dev/sim/fn_sim.js` (NIGHT=1 밤 고정 · NOMANA=1 마나 물약 없이 · DEF='{"spSoft":40}' · SUMB='{"dmg":0.75}') · 빌드 `dev/sim/builds/ref_wizard57.json`·`ref_knight57.json`(10/31 실제 두 캐릭터). 법사 시뮬은 판마다 편차가 커서 5번 이상 평균.
+- 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT`. 테스트 동시 2개까지(OOM). `pgrep -f`에 포트를 넣지 말 것(자기 셸이 걸림) — 끝 표시 파일로 기다림.
 
 ## 메인방 도구·요령
 - 묶음 테스트 판: 작업판에서 ready·test·queued 카드의 branch → `python3 dev/stage_test.py <갈래들>` → 테스트 아티팩트(https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6) publish `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` → 테스트 db `tbuild/cur` = build.json의 {id, at, n} → 작업판 db `meta/test` = 같은 값 + branches. (다른 대화에서 처음 올릴 때는 먼저 Artifact read 한 번 — 페이지가 4.5MB라 읽기가 막히면 publish를 바로 해 보고, 거절되면 돌려준 판 위에 다시 올린다.)
