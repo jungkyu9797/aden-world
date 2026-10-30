@@ -808,24 +808,15 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 .iw-mh{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px} .iw-mh span{font:700 11px "Noto Sans KR",sans-serif;color:#cfc6ae;margin-right:2px}
 .iw-mh button{width:30px;height:30px;padding:0!important;font:800 12px "Noto Sans KR",sans-serif!important;background:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;border-radius:4px;color:#f0e2bc}
 .iw-mh button.on{border-color:#ffd040;color:#ffe08a;box-shadow:0 0 6px rgba(255,208,64,.55);background:linear-gradient(#5a4418,#2a1c06)}
-/* 변신 카드 (변신 뽑기 1단계 · PCG): 특별상점 탭 · 결과 연출 · [변신] 창 · 도감 */
+/* 변신 카드 (PCG): 뽑기 결과 연출 · [변신] 창(보유중·합성·변신 칸·뽑기) · 도감 · 특별상점 안내 */
 .pcg-art{display:grid;place-items:end center;overflow:hidden} .pcg-art img{width:100%;height:100%;object-fit:contain;display:block}
 .pcg-shop{display:flex;flex-direction:column;gap:9px;padding:2px 0 6px}
 .pcg-lead{margin:0;font-size:12.5px;line-height:1.55;color:#d8cfb6} .pcg-lead b{color:#f2d98a}
-.pcg-bts{display:grid;grid-template-columns:1fr 1fr 1.45fr;gap:6px}
-.pcg-b{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:9px 6px;background:linear-gradient(#3a2a4a,#1e1428);border:1px solid #8a6aa8;border-radius:4px;color:#f2e8ff;cursor:pointer;font-family:"Noto Sans KR",sans-serif} .pcg-b b{font-size:15px} .pcg-b small{font-size:11px;color:#d8c8ea}
-.pcg-b:hover{filter:brightness(1.15)} .pcg-b.big{background:linear-gradient(#5a3a1a,#2e1c0c);border-color:#e0b050;color:#ffeccc} .pcg-b.big small{color:#f0d8a0} .pcg-b.short small{color:#ff9a8a}
-.pcg-b.free{background:linear-gradient(#24322a,#121a14);border-color:#4a6a4a;color:#c8dcc8} .pcg-b.free small{color:#a8c0a8} .pcg-b.free.rdy{border-color:#8fe08a;color:#eaffd8;animation:pcgRdy 1.6s ease-in-out infinite} .pcg-b.free.rdy small{color:#bff0b0}
-@keyframes pcgRdy{0%,100%{box-shadow:0 0 6px rgba(143,224,138,.3)}50%{box-shadow:0 0 16px rgba(143,224,138,.7)}}
-.pcg-mile{display:flex;align-items:center;gap:8px;font-size:12.5px} .pcg-mile>span{color:#cfc6ae;white-space:nowrap} .pcg-mile>b{font-variant-numeric:tabular-nums;color:#ffd08a;white-space:nowrap}
 .pcg-bar{flex:1;height:10px;background:#0e0c0a;border:1px solid #4a3e2c;border-radius:5px;overflow:hidden} .pcg-bar i{display:block;height:100%;background:linear-gradient(90deg,#a8601a,#ffa630,#ffe08a)}
 .pcg-mb{background:#2a2016;border:1px solid #6e5a30;color:#bdb39a;font:700 12px "Noto Sans KR",sans-serif;padding:4px 10px;border-radius:3px;cursor:pointer;white-space:nowrap} .pcg-mb.rdy{border-color:#ffa630;color:#ffe0a0;box-shadow:0 0 8px rgba(255,166,48,.45)}
 .pcg-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .pcg-pick button{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;background:linear-gradient(180deg,#2e2010,#160f08);border:1px solid var(--gc);border-radius:4px;color:#ffe8c0;cursor:pointer;font-family:"Noto Sans KR",sans-serif} .pcg-pick button:hover{box-shadow:0 0 10px var(--gc)}
 .pcg-pick .pcg-art{width:64px;height:64px} .pcg-pick b{font-size:13px} .pcg-pick small{font-size:10.5px;color:#d8c8a8;text-align:center;line-height:1.35} .pcg-pick em{position:absolute;right:4px;top:3px;font:700 10px "Noto Sans KR",sans-serif;font-style:normal;color:#9fe08a}
-.pcg-rate{width:100%;border-collapse:collapse;font-size:11.5px} .pcg-rate th{color:#9c9682;font-weight:700;text-align:left;padding:3px 5px;border-bottom:1px solid #3a3226;white-space:nowrap} .pcg-rate td{padding:3px 5px;border-bottom:1px solid #241f18;color:#d8cfb6;line-height:1.4} .pcg-rate td b{color:var(--gc)} .pcg-rate td:nth-child(2),.pcg-rate td:nth-child(4),.pcg-rate td:nth-child(5){white-space:nowrap;font-variant-numeric:tabular-nums}
-.pcg-note{margin:0;font-size:11px;color:#9c9682;line-height:1.5}
-.pcg-own{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:#cfc6ae} .pcg-own b{color:#f2d98a} .pcg-own .sl-go{padding:6px 12px;font-size:12.5px}
 .pcg-ovl{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:12px;background:radial-gradient(ellipse at 50% 45%,rgba(44,26,64,.9),rgba(4,3,8,.95) 72%);overflow:hidden}
 .pcg-box{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;--cw:min(118px,calc((100vw - 80px) / 6),calc((100dvh - 190px) / 2.95))} .pcg-box.n1{--cw:min(176px,42vw,calc((100dvh - 190px) / 1.5))}
 .pcg-box.shake{animation:pcgShake .45s}
@@ -853,31 +844,79 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 @keyframes pcgFlash{0%{opacity:0}12%{opacity:1}100%{opacity:0}} @keyframes pcgShake{0%,100%{transform:none}20%{transform:translate(-6px,2px)}40%{transform:translate(5px,-3px)}60%{transform:translate(-4px,2px)}80%{transform:translate(3px,-1px)}}
 .pcg-sum{margin:0;font-size:14px;color:#e8e0d0;text-shadow:0 1px 4px #000;text-align:center} .pcg-sum b{color:#ffd86a} .pcg-sum small{color:#a89e86} .pcg-mok{color:#ffa630}
 .pcg-btns{display:flex;gap:10px} .pcg-btns button{min-width:120px;padding:8px 18px;font-size:14px}
-#polywin{box-sizing:border-box;z-index:26;left:calc(50% - 290px);top:calc(56px + env(safe-area-inset-top,0px));width:580px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 72px);display:flex;flex-direction:column;gap:8px;padding:12px 14px 10px}
-#polywin .pw-top{display:grid;grid-template-columns:190px 1fr;gap:10px;align-items:stretch}
-#pw-look{width:190px;height:180px;display:block;cursor:pointer;background:radial-gradient(ellipse at 50% 80%,rgba(80,64,40,.45),rgba(14,11,8,.2) 70%);border:1px solid #4a3a22;border-radius:4px;box-shadow:inset 0 0 14px #000}
-#polywin .pw-info{display:flex;flex-direction:column;gap:6px;min-width:0}
-#pw-now{font-size:12px;color:#cfc6ae;background:#15120e;border:1px solid #3a3226;border-radius:3px;padding:5px 8px;line-height:1.5}
-#pw-sel{flex:1;display:flex;flex-direction:column;gap:3px;font-size:12.5px;line-height:1.45} #pw-sel .pw-nm{font:800 16px "Noto Sans KR",sans-serif} #pw-sel .pw-lv{color:#bdb39a;font-size:12px} #pw-sel .pw-eff{color:#ece4cc} #pw-sel .pw-own{color:#cfc6ae;font-size:12px} #pw-sel .pw-own b{color:#f2d98a} .pw-bad{color:#ff8a7a}
-#polywin .pw-btns{display:flex;gap:6px} #polywin .pw-btns .sl-go{flex:1.6;padding:7px 10px;font-size:13px} #polywin .pw-btns .inv-sort{flex:1;font-size:12px}
-#pw-grid{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px}
-#polywin .pw-row{display:flex;gap:6px;align-items:stretch;background:#15120e;border:1px solid #2e281e;border-radius:3px;padding:4px}
-#polywin .pw-rg{flex:none;width:56px;display:flex;flex-direction:column;justify-content:center;font:800 13px "Noto Sans KR",sans-serif;text-align:center} #polywin .pw-rg small{font:600 10px "Noto Sans KR",sans-serif;color:#9c9682;margin-top:2px}
-#polywin .pw-cs{display:flex;flex-wrap:wrap;gap:5px;flex:1}
-.pw-c{position:relative;width:74px;padding:3px 2px;background:linear-gradient(180deg,#221d16,#14110d);border:1px solid color-mix(in srgb,var(--gc) 55%,#2a241a);border-radius:4px;color:#e9e2cf;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;font-family:"Noto Sans KR",sans-serif}
-.pw-c .pcg-art{width:56px;height:56px} .pw-c .pw-cn{font-weight:700;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px}
-.pw-c em{position:absolute;right:2px;top:2px;font:800 10px "Noto Sans KR",sans-serif;font-style:normal;color:#fff;background:rgba(0,0,0,.72);border:1px solid var(--gc);border-radius:8px;padding:0 4px}
-.pw-c i{position:absolute;left:2px;top:2px;font:800 9px "Noto Sans KR",sans-serif;font-style:normal;color:#1a1208;background:#ffd86a;border-radius:3px;padding:0 3px}
-.pw-c.no{opacity:.6} .pw-c.no img{filter:grayscale(1) brightness(.35) contrast(1.3)} .pw-c.lk img{filter:grayscale(.7) brightness(.65)} .pw-c.lk .pw-cn{color:#ff9a8a}
-.pw-c .pw-jb{position:absolute;left:2px;bottom:15px;font:800 9px "Noto Sans KR",sans-serif;color:#1a1208;background:#9fd8ff;border-radius:3px;padding:0 3px;line-height:1.35} .pw-c.xc img{filter:grayscale(.75) brightness(.55)} .pw-c.xc .pw-jb{background:#ff9a8a} .pw-c.no.xc img{filter:grayscale(1) brightness(.35) contrast(1.3)}
-#pw-sel .pw-job,.pcg-jt{color:#9fd8ff} .pcg-rate .pcg-jt{font-size:.85em;margin-left:1px} .pcg-fr .pcg-job{color:#9fd8ff;font-weight:800}
-.pw-c.on{box-shadow:0 0 0 2px var(--gc),0 0 10px color-mix(in srgb,var(--gc) 60%,transparent);background:linear-gradient(180deg,#30281a,#1a150e)} .pw-c.cur{border-color:#ffd86a} .pw-c:hover{filter:brightness(1.15)}
-#pw-foot{margin:0;font-size:11.5px;color:#bdb39a;line-height:1.5} #pw-foot b{color:#f2d98a} #pw-foot .pw-ok{color:#9fe08a}
+#polywin{box-sizing:border-box;z-index:26;left:calc(50% - 440px);top:calc(52px + env(safe-area-inset-top,0px));width:880px;max-width:calc(100vw - 16px);height:min(720px,calc(100dvh - 62px));display:flex;flex-direction:column;gap:6px;padding:10px 12px 8px;user-select:none;-webkit-user-select:none}
+#polywin .pw-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px}
+#polywin .pw-left{display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0}
+#polywin .pw-right{display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
+#polywin .pw-box{background:rgba(10,8,6,.55);border:1px solid #4a3c26;border-radius:4px;padding:5px 7px 6px;box-shadow:inset 0 0 10px #000}
+#polywin .pw-box h4{margin:0 0 4px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font:800 13px "Noto Sans KR",sans-serif;color:#f2d98a} #polywin .pw-box h4 small{font:600 11px "Noto Sans KR",sans-serif;color:#bdb39a} #polywin .pw-box h4 .pw-hint{margin-left:auto;color:#8a8068;font-weight:500}
+#polywin .pw-ownb{flex:1 1 0;min-height:110px;display:flex;flex-direction:column}
+#pw-grid{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:3px;padding-right:2px}
+#polywin .pw-gr{display:flex;gap:6px;align-items:flex-start;padding:2px 0 3px;border-bottom:1px dashed #2e271c} #polywin .pw-gr:last-child{border-bottom:0}
+#polywin .pw-gn{flex:none;width:44px;padding-top:6px;font:800 12px "Noto Sans KR",sans-serif;color:var(--gc);line-height:1.25} #polywin .pw-gn b{display:block;font:700 11px "Noto Sans KR",sans-serif;color:#cfc6ae}
+#polywin .pw-cs{display:flex;flex-wrap:wrap;gap:4px;flex:1;min-width:0} #polywin .pw-none{font-size:11px;color:#6e6650;padding:8px 2px;font-style:normal}
+.pw-c{position:relative;width:52px;height:58px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:2px 1px 1px;background:linear-gradient(180deg,color-mix(in srgb,var(--gc) 18%,#1e1a14),#100d0a);border:1px solid color-mix(in srgb,var(--gc) 60%,#2a241a);border-radius:4px;color:#e9e2cf;cursor:grab;touch-action:pan-y;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;font-family:"Noto Sans KR",sans-serif}
+.pw-c .pcg-art{width:46px;height:42px;pointer-events:none} .pw-c .pw-cn{font:700 9.5px "Noto Sans KR",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50px;line-height:1.25;pointer-events:none}
+.pw-c .pw-n{position:absolute;right:1px;top:1px;min-width:10px;text-align:center;font:800 10px "Noto Sans KR",sans-serif;color:#fff;background:rgba(0,0,0,.78);border:1px solid var(--gc);border-radius:7px;padding:0 3px;line-height:1.3;pointer-events:none}
+.pw-c .pw-tc{position:absolute;right:1px;bottom:13px;font:800 10px "Noto Sans KR",sans-serif;font-style:normal;color:#2a1a04;background:#ffd86a;border-radius:3px;padding:0 3px;line-height:1.3;pointer-events:none}
+.pw-lock{position:absolute;left:0;top:0;width:20px;height:20px;padding:0;margin:0;border:0;background:none;color:#cfc6ae;opacity:.28;cursor:pointer;display:grid;place-items:center} .pw-lock svg{width:11px;height:11px;filter:drop-shadow(0 1px 1px #000)}
+.pw-c:hover .pw-lock{opacity:.7} .pw-c.lk .pw-lock{opacity:1;color:#ffd86a} .pw-c.lk{border-style:dashed}
+.pw-c.on{box-shadow:0 0 0 2px var(--gc),0 0 10px color-mix(in srgb,var(--gc) 60%,transparent)} .pw-c:hover{filter:brightness(1.15)}
+.pw-c.xc img{filter:grayscale(.75) brightness(.55)} .pw-c.lv img{filter:grayscale(.6) brightness(.65)} .pw-c.dim{opacity:.32} .pw-c.pk{cursor:copy;box-shadow:0 0 6px color-mix(in srgb,var(--gc) 50%,transparent)}
+.pw-ghost{position:fixed;left:0;top:0;z-index:95;pointer-events:none;opacity:.92;filter:drop-shadow(0 6px 12px rgba(0,0,0,.8)) brightness(1.15);will-change:transform}
+#polywin .pw-synx{flex:none}
+#polywin .pw-sr{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+#polywin .pw-sb{flex:none;padding:7px 12px;font:800 13px "Noto Sans KR",sans-serif;color:#eaffd8;background:linear-gradient(#2e4a2a,#162814);border:1px solid #6ab060;border-radius:4px;cursor:pointer} #polywin .pw-sb:hover{filter:brightness(1.18)}
+#polywin .pw-st{font-size:12px;color:#d8cfb6;line-height:1.35} #polywin .pw-st b{color:#9fe08a} #polywin .pw-st small{display:block;font-size:10.5px;color:#9c9682}
+#polywin .pw-mts{display:grid;grid-template-columns:1fr 1fr}
+#polywin .pw-mt{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px;background:linear-gradient(#2a2016,#16110b);border:1px solid color-mix(in srgb,var(--gc) 55%,#3a2e1e);border-radius:4px;color:#f0e2bc;cursor:pointer;font-family:"Noto Sans KR",sans-serif} #polywin .pw-mt b{font-size:12.5px;color:var(--gc)} #polywin .pw-mt small{font-size:10.5px;color:#bdb39a}
+#polywin .pw-mt.on{background:linear-gradient(color-mix(in srgb,var(--gc) 30%,#2a2016),#16110b);box-shadow:0 0 0 1px var(--gc),0 0 10px color-mix(in srgb,var(--gc) 45%,transparent)} #polywin .pw-mt:hover{filter:brightness(1.15)}
+#polywin .pw-tray{display:flex;flex-direction:column;gap:4px;background:rgba(0,0,0,.35);border:1px solid #3a3020;border-radius:4px;padding:4px}
+#polywin .pw-tl{display:flex;flex-wrap:wrap;gap:4px;min-height:40px;align-items:center}
+#polywin .pw-ti{position:relative;width:40px;height:40px;padding:0;background:#15110c;border:1px solid var(--gc);border-radius:4px;cursor:pointer} #polywin .pw-ti .pcg-art{width:100%;height:100%} #polywin .pw-ti b{position:absolute;right:1px;bottom:0;font:800 10px "Noto Sans KR",sans-serif;color:#2a1a04;background:#ffd86a;border-radius:3px;padding:0 3px}
+#polywin .pw-te{font-size:11px;color:#8a8068;padding:0 4px}
+#polywin .pw-tb{display:flex;gap:5px;align-items:center} #polywin .pw-tb>span{flex:1;font-size:12px;color:#d8cfb6} #polywin .pw-tb>span b{color:#ffd86a} #polywin .pw-tb>span small{color:#9c9682} #polywin .pw-tb button{padding:5px 9px;font-size:12px}
+#polywin .pw-th{display:block;font-size:10.5px;color:#8a8068;line-height:1.4}
+#polywin .pw-bot{flex:none;display:flex;gap:8px;align-items:stretch}
+#polywin .pw-again{flex:none;width:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px;font:800 14px "Noto Sans KR",sans-serif;color:#ffeccc;background:linear-gradient(#5a3a1a,#2e1c0c);border:1px solid #e0b050;border-radius:5px;cursor:pointer} #polywin .pw-again small{font:600 10.5px "Noto Sans KR",sans-serif;color:#f0d8a0} #polywin .pw-again:disabled{opacity:.45;cursor:default} #polywin .pw-again.short small{color:#ff9a8a} #polywin .pw-again:not(:disabled):hover{filter:brightness(1.15)}
+#polywin .pw-slot{flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:68px;padding:4px 8px;border:2px dashed #8a6a30;border-radius:6px;background:radial-gradient(ellipse at 20% 50%,rgba(120,90,40,.25),rgba(0,0,0,.35) 70%);cursor:pointer;transition:box-shadow .15s,border-color .15s}
+#polywin .pw-slot.full{border-style:solid;border-color:var(--gc);box-shadow:inset 0 0 14px color-mix(in srgb,var(--gc) 30%,transparent)}
+#polywin .pw-slot.want{border-color:#ffd86a;animation:pwWant 1s ease-in-out infinite} #polywin .pw-slot.drop{background:radial-gradient(ellipse at 50% 50%,rgba(255,216,106,.32),rgba(0,0,0,.35) 75%);box-shadow:0 0 18px rgba(255,216,106,.6)}
+@keyframes pwWant{50%{box-shadow:0 0 14px rgba(255,216,106,.55)}}
+#polywin .pw-sc{flex:none;width:52px;height:58px;box-sizing:border-box;border:1px dashed #6e5a30;border-radius:4px;display:grid;place-items:end center;background:rgba(0,0,0,.4)} #polywin .pw-slot.full .pw-sc{border:1px solid var(--gc);background:linear-gradient(180deg,color-mix(in srgb,var(--gc) 22%,#1e1a14),#100d0a)} #polywin .pw-sc .pcg-art{width:48px;height:52px}
+#polywin .pw-si{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;line-height:1.3} #polywin .pw-si small{font:700 10.5px "Noto Sans KR",sans-serif;color:#d2a94c;letter-spacing:.05em} #polywin .pw-si b{font:800 14px "Noto Sans KR",sans-serif;color:#e9e2cf} #polywin .pw-si span{font-size:11px;color:#bdb39a}
+#polywin .pw-sx{flex:none;padding:5px 10px;font:700 12px "Noto Sans KR",sans-serif;color:#f0e2bc;background:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;border-radius:3px;cursor:pointer} #polywin .pw-sx:hover{border-color:#e8c878}
+#polywin .pw-draws{display:flex;flex-direction:column;gap:5px}
+#polywin .pw-dr{display:flex;gap:6px;align-items:center}
+#polywin .pw-db{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:8px 6px;background:linear-gradient(#3a2a4a,#1e1428);border:1px solid #8a6aa8;border-radius:5px;color:#f2e8ff;cursor:pointer;font-family:"Noto Sans KR",sans-serif} #polywin .pw-db b{font-size:15px} #polywin .pw-db small{font-size:11px;color:#d8c8ea}
+#polywin .pw-db:hover{filter:brightness(1.15)} #polywin .pw-db.big{padding:11px 6px;background:linear-gradient(#6a4418,#2e1c0c);border-color:#f0c060;color:#fff0d0;box-shadow:0 0 10px rgba(240,192,96,.25)} #polywin .pw-db.big b{font-size:17px} #polywin .pw-db.big small{color:#f6dca0} #polywin .pw-db.short small{color:#ff9a8a}
+#polywin .pw-db.free{flex:none;padding:5px;background:linear-gradient(#24322a,#121a14);border-color:#4a6a4a;color:#c8dcc8} #polywin .pw-db.free b{font-size:13px} #polywin .pw-db.free small{color:#a8c0a8} #polywin .pw-db.free.rdy{border-color:#8fe08a;color:#eaffd8;animation:pcgRdy 1.6s ease-in-out infinite} #polywin .pw-db.free.rdy small{color:#bff0b0}
+@keyframes pcgRdy{0%,100%{box-shadow:0 0 6px rgba(143,224,138,.3)}50%{box-shadow:0 0 16px rgba(143,224,138,.7)}}
+#polywin .pw-gold{flex:none;width:92px;font:700 11.5px "Noto Sans KR",sans-serif;color:#f2d98a;text-align:right;font-variant-numeric:tabular-nums;line-height:1.3} #polywin .pw-gold.short{color:#ff8a7a}
+#polywin .pw-mile{display:flex;align-items:center;gap:6px;font-size:12px} #polywin .pw-mile>span{color:#cfc6ae;white-space:nowrap} #polywin .pw-mile>b{font-variant-numeric:tabular-nums;color:#ffd08a;white-space:nowrap}
+#polywin .pcg-pick{gap:4px} #polywin .pcg-pick .pcg-art{width:48px;height:48px} #polywin .pcg-pick b{font-size:12px} #polywin .pcg-pick[hidden]{display:none}
+#polywin .pw-selb{display:flex;gap:8px;background:rgba(10,8,6,.55);border:1px solid #4a3c26;border-radius:4px;padding:5px}
+#pw-look{flex:none;width:120px;height:120px;display:block;cursor:pointer;background:radial-gradient(ellipse at 50% 80%,rgba(80,64,40,.45),rgba(14,11,8,.2) 70%);border:1px solid #3a2e1e;border-radius:4px}
+#pw-sel{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.4} #pw-sel .pw-nm{font:800 14.5px "Noto Sans KR",sans-serif} #pw-sel .pw-lv{color:#bdb39a;font-size:11.5px} #pw-sel .pw-eff{color:#ece4cc;font-size:11.5px} #pw-sel .pw-own{color:#cfc6ae;font-size:11.5px} #pw-sel .pw-own b{color:#f2d98a} #pw-sel .pw-lkt{color:#ffd86a} .pw-bad{color:#ff8a7a;font-style:normal}
+#pw-sel .pw-btns{display:flex;gap:5px;margin-top:auto;padding-top:3px} #pw-sel .pw-btns .sl-go{flex:2;padding:6px 4px;font-size:12px;white-space:nowrap} #pw-sel .pw-btns .inv-sort{flex:1;font-size:11.5px;padding:5px 4px;white-space:nowrap}
+#polywin .pw-hi{margin:0;font-size:11.5px;color:#8a8068;line-height:1.5} #polywin .pw-hi b{color:#d2a94c}
+#polywin .pw-res{background:rgba(10,8,6,.55);border:1px solid #4a3c26;border-radius:4px;padding:5px 6px;min-height:52px}
+#polywin .pw-rh{font:800 12px "Noto Sans KR",sans-serif;color:#f2d98a;margin-bottom:3px} #polywin .pw-rs{margin:0 0 3px;font-size:11px;color:#cfc6ae;line-height:1.4} #polywin .pw-rk{font:700 10.5px "Noto Sans KR",sans-serif;color:#9c9682;margin:3px 0 2px}
+#polywin .pw-rl{display:flex;flex-wrap:wrap;gap:3px}
+#polywin .pw-ri{position:relative;width:38px;height:42px;box-sizing:border-box;border:1px solid var(--gc);border-radius:3px;background:linear-gradient(180deg,color-mix(in srgb,var(--gc) 20%,#1e1a14),#0e0b08)} #polywin .pw-ri .pcg-art{width:100%;height:100%}
+#polywin .pw-ri i{position:absolute;left:0;right:0;bottom:0;text-align:center;font:800 9px "Noto Sans KR",sans-serif;font-style:normal;line-height:1.3;background:rgba(0,0,0,.72)} #polywin .pw-ri i.ok{color:#9fe08a} #polywin .pw-ri i.no{color:#cfc6ae} #polywin .pw-ri i.pt{color:#ffd86a} #polywin .pw-ri i.n{color:#fff}
+#polywin .pw-ri em{position:absolute;right:-2px;top:-3px;font:900 8px "Noto Sans KR",sans-serif;font-style:normal;color:#2a1a04;background:#ffd86a;border-radius:3px;padding:0 2px}
+#pw-foot{margin:0;font-size:11px;color:#9c9682;line-height:1.45} #pw-foot b{font-weight:700}
+#pw-sel .pw-job,.pcg-jt{color:#9fd8ff} .pcg-fr .pcg-job{color:#9fd8ff;font-weight:800}
 .cw-poly{width:48px;height:48px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:radial-gradient(circle at 50% 38%,#4a3266,#1e1428 75%);border:1px solid #8a6aa8;box-shadow:inset 0 0 6px #000,0 0 6px rgba(160,110,220,.35);color:#f2e8ff;font:800 12.5px "Noto Sans KR",sans-serif;line-height:1.15;border-radius:2px;cursor:pointer} .cw-poly small{font:700 9.5px "Noto Sans KR",sans-serif;color:#cdb8ea} .cw-poly:hover{filter:brightness(1.2)}
 .pcg-ic img{width:44px;height:44px;object-fit:contain} .pcg-yes{color:#9fe08a;font-weight:700} .pcg-no{color:#8f8670}
-@media (max-width:620px){#polywin{left:8px;right:8px;width:auto} #polywin .pw-top{grid-template-columns:132px 1fr} #pw-look{width:132px;height:125px} .pw-c{width:62px} .pw-c .pcg-art{width:48px;height:48px} #polywin .pw-rg{width:44px;font-size:12px} .pcg-bts{grid-template-columns:1fr 1fr} .pcg-b.big{grid-column:1/-1}}
-html.mob #polywin{top:8px;max-height:calc(100dvh - 16px)}
-@media (max-height:520px){#polywin .pw-top{grid-template-columns:120px 1fr} #pw-look{width:120px;height:110px} .pcg-ttl{font-size:16px} .pcg-box{gap:8px} .pcg-btns button{padding:5px 14px}}
+@media (max-width:900px){#polywin{left:8px;right:8px;width:auto} #polywin .pw-body{grid-template-columns:minmax(0,1fr) 250px}}
+html.mob #polywin{left:max(4px,env(safe-area-inset-left,0px))!important;right:max(4px,env(safe-area-inset-right,0px))!important;top:calc(4px + env(safe-area-inset-top,0px))!important;width:auto;max-width:none;height:calc(100dvh - 8px - env(safe-area-inset-top,0px));max-height:none;overflow:hidden;transform:none!important;padding:28px 8px 6px!important;gap:4px}
+html.mob #polywin .pw-body{grid-template-columns:minmax(0,1fr) minmax(220px,34%);gap:6px} html.mob #polywin .pw-left{overflow-y:auto;overscroll-behavior:contain}
+html.mob .pw-c{width:48px;height:54px} html.mob .pw-c .pcg-art{width:42px;height:38px} html.mob .pw-lock{pointer-events:none;opacity:0} html.mob .pw-c.lk .pw-lock{opacity:1}
+html.mob #pw-look{width:84px;height:96px} html.mob #polywin .pw-ownb{flex:none;min-height:150px;max-height:62vh} html.mob #pw-foot,html.mob #polywin .pw-th,html.mob #polywin .pw-st small,html.mob #polywin .pw-hint{display:none}
+html.mob #polywin .pw-db{padding:4px} html.mob #polywin .pw-db.big{padding:6px 4px} html.mob #polywin .pw-db b,html.mob #polywin .pw-db.big b{font-size:14px} html.mob #polywin .pw-gold{width:74px;font-size:10.5px} html.mob #polywin .pw-slot{min-height:56px} html.mob #polywin .pw-again{width:96px}
+@media (max-height:520px){#polywin .pw-db{padding:5px} #polywin .pw-db.big{padding:7px 5px} #polywin .pw-db.big b{font-size:15px} #polywin .pw-slot{min-height:54px} #polywin .pw-sc{width:44px;height:50px} #polywin .pw-sc .pcg-art{width:40px;height:44px} .pcg-ttl{font-size:16px} .pcg-box{gap:8px} .pcg-btns button{padding:5px 14px}}
 </style>
 <div id="mob-ui">
 <div id="mob-stick" aria-label="이동 (끌어서 움직이기)"><i></i><b>이동</b></div>
@@ -896,7 +935,7 @@ html.mob #polywin{top:8px;max-height:calc(100dvh - 16px)}
 <button type="button" id="mm-home" hidden>마을로 귀환<small>&nbsp;</small></button>
 <button type="button" id="mm-alch">연금술<small>장비 합성</small></button>
 <button type="button" id="mm-codex">아이템 도감<small>&nbsp;</small></button>
-<button type="button" id="mm-poly">변신 카드<small>내 카드·변신</small></button>
+<button type="button" id="mm-poly">변신 카드<small>뽑기·합성·변신</small></button>
 <button type="button" id="mm-glog">게임 기록<small>전체 공지 200줄</small></button>
 <button type="button" id="mm-mp" hidden>월드 서버<small></small></button>
 <button type="button" id="mm-saver">절전 모드<small>화면 끄고 사냥</small></button>
@@ -915,7 +954,7 @@ html.mob #polywin{top:8px;max-height:calc(100dvh - 16px)}
 <ol id="ag-and" hidden><li>브라우저 오른쪽 위 메뉴 <b>[⋮]</b>를 누르세요. (삼성 인터넷은 아래쪽 <b>[≡]</b>)</li><li><b>[앱 설치]</b> 또는 <b>[홈 화면에 추가]</b>를 누르세요.</li><li><b>[설치]</b>를 누르면 홈 화면·앱 목록에 아덴 월드 아이콘이 생겨요.</li></ol>
 <p class="ag-note">설치하면 주소창 없이 전체 화면 가로 모드로 열려요. 저장은 계정 서버에 되니까 PC와 같은 계정·캐릭터로 이어서 할 수 있어요. (앱으로 처음 열 때는 로그인을 한 번 더 해 주세요)</p>
 <button type="button" id="ag-ok" class="ag-btn">확인</button></div></div></div>
-<div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>서버 연결 중…</button><button id="btn-alch" type="button">연금술</button><button id="btn-codex" type="button">아이템 도감</button><button id="btn-poly" type="button">변신</button><button id="btn-glog" type="button" title="보스 처치·영웅·전설 획득 같은 전체 공지 기록 (최근 200줄)">게임 기록</button><button id="btn-saver" type="button" title="화면 그리기를 멈추고 사냥은 계속 (밀어서 해제)">절전</button></div>
+<div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>서버 연결 중…</button><button id="btn-alch" type="button">연금술</button><button id="btn-codex" type="button">아이템 도감</button><button id="btn-poly" type="button" title="변신 카드: 뽑기 · 합성 · 변신 칸">변신</button><button id="btn-glog" type="button" title="보스 처치·영웅·전설 획득 같은 전체 공지 기록 (최근 200줄)">게임 기록</button><button id="btn-saver" type="button" title="화면 그리기를 멈추고 사냥은 계속 (밀어서 해제)">절전</button></div>
 <audio id="bgm" src="assets/sound/bgm_town.mp3" loop preload="auto"></audio><audio id="bgm-island" src="assets/sound/bgm_island.mp3" loop preload="auto"></audio><audio id="bgm-desert" src="assets/sound/bgm_desert.mp3" loop preload="none"></audio><audio id="bgm-orc" src="assets/sound/bgm_orc.mp3" loop preload="none"></audio><audio id="bgm-bugbear" src="assets/sound/bgm_bugbear.mp3" loop preload="none"></audio><audio id="bgm-boss" src="assets/sound/bgm_boss.mp3" loop preload="auto"></audio>
 <div class="ovl" id="shop" hidden><div class="pn shop"><h2><span id="shop-title">상점</span><button type="button" data-close aria-label="닫기">×</button></h2>
   <div class="who"><canvas id="shop-face" width="96" height="96"></canvas><div><b id="shop-npc"></b><p id="shop-hello"></p></div></div>
@@ -1015,8 +1054,19 @@ html.mob #polywin{top:8px;max-height:calc(100dvh - 16px)}
  <div class="cdx-flt"><input type="search" id="cdx-q" placeholder="이름 · 옵션 · 얻는 곳으로 찾기" aria-label="아이템 찾기"><select id="cdx-rar" aria-label="등급"><option value="">모든 등급</option><option>일반</option><option>고급</option><option>희귀</option><option>영웅</option><option>전설</option></select><label class="cdx-mine"><input type="checkbox" id="cdx-mine"> 내 직업만</label><span id="cdx-n" class="cdx-n"></span></div>
  <div class="cdx-list" id="cdx-list"></div></div>
 <div class="gw" id="polywin" hidden role="dialog" aria-label="변신 카드"><span class="gw-plate">변신 카드</span><button class="x" type="button" data-closewin="polywin">닫기</button>
- <div class="pw-top"><canvas id="pw-look" width="190" height="180" title="클릭: 방향 바꾸기" aria-label="고른 카드 미리보기"></canvas><div class="pw-info"><div id="pw-now"></div><div id="pw-sel"></div><div class="pw-btns"><button type="button" id="pw-go" class="sl-go">변신하기</button><button type="button" id="pw-off" class="inv-sort">변신 풀기</button></div></div></div>
- <div id="pw-grid"></div>
+ <div class="pw-body"><div class="pw-left">
+  <section class="pw-box pw-ownb" aria-label="보유중"><h4>보유중 <small id="pw-total"></small><small class="pw-hint">끌어서 변신 칸에 · 자물쇠 = 합성 안 함</small></h4><div id="pw-grid"></div></section>
+  <section class="pw-box pw-synx" aria-label="합성"><h4>합성 <small id="pw-pity"></small></h4><div id="pw-synb"></div></section>
+  <div class="pw-bot"><button type="button" id="pw-again" class="pw-again" disabled>다시 뽑기</button><div id="pw-slot" class="pw-slot" role="button" tabindex="0" aria-label="변신 칸"></div></div>
+ </div><div class="pw-right">
+  <div class="pw-draws"><div class="pw-dr"><button type="button" id="pw-d11" class="pw-db big" data-k="11"><b>11회 뽑기</b><small>399,000 골드</small></button><span class="pw-gold" data-c="399000"></span></div>
+   <div class="pw-dr"><button type="button" id="pw-d1" class="pw-db" data-k="1"><b>1회 뽑기</b><small>39,900 골드</small></button><span class="pw-gold" data-c="39900"></span></div>
+   <button type="button" id="pw-dfree" class="pw-db free" data-k="free"><b>무료 1회</b><small id="pw-free"></small></button></div>
+  <div class="pw-mile"><span>마일리지</span><div class="pcg-bar"><i id="pw-mbar"></i></div><b id="pw-mn"></b><button type="button" id="pw-mb" class="pcg-mb">전설 고르기</button></div>
+  <div id="pw-pick" class="pcg-pick" hidden></div>
+  <div class="pw-selb"><canvas id="pw-look" width="120" height="120" title="클릭: 방향 바꾸기" aria-label="고른 카드 미리보기"></canvas><div id="pw-sel"></div></div>
+  <div id="pw-res" class="pw-res" aria-live="polite"></div>
+ </div></div>
  <p id="pw-foot"></p></div>
 <div class="gw" id="mpwin" hidden role="dialog" aria-label="접속자"><span class="gw-plate">월드 서버</span><button class="x" type="button" data-closewin="mpwin">닫기</button>
  <p class="mp-st" id="mp-status">월드 서버에 연결하는 중…</p>

@@ -1,4 +1,4 @@
-// 소드·아크 시리즈 (직업 전용 변신 카드) 테스트 — KT_PORT=8774 bash dev/runkt.sh dev/tests/polycard_class.js · 스크린샷 dev/out/pcc_*.png
+// 소드·아크 시리즈 (직업 전용 변신 카드) 테스트 · 2차(변신 칸 · 확정 칸 없음 · 마일리지 1000)에 맞춤 — KT_PORT=8774 bash dev/runkt.sh dev/tests/polycard_class.js · 스크린샷 dev/out/pcc_*.png
 // ① 6종이 영웅·전설 풀에 있고 등급 확률 유지 (같은 등급 안에서 고르게) ② 기사: 소드나이트 +10% · 아크나이트 +18% ③ 기사가 소드메이지로 변신 시도 → 막힘 · 골드 그대로
 // ④ 같은 계정 마법사: 소드메이지 변신 ⑤ 다른 직업 카드 변신 기록으로 재접속 → 풀림 ⑥ 마일리지로 아크 고르기 ⑦ 다른 사람 화면에서도 같은 색 ⑧ 오류 없음
 const { chromium } = require('playwright'); const login = require('../tq.js');
@@ -23,25 +23,21 @@ const HERO = ['king_bugbear', 'necromancer', 'spartoi', 'sword_knight', 'sword_m
     const h = HERO.map(id => (r.per[id] || 0) / N * 100), l = LEG.map(id => (r.per[id] || 0) / N * 100);
     console.log('영웅 카드 %', HERO.map((id, i) => id + ' ' + h[i].toFixed(3)).join(' · ')); console.log('전설 카드 %', LEG.map((id, i) => id + ' ' + l[i].toFixed(4)).join(' · '));
     ok(h.every(v => Math.abs(v - 0.3) < 0.045), '① 영웅 6종 고르게 (각 약 0.3%)'); ok(l.every(v => Math.abs(v - 0.0333) < 0.012), '① 전설 6종 고르게 (각 약 0.033%)');
-    ok(r.no11 === 0, '① 11회 희귀 이상 확정 칸 그대로 (없음 ' + r.no11 + '번)'); }
-  // 특별상점 [변신 카드] 탭: 확률표에 6종 · 직업 표시
-  await p.evaluate(() => { __T.TOWN.openShopId('magic'); [...document.querySelectorAll('#shop-tabs .shop-tab')].find(t => t.textContent === '변신 카드').click(); }); await p.waitForTimeout(500);
-  { const t = await p.evaluate(() => document.querySelector('#shop-list .pcg-rate').textContent); ok(/소드나이트\(기사\)/.test(t) && /아크메이지\(마법사\)/.test(t) && /\+8~10%/.test(t) && /\+15~18%/.test(t), '상점 확률표에 소드·아크 6종 · 직업 · 속도 (+8~10% · +15~18%)'); }
+    ok(r.no11 > 4000, '① 11회 확정 칸 없음 (희귀 이상 없는 11회 ' + r.no11 + '번 / 2만)'); }
   // 뽑기 결과 앞면 (Math.random 잠깐 바꿔 전설 4번째 = 아크나이트)
   { await p.evaluate(() => { const R = Math.random; let n = 0; Math.random = () => (n++ % 2 ? 0.5 : 0.9995); try { PCG.draw(1); } finally { Math.random = R; } }); await p.waitForTimeout(500); await p.click('#pcg-ovl .pcg-c'); await p.waitForTimeout(1500);
     const t = await p.evaluate(() => document.querySelector('#pcg-ovl .pcg-fr').textContent); ok(/아크나이트/.test(t) && /기사 전용/.test(t) && /속도 \+18%/.test(t), '뽑기 결과 앞면: 아크나이트 · 기사 전용 · 속도 +18% (' + t.replace(/\s+/g, ' ').trim() + ')');
     ok(await p.evaluate(() => { const im = document.querySelector('#pcg-ovl .pcg-fr img'); return !!(im && im.getAttribute('src') && im.naturalWidth > 0); }), '뽑기 결과 앞면 그림 (색 입힌 렌더)');
     await p.screenshot({ path: 'dev/out/pcc_draw_arc.png' }); await p.evaluate(() => PCG.close()); }
-  await p.evaluate(() => { document.getElementById('shop').hidden = true; });
   // ② 기사: 소드나이트 +10% · 아크나이트 +18%
   await p.evaluate(() => { const s = PCG.state(); for (const k of ['sword_knight', 'arc_knight', 'sword_mage', 'arc_mage', 'sword_ranger']) s.cards[k] = (s.cards[k] || 0) + 1; });
   const k0 = await cx();
-  { await p.evaluate(() => document.getElementById('btn-poly').click()); await p.waitForTimeout(500); await p.click('#pw-grid .pw-c[data-id="sword_knight"]'); await p.waitForTimeout(400); await p.click('#pw-go'); await p.waitForTimeout(200); await p.click('#ask-yes'); await p.waitForTimeout(400);
-    const a = await cx(); ok(a.cur === 'pc_sword_knight' && k0.c - a.c === 10000, '② 기사 → 소드나이트 변신 (1만 골드)'); ok(a.a - k0.a === 10 && a.m - k0.m === 10, `② 소드나이트 공속·이속 +10% (${k0.a}→${a.a} · ${k0.m}→${a.m})`); ok(a.xm - k0.xm === 1, '② 소드나이트 근거리 추가 피해 +1');
+  { await p.evaluate(() => document.getElementById('btn-poly').click()); await p.waitForTimeout(500); await p.click('#pw-grid .pw-c[data-id="sword_knight"]'); await p.waitForTimeout(400); await p.click('#pw-sel [data-a="put"]'); await p.waitForTimeout(400);
+    const a = await cx(); ok(a.cur === 'pc_sword_knight' && k0.c === a.c, '② 기사 → 소드나이트 변신 칸 (골드 안 듦)'); ok(a.a - k0.a === 10 && a.m - k0.m === 10, `② 소드나이트 공속·이속 +10% (${k0.a}→${a.a} · ${k0.m}→${a.m})`); ok(a.xm - k0.xm === 1, '② 소드나이트 근거리 추가 피해 +1');
     await p.waitForTimeout(800); await p.screenshot({ path: 'dev/out/pcc_win_sword_knight.png' });
     await p.evaluate(() => PCG.doMorph('arc_knight')); const c = await cx(); ok(c.cur === 'pc_arc_knight' && c.a - k0.a === 18 && c.m - k0.m === 18, `② 아크나이트 공속·이속 +18% (${k0.a}→${c.a})`); ok(c.xm - k0.xm === 1 && c.dr - k0.dr === 1, '② 아크나이트 근거리 추가 피해 +1 · 받는 피해 -1');
   // ③ 기사가 소드메이지 카드로 변신 시도 → 막힘
-    await p.click('#pw-grid .pw-c[data-id="sword_mage"]'); await p.waitForTimeout(500); const go = await p.evaluate(() => { const g = document.getElementById('pw-go'); return { d: g.disabled, t: g.textContent, sel: document.getElementById('pw-sel').textContent, xc: document.querySelector('#pw-grid .pw-c[data-id="sword_mage"]').classList.contains('xc') }; });
+    await p.click('#pw-grid .pw-c[data-id="sword_mage"]'); await p.waitForTimeout(500); const go = await p.evaluate(() => { const g = document.querySelector('#pw-sel [data-a="put"]'); return { d: g.disabled, t: g.textContent, sel: document.getElementById('pw-sel').textContent, xc: document.querySelector('#pw-grid .pw-c[data-id="sword_mage"]').classList.contains('xc') }; });
     ok(go.d && /마법사 전용/.test(go.t) && /마법사 전용/.test(go.sel) && go.xc, '③ 변신 창: 소드메이지 = "마법사 전용" 표시 · 버튼 막힘 (' + go.t + ')'); await p.screenshot({ path: 'dev/out/pcc_win_block.png' });
     const c1 = await cx(); await p.evaluate(() => PCG.morph('sword_mage')); await p.waitForTimeout(200); const c2 = await cx(); const lg = await lastLog();
     ok(c2.cur === 'pc_arc_knight' && c2.c === c1.c && await p.evaluate(() => document.getElementById('askwin').hidden), '③ 기사가 소드메이지 변신 시도 → 안 됨 · 골드 그대로 (' + lg + ')');
@@ -69,23 +65,23 @@ const HERO = ['king_bugbear', 'necromancer', 'spartoi', 'sword_knight', 'sword_m
   await relog(p, acc, 'wizard', 'pccW' + Date.now() % 1e4, true);
   { await p.evaluate(() => { __T.setCoins(100000); __T.hero.lv = 52; }); const w0 = await cx(); ok(w0.cur === null, '④ 마법사는 변신하지 않은 채로 시작');
     await p.evaluate(() => PCG.morph('arc_knight')); await p.waitForTimeout(200); ok((await cx()).cur === null && (await cx()).c === 100000 && await p.evaluate(() => document.getElementById('askwin').hidden), '④ 마법사가 아크나이트 → 막힘 · 골드 그대로');
-    await p.evaluate(() => PCG.morph('sword_mage')); await p.waitForTimeout(200); await p.click('#ask-yes'); await p.waitForTimeout(400); const w1 = await cx();
-    ok(w1.cur === 'pc_sword_mage' && w1.c === 90000 && w1.a - w0.a === 10 && w1.m - w0.m === 10 && w1.sp - w0.sp === 1, `④ 마법사 → 소드메이지 변신 (공속·이속 +10 · SP +1 · 골드 ${w1.c})`);
+    await p.evaluate(() => PCG.morph('sword_mage')); await p.waitForTimeout(400); const w1 = await cx();
+    ok(w1.cur === 'pc_sword_mage' && w1.c === 100000 && w1.a - w0.a === 10 && w1.m - w0.m === 10 && w1.sp - w0.sp === 1, `④ 마법사 → 소드메이지 변신 (공속·이속 +10 · SP +1 · 골드 ${w1.c})`);
     await p.evaluate(() => { __T.TOWN.placeAt(18.5, 22.5); __T.ZOOMT = 2.2; }); await p.waitForTimeout(1500); await p.screenshot({ path: 'dev/out/pcc_morph_sword_mage.png', clip: { x: 340, y: 150, width: 600, height: 460 } });
     await p.evaluate(() => PCG.doMorph('arc_mage')); ok((await cx()).cur === 'pc_arc_mage' && (await cx()).a - w0.a === 18, '④ 마법사 → 아크메이지 +18%'); await p.evaluate(() => PCG.doMorph('sword_mage')); }
-  // ⑤ 다른 직업 카드 변신 기록으로 재접속 → 풀림 (마법사 저장에 아크나이트 변신이 적혀 있는 경우)
+  // ⑤ 다른 직업 카드가 변신 칸에 적혀 있으면(잘못된 데이터) 재접속 → 변신 안 함 (마법사 칸에 아크나이트)
   { await p.evaluate(() => __T.SAVE.now(true, true)); await p.waitForTimeout(300); let patched = '';
-    const key = 'aden_save_' + acc.toLowerCase() + '_wizard', patch = async () => { patched = await p.evaluate(key => { const v = localStorage.getItem(key); if (!v) return 'no save'; const o = JSON.parse(v); if (o.pf !== 'pc_sword_mage') return 'pf=' + o.pf; o.pf = 'pc_arc_knight'; localStorage.setItem(key, JSON.stringify(o)); return 'ok'; }, key); };
-    await relog(p, acc, 'wizard', '', true, patch); ok(patched === 'ok', '⑤ 마법사 저장의 변신을 아크나이트로 바꿈 (' + patched + ')'); const c = await cx(); ok(c.cur === null && await p.evaluate(() => __T.BUFF.poly) === 0, '⑤ 다른 직업(기사) 카드 변신으로 재접속 → 변신 풀림');
+    const key = 'aden_pcard_' + acc.toLowerCase(), patch = async () => { patched = await p.evaluate(key => { const v = localStorage.getItem(key); if (!v) return 'no data'; const o = JSON.parse(v); if (!o.slot || o.slot.wizard !== 'sword_mage') return 'slot=' + JSON.stringify(o.slot); o.slot.wizard = 'arc_knight'; localStorage.setItem(key, JSON.stringify(o)); return 'ok'; }, key); };
+    await relog(p, acc, 'wizard', '', true, patch); ok(patched === 'ok', '⑤ 마법사 변신 칸을 아크나이트로 바꿈 (' + patched + ')'); await p.waitForTimeout(1200); const c = await cx(); ok(c.cur === null && await p.evaluate(() => __T.BUFF.poly) === 0, '⑤ 다른 직업(기사) 카드가 칸에 있으면 → 변신 안 함');
     await p.evaluate(() => { __T.hero.lv = 52; __T.setCoins(50000); }); await p.evaluate(() => PCG.doMorph('sword_mage')); await p.evaluate(() => __T.SAVE.now(true, true)); await p.waitForTimeout(300);
     await relog(p, acc, 'wizard', '', true); ok((await cx()).cur === 'pc_sword_mage', '⑤ 자기 직업 카드 변신은 재접속해도 유지'); }
-  // ⑥ 마일리지 300 → 아크 고르기 (마법사 캐릭터에서 아크레인저 받기 — 계정 공유)
-  { await p.evaluate(() => { PCG.state().mile = 300; __T.TOWN.openShopId('magic'); [...document.querySelectorAll('#shop-tabs .shop-tab')].find(t => t.textContent === '변신 카드').click(); }); await p.waitForTimeout(400);
-    await p.click('#shop-list .pcg-mb'); await p.waitForTimeout(600); const ids = await p.evaluate(() => [...document.querySelectorAll('#shop-list .pcg-pick [data-id]')].map(b => b.dataset.id));
+  // ⑥ 마일리지 1000 → 아크 고르기 (마법사 캐릭터에서 아크레인저 받기 — 계정 공유)
+  { await p.evaluate(() => { PCG.state().mile = 1000; PCG.openWin(true); }); await p.waitForTimeout(400);
+    await p.click('#pw-mb'); await p.waitForTimeout(600); const ids = await p.evaluate(() => [...document.querySelectorAll('#pw-pick [data-id]')].map(b => b.dataset.id));
     ok(['arc_knight', 'arc_mage', 'arc_ranger'].every(id => ids.includes(id)) && ids.length === 6, '⑥ 마일리지 전설 고르기에 아크 3종 (' + ids.join(',') + ')');
-    ok(/요정 전용/.test(await p.evaluate(() => document.querySelector('#shop-list .pcg-pick [data-id="arc_ranger"]').textContent)), '⑥ 고르기 칸에 직업 전용 표시'); await p.screenshot({ path: 'dev/out/pcc_mile.png' });
-    const r0 = (await S()).cards.arc_ranger || 0; await p.click('#shop-list .pcg-pick [data-id="arc_ranger"]'); await p.waitForTimeout(200); await p.click('#ask-yes'); await p.waitForTimeout(700); await p.evaluate(() => PCG.close());
-    const s = await S(); ok(s.mile === 0 && (s.cards.arc_ranger || 0) === r0 + 1, '⑥ 마일리지 300 → 아크레인저 1장 (마일리지 0)'); await p.evaluate(() => { document.getElementById('shop').hidden = true; }); }
+    ok(/요정 전용/.test(await p.evaluate(() => document.querySelector('#pw-pick [data-id="arc_ranger"]').textContent)), '⑥ 고르기 칸에 직업 전용 표시'); await p.screenshot({ path: 'dev/out/pcc_mile.png' });
+    const r0 = (await S()).cards.arc_ranger || 0; await p.click('#pw-pick [data-id="arc_ranger"]'); await p.waitForTimeout(200); await p.click('#ask-yes'); await p.waitForTimeout(700); await p.evaluate(() => PCG.close());
+    const s = await S(); ok(s.mile === 0 && (s.cards.arc_ranger || 0) === r0 + 1, '⑥ 마일리지 1000 → 아크레인저 1장 (마일리지 0)'); await p.evaluate(() => { document.getElementById('polywin').hidden = true; }); }
   // 도감 [변신 카드] 탭: 26종 · 직업 전용
   { await p.evaluate(() => document.getElementById('btn-codex').click()); await p.waitForTimeout(300);
     await p.evaluate(() => [...document.querySelectorAll('#cdx-tabs .cdx-tab')].find(t => /변신 카드/.test(t.textContent)).click()); await p.waitForTimeout(1200);
