@@ -37,8 +37,8 @@ const view = p => p.evaluate(() => { const T = __T, g = document.getElementById(
     await p.evaluate(() => document.querySelector('#inv-grid .slot').click()); await p.waitForTimeout(150);
     ok('마법인형 칸에서 눌러 합성 칸에 넣기', await p.evaluate(() => document.querySelectorAll('#cr-list .dg-sl.has').length >= 1));
     await p.screenshot({ path: 'dev/out/dolltab_craft.png' });
-    // 턴 언데드 재사용 3초
-    const cd = await p.evaluate(() => __T.SK.turnund.cd); ok('턴 언데드 재사용 3초', cd === 3);
+    // 턴 언데드 재사용: 기본 3초 (v197부터 마법사는 모든 마법 +1초 → 4초)
+    const cd = await p.evaluate(() => __T.SK.turnund.cd); const cls = await p.evaluate(() => __T.CLASS); ok('턴 언데드 재사용 (마법사 4초 · 기본 3초)', cd === (cls === 'wizard' ? 4 : 3));
     await p.close(); }
   { const ctx = await b.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 }); const p = await ctx.newPage(); p.on('pageerror', e => errs.push('mob: ' + e.message));
     await login(p, { cls: 'knight', name: 'dtMB', init: () => { try { localStorage.setItem('aden_mob', '1'); } catch (e) {} } }); await setup(p);
