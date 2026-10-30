@@ -527,7 +527,7 @@ function updateFox(f,dt){
   if (S.boss) bossTalkTick(f, S, dt);
   if ((S.boss || S.skills) && bossSkills(f,S,dt)) return;
   if (f.t<1) return;
-  if (S.passive){ f.aggro=false; f.tgt=null; return; }   // 파이어 에그: 움직이지도 때리지도 않음
+  if (S.passive){ f.aggro=false; f.tgt=null; return; }   // 파이어에그: 움직이지도 때리지도 않음
   const dh=cheb(f.i,f.j,hero.i,hero.j), dt_=cheb(f.i,f.j,TG.i,TG.j);
   if ((BUFF.invis>0 || DEATH) && f.aggro && !f.tgt) f.aggro=false;   // 투명: 나를 노리던 몬스터가 놓침
   if (!f.aggro && S.aggr && !(BUFF.invis>0) && dh>S.aggr){ const rp=NET.nearRemote(f, S.aggr); if (rp){ f.aggro=true; f.tgt=rp; } }
@@ -651,7 +651,7 @@ const BOSS_SKILL = {
           const m = mkMob('drake', i, j); m.aggro = true; m.summoned = true; m.sumBy = f; m.home = [i, j]; foxes.push(m); n++; const [mx, my] = W2P(i + 0.5, j + 0.5); mxBurst(mx, my - 10, 14, () => ({ k: 'flame', s: mxR(4, 8), life: mxR(0.35, 0.6), dr: 2 }), 40, 120, 60); impact(mx, my, 'quake', '#6a3a1a'); }
         if (AC && SFX_ON) { const t0 = AC.currentTime; tone(t0, 'sawtooth', 120, 50, 1.0, 0.2); nz(t0, 0.8, 400, 100, 0.25); } } },
   ],
-  // 화룡의 둥지: 살라만더 불 숨결 · 뿔 케르베로스 불덩이(작은 주황 원) · 아시타지오 화염 기둥 · 피닉스(불꽃 숨결 · 불꽃 폭풍 · 날개 불바람)
+  // 화룡의 둥지: 사라만다 불 숨결 · 혼 켈베로스 불덩이(작은 주황 원) · 아시타지오 화염 기둥 · 피닉스(불꽃 숨결 · 불꽃 폭풍 · 날개 불바람)
   fn_salamander: [{ id: 'breath', cd: [6, 7], range: 3, cast: 0.6, use(f){ breathCone(f, 3, [42, 66]); } }],
   fn_hcerberus: [{ id: 'fball', cd: [5, 7], range: 5, cast: 0.5, use(f){ const T = BT || hero; AOES.push({ kind: 'mag', c: '255,130,40', x: T.x, z: T.z, r: 1.1, warn: 0.7, t: 0, life: 1.1, landed: false, dmg: [20, 30], fire: true, res: 'fire', nostun: true, quiet: true, onLand: DG_LAND.fire }); } }],
   fn_ashtazio: [{ id: 'pillar', cd: [9, 12], range: 6, cast: 0.9, use(f){ const T = BT || hero; AOES.push({ kind: 'mag', c: '255,90,30', x: T.x, z: T.z, r: 1.9, warn: 1.0, t: 0, life: 1.5, landed: false, dmg: [52, 75], fire: true, res: 'fire', nostun: true, msg: ['아시타지오의 화염 기둥에 휩싸였습니다!', '화염 기둥을 피했습니다.'], onLand: DG_LAND.hell }); } }],
@@ -1875,7 +1875,7 @@ function prescaled(img, sc) { const W0 = img && (img.naturalWidth || img.width);
 // 임시로 물들인 몬스터(오크숲): 그릴 크기로 줄인 프레임을 한 번 물들여 저장 (매 프레임 filter는 아주 느림)
 const TFR = new Map();
 // 화룡의 둥지: 용암 피부 — 우리 스프라이트 위에 코드로 만든 용암 무늬(검붉은 바위 · 갈라진 틈이 빛남)를 입힘. 그림 원본 복사·트레이싱 없음 (무늬는 무작위 점으로 만든 보로노이 균열)
-//   mode 'rock' = 몸 전체가 용암 바위 (용암 골렘) · 'skin' = 그을린 몸에 빛나는 용암 균열 (불꽃 전사·궁수)
+//   mode 'rock' = 몸 전체가 용암 바위 (라바 골렘) · 'skin' = 그을린 몸에 빛나는 용암 균열 (불타는 전사·궁수)
 //   v2(10/30 다듬기): 2배로 그려 무늬를 만든 뒤 줄여 저장(가는 금까지 매끈) · 굵기가 바뀌는 큰 균열 + 가는 잔금 · 균열 주위 빛 번짐 · 원래 그림의 명암 유지(그늘진 쪽은 어둡게)
 //                     · 발밑 용암에 비친 테두리 빛 · 바위 판마다 식은 정도가 다름 · 무늬는 몸에 고정되고 밝기만 숨 쉬듯 일렁임
 let LAVA_TEX = null;
@@ -2669,18 +2669,18 @@ Object.assign(MOB, {
 });
 // 화룡의 둥지 (Lv 53~57 · 보스 60 — 레벨 차이로 명중이 크게 달라져서 용계보다 조금만 높게) — 용의 계곡 2구역 몬스터 대비 HP ×3 · 공격 ×1.5 · 공격 속도 +20% (2구역 기준, 1구역은 조금 낮게) · 개체 수 약 40% · 마리당 경험치·골드 ×2.7 (최종 수치)
 //   (10/29 프로듀서 결정: 개체 수 용계의 약 50% · 모든 몬스터 선공)
-//   1구역: 불꽃 전사(화상) · 불꽃 궁수(원거리) · 용암 골렘(느리고 단단 · 맞으면 느려짐) · 드래곤플라이(빠름 · 3마리 무리) · 폭탄꽃(제자리 · 불씨 원거리 · 약함)
-//   2구역: 살라만더(불 숨결) · 뿔 케르베로스(물기 + 불덩이) · 아시타지오(불 마법 · 화염 기둥 · 드묾) · 파이어 에그(제자리 · 아주 약함 · 복권) / 보스 피닉스(3~4명 · 한 번 되살아남)
+//   1구역: 불타는 전사(화상) · 불타는 궁수(원거리) · 라바 골렘(느리고 단단 · 맞으면 느려짐) · 드래곤 플라이(빠름 · 3마리 무리) · 폭탄꽃(제자리 · 불씨 원거리 · 약함)
+//   2구역: 사라만다(불 숨결) · 혼 켈베로스(물기 + 불덩이) · 아시타지오(불 마법 · 화염 기둥 · 드묾) · 파이어에그(제자리 · 아주 약함 · 복권) / 보스 피닉스(3~4명 · 한 번 되살아남)
 Object.assign(MOB, {
-  fn_warrior:   { name: '불꽃 전사', lv: 54, hp: 1800, dmg: [74, 120], mac: 2, hit: 0.93, mr: 20, exp: 9350, coin: [2200, 3650], walk: 1.4, run: 3.8, cd: 1.25, aggr: 6, burn: true, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불꽃 대검' },
-  fn_archer:    { name: '불꽃 궁수', lv: 54, hp: 1550, dmg: [68, 108], mac: 3, hit: 0.93, mr: 20, exp: 8500, coin: [2000, 3350], walk: 1.1, run: 3.0, cd: 1.55, range: 6, aggr: 6, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불화살' },
-  fn_golem:     { name: '용암 골렘', lv: 55, hp: 2800, dmg: [85, 130], mac: -1, hit: 0.9, mr: 30, exp: 12600, coin: [2800, 4900], walk: 0.7, run: 1.9, cd: 1.9, lavaSlow: 0.25, aggr: 5, el: 'fire', flame: 2, art: 'vil', sc: 1.3, atkTxt: '용암 주먹' },
-  fn_fly:       { name: '드래곤플라이', lv: 53, hp: 1000, dmg: [55, 88], mac: 3, hit: 0.94, mr: 15, exp: 5100, coin: [1150, 2000], walk: 1.9, run: 4.8, cd: 1.0, aggr: 6, el: 'fire', flame: 1, art: 'dragonfly', sc: 1.25, hw: 30, hh: 50, atkTxt: '불꽃 꼬리침' },
+  fn_warrior:   { name: '불타는 전사', lv: 54, hp: 1800, dmg: [74, 120], mac: 2, hit: 0.93, mr: 20, exp: 9350, coin: [2200, 3650], walk: 1.4, run: 3.8, cd: 1.25, aggr: 6, burn: true, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불꽃 대검' },
+  fn_archer:    { name: '불타는 궁수', lv: 54, hp: 1550, dmg: [68, 108], mac: 3, hit: 0.93, mr: 20, exp: 8500, coin: [2000, 3350], walk: 1.1, run: 3.0, cd: 1.55, range: 6, aggr: 6, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불화살' },
+  fn_golem:     { name: '라바 골렘', lv: 55, hp: 2800, dmg: [85, 130], mac: -1, hit: 0.9, mr: 30, exp: 12600, coin: [2800, 4900], walk: 0.7, run: 1.9, cd: 1.9, lavaSlow: 0.25, aggr: 5, el: 'fire', flame: 2, art: 'vil', sc: 1.3, atkTxt: '용암 주먹' },
+  fn_fly:       { name: '드래곤 플라이', lv: 53, hp: 1000, dmg: [55, 88], mac: 3, hit: 0.94, mr: 15, exp: 5100, coin: [1150, 2000], walk: 1.9, run: 4.8, cd: 1.0, aggr: 6, el: 'fire', flame: 1, art: 'dragonfly', sc: 1.25, hw: 30, hh: 50, atkTxt: '불꽃 꼬리침' },
   fn_bomb:      { name: '폭탄꽃', lv: 53, hp: 800, dmg: [45, 70], mac: 4, hit: 0.9, mr: 10, exp: 4100, coin: [1000, 1650], walk: 0, run: 0, cd: 2.2, range: 5, fireball: true, still: true, aggr: 5, el: 'fire', art: 'bombflower', sc: 1.0, hw: 22, hh: 46, atkTxt: '불씨 포탄' },
-  fn_salamander:{ name: '살라만더', lv: 55, hp: 2250, dmg: [90, 143], mac: 1, hit: 0.94, mr: 35, exp: 14150, coin: [3250, 5200], walk: 1.1, run: 3.0, cd: 1.42, aggr: 6, el: 'fire', dragon: true, skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 36, hh: 52, atkTxt: '물기' },
-  fn_hcerberus: { name: '뿔 케르베로스', lv: 56, hp: 1950, dmg: [83, 135], mac: 2, hit: 0.94, mr: 25, exp: 12600, coin: [3050, 4900], walk: 1.6, run: 4.2, cd: 1.17, aggr: 6, burn: true, el: 'fire', skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 32, hh: 48, atkTxt: '불 송곳니' },
+  fn_salamander:{ name: '사라만다', lv: 55, hp: 2250, dmg: [90, 143], mac: 1, hit: 0.94, mr: 35, exp: 14150, coin: [3250, 5200], walk: 1.1, run: 3.0, cd: 1.42, aggr: 6, el: 'fire', dragon: true, skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 36, hh: 52, atkTxt: '물기' },
+  fn_hcerberus: { name: '혼 켈베로스', lv: 56, hp: 1950, dmg: [83, 135], mac: 2, hit: 0.94, mr: 25, exp: 12600, coin: [3050, 4900], walk: 1.6, run: 4.2, cd: 1.17, aggr: 6, burn: true, el: 'fire', skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 32, hh: 48, atkTxt: '불 송곳니' },
   fn_ashtazio:  { name: '아시타지오', lv: 57, hp: 3000, dmg: [90, 135], mac: 1, hit: 0.95, mr: 55, exp: 19500, coin: [4900, 8700], walk: 1.0, run: 2.6, cd: 2.0, range: 6, spell: 'fire', aggr: 7, el: 'fire', skills: true, resp: 240, flame: 2, art: 'vil', sc: 1.1, atkTxt: '파이어볼' },
-  fn_egg:       { name: '파이어 에그', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
+  fn_egg:       { name: '파이어에그', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
   phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
 // 렌더링된 몬스터 스프라이트 (그래픽팀) — 있는 몬스터는 정식 그림, 없으면 임시 그림
@@ -3147,7 +3147,7 @@ function fnFlame(g, f, S) { const h = (S.hh || 60), k = S.flame, t = time * 6 + 
   for (let q = 0; q < 2 + k * 2; q++) { const ph = (time * (1.4 + q * 0.17) + q * 0.29 + (f.hi || 0) * 0.1) % 1, a = q * 2.4 + (f.hi || 0), r = (S.hw || 30) * 0.6; g.globalAlpha = Math.sin(ph * Math.PI) * 0.75; g.fillStyle = ph < 0.5 ? '#ffd070' : '#ff6a20';
     g.beginPath(); g.arc(Math.cos(a) * r * (1 - ph * 0.3), -h * (0.15 + 0.7 * ((q * 0.31) % 1)) - ph * 18, (2 + k) * (1 - ph * 0.6), 0, 7); g.fill(); }
   g.restore(); }
-// 드래곤플라이: 금빛 마디 몸통(검은 띠) · 붉은 겹눈 · 검은 그물맥 날개 4장(빠른 날갯짓 잔상) · 가슴과 꼬리 끝에 불씨 · 공중에 떠서 흔들림
+// 드래곤 플라이: 금빛 마디 몸통(검은 띠) · 붉은 겹눈 · 검은 그물맥 날개 4장(빠른 날갯짓 잔상) · 가슴과 꼬리 끝에 불씨 · 공중에 떠서 흔들림
 //   공격 = 앞으로 돌진하며 꼬리를 말아 찌름 · 죽으면 날개를 접고 땅으로 떨어짐 (그림은 모두 코드로 그림)
 function drawDragonfly(g, f) { const S = MOB[f.kind], sc = S.sc || 1, t = time + (f.hi || 0), d = DIRV[f.row] || [1, 0], dl = Math.hypot(d[0], d[1]) || 1, d0 = d[0] / dl, d1 = d[1] / dl, K = 0.82;
   const Fx = (d0 - d1) * K, Fy = (d0 + d1) * 0.5 * K, Sx = (-d1 - d0) * K, Sy = (d0 - d1) * 0.5 * K;   // 몸 앞쪽 · 오른쪽 방향을 화면에 투영
@@ -3228,7 +3228,7 @@ function drawBombFlower(g, f) { const S = MOB[f.kind], t = time + (f.hi || 0), d
   if (dead) { const sd = (f.hi || 0) * 7.3; for (let q = 0; q < 6; q++) { const a = q * 1.05 + sd, vx = Math.cos(a) * (14 + (q % 3) * 6), k = Math.min(1, (f.deadT || 0) / 1.1), px = vx * k, py = -10 * Math.sin(k * Math.PI) - 4 + k * k * (34 + q * 2), rot = a + k * 6 * (q % 2 ? 1 : -1);
     g.save(); g.translate(px, py); g.rotate(rot); g.globalAlpha = Math.max(0, 1 - Math.max(0, (f.deadT || 0) - 1.1) / 0.6); g.fillStyle = q % 2 ? '#e8704a' : '#c8482a'; g.beginPath(); g.ellipse(0, 0, 4.2, 2.2, 0, 0, 7); g.fill(); g.restore(); } }
   g.restore(); }
-// 파이어 에그: 둥지(검은 잔가지·재) 위의 커다란 알 · 금 간 틈으로 불빛 · 맞으면 흔들림
+// 파이어에그: 둥지(검은 잔가지·재) 위의 커다란 알 · 금 간 틈으로 불빛 · 맞으면 흔들림
 function drawFireEgg(g, f) { const S = MOB[f.kind], t = time + (f.hi || 0), wob = (f.hitT > 0 || f.flash > 0) ? Math.sin(time * 40) * 0.12 : Math.sin(t * 1.3) * 0.03, pu = 0.5 + 0.5 * Math.sin(t * 2.4);
   g.save(); g.scale(S.sc || 1, S.sc || 1); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(0, 1, 22, 7, 0, 0, 7); g.fill();
   g.strokeStyle = '#2a1a10'; g.lineWidth = 2.2; for (let q = 0; q < 9; q++) { const a = q * 0.7; g.beginPath(); g.moveTo(Math.cos(a) * 20, Math.sin(a) * 6 - 2); g.lineTo(Math.cos(a + 2.4) * 18, Math.sin(a + 2.4) * 5 - 3); g.stroke(); }
@@ -3346,7 +3346,7 @@ const ISLAND = (() => {
          mobs: [['fn_warrior', 7], ['fn_archer', 5], ['fn_golem', 3], ['fn_bomb', 3]], groups: [['fn_fly', [['fn_fly', 2]], 2]] },
     23: { name: '화룡의 둥지 2구역', tier: 2, seed: 2311, N: 66, gore: true, valley: true, fire: true, sites: 3, camps: 0, lava: 9, streams: 3, lavaDmg: [32, 44], bombDmg: [14, 21], bombGap: [11, 17],
          portals: [{ i: 60, j: 60, to: 22, label: '▼ 1구역으로' }], tone: 'rgba(130,26,6,.28)',
-         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 살라만더의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어 에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다!',
+         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 사라만다의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다!',
          mobs: [['fn_salamander', 10], ['fn_hcerberus', 10], ['fn_ashtazio', 2], ['fn_egg', 3]], groups: [] },
     // 할로윈 이벤트 지역 (21번): 음침한 호박밭 — 귀신이 떠다니고 핏빛 살육터 소품 · 시야는 늘 낮처럼 · 마을 NPC 할로윈 허수아비 잭으로만 입장 · 나가려면 귀환 주문서
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
@@ -6581,7 +6581,7 @@ const TOWN = (() => {
     ['bugbear_field', '버그베어밭', '중급', '20~30', 470, 300, '시체와 핏자국이 널린 어둡고 끔찍한 살육의 땅. 1구간(Lv 20~25): 먼저 활을 쏘는 해골 궁수·좀비(해골·좀비는 밤에 강해짐)·버그베어. 2구간(Lv 25~30): 버그베어·불을 무는 켈베로스·먼저 덤비는 킹 버그베어, 그리고 보스 바포메트(잡으면 3시간~3시간 30분 뒤 다시 등장). 버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 잘 떨어뜨린다.'],
     ['dark_knight_field', '본토던전', '상급', '30~40', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 30~35): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 35~40): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
     ['dragon_valley', '용의 계곡', '상급', '47~54', 900, 300, '용족이 지배하는 검붉은 협곡 (불 속성 — 물 속성 무기·마법이 잘 듭니다). 1구역(Lv 47~50): 먼저 덤비는 빠른 해골 돌격병·해골 궁수, 3마리씩 무리 지은 트롤. 2구역(Lv 50~54, 모두 선공): 와이번(독)·불 숨결을 뿜는 드레이크·드물게 번개와 토네이도를 쓰는 흑장로, 그리고 보스 드레이크 킹(약 3시간마다, 2인 이상). 용의 비늘·드레이크의 발톱·용의 심장으로 제작 장인 브론에게서 용비늘 장비와 직업 무기를 만들 수 있어요.'],
-    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불꽃 전사·불꽃 궁수·단단한 용암 골렘·3마리씩 나는 드래곤플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 살라만더·뿔 케르베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어 에그, 그리고 보스 피닉스(약 3시간마다, 3~4명 · 한 번 되살아남). 화룡의 비늘·아시타지오의 재·피닉스의 깃털은 나중에 제작 재료로 쓰여요. 용의 계곡 2구역 북쪽 포털로도 갈 수 있어요.'],
+    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(약 3시간마다, 3~4명 · 한 번 되살아남). 화룡의 비늘·아시타지오의 재·피닉스의 깃털은 나중에 제작 재료로 쓰여요. 용의 계곡 2구역 북쪽 포털로도 갈 수 있어요.'],
     ['summon_altar', '소환의 제단', '상급', '30~50', 700, 560, '영혼석으로 보스를 불러내는 고대의 제단. 몬스터는 없고, 사냥터에서 감시자 리퍼를 쓰러뜨려 얻은 [영혼석]을 제단 가까이에서 쓰면 그 보스(같은 능력치·드랍)가 나타나요. 한 번에 한 마리.'],
     ['oren_elmore', '오렌설원지역', '상급', '40~50', 800, 130, '눈보라가 몰아치는 북쪽의 눈 덮인 설원 (수속성 — 불 속성 무기·마법이 잘 듭니다). 1구역(Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다니며 하나를 치면 무리 전체가 반격. 2구역(Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 얼어붙는 아이스 골렘, 그리고 보스 얼음여왕(약 3시간마다, 블리자드·콘 오브 콜드).'],
   ];
