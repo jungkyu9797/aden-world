@@ -76,22 +76,25 @@ const DN = (() => {
     const cv=mk&&mk.cv.width===n*MS?mk.cv:document.createElement('canvas'); cv.width=cv.height=n*MS; const x=cv.getContext('2d'); x.clearRect(0,0,cv.width,cv.height);
     x.filter=`blur(${MS*0.55}px)`; x.imageSmoothingEnabled=true; x.drawImage(raw,0,0,n*MS,n*MS); x.filter='none';
     mk={cv,i0,j0}; return mk; }
+  let dnErr = 0;
   function draw(g, vw, vh, ox, oy){ const D = vd(); if (D<0.01) return; if (!oc) oc=document.createElement('canvas'); if (oc.width!==vw||oc.height!==vh){ oc.width=vw; oc.height=vh; }
-    const c=oc.getContext('2d'), town=SCENE==='town', A=(town?0.5:ISLE&&ISLE.def&&ISLE.def.dark?0.95:0.86)*D; c.globalCompositeOperation='source-over'; c.clearRect(0,0,vw,vh);
+    const c=oc.getContext('2d'); if (c.reset) c.reset(); else { c.setTransform(1,0,0,1,0,0); c.globalAlpha=1; c.filter='none'; }   // 11/1: 어둠 판을 매 프레임 깨끗한 상태로 (한 번 꼬이면 밝은 원이 캐릭터가 아닌 엉뚱한 곳에 남던 문제 대비)
+    try { drawDark(c, g, vw, vh, ox, oy, D); } catch (e) { if (dnErr++ < 3) { try { TELE.ev('err', { m: 'DN.draw: ' + String(e && e.message || e).slice(0, 160), s: String(e && e.stack || '').slice(0, 600), c: dnErr }); } catch (e2) {} } }
+    g.save(); g.globalAlpha=1; g.globalCompositeOperation='source-over'; g.filter='none'; g.drawImage(oc,0,0); g.restore(); }
+  function drawDark(c, g, vw, vh, ox, oy, D){ const town=SCENE==='town', A=(town?0.5:ISLE&&ISLE.def&&ISLE.def.dark?0.95:0.86)*D; c.globalCompositeOperation='source-over'; c.clearRect(0,0,vw,vh);
     c.fillStyle=`rgba(4,7,22,${A})`; c.fillRect(0,0,vw,vh);
     const [hx,hy]=W2P(hero.x,hero.z), X=hx+ox, Y=hy+oy-20;
     if (!town){ const r=R()*K*1.414; c.globalCompositeOperation='destination-out'; c.save(); c.translate(X,Y); c.scale(1,0.5);
       const gr=c.createRadialGradient(0,0,r*0.25,0,0,r); gr.addColorStop(0,'rgba(0,0,0,1)'); gr.addColorStop(0.7,'rgba(0,0,0,.85)'); gr.addColorStop(1,'rgba(0,0,0,0)');
       c.fillStyle=gr; c.beginPath(); c.arc(0,0,r,0,7); c.fill(); c.restore();
-      for (const L of MXLIT){ const lx=L.x+ox, ly=L.y+oy, lg=c.createRadialGradient(lx,ly,0,lx,ly,L.r); lg.addColorStop(0,`rgba(0,0,0,${L.a})`); lg.addColorStop(0.5,`rgba(0,0,0,${L.a*0.6})`); lg.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=lg; c.fillRect(lx-L.r,ly-L.r,L.r*2,L.r*2); }   // 마법 빛이 어둠을 밝힘
+      for (const L of MXLIT){ if (!(L.r > 0) || !isFinite(L.x + L.y)) continue; const lx=L.x+ox, ly=L.y+oy, lg=c.createRadialGradient(lx,ly,0,lx,ly,L.r); lg.addColorStop(0,`rgba(0,0,0,${L.a})`); lg.addColorStop(0.5,`rgba(0,0,0,${L.a*0.6})`); lg.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=lg; c.fillRect(lx-L.r,ly-L.r,L.r*2,L.r*2); }   // 마법 빛이 어둠을 밝힘
       // 나무·바위에 가려진 곳: 칸 단위 마스크를 작게 그려 흐리게 늘림 (칸 모양 안 보이게)
       const M=shadowMask(); if (M){ c.globalCompositeOperation='source-over'; c.save(); c.globalAlpha=Math.min(1,A*1.05);
         c.setTransform(K/MS, K/2/MS, -K/MS, K/2/MS, G.ax+ox+(M.i0-M.j0)*K, G.ay+oy+(M.i0+M.j0)*K/2); c.imageSmoothingEnabled=true; c.drawImage(M.cv,0,0); c.restore(); } litSprites(c, ox, oy); }
-    else { c.globalCompositeOperation='destination-out'; const gr=c.createRadialGradient(X,Y,10,X,Y,160); gr.addColorStop(0,'rgba(0,0,0,.6)'); gr.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=gr; c.fillRect(0,0,vw,vh); }
-    g.drawImage(oc,0,0); }
+    else { c.globalCompositeOperation='destination-out'; const gr=c.createRadialGradient(X,Y,10,X,Y,160); gr.addColorStop(0,'rgba(0,0,0,.6)'); gr.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=gr; c.fillRect(0,0,vw,vh); } }
   function litSprites(c, ox, oy){ c.save(); c.globalCompositeOperation='destination-out';
-    const lit=(wx,wz,hh,hw,a)=>{ const [px,py]=W2P(wx,wz), X0=px+ox, Y0=py+oy-hh*0.48, rx=hw+16, ry=hh*0.62+14; c.save(); c.translate(X0,Y0); c.scale(1,ry/rx); const lg=c.createRadialGradient(0,0,rx*0.15,0,0,rx); lg.addColorStop(0,`rgba(0,0,0,${a})`); lg.addColorStop(0.65,`rgba(0,0,0,${a*0.75})`); lg.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=lg; c.beginPath(); c.arc(0,0,rx,0,7); c.fill(); c.restore(); };
-    for (const f of foxes){ if (f.dead||f.gone||!seen(f.i,f.j)) continue; const S=MOB[f.kind]; lit(f.x,f.z,S.hh||Math.round(62*S.sc),S.hw||Math.round(14*S.sc+6),0.9); }
+    const lit=(wx,wz,hh,hw,a)=>{ const [px,py]=W2P(wx,wz), X0=px+ox, Y0=py+oy-hh*0.48, rx=hw+16, ry=hh*0.62+14; if (!isFinite(X0+Y0+rx+ry) || rx<=0 || ry<=0) return; c.save(); c.translate(X0,Y0); c.scale(1,ry/rx); const lg=c.createRadialGradient(0,0,rx*0.15,0,0,rx); lg.addColorStop(0,`rgba(0,0,0,${a})`); lg.addColorStop(0.65,`rgba(0,0,0,${a*0.75})`); lg.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=lg; c.beginPath(); c.arc(0,0,rx,0,7); c.fill(); c.restore(); };
+    for (const f of foxes){ if (f.dead||f.gone||!seen(f.i,f.j)) continue; const S=MOB[f.kind]; if (!S) continue; lit(f.x,f.z,S.hh||Math.round(62*S.sc),S.hw||Math.round(14*S.sc+6),0.9); }
     lit(hero.x,hero.z,74,24,0.85); c.restore(); }
   function label(){ const u=clk(), n=isNight(), m=Math.max(0,Math.ceil((n?(CYC-u):(DAY-u))/60)), tl=force!=null?' (고정)':` · ${m}분 뒤 ${n?'낮':'밤'}`; if (ISLE && ISLE.def && ISLE.def.dark) return `☾ 던전 · 바깥은 ${n?'밤':'낮'}`+tl; return (n?'☾ 밤':'☀ 낮')+tl; }
   return { update, draw, seen, isNight, dark: () => dark, label, toggle(){ force = force==null ? (isNight()?0:1) : (force===1?0:1); }, set(v){ force = v == null ? null : v ? 1 : 0; }, left: () => Math.max(0, Math.ceil(((isNight() ? CYC : DAY) - clk()) / 60)) };
