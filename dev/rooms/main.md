@@ -21,13 +21,14 @@
   - 소리: `dev/sfx/fn_sfx.py`처럼 numpy로 합성 → `assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3` → `MSFX`의 `has` 목록에 몹 이름 추가(보스 스킬음이 있으면 `K2`에도).
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
-## 지금 상태 (10/30 15:30 KST)
-- 작업 방식: 방 하나(메인방 + 보조 작업자 Agent, 동시 작업은 `isolation: worktree` + 서로 다른 `KT_PORT`). 끝나면 `git worktree remove --force` (그래야 main 폴더에서 그 갈래를 checkout 가능).
-- 마지막 배포 **v191** (바닥 아이템 10분·50개 · 장비 이펙트 켬/끔 · 접속자 정보 창). 원래 컴퓨터 게임 폴더에는 아직 못 넣음(이 방은 클라우드 — 컴퓨터 연결 없음).
-- **승인 대기 6개**: firenest(화룡의 둥지 + 40마리 + 이프리트 + 피닉스의 가호) · firecraft(화룡 장비 7종, 심장 포함 — firenest 위에 있음, 같이 배포) · crafttip · pvphit · aibot(혈맹 + 필드 봇 1단계) · polymon(`work/polygacha`, 변신 카드 1단계).
-  - 서로 충돌하는 곳이 있어 테스트 판은 다 합친 `work/stage-all`로 올림(`stage_test.py work/stage-all`). 배포 때 겹치는 곳: crafttip↔firecraft(CRAFT.render 가호 행 — 피닉스 가호 gonoff 행에 pvA/tipA 붙이기), aibot↔firenest(killCheck 맨 앞 FBOT + 피닉스 phxAsh 줄, 몹 공격 LT.fb → FBOT.mobHit + lavaSlow 줄). `git config rerere.enabled true`로 해결 기록해 둠.
-  - firenest 배포 때 `dev/notes/firenest.md`의 "(나중에 제작 재료)" → "(화룡 장비 제작 재료)"로 고칠 것(작업판 카드 notes는 고쳐 둠).
-- 다음 할 일 후보: 변신 카드 2단계(합성·도감 보너스·봉투), 필드 봇 2단계(30 vs 30 필드전·무인 지역 결과), 라인 봇 가호 하루 상한 여부, 화둥 무기 3종 원래 리니지 이름 무기(진명황의 집행검 등) 오리지널 그림 제안함(답 없음).
+## 지금 상태 (10/30 18:40 KST)
+- 마지막 배포 **v193** (화룡의 둥지 · 화룡 갑옷 3종 · 강화 BGM OFF). v191·v192·v193 모두 원래 컴퓨터 폴더에는 못 넣음(클라우드 방 · 컴퓨터 연결 없음).
+- **승인 대기 6개** (테스트 판 = 다 합친 `work/stage-all`): polymon(`work/polygacha` 변신 카드 + 소드·아크) · aibot(혈맹·필드 봇) · tgtline(고른 대상 빨간 테두리 4px) · phxresp(피닉스 5~6시간) · aggro1(선공 +1칸) · fnminhit(몹 공격 회피 구간 — 사냥터별 기준 구간 20%, AC 10방마다 5%, 캐릭터 창 [몹 공격 회피]).
+  - 배포 때 겹치는 곳(rerere에 기록됨): tgtline↔aibot(drawMobBody 첫 줄 — 테두리 분기 + `fb_` 조건 유지) · aggro1↔fnminhit(파일 끝 블록 — 지금 fnminhit은 끝 블록 없음) · polygacha↔main(이미 해결).
+- 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT` (예약 작업으로 방 열기는 자동 권한 검사에서 막힘). 큰 일은 20~30분 조각으로. 끝나면 `git worktree remove --force`.
+- 메모리 부족: 테스트를 3개 이상 동시에 돌리면 OOM으로 브라우저가 죽을 수 있음(dmesg). 2개까지만.
+- 보류: 아시타지오·이프리트 공격 때 끊김(프로듀서: 더 확인되면 알려 줌 — 테스트 기기에선 재현 안 됨, 측정 스크립트는 지움).
+- 다음 후보: 변신 카드 2단계(합성·도감 보너스) · 필드 봇 2단계 · 대인전 대상 빨간 테두리 · 용계 등 다른 사냥터 몹 마법 명중.
 
 ## 메인방 도구·요령
 - 묶음 테스트 판: 작업판에서 ready·test·queued 카드의 branch → `python3 dev/stage_test.py <갈래들>` → 테스트 아티팩트(https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6) publish `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` → 테스트 db `tbuild/cur` = build.json의 {id, at, n} → 작업판 db `meta/test` = 같은 값 + branches. (다른 대화에서 처음 올릴 때는 먼저 Artifact read 한 번 — 페이지가 4.5MB라 읽기가 막히면 publish를 바로 해 보고, 거절되면 돌려준 판 위에 다시 올린다.)
