@@ -113,7 +113,7 @@ const zoneEvB = () => (ISLE && SCENE === 'field' && !ARENA() && ZONE_EVB[ISLE.id
 const DEFMODE = { hit: 'old', oldFloor: 0.10, evB: {}, evBase: 0.2, evK: 0.005, evCap: 0.6, lvBase: 0.85, lvHit: 0, lvK: 0.03, lvMin: 0.1, lvMax: 0.95, acK: 0, acFrom: 0, drRand: 1, drK: 0, drCap: 0.5, atkMul: 1, spdAdd: 0, acAdd: 0, log: null };
 // defbal 추천안(rec): 몹 근접·화살 명중 = (몹 명중 + 3%×(몹Lv − 내Lv)) × 20 ÷ (20 + |AC|) — 'AC 20마다 버티는 힘 +1배'(천장 없음) · 대안(alt): v193 식 그대로 + 최저 명중 10%를 AC −100부터 1000÷|AC| %로 (−125 8% · −160 6.3%)
 const DEF_PRESET = { rec: { hit: 'lv', lvHit: 1, lvK: 0.03, acK: 5 }, rec4: { hit: 'lv', lvHit: 1, lvK: 0.03, acK: 4 }, alt: { hit: 'old', oldSoft: 1 } };
-const DEF_USE = null;   // 게임 기본: 꺼짐(v193 식) · 'rec'·'alt'로 바꾸면 그 식이 켜짐 (프로듀서 결정 뒤)
+const DEF_USE = 'rec';   // 10/30 프로듀서 결정: 추천안(AC 비율식) — 몹 근접·화살 명중 = (몹 명중 + 3%×(몹Lv − 내Lv)) × 20 ÷ (20 + |AC|) · 천장 없음 · 보스 최저 50% · 화살 −ER · 마법 식 그대로
 if (DEF_USE && DEF_PRESET[DEF_USE]) Object.assign(DEFMODE, DEF_PRESET[DEF_USE]);
 const defHit = S => { const D = DEFMODE, A = Math.max(0, -INV.ac()); let h;
   if (D.hit === 'ev') { const z = zoneEvB0(); if (z == null) return mobHitOld(S); h = 1 - Math.max(0, Math.min(D.evCap, D.evBase + D.evK * (A - z))); }
