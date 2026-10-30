@@ -838,6 +838,9 @@ const SK_GONE = new Set(['ghaste', 'resur']);   // v149: 없어진 마법 (마�
 const SPELL_CD = { turnund: 3.0, farrow: 1.2, fball: 2.5, tornado: 3, quake: 3, fstorm: 3, lstorm: 3, disint: 7, meteor: 5, blizzard: 4, abarrier: 12, advspirit: 2, rcurse: 2 }, SPELL_CLS = { icedagger: ['elf', 'wizard'] };
 const SK = {};
 for (const [c, id, name, desc, mp] of MAGIC_LIST) SK[id] = { name, kind: 'magic', circle: c, lv: CIRCLE_LV(c), mp, cd: SPELL_CD[id] || (c <= 2 ? 1.2 : 2), desc, buff: BUFF_OF[id], book: '마법서: ' + name, ready: !SK_GONE.has(id), hidden: SK_GONE.has(id) || undefined, cls: SPELL_CLS[id] };
+// 10/30: 마법사는 모든 마법 재사용 대기 +1초 (그레이터 힐은 4초) — 요정·기사는 그대로
+function wizCd(id) { const b = SK[id].cd; Object.defineProperty(SK[id], 'cd', { get: () => CLASS === 'wizard' ? (id === 'gheal' ? 4 : Math.round((b + 1) * 10) / 10) : b, enumerable: true, configurable: true }); }
+for (const id in SK) wizCd(id);
 // 기술: 기사 전용 (기술서)
 Object.assign(SK, {
   stun:      { name: '스턴', kind: 'skill', lv: 5, mp: 5, cd: 8, desc: '근접한 대상을 1~4초 기절. 성공률은 나와 대상의 레벨 차이로 정해짐.', book: '기술서: 스턴', ready: true, shop: '마법상점' },
@@ -5434,6 +5437,7 @@ for (const [b, nm, st, txt] of GAHO_DEF) {
   if (!fill()) { const iv = setInterval(() => { if (fill()) clearInterval(iv); }, 1200); } }
 // v144: 서먼 몬스터 — 마법사 6서클 (Lv24 자동 습득 · 마법서 아이템 없음)
 SK.summon = { name: '서먼 몬스터', kind: 'magic', circle: 6, lv: CIRCLE_LV(6), mp: 30, cd: 3, desc: '몬스터를 불러내 함께 싸웁니다. 카리스마 4마다 1마리 (최대 3) · 레벨이 오를수록 강한 몬스터 (Lv24 버그베어 · 30 켈베로스 · 36 킹 버그베어 · 42 아이스 골렘 · 48 에틴 · 52 트롤) · 귀환·텔레포트해도 따라오고 시간 제한 없음 · 내가 쓰러지거나 소환수가 쓰러지면 사라짐 · 다 나와 있을 때 다시 쓰면 돌려보내기 · 소환수가 잡은 경험치·골드·드랍은 모두 나에게', book: '마법서: 서먼 몬스터', ready: true, cls: ['wizard'] };
+wizCd('summon');   // 마법사 +1초
 CXI.sk_summon = '<defs><radialGradient id="g_sum" cx=".5" cy=".35" r=".85"><stop offset="0" stop-color="#e8c8ff"/><stop offset="1" stop-color="#2a0e4a"/></radialGradient></defs><rect x="2" y="2" width="30" height="30" rx="5" fill="url(#g_sum)" stroke="#120624" stroke-width="1"/><ellipse cx="17" cy="26" rx="11" ry="3.6" fill="none" stroke="#c890ff" stroke-width="1.4"/><path d="M9 26 L11 18 L14 21 L17 12 L20 21 L23 18 L25 26" fill="#3a1a5a" stroke="#e8d0ff" stroke-width="1"/><circle cx="14.6" cy="19.5" r="1.1" fill="#ff5a5a"/><circle cx="19.4" cy="19.5" r="1.1" fill="#ff5a5a"/><path d="M17 4 L18 8 L22 9 L18 10 L17 14 L16 10 L12 9 L16 8 Z" fill="#fff4c0" opacity=".9"/>';
 // v139: 마법사·요정 장비 — 기사 전용 장비가 있는 부위·등급에 법사·요정 장비 채움 (리니지 클래식 이름 우선 · AC 법사 ≈65% · 요정 ≈85% · 대신 MP·MR·지능 / 명중·민첩·바람 저항)
 // ITEMS 맨 뒤에 붙임 (네트워크 아이템 번호가 밀리지 않게) · 같은 도감 규칙(CX_MAKE)으로 만듦
