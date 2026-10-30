@@ -8481,7 +8481,7 @@ const MPP = (() => {
   setInterval(render, 1000);
   return { open, leave, start, state: () => state, code: () => (state !== 'off' ? code : null) };
 })();
-// 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·경험치·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
+// 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·변신·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
 const WHO = (() => { const $ = id => document.getElementById(id), E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const ORDER = ['weapon', 'shield', 'helm', 'armor', 'shirt', 'cloak', 'gloves', 'belt', 'boots', 'amulet', 'ring1', 'ring2', 'doll'], LBL = Object.fromEntries(SLOTS), ELK = { e: 'earth', w: 'water', f: 'fire', a: 'wind' };
   let peer = null, last = null, gone = false, row = 1, raf = 0, tick = 0; const sig = {};
@@ -8494,12 +8494,12 @@ const WHO = (() => { const $ = id => document.getElementById(id), E = t => Strin
   function view() { const w = $('whowin'); if (!w || w.hidden || !peer) return; const o = find(); if (o) { last = o.pr; gone = false; } else gone = true; const pr = last || {}, has = k => pr[k] != null;
     const pm = !gone && NET.partyId() && pr.pt === NET.partyId();
     set('who-hd', `<b style="color:${pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(pr.n || '?')}</b>` + (gone ? '<span class="who-off">접속 종료</span>' : pr.dd > 0 ? '<span class="who-off">사망</span>' : '<span class="who-on">접속 중</span>'));
-    const xp = has('xp') && isFinite(+pr.xp) ? (Math.max(0, Math.min(1000, +pr.xp)) / 10).toFixed(1) + '%' : '-';
-    set('who-info', `<div class="big" style="display:contents"><dt>레벨</dt><dd>${has('lv') ? (pr.lv | 0) : '-'}</dd></div><dt>직업</dt><dd>${E(CLASS_NAME[pr.c] || '-')}</dd><dt>경험치</dt><dd>${xp}</dd><dt>전투력</dt><dd class="cp">${pr.cp ? cpFmt(pr.cp) : '-'}</dd><i class="sep"></i><dt>위치</dt><dd class="who-z">${gone ? '-' : has('z') ? E(zoneTitle(pr.z)) : '-'}</dd>`);
+    const P = pr.pf && POLY[pr.pf], polyTxt = gone ? '-' : P ? E(P.name) + (P.card && P.card.g ? ` <small>(${E(P.card.g)})</small>` : P.tier && POLY_TIER[P.tier] ? ` <small>(${POLY_TIER[P.tier].nm} · 공격·이동 속도 +${POLY_TIER[P.tier].bonus}%)</small>` : P.set ? ' <small>(세트)</small>' : '') : '없음';   // 10/30 프로듀서: 경험치 대신 지금 변신 상태
+    set('who-info', `<div class="big" style="display:contents"><dt>레벨</dt><dd>${has('lv') ? (pr.lv | 0) : '-'}</dd></div><dt>직업</dt><dd>${E(CLASS_NAME[pr.c] || '-')}</dd><dt>변신</dt><dd class="who-pf">${polyTxt}</dd><dt>전투력</dt><dd class="cp">${pr.cp ? cpFmt(pr.cp) : '-'}</dd><i class="sep"></i><dt>위치</dt><dd class="who-z">${gone ? '-' : has('z') ? E(zoneTitle(pr.z)) : '-'}</dd>`);
     const G = gear(pr), gk = JSON.stringify(G); if (sig.gk !== gk) { sig.gk = gk; sig['who-eq'] = null; } if (sig['who-eq'] == null) set('who-eq', ORDER.map(s => {   /* 아이콘 그림은 그릴 때마다 id가 달라서 장비가 바뀔 때만 다시 그림 */ const e = G[s], lb = E(LBL[s] || s); if (!e) return `<div class="who-it none"><div class="eq"></div><div class="who-in"><small>${lb}</small><span>-</span></div></div>`; const d = ITEMS[e.id], rr = d.rar || '일반', t = enTierOf(e.id, e.en);
       const tip = INV.tipOf(e).split('\n').filter(l => !/더블클릭|꾹 누르고/.test(l)).map(l => l.replace(/ — 착용 불가$/, '')).join('\n');
       return `<div class="who-it" data-itip="${E(tip)}" data-ic="${rarC(e.id)}"><div class="eq has rar r-${{ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0}${t ? ' eg' + t : ''}" style="--rar:${rr === '일반' ? '#b9b4a8' : RARITY_C[rr]}">${ICON(d.icon, e.blessed)}${e.blessed ? '<i class="bl-spark"></i>' : ''}${e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : ''}</div><div class="who-in"><small>${lb}</small><b style="color:${rarC(e.id)}">${nameHTML(e)}</b></div></div>`; }).join(''));
-    set('who-note', gone ? '접속을 종료해서 마지막으로 받은 정보를 보여 줘요.' : !has('wq') && !has('xp') ? '상대가 예전 버전이라 경험치·강화 수치와 목걸이·반지·인형은 보이지 않아요.' : '');
+    set('who-note', gone ? '접속을 종료해서 마지막으로 받은 정보를 보여 줘요.' : !has('wq') && !has('xp') ? '상대가 예전 버전(v190 이하)이라 강화 수치와 목걸이·반지·인형은 보이지 않아요. 상대가 업데이트하면 보여요.' : '');
     kick(); }
   function draw(ts) { raf = 0; const c = $('who-look'), w = $('whowin'); if (!c || !w || w.hidden) return; const g = c.getContext('2d'), pr = last || {}; g.clearRect(0, 0, c.width, c.height);
     const gr = g.createRadialGradient(c.width / 2, c.height - 22, 4, c.width / 2, c.height - 22, c.width * 0.45); gr.addColorStop(0, 'rgba(255,230,170,.16)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height);
