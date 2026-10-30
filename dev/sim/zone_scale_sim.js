@@ -8,7 +8,7 @@ const AUTOSK = (process.env.SK || '').split(',').filter(Boolean);   // SK=stun,r
 const ZONE = +(process.argv[2] || 17), SEC = +(process.argv[3] || 600), VARS = (process.argv[4] || '1x1').split(',').map(s => s.split('x').map(Number));   // HP배율x공격배율[x공격속도배율[x개체수 비율]]
 (async () => { const b = await chromium.launch(); const errs = []; let p = null;
   const fresh = async () => { if (p) await p.close(); p = await (await b.newContext({ viewport: { width: 800, height: 600 } })).newPage(); p.on('pageerror', x => errs.push(String(x).slice(0, 200)));
-  await p.goto('http://127.0.0.1:8766/_sim2.html'); await p.waitForSelector('#lg-mode', { state: 'visible', timeout: 60000 }); await p.click('#lg-mode');
+  await p.goto('http://127.0.0.1:' + (process.env.KT_PORT || 8766) + '/_sim2.html'); await p.waitForSelector('#lg-mode', { state: 'visible', timeout: 60000 }); await p.click('#lg-mode');
     await p.fill('#lg-acc', 'zs' + Date.now() % 1e6); await p.fill('#lg-pw', 'abcd'); await p.fill('#lg-pw2', 'abcd'); await p.click('#lg-go');
     await p.waitForSelector('.cs-card[data-cls="knight"]', { state: 'visible', timeout: 60000 }); await p.click('.cs-card[data-cls="knight"]'); await p.click('#cs-start');
     await p.waitForSelector('#nm-in', { state: 'visible' }); await p.fill('#nm-in', 'zs' + Date.now() % 1e5); await p.click('#nm-go');

@@ -143,15 +143,15 @@ input[type=text] { flex: 1; min-width: 0; font: 14px var(--body); color: var(--i
   <header>
     <div>
       <h1>아덴 작업판</h1>
-      <p class="sub">메인방에서 말하면 Claude가 분류해서 방마다 동시에 작업해요. 끝난 건 승인 대기 → 승인하면 업데이트 대기 → 메인방에서 "업데이트" 한마디로 한 번에 배포.</p>
+      <p class="sub">말은 메인방 하나에만 하세요 — Claude가 그 방 안에서 여러 작업을 동시에 돌려요. 이 판은 현황판이에요. 끝난 건 승인 대기 → 승인하면 업데이트 대기 → 메인방에서 "업데이트" 한마디로 한 번에 배포.</p>
     </div>
-    <div class="hbtns"><span id="live"></span><a class="big" id="main-room" data-main href="https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D" target="_blank" rel="noopener">메인방 열기 →</a></div>
+    <div class="hbtns"><span id="live"></span><a class="big" id="main-room" data-main href="https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a" target="_blank" rel="noopener">메인방 열기 →</a></div>
   </header>
 
   <nav class="flow" id="flow" aria-label="단계별 개수"></nav>
 
   <section class="stage asks" id="s-ask" hidden aria-label="내 답변 필요">
-    <div class="sh"><h2>내 답변 필요 <span class="cnt" style="--tc:var(--wait)" id="n-ask">0</span></h2><small class="state">그 방이 내 답을 기다려요 · 카드에 적거나 대화방에서 답해 주세요</small></div>
+    <div class="sh"><h2>내 답변 필요 <span class="cnt" style="--tc:var(--wait)" id="n-ask">0</span></h2><small class="state">Claude가 답을 기다려요 · 메인방에서 답해 주세요 (카드에 적어 둬도 돼요)</small></div>
     <div class="cards" id="ask"></div>
   </section>
 
@@ -170,7 +170,7 @@ input[type=text] { flex: 1; min-width: 0; font: 14px var(--body); color: var(--i
   <section class="stage" id="s-queued" aria-label="업데이트 대기">
     <div class="sh"><h2>업데이트 대기 <span class="cnt" style="--tc:var(--accent)" id="n-queued">0</span> <small>승인한 것 · 다음 업데이트에 같이 나가요</small></h2></div>
     <ol class="rows" id="queued"></ol>
-    <div class="bar" id="go-bar"><p><b>최종 업데이트</b> — 메인방에 <b>"업데이트"</b>라고 쓰면 여기 있는 것 전부를 소식안과 함께 한 번에 배포해요.</p><a class="big" data-main href="https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D" target="_blank" rel="noopener">메인방에서 업데이트 →</a></div>
+    <div class="bar" id="go-bar"><p><b>최종 업데이트</b> — 메인방에 <b>"업데이트"</b>라고 쓰면 여기 있는 것 전부를 소식안과 함께 한 번에 배포해요.</p><a class="big" data-main href="https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a" target="_blank" rel="noopener">메인방에서 업데이트 →</a></div>
   </section>
 
   <section class="stage" aria-label="업데이트 기록">
@@ -217,7 +217,7 @@ input[type=text] { flex: 1; min-width: 0; font: 14px var(--body); color: var(--i
 
 <script>
 const CAT = { new: ['신규 컨텐츠', 'var(--c-new)'], balance: ['밸런스', 'var(--c-balance)'], fix: ['오류·수정', 'var(--c-fix)'], bot: ['AI 봇', 'var(--c-bot)'] };
-const MAIN_ROOM = 'https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D';
+const MAIN_ROOM = 'https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a';
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const ago = iso => { const t = Date.parse(iso); if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); if (m < 1) return '방금'; if (m < 60) return m + '분 전'; const h = Math.round(m / 60); if (h < 24) return h + '시간 전'; return Math.round(h / 24) + '일 전'; };
@@ -274,21 +274,21 @@ function card(t, ask) {
     ${t.next ? `<div class="next"><b>${ask ? '내가 할 일' : '다음'}</b>${esc(t.next)}</div>` : ''}
     ${t.rework ? `<div class="note"><b>내 수정 요청:</b> ${esc(t.rework.text || '')}</div>` : ''}
     ${t.note ? `<div class="note">${esc(t.note)}</div>` : ''}
-    ${canWrite && (ask || t.pnote) ? `<label><span hidden>내 메모</span><textarea class="pnote" data-pn="${esc(t.id)}" placeholder="여기에 답을 적으면 그 방이 읽어요 (바로 반영하려면 대화방에서 말해 주세요)">${esc(t.pnote || '')}</textarea></label>` : ''}
-    <div class="foot">${room ? `<a class="room-btn" href="${esc(room)}" target="_blank" rel="noopener">대화방 열기 →</a>` : '<span>대화방 준비 중</span>'}${t.room ? `<span>${esc(t.room)}</span>` : ''}${url && s !== 'doing' ? `<a href="${esc(url)}" target="_blank" rel="noopener">테스트</a>` : ''}<span>${esc(ago(t.updated))}</span></div>
+    ${canWrite && (ask || t.pnote) ? `<label><span hidden>내 메모</span><textarea class="pnote" data-pn="${esc(t.id)}" placeholder="여기에 답을 적어 두면 메인방이 읽어요">${esc(t.pnote || '')}</textarea></label>` : ''}
+    <div class="foot">${url && s !== 'doing' ? `<a href="${esc(url)}" target="_blank" rel="noopener">테스트</a>` : ''}<span>${esc(ago(t.updated))}</span></div>
   </article>`;
 }
 function row(t, n, kind) {
   const open = UI.open === t.id, room = safeUrl(t.room_url), N = notesOf(t), tc = kind === 'ready' ? 'var(--ready)' : 'var(--accent)';
   const sub = kind === 'ready' ? `끝남 ${when(t.readyAt || t.updated)}` : `승인 ${when(t.approvedAt || t.updated)}`;
   const rw = UI.rework === t.id;
-  return `<li class="row" style="--tc:${tc}"><button type="button" class="rh" data-open="${esc(t.id)}" aria-expanded="${open}"><span class="num">${n}</span><span class="rt"><b>${esc(t.title)}</b><small>${catTag(t)} ${silentTag(t)} ${esc(sub)}${t.room ? ' · ' + esc(t.room) : ''}</small></span><span class="chev">${open ? '접기 ▲' : '보기 ▼'}</span></button>
+  return `<li class="row" style="--tc:${tc}"><button type="button" class="rh" data-open="${esc(t.id)}" aria-expanded="${open}"><span class="num">${n}</span><span class="rt"><b>${esc(t.title)}</b><small>${catTag(t)} ${silentTag(t)} ${esc(sub)}</small></span><span class="chev">${open ? '접기 ▲' : '보기 ▼'}</span></button>
     ${open ? `<div class="rd">
       ${t.note ? `<div class="note">${esc(t.note)}</div>` : ''}
       ${N.length ? `<div><b style="font-size:13px">업데이트 소식안</b><ul class="notes">${N.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : t.silent ? '<div class="hint">잠수패치라 업데이트 소식에는 안 나와요.</div>' : ''}
       ${t.next && kind === 'ready' ? `<div class="next"><b>확인할 것</b>${esc(t.next)}</div>` : ''}
-      ${rw ? `<div class="rework"><label class="hint" for="rw-${esc(t.id)}">무엇을 고칠지 적어 주세요</label><textarea id="rw-${esc(t.id)}" data-rw="${esc(t.id)}"></textarea><div class="acts"><button type="button" data-rwsend="${esc(t.id)}">수정 요청 보내기</button><button type="button" class="ghost" data-rwcancel="1">취소</button></div><p class="hint">보낸 요청은 메인방에 말을 걸 때 그 방으로 전달돼요. 바로 고치려면 대화방에서 직접 말해도 돼요.</p></div>`
-        : `<div class="acts">${kind === 'ready' ? `${canWrite ? `<button type="button" class="ok" data-ok="${esc(t.id)}">승인</button><button type="button" class="ghost" data-rwopen="${esc(t.id)}">수정 요청</button>` : ''}<a class="room-btn" href="https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6" target="_blank" rel="noopener">테스트 페이지 →</a>` : canWrite ? `<button type="button" class="ghost" data-undo="${esc(t.id)}">승인 취소 (승인 대기로)</button>` : ''}${room ? `<a href="${esc(room)}" target="_blank" rel="noopener" class="hint">대화방 열기 →</a>` : ''}</div>`}
+      ${rw ? `<div class="rework"><label class="hint" for="rw-${esc(t.id)}">무엇을 고칠지 적어 주세요</label><textarea id="rw-${esc(t.id)}" data-rw="${esc(t.id)}"></textarea><div class="acts"><button type="button" data-rwsend="${esc(t.id)}">수정 요청 보내기</button><button type="button" class="ghost" data-rwcancel="1">취소</button></div><p class="hint">보낸 요청은 메인방이 읽고 고쳐요. 바로 고치려면 메인방에 말해 주세요.</p></div>`
+        : `<div class="acts">${kind === 'ready' ? `${canWrite ? `<button type="button" class="ok" data-ok="${esc(t.id)}">승인</button><button type="button" class="ghost" data-rwopen="${esc(t.id)}">수정 요청</button>` : ''}<a class="room-btn" href="https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6" target="_blank" rel="noopener">테스트 페이지 →</a>` : canWrite ? `<button type="button" class="ghost" data-undo="${esc(t.id)}">승인 취소 (승인 대기로)</button>` : ''}</div>`}
     </div>` : ''}</li>`;
 }
 async function upd(id, data, okMsg) { if (!db) return; try { await db.doc('tasks/' + id).update(Object.assign({ updated: nowIso() }, data)); if (okMsg) toast(okMsg); } catch (e) { toast('저장하지 못했어요. 잠시 뒤 다시 해 주세요.'); } }
