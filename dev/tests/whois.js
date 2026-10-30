@@ -1,4 +1,4 @@
-// 접속자 정보 창 — 접속자 목록(월드 서버 창)에서 이름을 누르면 그 캐릭터의 레벨·경험치·전투력·위치·착용 장비·모습 (KT_PORT=8772 bash dev/runkt.sh dev/tests/whois.js)
+// 접속자 정보 창 — 접속자 목록(월드 서버 창)에서 이름을 누르면 그 캐릭터의 레벨·변신·전투력·위치·착용 장비·모습 (KT_PORT=8772 bash dev/runkt.sh dev/tests/whois.js)
 // 같은 브라우저 탭끼리(?mp=bc · BroadcastChannel)로 2명 + 예전 버전 클라이언트 흉내(xp·wq 없는 presence) 1명
 const { chromium } = require('playwright'); const login = require('../tq.js'); const PORT = process.env.KT_PORT || 8766;
 (async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } }); const errs = [];
@@ -43,7 +43,7 @@ const { chromium } = require('playwright'); const login = require('../tq.js'); c
   // 모바일 (html.mob): 다른 컨텍스트 — 혼자 + 예전 버전 흉내 대신 B 같은 장비를 가진 가짜 presence
   const mc = await b.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }); const M = await mc.newPage(); M.on('pageerror', e => errs.push('mobile: ' + e.message));
   await login(M, { cls: 'knight', name: 'whoM', mp: true }); const F = await mc.newPage(); await F.goto(`http://127.0.0.1:${PORT}/CREDITS.md`);
-  await F.evaluate(() => { const ch = new BroadcastChannel('aden-mp'); const pr = { n: '모바일상대', c: 'wizard', lv: 47, xp: 512, z: 'isle1', cp: 9876, e: { weapon: 'dk_sword', helm: 'dk_helm', armor: 'dk_armor' }, eg: { weapon: 9, helm: 8 }, wq: { weapon: '+9*@f2', helm: '+6', amulet: 'amulet', ring1: 'silver_ring+3' }, hp: 100, hm: 100, x: 30, y: 30 }; setInterval(() => ch.postMessage({ t: 'p', peer: 'pMOBfake', presence: pr }), 700); });
+  await F.evaluate(() => { const ch = new BroadcastChannel('aden-mp'); const pr = { n: '모바일상대', c: 'wizard', lv: 47, xp: 512, pf: 'pm_smage', z: 'isle1', cp: 9876, e: { weapon: 'dk_sword', helm: 'dk_helm', armor: 'dk_armor' }, eg: { weapon: 9, helm: 8 }, wq: { weapon: '+9*@f2', helm: '+6', amulet: 'amulet', ring1: 'silver_ring+3' }, hp: 100, hm: 100, x: 30, y: 30 }; setInterval(() => ch.postMessage({ t: 'p', peer: 'pMOBfake', presence: pr }), 700); });
   await M.waitForTimeout(2500); await M.evaluate(() => { __T.NET.hasArtRoom = () => true; }); await M.waitForTimeout(1200);
   await M.evaluate(() => document.getElementById('esc-mp').click()); await M.waitForTimeout(1200);
   await M.tap('#mp-list .mp-nm[data-who="pMOBfake"]'); await M.waitForTimeout(800);
