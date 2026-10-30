@@ -2948,7 +2948,7 @@ const PCARD = [['goblin', '일반'], ['orc', '일반'], ['dwarf', '일반'], ['o
   ['dark_elf', '희귀', { mpRegen: 1 }], ['skeleton_archer', '희귀', { hitR: 1 }], ['bugbear', '희귀', { wPct: 5 }], ['cerberus', '희귀', { hitM: 1 }],
   ['king_bugbear', '영웅', { xdmgM: 1 }], ['necromancer', '영웅', { sp: 1 }], ['spartoi', '영웅', { dr: 1 }],
   ['deathknight', '전설', { xdmgM: 1, dr: 1 }, 'knight'], ['wyvern', '전설', { xdmgR: 1, hitR: 1 }, 'elf'], ['kaspar', '전설', { sp: 1, mpRegen: 2 }, 'wizard']
-].map(([id, g, st, fit]) => { const M = MSHEET[id], hh = (M && M.hh) || 80, f = Math.max(60, Math.min(104, hh)) / hh;   /* 화면 키를 60~104px로 (캐릭터 약 81 · 너무 작거나 큰 몹은 맞춤) */
+].map(([id, g, st, fit]) => { const M = MSHEET[id], hh = (M && M.hh) || 80, f = Math.max(60, Math.min(104, hh)) / hh * ({ king_bugbear: 0.85 }[id] || 1);   /* 화면 키를 60~104px로 (캐릭터 약 81 · 너무 작거나 큰 몹은 맞춤 · 킹 버그베어는 몸이 넓어 조금 더 작게) */
   const c = { id, g, st: st || null, fit: fit || null, name: (MOB[id] || {}).name || id, lv: PC_GRADE[g].lv, pct: PC_GRADE[g].pct, key: 'pc_' + id, opt: st ? Object.entries(st).map(([k, n]) => PC_STAT_TXT[k](n)) : [] };
   POLY[c.key] = { name: c.name, sheet: id, s: M ? M.s * f : 0.5, card: c }; return c; });
 const PC_BY = Object.fromEntries(PCARD.map(c => [c.id, c]));
