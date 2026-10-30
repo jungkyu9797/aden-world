@@ -334,7 +334,10 @@ function heroRelease(f){   // 활시위를 놓는 순간 / 마력탄을 쏘는 �
 // v146: 결투장 — 다른 유저 때리기 (몬스터와 같은 공식: 상대 AC·레벨로 명중 · 무기 피해 · 치명타 · 축복 추가 타격) → 상대 화면에서 받는 피해 감소(AC·MR·리덕션 등) 적용
 // v155: 대인전 명중 (결투장·앞으로 PvP 필드 공통) — 몬스터용 공식(방어 1당 −3%)은 유저의 큰 AC(−50~−100)에서 거의 다 빗나가서 따로: 50% + 레벨 차 1당 3% + 힘·민첩·지능 보너스 + 장비 명중 − 상대 방어 1당 0.4% (마력탄은 0.2%) · 20~95%
 function hitSb(mode) { const st = INV.stat(); return mode === 'bow' ? (st.dex >= 16 ? 0.05 : 0) + (st.dex >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.dex - 20) / 2)) * 0.01 : mode === 'magic' ? 0.12 + (st.int >= 16 ? 0.05 : 0) + (st.int >= 18 ? 0.05 : 0) : (st.str >= 16 ? 0.05 : 0) + (st.str >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.str - 20) / 2)) * 0.01; }
-function pvpHitP(D, mode) { const ac = D && D.ac != null ? D.ac : 10; return Math.max(0.2, Math.min(0.95, 0.5 + 0.03 * (hero.lv - ((D && D.lv) || 1)) + hitSb(mode) + INV.cx('hit') * 0.03 + (mode === 'magic' ? 0 : INV.cx(mode === 'bow' ? 'hitR' : 'hitM') * 0.03) + (BUFF.bounce > 0 && !mode ? 0.15 : 0) + (mode === 'bow' && BUFF.windshot > 0 ? Math.min(0.1, 0.05 + Math.floor(hero.lv / 10) * 0.01) : 0) - (10 - ac) * (mode === 'magic' ? 0.002 : 0.004))); }
+// 10/30: 대인전 미스가 너무 많아 긴장감·타격감이 없음 → 기본 50% → 70% · 상대 방어 1당 0.4% → 0.2% (마력탄 0.2% → 0.1%) · 20~95% 그대로
+//  · 전투력(combatPower)은 예전 식(PVP_HIT_CP)으로 계산 — 이번 변경으로 전투력 숫자·직업별 균형이 흔들리지 않게
+const PVP_HIT = { base: 0.7, acK: 0.002, acKM: 0.001 }, PVP_HIT_CP = { base: 0.5, acK: 0.004, acKM: 0.002 };
+function pvpHitP(D, mode, K) { K = K || PVP_HIT; const ac = D && D.ac != null ? D.ac : 10; return Math.max(0.2, Math.min(0.95, K.base + 0.03 * (hero.lv - ((D && D.lv) || 1)) + hitSb(mode) + INV.cx('hit') * 0.03 + (mode === 'magic' ? 0 : INV.cx(mode === 'bow' ? 'hitR' : 'hitM') * 0.03) + (BUFF.bounce > 0 && !mode ? 0.15 : 0) + (mode === 'bow' && BUFF.windshot > 0 ? Math.min(0.1, 0.05 + Math.floor(hero.lv / 10) * 0.01) : 0) - (10 - ac) * (mode === 'magic' ? K.acKM : K.acK))); }
 function pvpStrike(p, mode){ if (!PVPZ() || !NET.alive(p)) { hero.target = null; return; } const D = NET.duelDef(p), S = { lv: D.lv, mac: D.ac }, [x, y] = W2P(p.x, p.z); breakInvis();
   { let hp_ = pvpHitP(D, mode); if (mode === 'bow') { if (p.galeUntil > time) hp_ = Math.min(0.95, hp_ + 0.5); if (D.so) hp_ = Math.max(0.05, hp_ - 0.25); }   /* 스트라이커 게일 +50% · 상대 솔리드 캐리지 −25% */
     if (!GOD_OHK && Math.random() > hp_) { floatText(x + (Math.random() * 18 - 9), y - 108, 'MISS', { color: '#c8d0d8', size: 11 }); return; } }
@@ -747,7 +750,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 191;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 192;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1057,9 +1060,9 @@ const CP_K = { lv: 40, hp: 2, mp: 0.6, ac: 22, mr: 12, atk: { melee: 60, bow: 77
 function combatPower() { const keep = {}; for (const k in BUFF) { keep[k] = BUFF[k]; BUFF[k] = 0; }
   try { const st = INV.stat(), W_ = INV.eqE('weapon'), wt = W_ && ITEMS[W_.id] ? ITEMS[W_.id].wtype : null, T = { lv: hero.lv, ac: -hero.lv };   /* 기준 상대: 같은 레벨 · AC −(레벨) */
     let atk = 0, ak = '';
-    if (CLASS === 'wizard') { const B = magicDmg(); atk = (B[0] + B[1]) / 2 * spellMul() * (1 + spellCritP({ lv: hero.lv, mr: 40 }) * 0.5) * pvpHitP(T, 'magic') / (1.15 / GSPD); ak = 'magic'; }   /* v186: 배운 마법은 빼고 순수 능력치만 (마법 공격력 × 지능·SP 마법 배율 × 마법 치명타 × 명중) */
+    if (CLASS === 'wizard') { const B = magicDmg(); atk = (B[0] + B[1]) / 2 * spellMul() * (1 + spellCritP({ lv: hero.lv, mr: 40 }) * 0.5) * pvpHitP(T, 'magic', PVP_HIT_CP) / (1.15 / GSPD); ak = 'magic'; }   /* v186: 배운 마법은 빼고 순수 능력치만 (마법 공격력 × 지능·SP 마법 배율 × 마법 치명타 × 명중) */
     else { const R = INV.dmg(), bow = wt === 'bow', avg = (R[0] + R[1]) / 2 + (INV.blessHit() ? 0.35 * 1.5 : 0), crit = Math.min(1, 0.12 + INV.cx('crit') / 100);
-      atk = avg * pvpHitP(T, bow ? 'bow' : undefined) * (1 + crit * 0.8) * (1 + INV.cx('atkSpd') / 100) / ((bow ? 1.0 : 0.9) / GSPD); ak = bow ? 'bow' : 'melee'; }
+      atk = avg * pvpHitP(T, bow ? 'bow' : undefined, PVP_HIT_CP) * (1 + crit * 0.8) * (1 + INV.cx('atkSpd') / 100) / ((bow ? 1.0 : 0.9) / GSPD); ak = bow ? 'bow' : 'melee'; }
     const ac = INV.ac(), mr = INV.cx('mr'), ev = Math.min(30, Math.floor(st.dex / 3)), res = ['earthRes', 'waterRes', 'fireRes', 'windRes'].reduce((a, k) => a + (INV.cx(k) || 0), 0), dr = (INV.cx('dr') || 0) + (INV.cx('drMelee') || 0) * 0.5;
     const P = { lv: hero.lv * CP_K.lv, hp: hero.max * CP_K.hp, mp: hero.maxmp * CP_K.mp, atk: atk * (CP_K.atk[ak] || 60), ac: Math.max(0, 10 - ac) * CP_K.ac, mr: mr * CP_K.mr, etc: dr * CP_K.dr + ev * CP_K.ev + res * CP_K.res };
     for (const k in P) P[k] = Math.max(0, Math.round(P[k])); const total = Object.values(P).reduce((a, b) => a + b, 0);
@@ -5608,7 +5611,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     const html = `<div class="iw-head"><div class="iw-ic">%ICON%${ve.en ? `<i class="en${ve.en < 0 ? ' neg' : ''}">${ve.en > 0 ? '+' : ''}${ve.en}</i>` : ''}</div><div><b class="iw-name" style="color:${rc}">${nameHTML(ve)}${ve !== e ? ' <small class="pvtag">미리보기</small>' : ''}</b><span class="iw-type"><em style="color:${rc}">[${d.rar || '일반'}]</em> ${e.blessed ? '<em class="bl-tag">축복</em> ' : ''}${typeOf(d)}${d.stack ? ` · ${e.n}개` : ''}${e.on ? ' · <em style="color:#7fe0ff">착용 중</em>' : ''}</span></div></div>`
       + (lines ? `<ul class="iw-lines">${lines}</ul>` : '') + `<p class="iw-meta">무게 ${d.w || 0}${d.stack && e.n > 1 ? ` · 합계 ${Math.round((d.w || 0) * e.n * 10) / 10}` : ''}</p>`
       + (ctl.length ? `<div class="iw-ctl">${ctl.join('')}</div>` : '') + `<p class="iw-hint">${MOBILE ? (d.slot ? '두 번 톡톡: 착용/벗기 · ' : d.use ? '두 번 톡톡: 사용 · ' : '') + '번호를 누르면 단축칸에 등록' : `${d.slot ? '더블클릭: 착용/벗기' : d.use ? '더블클릭·오른쪽 클릭: 사용' : ''}${d.use || d.slot ? ' · ' : ''}끌어다 단축키 칸에 등록 · Esc: 닫기`}</p>`;
-    const wasHidden = w.hidden; if (html === w.dataset.h && !wasHidden && x == null) return; if (!wasHidden && x == null && document.activeElement && document.activeElement.id === 'iw-petname') return; w.dataset.h = html; w.querySelector('#iw-body').innerHTML = html.replace('%ICON%', ICON(eIcon(e), e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '')); if (e.preview) { const h = w.querySelector('.iw-hint'); if (h) h.textContent = '상점 미리보기 · 구입하면 인벤토리에 들어갑니다 · Esc: 닫기'; }
+    const wasHidden = w.hidden; if (html === w.dataset.h && !wasHidden && x == null) return; if (!wasHidden && x == null && document.activeElement && document.activeElement.id === 'iw-petname') return; w.dataset.h = html; w.querySelector('#iw-body').innerHTML = html.replace('%ICON%', ICON(eIcon(e), e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '')); if (e.preview) { const h = w.querySelector('.iw-hint'); if (h) h.textContent = e.pvHint || '상점 미리보기 · 구입하면 인벤토리에 들어갑니다 · Esc: 닫기'; }
     w.querySelectorAll('[data-act]').forEach(el => { const act = el.dataset.act;
       if (act === 'autobuff') el.onchange = () => setAutoBuff(e.id, el.checked);
       else if (act === 'lock') el.onchange = () => { e.locked = el.checked; say(`${nameOf(e)}: ${e.locked ? '잠금 — 강화·판매할 수 없습니다.' : '잠금을 풀었습니다.'}`, e.locked ? '#f2d98a' : '#9c9682'); render(); w.dataset.h = ''; showDetail(e); };
@@ -5676,7 +5679,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
           c.onpointerdown = ev => holdStart(ev, e); c.onclick = () => { if (tgtScroll) { lastApplyT = performance.now(); applyScroll(e); } else if ($('bulkwin') && !$('bulkwin').hidden) { lastApplyT = performance.now(); bulkToggle(e); } else if (typeof CRAFT !== 'undefined' && CRAFT.dollOpen() && ITEMS[e.id].doll) { lastApplyT = performance.now(); CRAFT.dollToggle(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } else if (MOBILE) { const r_ = c.getBoundingClientRect(); showDetail(e, r_.right, r_.top + 10); mobPlace(c); } }; if (typeof CRAFT !== 'undefined' && CRAFT.dollOpen() && CRAFT.dollHas(e)) c.classList.add('al-on'); if ((ENH.tab === 'one' ? ENH.one === e : BK.list.includes(e)) && document.getElementById('bulkwin') && !document.getElementById('bulkwin').hidden) c.classList.add('bk-on'); if (window.ALCH && ALCH.open() && ALCH.has(e)) c.classList.add('al-on'); c.ondblclick = () => { if (MOBILE && $('storewin') && !$('storewin').hidden) { STORE.depositAsk(e); return; } if (!recentApply()) use(e); }; c.oncontextmenu = ev => { ev.preventDefault(); if ($('storewin') && !$('storewin').hidden) { lastApplyT = performance.now(); STORE.depositAsk(e); } else if (typeof CRAFT !== 'undefined' && CRAFT.dollOpen() && ITEMS[e.id].doll) { lastApplyT = performance.now(); CRAFT.dollToggle(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } else use(e); }; }   // 창고가 열려 있으면 우클릭 = 창고로
         else { c.classList.add('empty'); c.tabIndex = -1; c.setAttribute('aria-disabled', 'true'); }
         grid.appendChild(c); }
-      if (dwE && !$('itemwin').hidden) { if (bag.includes(dwE)) showDetail(dwE); else hideDetail(); }
+      if (dwE && !dwE.preview && !$('itemwin').hidden) { if (bag.includes(dwE)) showDetail(dwE); else hideDetail(); }   // 10/30: 상점·제작 미리보기 창은 가방을 다시 그려도 그대로
       $('inv-w').textContent = Math.round(wPct() * 100) + '%'; $('inv-w').style.color = wPct() >= 1 ? '#ff5a4a' : wPct() >= 0.8 ? '#ffb050' : ''; $('inv-coin').textContent = coins.toLocaleString();
     }
     if (!$('charwin').hidden) {
@@ -7762,7 +7765,7 @@ const TWM = (() => {
   const isMelee = e => e === hero ? CLASS === 'knight' : e.isRemote ? (refOf(e.peer).c || 'knight') === 'knight' : e.bot && e.bot.cls === 'knight';
   const keyT = e => !e ? 0 : e === hero ? myKey() : e.isRemote ? 'p:' + e.peer : e.uid;
   function front(t) { const o = OT(t); let m = null; for (const k of teams()['k' + t]) { const d = tdist(k, o); if (m == null || d < m) m = d; } return m; }
-  // ----- 전투: 명중 · 피해 (유저와 같은 구조 — 방어 1당 0.4% · 레벨 차 1당 3%)
+  // ----- 전투: 명중 · 피해 (유저와 같은 구조 — 레벨 차 1당 3% · 방어 1당 TWB.acK) · 10/30: 대인전 방어 보정 절반에 맞춰 0.3% → 0.15% (기본 80%는 그대로)
   function hitChance(a, T) { const st = a.bot.st, lvT = T === hero ? hero.lv : T.bot ? T.bot.st.lv : T.isRemote ? (refOf(T.peer).lv || st.lv) : st.lv, acT = T === hero ? INV.ac() : T.bot ? T.bot.st.ac : T.isRemote ? (refOf(T.peer).ac ?? 0) : 10;
     return Math.max(0.2, Math.min(0.95, TWB.hit + 0.03 * (st.lv - lvT) - (10 - acT) * TWB.acK)); }
   function rollD(a, mul) { let d = a.bot.st.d * TWB.dm * (a.bot.cls === 'wizard' ? TWB.wiz : 1) * (0.75 + Math.random() * 0.5) * (mul || 1);   /* 법사 봇: 마법은 빗나가지 않으니 한 방은 약하게 */ const cr = Math.random() < 0.1; if (cr) d *= 1.5; return [Math.max(1, Math.round(d)), cr]; }
@@ -7807,7 +7810,7 @@ const TWM = (() => {
     S.res = { w, lh: lh && lh.startsWith('p:') ? lh : (lh || null), kt: kt && S.sc[kt][0] > 0 ? kt : null, dt: dt && S.sc[dt][1] > 0 ? dt : null, how: how || (lh ? 'tower' : 'time') }; setPh('end'); }
   function setPh(ph) { S.ph = ph; S.t = 0; if (!SIM) publish(); }
   // ----- 봇 판단 (호스트 · 초당 4~5회) · 행동 (매 프레임)
-  const TWB = { hit: 0.8, acK: 0.003, wiz: 0.62, dm: 1.3, spd: 1.4, pot: 0.035, potAt: 0.5, heal: 0.09, healCd: 4.5 };   // 봇 밸런스 (모의전으로 맞춤)
+  const TWB = { hit: 0.8, acK: 0.0015, wiz: 0.62, dm: 1.3, spd: 1.4, pot: 0.035, potAt: 0.5, heal: 0.09, healCd: 4.5 };   // 봇 밸런스 (모의전으로 맞춤)
   const rngT = c => RNG[c] + (c === 'knight' ? 0 : 2);   // 수호탑은 커서 원거리는 2칸 더 멀리서
   const SPD = 3.2 * GSPD * TWB.spd, ATK = { knight: 0.9, elf: 1.0, wizard: 1.15 }, RNG = { knight: 1, elf: 8, wizard: 7 }, AGR = { knight: 7, elf: 9, wizard: 9 };
   function mobTick(f, dt) { if (f.twr) { f.flash = Math.max(0, (f.flash || 0) - dt); if (!f.dead && f.hp <= 0) down(f); return; } botTick(f, dt); }
@@ -8103,6 +8106,11 @@ window.__TW = TWM;
 // 가호 조합: 같은 가호 2개 → 가장 높은 가호 +1 (40% · 성공·실패 모두 재료 가호 1개 소멸 · 최대 +8) · 가호는 가지고만 있으면 자동 적용 (같은 가호는 가장 높은 것 하나만)
 const CRAFT = (() => { const $ = id => document.getElementById(id); let tab = 'make', uiT = 0;
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  // 10/30: 제작 창 아이템도 가방처럼 — 마우스를 올리면 이름, 꾹 누르고 있으면 상세 정보 (모바일은 톡 눌러도) · data-pv 아이템 id · data-pk r 결과·m 재료·o 가진 가호·d 합성 칸 인형·x 합성 결과
+  const pvA = (id, k, e) => ITEMS[id] ? ` data-pv="${id}" data-pk="${k}"${e && e.en ? ` data-pen="${e.en}"` : ''}${e && e.blessed ? ' data-pbl="1"' : ''}` : '';
+  const tipA = (id, e) => ITEMS[id] ? ` data-itip="${esc(nameOf(Object.assign({ id, n: 1 }, e ? { en: e.en, blessed: e.blessed } : null)) + ` [${ITEMS[id].rar || '일반'}]`)}&#10;꾹 누르고 있기: 상세 정보" data-ic="${rarC(id)}"` : '';
+  const PV_H = { r: '제작 미리보기 · 만들면 가방(인벤토리)에 들어가요', m: '제작 재료', o: '가방에 있는 가호', d: '합성 칸에 넣은 인형 · 칸을 누르면 빠져요', x: '합성 결과 · 가방(인벤토리)에 들어갔어요' };
+  const pvOf = el => { const id = el && el.dataset.pv; if (!id || !ITEMS[id]) return null; return { id, n: 1, en: +el.dataset.pen || 0, blessed: el.dataset.pbl === '1', preview: true, pvHint: (PV_H[el.dataset.pk] || '제작 창') + (MOBILE ? '' : ' · Esc: 닫기') }; };
   const ents = b => INV.bag().filter(e => e.id === 'gaho_' + b), val = e => INV.gahoVal(e);
   const best = b => ents(b).sort((x, y) => val(y) - val(x) || (y.en || 0) - (x.en || 0))[0] || null;
   const mat = (b, base) => ents(b).filter(e => e !== base && !e.locked).sort((x, y) => val(x) - val(y) || (x.en || 0) - (y.en || 0))[0] || null;
@@ -8113,7 +8121,7 @@ const CRAFT = (() => { const $ = id => document.getElementById(id); let tab = 'm
   const gearInfo = d => [SLOT_K[d.slot] || '', d.cls ? cxClsName(d) : '모든 클래스', d.lv ? 'Lv.' + d.lv : '', d.ac ? 'AC ' + d.ac : '', d.mr ? 'MR ' + d.mr : ''].filter(Boolean).join(' · ');
   const gearOk = R => R.need.every(([m, n]) => INV.count(m) >= n);
   function gearRows() { let h = ''; for (const R of GEAR_R) { const d = ITEMS[R.id]; if (!d) continue; const ok = gearOk(R);
-      h += `<div class="cr-row"><span class="ic">${ICON(d.icon)}</span><div class="cr-t"><b style="color:${RARITY_C[d.rar] || '#e2c8ff'}">${esc(d.name)}</b><small>${esc(gearInfo(d))}</small>${R.need.map(([m, n]) => { const c = INV.count(m); return `<small class="${c >= n ? 'ok' : 'neg'}"><span class="cr-fi">${ICON(ITEMS[m].icon)}</span>${esc(ITEMS[m].name)} ${c} / ${n}</small>`; }).join('')}</div><button type="button" class="sl-go cr-go" data-gr="${R.id}"${ok ? '' : ' disabled'}>제작 (100%)</button></div>`; } return h; }
+      h += `<div class="cr-row"${pvA(R.id, 'r')}><span class="ic"${tipA(R.id)}>${ICON(d.icon)}</span><div class="cr-t"><b style="color:${RARITY_C[d.rar] || '#e2c8ff'}"${tipA(R.id)}>${esc(d.name)}</b><small>${esc(gearInfo(d))}</small>${R.need.map(([m, n]) => { const c = INV.count(m); return `<small class="${c >= n ? 'ok' : 'neg'}"${pvA(m, 'm')}${tipA(m)}><span class="cr-fi">${ICON(ITEMS[m].icon)}</span>${esc(ITEMS[m].name)} ${c} / ${n}</small>`; }).join('')}</div><button type="button" class="sl-go cr-go" data-gr="${R.id}"${ok ? '' : ' disabled'}>제작 (100%)</button></div>`; } return h; }
   function makeGear(id) { const R = GEAR_R.find(r => r.id === id), d = R && ITEMS[id]; if (!d) return; if (!gearOk(R)) { say('재료가 모자라요. (' + R.need.map(([m, n]) => ITEMS[m].name + ' ' + n + '개').join(' · ') + ')', '#f08a7a'); return; }
     INV.askYesNo(`${JOSA(d.name, '을', '를')} 제작하시겠습니까?`, R.need.map(([m, n]) => `${ITEMS[m].name} ${n}개`).join(' · ') + ' 사용 · 성공 100%', () => { if (!gearOk(R)) return; for (const [m, n] of R.need) if (!INV.take(m, n)) return;
       INV.add(id, 1, true); fxOk('제작 성공!', d.name); say(`제작 성공! ${JOSA(d.name, '을', '를')} 얻었습니다.`, '#ffd86a'); TELE.ev('craft', { id, ok: 1 }); done(); }); }
@@ -8133,10 +8141,10 @@ const CRAFT = (() => { const $ = id => document.getElementById(id); let tab = 'm
   function dollAuto(t) { dClean(); const S = DSEL[t], L = INV.bag().filter(e => dOk(e, t) && !S.includes(e)), cnt = {}; for (const e of L) cnt[e.id] = (cnt[e.id] || 0) + 1;
     L.sort((x, y) => cnt[y.id] - cnt[x.id] || (x.id < y.id ? -1 : 1)); let n = 0; for (let q = 0; q < 4; q++) if (!S[q] && L.length) { S[q] = L.shift(); n++; }
     if (!n && S.includes(null)) say(`넣을 ${t}단계 인형이 없어요. (착용 중·잠근 인형은 빼고)`, '#f08a7a'); DRES[t] = null; render(); INV.render(); }
-  const slotH = (e, t, i) => `<button type="button" class="dg-sl${e ? ' has' : ''}" data-ds="${t}" data-di="${i}" title="${e ? esc(ITEMS[e.id].name) + ' (누르면 빼기)' : '가방에서 ' + t + '단계 인형을 누르세요'}">${e ? ICON(ITEMS[e.id].icon) : '<i>+</i>'}</button>`;
+  const slotH = (e, t, i) => `<button type="button" class="dg-sl${e ? ' has' : ''}" data-ds="${t}" data-di="${i}"${e ? pvA(e.id, 'd') : ''} title="${e ? esc(ITEMS[e.id].name) + ' (누르면 빼기)' : '가방에서 ' + t + '단계 인형을 누르세요'}">${e ? ICON(ITEMS[e.id].icon) : '<i>+</i>'}</button>`;
   function dollRows() { dClean(); let h = '';
     for (const t of [1, 2]) { const S = DSEL[t], full = S.every(Boolean), R = DRES[t], nx = DOLL_DEF.filter(r => r[2] === t + 1).map(r => r[1]).join('·');
-      const res = R ? `<div class="dg-res ${R.ok ? 'ok t' + (t + 1) : 'fail'}" title="${esc(ITEMS[R.id].name)}">${ICON(ITEMS[R.id].icon)}</div>` : `<div class="dg-res q t${t + 1}"><i>?</i></div>`;
+      const res = R ? `<div class="dg-res ${R.ok ? 'ok t' + (t + 1) : 'fail'}"${pvA(R.id, 'x')}${tipA(R.id)}>${ICON(ITEMS[R.id].icon)}</div>` : `<div class="dg-res q t${t + 1}"><i>?</i></div>`;
       h += `<div class="dg-row"><div class="dg-head"><b style="color:${RARITY_C[DOLL_RAR[t + 1]]}">${t}단계 → ${t + 1}단계 인형 합성</b><small>성공 ${DOLL_SYN[t] * 100}% · ${esc(nx)} 중 하나 · 실패하면 넣은 인형 중 1개를 돌려받아요</small></div>`
         + `<div class="dg-slots">${S.map((e, i) => slotH(e, t, i)).join('<span class="dg-op">+</span>')}<span class="dg-op">=</span>${res}</div>`
         + `<div class="dg-btns"><button type="button" class="sl-go" data-da="${t}">자동 넣기</button><button type="button" class="sl-go" data-dc="${t}"${S.some(Boolean) ? '' : ' disabled'}>비우기</button><button type="button" class="sl-go dg-go" data-dl="${t}"${full ? '' : ' disabled'}>합성 (${DOLL_SYN[t] * 100}%)</button></div></div>`; }
@@ -8195,11 +8203,11 @@ const CRAFT = (() => { const $ = id => document.getElementById(id); let tab = 'm
   function render() { const w = $('craftwin'); if (!w || w.hidden) return; w.querySelectorAll('[data-ct]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.ct === tab))); let h = '';
     if (tab === 'gear') h = gearRows(); else if (tab === 'doll') h = dollRows(); else for (const [b, , , txt] of GAHO_DEF) { const G = ITEMS['gaho_' + b], F = ITEMS['gfrag_' + b];
       if (tab === 'make') { const n = INV.count('gfrag_' + b), ok = n >= GAHO_NEED;
-        h += `<div class="cr-row"><span class="ic">${ICON(G.icon)}</span><div class="cr-t"><b>${G.name}</b><small>${txt} +1% · 가지고 있으면 자동 적용</small><small class="${ok ? 'ok' : 'neg'}"><span class="cr-fi">${ICON(F.icon)}</span>${F.name} ${n} / ${GAHO_NEED}</small></div><button type="button" class="sl-go cr-go" data-mk="${b}"${ok ? '' : ' disabled'}>제작 (40%)</button></div>`; }
+        h += `<div class="cr-row"${pvA('gaho_' + b, 'r')}><span class="ic"${tipA('gaho_' + b)}>${ICON(G.icon)}</span><div class="cr-t"><b${tipA('gaho_' + b)}>${G.name}</b><small>${txt} +1% · 가지고 있으면 자동 적용</small><small class="${ok ? 'ok' : 'neg'}"${pvA('gfrag_' + b, 'm')}${tipA('gfrag_' + b)}><span class="cr-fi">${ICON(F.icon)}</span>${F.name} ${n} / ${GAHO_NEED}</small></div><button type="button" class="sl-go cr-go" data-mk="${b}"${ok ? '' : ' disabled'}>제작 (40%)</button></div>`; }
       else { const B = best(b); if (!B) continue; const M = mat(b, B), mx = (B.en || 0) >= GAHO_MAX;
-        h += `<div class="cr-row"><span class="ic">${ICON(G.icon, B.blessed)}</span><div class="cr-t"><b>${esc(INV.nameOf(B))}</b><small>${txt} +${val(B)}%${mx ? ' · 최대 강화' : ` → 성공하면 +${(B.en || 0) + 1} (${txt} +${val(B) + 1}%)`}</small><small class="${M ? 'ok' : 'neg'}">${M ? '재료: ' + esc(INV.nameOf(M)) + ' (성공·실패 모두 사라짐)' : '재료 없음 — 같은 가호가 하나 더 있어야 해요'}</small></div><button type="button" class="sl-go cr-go" data-mx="${b}"${M && !mx ? '' : ' disabled'}>조합 (40%)</button></div>`; } }
+        h += `<div class="cr-row"${pvA('gaho_' + b, 'o', B)}><span class="ic"${tipA('gaho_' + b, B)}>${ICON(G.icon, B.blessed)}</span><div class="cr-t"><b${tipA('gaho_' + b, B)}>${esc(INV.nameOf(B))}</b><small>${txt} +${val(B)}%${mx ? ' · 최대 강화' : ` → 성공하면 +${(B.en || 0) + 1} (${txt} +${val(B) + 1}%)`}</small><small class="${M ? 'ok' : 'neg'}"${M ? pvA(M.id, 'm', M) + tipA(M.id, M) : ''}>${M ? '재료: ' + esc(INV.nameOf(M)) + ' (성공·실패 모두 사라짐)' : '재료 없음 — 같은 가호가 하나 더 있어야 해요'}</small></div><button type="button" class="sl-go cr-go" data-mx="${b}"${M && !mx ? '' : ' disabled'}>조합 (40%)</button></div>`; } }
     if (!h) h = tab === 'doll' ? '<p class="cr-empty">가진 인형이 없어요.</p>' : tab === 'gear' ? '<p class="cr-empty">만들 수 있는 장비가 없어요.</p>' : '<p class="cr-empty">가진 가호가 없어요. 먼저 [가호 제작]에서 가호를 만들어 보세요.</p>';
-    const L = $('cr-list'); if (L.dataset.h !== h) { L.dataset.h = h; L.innerHTML = h; }
+    const L = $('cr-list'), K = h.replace(/(id="[\w-]+?|url\(#[\w-]+?)_i[0-9a-z]+(?=[")])/g, '$1'); if (L.dataset.h !== K) { L.dataset.h = K; L.innerHTML = h; }   // 10/30: 그림 id(매번 새 번호)는 빼고 비교 — 0.3초마다 다시 그려져 툴팁·누르기가 끊기던 것
     const nt = tab === 'doll' ? `가방(인벤토리)에서 인형을 누르면 칸에 들어가요 · 칸을 누르면 빠져요 · [자동 넣기]는 같은 인형이 많은 것부터 넣어요 · 착용 중이거나 잠근 인형은 못 넣어요 · 마법인형 주머니는 잡화상점 [특별]에서 10만 골드` : tab === 'gear' ? '재료를 모두 모으면 반드시 성공해요 (100%) · 만든 장비는 가방으로 들어가요' : tab === 'make' ? '보스를 쓰러뜨리면 그 보스의 가호조각이 반드시 1개 떨어져요 · 조각 5개로 제작 · 성공 40% (실패하면 조각 5개가 사라짐)' : `같은 가호 2개로 강화 +1 · 성공 40% · 실패하면 재료로 쓴 가호 1개만 사라짐 · 최대 +${GAHO_MAX} · 축복 부여 주문서로 축복하면 +1% · 같은 가호는 가장 높은 것 하나만 적용`;
     if ($('cr-note').textContent !== nt) $('cr-note').textContent = nt; }
   function fxOk(big, item) { bigFx('bless', big); enchSfx('bless'); try { spellFx('enbless', hero, '#ffd86a'); } catch (e) {} NET.fx('bless', big, item); }
@@ -8217,7 +8225,11 @@ const CRAFT = (() => { const $ = id => document.getElementById(id); let tab = 'm
       TELE.ev('craft', { id: 'gaho_' + b, mix: 1, en: B.en || 0, ok: ok ? 1 : 0 }); done(); }); }
   function open() { const w = $('craftwin'); if (!w) return; w.hidden = false; tab = 'make'; render(); say('제작 장인 브론: 보스의 가호조각 다섯 개면 가호를 빚어 주지. 같은 가호 둘이면 더 단단하게 합쳐 주고! 금빛·은빛 날개를 열 개씩 가져오면 망토도 지어 주지. 같은 단계 마법인형 넷이면 한 단계 높은 인형으로 합쳐 주고!', '#d0b0ff'); }
   { const w = $('craftwin'); if (w) { w.querySelectorAll('[data-ct]').forEach(t => t.onclick = () => { tab = t.dataset.ct; render(); });
-      $('cr-list').onclick = ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; if (b.dataset.mk) make(b.dataset.mk); else if (b.dataset.mx) mix(b.dataset.mx); else if (b.dataset.gr) makeGear(b.dataset.gr); else if (b.dataset.dl) dollMix(+b.dataset.dl); else if (b.dataset.da) dollAuto(+b.dataset.da); else if (b.dataset.dc) { DSEL[+b.dataset.dc] = [null, null, null, null]; DRES[+b.dataset.dc] = null; render(); INV.render(); } else if (b.dataset.ds) { const t = +b.dataset.ds, i = +b.dataset.di; if (DSEL[t][i]) { DSEL[t][i] = null; render(); INV.render(); } } }; } }
+      let pvDown = 0; const L_ = $('cr-list');   // 꾹 눌러 상세 정보를 띄운 뒤 손을 뗄 때 생기는 클릭은 무시 (합성 칸의 인형이 빠지지 않게)
+      L_.addEventListener('pointerdown', ev => { pvDown = 0; if (ev.target.closest('.sl-go')) return; const e = pvOf(ev.target.closest('[data-pv]')); if (!e) return; pvDown = performance.now(); INV.holdStart(ev, e); });
+      L_.onclick = ev => { const lp = pvDown && performance.now() - pvDown > 380 && !$('itemwin').hidden; pvDown = 0; if (lp) return;
+        if (MOBILE && !ev.target.closest('.sl-go, .dg-sl')) { const el = ev.target.closest('[data-pv]'), e = pvOf(el); if (e) { const r = el.getBoundingClientRect(); INV.showDetail(e, r.right, r.top + 10); return; } }   // 모바일: 가방처럼 톡 눌러도 상세 정보
+        const b = ev.target.closest('button'); if (!b || b.disabled) return; if (b.dataset.mk) make(b.dataset.mk); else if (b.dataset.mx) mix(b.dataset.mx); else if (b.dataset.gr) makeGear(b.dataset.gr); else if (b.dataset.dl) dollMix(+b.dataset.dl); else if (b.dataset.da) dollAuto(+b.dataset.da); else if (b.dataset.dc) { DSEL[+b.dataset.dc] = [null, null, null, null]; DRES[+b.dataset.dc] = null; render(); INV.render(); } else if (b.dataset.ds) { const t = +b.dataset.ds, i = +b.dataset.di; if (DSEL[t][i]) { DSEL[t][i] = null; render(); INV.render(); } } }; } }
   return { open, dollOpen, dollHas, dollToggle, tick(dt) { if ((uiT -= dt) <= 0) { uiT = 0.3; render(); } } };
 })();
 const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; const icoC = {}, ico = (k, b) => icoC[k + (b ? '|b' : '')] || (icoC[k + (b ? '|b' : '')] = ICON(k, b)); let tickT = 0;
@@ -8356,6 +8368,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 192, items: ["제작 장인 브론의 제작 창에서도 장비·가호·인형과 재료를 꾹 누르고 있으면 가방처럼 상세 정보(능력치·설명)를 볼 수 있어요. (마우스를 올리면 이름이 떠요)", "대인전(결투장·수호탑 대전) 명중률을 올렸어요. 기본 명중 50% → 70%, 상대 방어(AC) 때문에 빗나가는 정도는 절반으로 줄여서 MISS가 훨씬 덜 나와요. (수호탑 봇도 방어 보정 절반)", "마법인형과 재료 아이템(가호조각·금빛/은빛 날개·용의 비늘·드레이크의 발톱·용의 심장 등)의 무게가 0이 됐어요.", "캐릭터 정보 창(접속자 목록에서 이름 누르기)에 경험치 대신 지금 변신 상태가 보여요. 착용 장비의 강화 수치는 상대도 v191 이상이면 보여요."] },
     { v: 191, items: ["바닥에 떨어진 아이템은 떨어진 지 10분이 지나면 사라져요. 사라지기 30초 전부터 깜빡여요.", "한 지역 바닥에는 아이템이 최대 50개까지 남아요. 넘으면 가장 오래된 것부터 사라져요.", "캐릭터 정보 창의 캐릭터 미리보기 밑에 [장비 이펙트: 켬/끔] 버튼이 생겼어요. 끄면 강화·영웅 장비 빛(무기·방어구 빛·반짝임)과 데스나이트 세트 불티가 내 캐릭터·다른 유저·미리보기 모두에서 안 보여요. (내 화면에서만 적용 · 이 기기에 기억 · 버프·스킬·변신 효과는 그대로)", "접속자 목록(월드 서버 창)에서 이름을 누르면 그 캐릭터의 정보 창이 떠요. 레벨·경험치·전투력·있는 지역·착용 장비(강화 수치·등급 색 · 마우스를 올리면 아이템 정보)·캐릭터 모습을 볼 수 있어요. (가방·창고·골드는 안 보여요 · 상대도 이번 버전이어야 경험치·강화 수치·목걸이·반지·인형이 보여요)"] },
     { v: 190, items: ["연금술에 [자동 진행] 버튼이 생겼어요. [일괄 등록]에서 등급을 고르고 누르면 지금 조건(타클래스만·촉매 장수) 그대로 재료가 떨어질 때까지 3개씩 계속 조합해요. [중지]로 언제든 멈추고, '성공하면 멈추기'를 켜면 성공한 순간 멈춰요. (강화·축복·속성이 붙은 장비와 착용·잠긴 장비는 쓰지 않아요)", "아르카의 마법주머니 가격이 10만 골드로 바뀌었어요."] },
     { v: 189, items: ["🎃 할로윈 이벤트가 열렸어요! 마을의 [할로윈 허수아비 잭]에게 할로윈 모자(100골드)를 사면 으스스한 [할로윈 호박밭]에 들어갈 수 있어요. (하루 2시간 · 새벽 5시 초기화 · 안에서는 화면 위에 남은 시간 표시)", "호박밭에 들어가면 누구나 호박 머리 허수아비로 변신해 근거리로 싸워요. 내 능력치·장비 효과는 무시되고 초록 물약·용기의 물약 효과만 적용돼요. 마법·서먼·펫·변신 주문서는 쓸 수 없고, 다른 소모품(물약·주문서·호박 주머니·귀환 부적 등)은 모두 쓸 수 있어요.", "몬스터에게 주는 피해는 1, 받는 피해도 1로 고정이에요. 할로윈 모자를 강화하면 강화 1당 몬스터를 쓰러뜨리는 데 필요한 타수가 1대씩 줄어요 (+0 호박괴물 15대 · +9 6대 · 가방의 모자 중 가장 높은 강화로 계산).", "할로윈 호박괴물(HP 15)과 1.5배 크기의 호박대장(HP 25)이 나와요. 호박씨·호박 강화 주문서·축복받은 호박 강화 주문서(대장)를 떨어뜨려요.", "호박씨 100개를 잭에게 가져가면 [할로윈 호박 주머니]로 바꿔 줘요. 주머니를 열면 고급 마법인형(80%) 또는 [희귀 호박 주머니](20%)가 나오고, 희귀 주머니에서는 희귀 마법인형(84%) 또는 [영웅 호박 주머니](16%), 영웅 주머니에서는 영웅 장비 또는 영웅 마법인형(각 50%)이 나와요. 호박 강화 주문서는 사용한 뒤 강화할 할로윈 모자를 골라 클릭해요. (안전 +4 · 최대 +9)", "장비 강화 창의 [단일 강화]·[다중 강화]에서도 할로윈 모자를 호박 강화 주문서로 강화할 수 있어요. (다중 강화는 모자끼리만 · 최대 +9)", "할로윈 호박밭에서도 자동사냥을 쓸 수 있어요.", "호박괴물·호박대장이 새 아이템을 떨어뜨려요: [호박 사탕](30분 동안 몬스터 경험치 +20%) · [잭오랜턴](1시간 동안 밤 시야가 넓어짐) · 호박대장은 아주 낮은 확률로 [할로윈 망토](희귀 · AC -3 · MR +10 · 최대 HP +20 · 얻으면 전체 공지).", "자동사냥 [설정] 아이템 줍기가 종류 × 등급 표로 바뀌었어요. 예를 들어 고급 장비는 줍지 않고 고급 재료는 줍도록 종류마다 따로 고를 수 있어요. (기존 설정은 그대로 옮겨져요)", "[거대 여왕 개미의 금빛 날개]에 강화 1당 MR +1 옵션이 생겼어요."] },
@@ -8549,7 +8562,7 @@ const MPP = (() => {
   setInterval(render, 1000);
   return { open, leave, start, state: () => state, code: () => (state !== 'off' ? code : null) };
 })();
-// 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·경험치·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
+// 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·변신·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
 const WHO = (() => { const $ = id => document.getElementById(id), E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const ORDER = ['weapon', 'shield', 'helm', 'armor', 'shirt', 'cloak', 'gloves', 'belt', 'boots', 'amulet', 'ring1', 'ring2', 'doll'], LBL = Object.fromEntries(SLOTS), ELK = { e: 'earth', w: 'water', f: 'fire', a: 'wind' };
   let peer = null, last = null, gone = false, row = 1, raf = 0, tick = 0; const sig = {};
@@ -8562,12 +8575,12 @@ const WHO = (() => { const $ = id => document.getElementById(id), E = t => Strin
   function view() { const w = $('whowin'); if (!w || w.hidden || !peer) return; const o = find(); if (o) { last = o.pr; gone = false; } else gone = true; const pr = last || {}, has = k => pr[k] != null;
     const pm = !gone && NET.partyId() && pr.pt === NET.partyId();
     set('who-hd', `<b style="color:${pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(pr.n || '?')}</b>` + (gone ? '<span class="who-off">접속 종료</span>' : pr.dd > 0 ? '<span class="who-off">사망</span>' : '<span class="who-on">접속 중</span>'));
-    const xp = has('xp') && isFinite(+pr.xp) ? (Math.max(0, Math.min(1000, +pr.xp)) / 10).toFixed(1) + '%' : '-';
-    set('who-info', `<div class="big" style="display:contents"><dt>레벨</dt><dd>${has('lv') ? (pr.lv | 0) : '-'}</dd></div><dt>직업</dt><dd>${E(CLASS_NAME[pr.c] || '-')}</dd><dt>경험치</dt><dd>${xp}</dd><dt>전투력</dt><dd class="cp">${pr.cp ? cpFmt(pr.cp) : '-'}</dd><i class="sep"></i><dt>위치</dt><dd class="who-z">${gone ? '-' : has('z') ? E(zoneTitle(pr.z)) : '-'}</dd>`);
+    const P = pr.pf && POLY[pr.pf], polyTxt = gone ? '-' : P ? E(P.name) + (P.card && P.card.g ? ` <small>(${E(P.card.g)})</small>` : P.tier && POLY_TIER[P.tier] ? ` <small>(${POLY_TIER[P.tier].nm} · 공격·이동 속도 +${POLY_TIER[P.tier].bonus}%)</small>` : P.set ? ' <small>(세트)</small>' : '') : '없음';   // 10/30 프로듀서: 경험치 대신 지금 변신 상태
+    set('who-info', `<div class="big" style="display:contents"><dt>레벨</dt><dd>${has('lv') ? (pr.lv | 0) : '-'}</dd></div><dt>직업</dt><dd>${E(CLASS_NAME[pr.c] || '-')}</dd><dt>변신</dt><dd class="who-pf">${polyTxt}</dd><dt>전투력</dt><dd class="cp">${pr.cp ? cpFmt(pr.cp) : '-'}</dd><i class="sep"></i><dt>위치</dt><dd class="who-z">${gone ? '-' : has('z') ? E(zoneTitle(pr.z)) : '-'}</dd>`);
     const G = gear(pr), gk = JSON.stringify(G); if (sig.gk !== gk) { sig.gk = gk; sig['who-eq'] = null; } if (sig['who-eq'] == null) set('who-eq', ORDER.map(s => {   /* 아이콘 그림은 그릴 때마다 id가 달라서 장비가 바뀔 때만 다시 그림 */ const e = G[s], lb = E(LBL[s] || s); if (!e) return `<div class="who-it none"><div class="eq"></div><div class="who-in"><small>${lb}</small><span>-</span></div></div>`; const d = ITEMS[e.id], rr = d.rar || '일반', t = enTierOf(e.id, e.en);
       const tip = INV.tipOf(e).split('\n').filter(l => !/더블클릭|꾹 누르고/.test(l)).map(l => l.replace(/ — 착용 불가$/, '')).join('\n');
       return `<div class="who-it" data-itip="${E(tip)}" data-ic="${rarC(e.id)}"><div class="eq has rar r-${{ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0}${t ? ' eg' + t : ''}" style="--rar:${rr === '일반' ? '#b9b4a8' : RARITY_C[rr]}">${ICON(d.icon, e.blessed)}${e.blessed ? '<i class="bl-spark"></i>' : ''}${e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : ''}</div><div class="who-in"><small>${lb}</small><b style="color:${rarC(e.id)}">${nameHTML(e)}</b></div></div>`; }).join(''));
-    set('who-note', gone ? '접속을 종료해서 마지막으로 받은 정보를 보여 줘요.' : !has('wq') && !has('xp') ? '상대가 예전 버전이라 경험치·강화 수치와 목걸이·반지·인형은 보이지 않아요.' : '');
+    set('who-note', gone ? '접속을 종료해서 마지막으로 받은 정보를 보여 줘요.' : !has('wq') && !has('xp') ? '상대가 예전 버전(v190 이하)이라 강화 수치와 목걸이·반지·인형은 보이지 않아요. 상대가 업데이트하면 보여요.' : '');
     kick(); }
   function draw(ts) { raf = 0; const c = $('who-look'), w = $('whowin'); if (!c || !w || w.hidden) return; const g = c.getContext('2d'), pr = last || {}; g.clearRect(0, 0, c.width, c.height);
     const gr = g.createRadialGradient(c.width / 2, c.height - 22, 4, c.width / 2, c.height - 22, c.width * 0.45); gr.addColorStop(0, 'rgba(255,230,170,.16)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height);
@@ -9481,6 +9494,9 @@ const MUI = (() => {
   setup(document.querySelector('#wmap .pn'), 'wmap', 'off', '.wm-side h2', true);
   setup(document.querySelector('#escmenu .esc-box'), 'esc', 'off', 'h2', true);
 })();
+// 10/30 프로듀서: 모든 마법인형·재료 아이템 무게 0 (가호조각·날개·용/화룡 재료 — 나중에 추가되는 재료도 여기 이름을 넣거나 mat0: true)
+{ const MAT0 = new Set(['gold_wing', 'silver_wing', 'dragon_scale', 'drake_claw', 'dragon_heart', 'fire_scale', 'astazio_ash', 'phoenix_feather', 'ifrit_heart']);
+  for (const [id, d] of Object.entries(ITEMS)) if (d && (d.doll || d.mat0 || MAT0.has(id) || id.startsWith('gfrag_'))) d.w = 0; }
 requestAnimationFrame(frame);
 setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();
