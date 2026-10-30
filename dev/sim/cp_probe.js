@@ -2,7 +2,7 @@
 const { chromium } = require('playwright'); const B = require('./pvpbuilds.js'); const REF = JSON.parse(require('fs').readFileSync('dev/sim/builds/ref_knight.json', 'utf8'));
 (async () => { const b = await chromium.launch();
   for (const cls of ['knight', 'wizard']) { const p = await (await b.newContext({ viewport: { width: 800, height: 600 } })).newPage();
-    await p.goto('http://127.0.0.1:8766/_sim2.html'); await p.waitForSelector('#lg-mode', { state: 'visible', timeout: 60000 }); await p.click('#lg-mode');
+    await p.goto('http://127.0.0.1:' + (process.env.KT_PORT || 8766) + '/_sim2.html'); await p.waitForSelector('#lg-mode', { state: 'visible', timeout: 60000 }); await p.click('#lg-mode');
     await p.fill('#lg-acc', 'cp' + Date.now() % 1e6); await p.fill('#lg-pw', 'abcd'); await p.fill('#lg-pw2', 'abcd'); await p.click('#lg-go');
     await p.waitForSelector(`.cs-card[data-cls="${cls}"]`, { state: 'visible', timeout: 60000 }); await p.click(`.cs-card[data-cls="${cls}"]`); await p.click('#cs-start');
     await p.waitForSelector('#nm-in', { state: 'visible' }); await p.fill('#nm-in', 'cp' + Date.now() % 1e5); await p.click('#nm-go');
