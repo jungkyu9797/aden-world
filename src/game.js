@@ -111,7 +111,7 @@ const zoneEvB = () => (ISLE && SCENE === 'field' && !ARENA() && ZONE_EVB[ISLE.id
 //   hit: 'old' 지금 식(최저 oldFloor) · 'ev' 사냥터 기준 AC 회피(evB[지역] 또는 ZONE_EVB · evBase + evK×(|AC|−B), 최대 evCap) · 'lv' 레벨 차이 명중((lvHit ? 몹 명중 : lvBase) + lvK×(몹Lv−내Lv)) × AC 곡선 1/(1 + acK×max(0,|AC|−acFrom)/100)
 //   물리 피해: drRand 1 = 0~|AC|÷3 무작위 감소(지금) · drK = |AC| 1당 감소 %(최대 drCap) · atkMul·spdAdd·acAdd = 미래 스펙 시뮬용 · log = 받은 피해 종류별 합
 const DEFMODE = { hit: 'old', oldFloor: 0.10, evB: {}, evBase: 0.2, evK: 0.005, evCap: 0.6, lvBase: 0.85, lvHit: 0, lvK: 0.03, lvMin: 0.1, lvMax: 0.95, acK: 0, acFrom: 0, drRand: 1, drK: 0, drCap: 0.5, atkMul: 1, spdAdd: 0, acAdd: 0, log: null,
-  hz: 1, hzHit: 0.92, hzLvK: 0.005, hzMin: 0.9, hzMax: 0.95, hzK: 30, hzKB: 100, hzLo: 0.5, hzHi: 1.1, hzCritP: 0.12, hzCritM: 2, hzCritGap: 4, hzMrCap: 0.75 };   // 10/30 프로듀서 확인: hzK 15→30(평타도 주홍 꾸준히) · 강타 4초 안 연속 없음 · MR 상한 75%
+  hz: 1, hzHit: 0.92, hzLvK: 0.005, hzMin: 0.9, hzMax: 0.95, hzK: 30, hzKB: 100, hzLo: 0.5, hzHi: 1.1, hzCritP: 0.12, hzCritM: 1.5, hzCritGap: 4, hzMrCap: 0.75 };   // 10/30 프로듀서 확인: hzK 15→30(평타도 주홍 꾸준히) · 강타 4초 안 연속 없음 · MR 상한 75%
 const RES_CAP = 0.75;   // 속성 저항 상한 (10/30: 60% → 75%)   // hz…: 고렙 사냥터 방어 방식 (아래 HIZ)
 // defbal 추천안(rec): 몹 근접·화살 명중 = (몹 명중 + 3%×(몹Lv − 내Lv)) × 20 ÷ (20 + |AC|) — 'AC 20마다 버티는 힘 +1배'(천장 없음) · 대안(alt): v193 식 그대로 + 최저 명중 10%를 AC −100부터 1000÷|AC| %로 (−125 8% · −160 6.3%)
 const DEF_PRESET = { rec: { hit: 'lv', lvHit: 1, lvK: 0.03, acK: 5 }, rec4: { hit: 'lv', lvHit: 1, lvK: 0.03, acK: 4 }, alt: { hit: 'old', oldSoft: 1 } };
@@ -124,7 +124,7 @@ const defHit = S => { const D = DEFMODE, A = Math.max(0, -INV.ac()); let h;
 // 10/30 프로듀서 새 방향 — 사냥터(지역 표 hiz: 모든 사냥터·소환의 제단 — 결투장·콜로세움·수호탑·이벤트 지역 제외)에서는 '맞는 건 다 맞는데 AC만큼 덜 아프고, 마법은 들쭉날쭉 + 가끔 강타'
 //   몹 물리(근접·화살) 명중 = 92% + 0.5%×(몹Lv − 내Lv) (90~95% · 보스 95% · 화살은 여기서 회피 ER을 뺌)
 //   물리 피해 × 30 ÷ (30 + |AC|) (보스는 100 ÷ (100 + |AC|)) — 0~|AC|÷3 무작위 감소 대신 · AC 30마다 '버티는 힘' +1배 (천장 없음)
-//   몹 마법·범위 기술(숨결·화염 기둥·화산탄·파이어볼): 피해 ×0.5~1.1 무작위 · 12% 확률 '강타' ×2 (평균 ×0.9 — 평소엔 덜 아프고 가끔 훅) → MR(이곳 상한 60% = MR 120)·속성 저항(최대 60%)이 줄여 줌
+//   몹 마법·범위 기술(숨결·화염 기둥·화산탄·파이어볼): 피해 ×0.5~1.1 무작위 · 12% 확률 '강타' ×1.5 (10/30 ×2→×1.5 · 평균 ×0.86 — 평소엔 덜 아프고 가끔 훅) → MR(이곳 상한 60% = MR 120)·속성 저항(최대 60%)이 줄여 줌
 //   다른 사냥터·결투·수호탑은 v193 식 그대로 · 시뮬 DEF='{"hz":0}'이면 끔(v195 비교)
 const HIZ = () => !!(DEFMODE.hz && ISLE && SCENE === 'field' && !ARENA() && ISLE.def && ISLE.def.hiz);
 const hzHit = S => { const D = DEFMODE; return S.boss ? D.hzMax : Math.max(D.hzMin, Math.min(D.hzMax, D.hzHit + D.hzLvK * ((S.lv || 1) - hero.lv))); };
