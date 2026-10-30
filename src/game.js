@@ -9764,7 +9764,8 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   // ----- 뽑기 (같은 등급 안에서는 같은 확률 · 확정 칸 없음)
   function rollGrade() { const tot = PC_GO.reduce((a, g) => a + PC_GRADE[g].p, 0); let r = Math.random() * tot; for (const g of PC_GO) { r -= PC_GRADE[g].p; if (r < 0) return g; } return PC_GO[PC_GO.length - 1]; }
   const pick = g => { const L = POOL[g]; return L[Math.floor(Math.random() * L.length)]; }, rollCard = () => pick(rollGrade());
-  function roll(n) { const out = []; for (let i = 0; i < n; i++) out.push({ c: rollCard() }); return out; }
+  let FORCE = null;   // 테스트용: 다음에 나올 카드를 정해 둠 (PCG._force)
+  function roll(n) { const out = []; for (let i = 0; i < n; i++) { const f = FORCE && FORCE.length ? PC_BY[FORCE.shift()] : null; out.push({ c: f || rollCard() }); } return out; }
   function sim(n, k) { const o = { 일반: 0, 고급: 0, 희귀: 0, 영웅: 0, 전설: 0 }, per = {}; let no11 = 0; for (let i = 0; i < n; i++) { const R = roll(k || 1); if (k >= 11 && !R.some(r => PC_GO.indexOf(r.c.g) >= 2)) no11++; for (const r of R) { o[r.c.g]++; per[r.c.id] = (per[r.c.id] || 0) + 1; } } return { g: o, per, no11 }; }   // 테스트용
   const costOf = k => k === 'free' ? 0 : k === 11 ? COST11 : COST1;
   function why(kind) { if (bad) return '변신 카드 정보를 읽지 못해서 지금은 뽑을 수 없어요. 다시 접속해 주세요.'; if (DEATH) return '쓰러진 상태에서는 뽑을 수 없어요.';   // 뽑을 수 없는 까닭 (없으면 '')
@@ -9774,12 +9775,12 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     const n = kind === 11 ? 11 : 1, cost = costOf(kind); coins -= cost; if (kind === 'free') D.freeAt = Date.now(); else last = n;
     const res = roll(n); for (const r of res) { r.isNew = !has(r.c.id); add(r.c.id); } D.mile += n; D.draws += n;
     try { TELE.ev('pcg', { k: String(kind), g: cost, got: res.map(r => r.c.id).join(',') }); } catch (e) {}
-    saveNow(); try { INV.render(); } catch (e) {} lastRes = { k: 'draw', t: kind === 'free' ? '무료 뽑기' : `${n}회 뽑기`, L: res }; refresh(); show(res, lastRes.t); return res; }
+    saveNow(); try { INV.render(); } catch (e) {} lastRes = { k: 'draw', t: kind === 'free' ? '무료 뽑기' : `${n}회 뽑기`, L: res, hide: !skip }; refresh(); afterDraw(res, lastRes.t, kind); return res; }
   const again = () => draw(last || 1);
   function milePick(id) { const c = PC_BY[id]; if (!c || c.g !== '전설' || busy) return; if (bad) { say('변신 카드 정보를 읽지 못해서 지금은 받을 수 없어요.', '#f08a7a'); return; }
     if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 카드 1장 = 1점)`, '#f08a7a'); return; }
     INV.askYesNo(`마일리지 ${MILE}점으로 [전설] ${c.name} 카드를 받을까요?`, `${effTxt(c)}${c.cls ? ' · ' + jobTxt(c) : ''} · 남은 마일리지 ${D.mile - MILE}점${has(id) ? ' · 이미 있는 카드라 장수가 늘어요' : ''}`, () => {
-      if (D.mile < MILE || busy || bad) return; D.mile -= MILE; const r = { c, isNew: !has(id), mile: true }; add(id); pickOn = false; try { TELE.ev('pcmile', { id }); } catch (e) {} saveNow(); lastRes = { k: 'draw', t: '마일리지 교환', L: [r] }; refresh(); show([r], '마일리지 교환'); }); }
+      if (D.mile < MILE || busy || bad) return; D.mile -= MILE; const r = { c, isNew: !has(id), mile: true }; add(id); pickOn = false; try { TELE.ev('pcmile', { id }); } catch (e) {} saveNow(); lastRes = { k: 'draw', t: '마일리지 교환', L: [r], hide: !skip }; refresh(); afterDraw([r], '마일리지 교환', 'free'); }); }
   // ----- 합성 (같은 등급 4장 → 1번)
   function synWhy() { return bad ? '변신 카드 정보를 읽지 못해서 지금은 합성할 수 없어요.' : busy ? '결과 화면을 닫은 뒤에 합성할 수 있어요.' : DEATH ? '쓰러진 상태에서는 합성할 수 없어요.' : ''; }
   function takeMat(g) { let best = null, ba = 0; for (const c of POOL[g]) { const a = avail(c.id); if (a > ba) { best = c; ba = a; } } if (best) sub(best.id); return best; }   // 자동 합성 재료: 남는 장수가 많은 카드부터 (잠금·변신 칸 빼고)
@@ -9789,17 +9790,17 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   function autoSyn() { const w = synWhy(); if (w) { say(w, '#f08a7a'); return null; } const seen = new Set(Object.keys(D.cards)), out = [];
     for (const g of AUTO_G) for (let k = 0; k < 1e6 && gAvail(g) >= 4; k++) { for (let i = 0; i < 4; i++) takeMat(g); out.push(synOne(g, seen)); }
     if (!out.length) { say(`자동 합성할 카드가 모자라요. (같은 등급 4장부터 · 잠금·변신 칸 카드는 빼고) 지금 일반 ${gAvail('일반')}장 · 고급 ${gAvail('고급')}장`, '#f0c080'); return out; }
-    afterSyn(out, '자동 합성'); return out; }
+    afterSyn(out, '자동 합성', false); return out; }
   function manSyn(ids) { const w = synWhy(); if (w) { say(w, '#f08a7a'); return null; } ids = (ids || []).filter(id => PC_BY[id]); const g = ids.length ? PC_BY[ids[0]].g : null;
     if (!g || !SYN[g] || ids.some(id => PC_BY[id].g !== g)) { say('같은 등급 카드끼리만 합성할 수 있어요.', '#f08a7a'); return null; }
     const need = {}; for (const id of ids) need[id] = (need[id] || 0) + 1; for (const id in need) if (need[id] > avail(id)) { say(`[${PC_BY[id].name}] 카드가 모자라요. (잠금·변신 칸 카드는 합성 재료로 쓸 수 없어요)`, '#f08a7a'); return null; }
     const n = Math.floor(ids.length / 4); if (!n) { say('같은 등급 카드 4장을 골라 주세요. (4장마다 합성 1번)', '#f0c080'); return null; }
     const seen = new Set(Object.keys(D.cards)), out = []; for (let k = 0; k < n; k++) { for (let i = 0; i < 4; i++) sub(ids[k * 4 + i]); out.push(synOne(g, seen)); }
-    afterSyn(out, `${g} → ${SYN[g].to} 합성`); return out; }
+    afterSyn(out, `${g} → ${SYN[g].to} 합성`, !skip); return out; }
   const synSum = out => { const by = {}; for (const r of out) { const v = by[r.g] = by[r.g] || { ok: 0, no: 0, p: 0 }; r.ok ? v.ok++ : v.no++; if (r.pity) v.p++; } return Object.entries(by).map(([g, v]) => `${g}→${SYN[g].to} ${v.ok + v.no}번: 성공 ${v.ok} · 실패 ${v.no}${v.p ? ` · 천장 ${v.p}` : ''}`).join(' / '); };
-  function afterSyn(out, ttl) { for (const r of out) { if (r.ok) annLegend(r.c, '변신 카드 합성'); annLegend(r.pity, '변신 카드 합성 천장'); }
+  function afterSyn(out, ttl, anim) { if (!anim) for (const r of out) { if (r.ok) annLegend(r.c, '변신 카드 합성'); annLegend(r.pity, '변신 카드 합성 천장'); }   // 연출이 있으면 뒤집을 때 알림
     try { TELE.ev('pcsyn', { t: ttl, n: out.length, ok: out.filter(r => r.ok).length, got: out.map(r => (r.ok ? '+' : '-') + r.c.id + (r.pity ? '!' + r.pity.id : '')).join(',') }); } catch (e) {}
-    trayFix(); saveNow(); lastRes = { k: 'syn', t: ttl, L: out }; say(`[변신 카드] ${ttl} — ${synSum(out)}`, '#e0c8ff'); refresh(); }
+    trayFix(); saveNow(); lastRes = { k: 'syn', t: ttl, L: out, hide: !!anim }; if (!anim) say(`[변신 카드] ${ttl} — ${synSum(out)}`, '#e0c8ff'); refresh(); if (anim) synShow(out, ttl); }
   // ----- 변신 칸 (직업마다 1칸 · 골드 없음 · 시간 제한 없음)
   function slotWhy(c) { if (bad) return '변신 카드 정보를 읽지 못해서 지금은 변신할 수 없어요.'; if (!has(c.id)) return `아직 없는 카드예요. [${c.name}] — [변신] 창에서 뽑거나 합성해서 얻을 수 있어요.`;
     if (!clsOk(c)) return `[${c.name}] 카드는 ${CLASS_NAME[c.cls]} 전용이에요. (지금 ${CLASS_NAME[CLASS]}) — 같은 계정의 ${CLASS_NAME[c.cls]} 캐릭터로 접속하면 변신할 수 있어요.`;
@@ -9838,33 +9839,154 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   // ----- 효과음
   function snd(k) { try { if (typeof AC === 'undefined' || !AC || !SFX_ON) return; const t = AC.currentTime;
     if (k === 'deal') { for (let i = 0; i < 4; i++) nz(t + i * 0.07, 0.07, 2500, 5000, 0.05); }
+    else if (k === 'gather') { nz(t, 0.35, 1800, 5200, 0.06); tone(t, 'sine', 220, 440, 0.35, 0.04); }
     else if (k === 'flip') { nz(t, 0.06, 3000, 6000, 0.06); tone(t, 'triangle', 700, 1000, 0.08, 0.04); }
+    else if (k === 'gold') { nz(t, 0.08, 4000, 8000, 0.07); [1047, 1319].forEach((f, i) => tone(t + i * 0.05, 'triangle', f, f, 0.25, 0.05)); }
+    else if (k === 'charge') { tone(t, 'sawtooth', 70, 260, 2.6, 0.025); tone(t, 'sine', 140, 560, 2.6, 0.04); for (let i = 0; i < 10; i++) nz(t + i * 0.26, 0.08, 4000 + i * 500, 7000 + i * 500, 0.025 + i * 0.004); }
+    else if (k === 'zoom') { nz(t, 0.5, 2000, 9000, 0.08); tone(t, 'sine', 300, 900, 0.5, 0.05); }
     else if (k === 'rare') { nz(t, 0.08, 3000, 6000, 0.07); [784, 988, 1319].forEach((f, i) => tone(t + 0.03 + i * 0.06, 'triangle', f, f, 0.3, 0.07)); }
     else if (k === 'hero') { nz(t, 0.4, 8000, 2500, 0.16); tone(t, 'sine', 110, 45, 0.6, 0.22); [659, 784, 988, 1319, 1568].forEach((f, i) => tone(t + 0.05 + i * 0.07, 'triangle', f, f, 0.55, 0.08)); }
     else if (k === 'legend') { nz(t, 0.6, 9000, 2500, 0.24); tone(t, 'sine', 80, 32, 1.0, 0.32); [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => tone(t + 0.05 + i * 0.065, 'triangle', f, f, 0.7, 0.09)); [1047, 1568, 2093].forEach(f => tone(t + 0.6, 'sine', f, f * 1.004, 1.6, 0.05)); nz(t + 0.45, 1.4, 8000, 12000, 0.05); }
     else if (k === 'fail') { tone(t, 'triangle', 330, 196, 0.35, 0.06); nz(t, 0.2, 1200, 500, 0.05); } } catch (e) {} }
-  // ----- 뽑기 결과 연출: 카드 뒷면이 깔리고(11회는 6+5) → 누르면 뒤집힘 · 영웅·전설은 번쩍 + 빛줄기
-  let ov = null, ovKey = null;
-  const cardHTML = (r, i) => { const c = r.c, gi = PC_GO.indexOf(c.g); return `<div class="pcg-c g${gi}" data-i="${i}" style="--gc:${GC(c.g)};--d:${(i * 0.06).toFixed(2)}s" role="button" tabindex="0" aria-label="카드 ${i + 1} 뒤집기"><div class="pcg-in"><div class="pcg-bk"><i></i></div><div class="pcg-fr"><span class="pcg-gr">${c.g}</span>${r.isNew ? '<em class="pcg-new">NEW</em>' : '<em class="pcg-dup">+1장</em>'}<span class="pcg-art"><img data-pc="${c.id}" alt=""></span><b>${esc(c.name)}</b>${c.cls ? `<small class="pcg-job">${jobTxt(c)}</small>` : ''}<small>Lv.${c.lv} · 속도 +${c.pct}%</small>${c.opt.length ? `<small class="pcg-op">${c.opt.map(esc).join('<br>')}</small>` : ''}</div></div></div>`; };
-  function show(res, ttl) { busy = true; if (!ov) { ov = document.createElement('div'); ov.className = 'pcg-ovl'; ov.id = 'pcg-ovl'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', '변신 카드 뽑기 결과'); document.body.appendChild(ov); }
-    const rows = res.length > 6 ? [res.slice(0, 6), res.slice(6)] : [res];
-    ov.innerHTML = `<div class="pcg-flash"></div><div class="pcg-box ${res.length > 1 ? 'n11' : 'n1'}"><div class="pcg-ttl">변신 카드 · ${esc(ttl)}</div>${rows.map((L, q) => `<div class="pcg-row">${L.map((r, k) => cardHTML(r, q * 6 + k)).join('')}</div>`).join('')}<p class="pcg-sum" id="pcg-sum"></p><div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort">모두 뒤집기</button><button type="button" id="pcg-ok" class="sl-go">확인</button></div></div>`;
-    ov.hidden = false; fillArt(ov); ov._S = { res, open: new Set(), ann: new Set() };
+  // ----- 연출 설정 (모션 스킵 = 이 기기에 기억 · 자동 뽑기 = 이번 접속만)
+  const LSK = 'aden_pcg_skip'; let skip = (() => { try { return localStorage.getItem(LSK) === '1'; } catch (e) { return false; } })(), auto = false, autoWhy = '', autoT = 0;
+  const gi = c => PC_GO.indexOf(c.g), isGold = c => gi(c) >= 2;   // 희귀·영웅·전설 = 금빛 뒷면 (등급은 숨김)
+  function setSkip(v) { skip = !!v; try { localStorage.setItem(LSK, skip ? '1' : '0'); } catch (e) {} const b = $('pw-skip'); if (b) b.checked = skip; }
+  function setAuto(v) { auto = !!v; const b = $('pw-auto'); if (b) b.checked = auto; if (!auto) { clearTimeout(autoT); autoT = 0; } else autoWhy = ''; optUpd(); }
+  function autoStop(msg) { const was = auto; auto = false; clearTimeout(autoT); autoT = 0; const b = $('pw-auto'); if (b) b.checked = false; if (msg) { autoWhy = msg; if (was) say(msg, '#f0c080'); } optUpd(); }
+  function optUpd() { const e = $('pw-autowhy'); if (e) { e.textContent = auto ? '자동 뽑기 중 — 영웅 이상이 나오거나 골드가 모자라면 멈춰요' : autoWhy; e.classList.toggle('on', auto); }
+    const o = ov && ov.querySelector('#pcg-stop'); if (o) o.hidden = !auto; }
+  function autoNext() { clearTimeout(autoT); if (!auto) return; autoT = setTimeout(() => { autoT = 0; if (!auto) return; const w = $('polywin'); if (!w || w.hidden) return autoStop('변신 카드 창을 닫아서 자동 뽑기를 멈췄어요.');
+    const k = last || 1, cost = costOf(k); if (coins < cost) return autoStop(`골드가 모자라서 자동 뽑기를 멈췄어요. (다음 ${k}회 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`); const w2 = why(k); if (w2) return autoStop(w2); draw(k); }, skip ? 450 : 300); }
+  // 뽑은 뒤: 모션 스킵이면 창 안에 바로 · 아니면 카드 연출 / 자동 뽑기: 영웅 이상이면 멈춤
+  function afterDraw(res, ttl, kind) { const hi = res.reduce((m, r) => gi(r.c) > gi(m.c) ? r : m, res[0]), stopHi = gi(hi.c) >= 3, run = auto && kind !== 'free' && !stopHi;
+    if (auto && kind !== 'free' && stopHi) autoStop(skip ? `[${hi.c.g}] ${hi.c.name} 카드가 나와서 자동 뽑기를 멈췄어요!` : '영웅 이상 카드가 나와서 자동 뽑기를 멈췄어요! 금빛 카드를 뒤집어 보세요.');
+    if (skip) { for (const r of res) if (gi(r.c) >= 4 && !r.mile) annLegend(r.c, '변신 카드 뽑기'); const g = $('pw-res'); if (g) { g.classList.remove('fresh'); void g.offsetWidth; g.classList.add('fresh'); }
+      say(`[변신 카드] ${ttl}: ` + res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + ` — 마일리지 ${D.mile} / ${MILE}`, '#e0c8ff'); if (gi(hi.c) >= 3) snd(gi(hi.c) >= 4 ? 'legend' : 'hero'); else snd('flip');
+      if (run) autoNext(); return; }
+    show(res, ttl, { auto: run, open: res.length === 1 && res[0].mile }); }
+  // ----- 뽑기 결과 화면: 카드가 가운데로 모였다가 11장(1장)으로 펼쳐짐 · 일반·고급 = 흰 테두리 · 희귀 이상 = 금빛 테두리 + 불꽃(등급은 숨김)
+  //   누르면 뒤집힘(흰 카드는 바로) · 금빛 카드는 전체 화면: 카드 비 3초 → 한 장이 다가옴 → 밀어서 결과 확인 → 희귀 파랑 · 영웅 보라(두껍게) · 전설 금빛 + 번개 + 번쩍
+  //   [모두 뒤집기] = 전부 · 전체 화면 연출은 가장 높은 금빛 카드 1장만 / Space·Enter = 모두 뒤집기 → (다 뒤집었으면) Space = 다시 뽑기 · Enter = 확인 · Esc = 닫기(자동 뽑기도 멈춤)
+  let ov = null, ovKey = null, ovRs = null;
+  const BOLT = '<svg class="pcg-bolt" viewBox="0 0 100 145" preserveAspectRatio="none" aria-hidden="true"><path d="M-3 20 L12 27 L4 36 L18 44 L9 55"/><path d="M103 64 L88 72 L97 80 L84 90 L94 101"/><path d="M30 148 L38 134 L46 141 L54 127 L63 135 L70 122"/></svg>';
+  const faceHTML = (r, tag) => { const c = r.c; return `<div class="pcg-fr">${tag || ''}<span class="pcg-gr">${c.g}</span>${r.isNew ? '<em class="pcg-new">NEW</em>' : '<em class="pcg-dup">+1장</em>'}<span class="pcg-art"><img data-pc="${c.id}" alt=""></span><b>${esc(c.name)}</b>${c.cls ? `<small class="pcg-job">${jobTxt(c)}</small>` : ''}<small>Lv.${c.lv} · 속도 +${c.pct}%</small>${c.opt.length ? `<small class="pcg-op">${c.opt.map(esc).join('<br>')}</small>` : ''}</div>`; };
+  const BACK = '<div class="pcg-bk"><b class="gl"></b><b class="sh"></b><i></i></div>';   // 금빛 뒷면: 빛(gl)·빛줄기(sh) 층은 투명도·이동만 움직임 (매 프레임 다시 칠하지 않게)
+  const cardHTML = (r, i, x, tag) => `<div class="pcg-c ${isGold(r.c) ? 'y' : 'w'} g${gi(r.c)}${x || ''}" data-i="${i}" style="--gc:${GC(r.c.g)}" role="button" tabindex="0" aria-label="카드 ${i + 1} 뒤집기"><div class="pcg-in">${BACK}${faceHTML(r, tag)}</div></div>`;
+  function ovEnsure() { window.__pcgCover = true; if (!ov) { ov = document.createElement('div'); ov.className = 'pcg-ovl'; ov.id = 'pcg-ovl'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', '변신 카드 결과'); document.body.appendChild(ov); } return ov; }
+  function show(res, ttl, opt) { opt = opt || {}; busy = true; ovEnsure(); const n = res.length, rows = n > 6 ? [res.slice(0, 6), res.slice(6)] : [res];
+    ov.innerHTML = `<div class="pcg-flash"></div><div class="pcg-box ${n > 1 ? 'n11' : 'n1'}"><div class="pcg-ttl">변신 카드 · ${esc(ttl)}</div><div class="pcg-deck">${rows.map((L, q) => `<div class="pcg-row">${L.map((r, k) => cardHTML(r, q * 6 + k)).join('')}</div>`).join('')}</div><p class="pcg-sum" id="pcg-sum"></p>`
+      + `<div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort">모두 뒤집기</button><button type="button" id="pcg-re" class="inv-sort" hidden>다시 뽑기 <small>Space</small></button><button type="button" id="pcg-stop" class="inv-sort"${auto ? '' : ' hidden'}>자동 뽑기 멈추기</button><button type="button" id="pcg-ok" class="sl-go">확인</button></div></div><div class="pcg-big" id="pcg-big" hidden></div>`;
+    ov.hidden = false; fillArt(ov); const S = ov._S = { k: 'draw', res, ttl, open: new Set(), ann: new Set(), ready: false, seq: null, auto: !!opt.auto };
     ov.querySelectorAll('.pcg-c').forEach(el => { el.onclick = () => flip(+el.dataset.i); });
-    $('pcg-all').onclick = flipAll; $('pcg-ok').onclick = close; sumUpd(); snd('deal');
-    if (ovKey) removeEventListener('keydown', ovKey, true); ovKey = ev => { if (!ov || ov.hidden) return; if (ev.key === 'Escape' || ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopImmediatePropagation(); const S = ov._S; if (S && S.open.size < S.res.length && ev.key !== 'Escape') flipAll(); else close(); } }; addEventListener('keydown', ovKey, true);
-    setTimeout(() => { const b = $('pcg-all'); if (b) b.focus(); }, 30); }
-  function flash(gi) { const f = ov && ov.querySelector('.pcg-flash'); if (!f) return; f.style.setProperty('--fc', gi >= 4 ? 'rgba(255,190,90,.75)' : 'rgba(200,140,255,.6)'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); const bx = ov.querySelector('.pcg-box'); if (bx && gi >= 4) { bx.classList.remove('shake'); void bx.offsetWidth; bx.classList.add('shake'); } }
-  function flip(i, quiet) { const S = ov && ov._S; if (!S || S.open.has(i)) return; S.open.add(i); const r = S.res[i], gi = PC_GO.indexOf(r.c.g), el = ov.querySelector(`.pcg-c[data-i="${i}"]`); if (el) el.classList.add('open');
-    if (gi >= 3) { if (el) el.classList.add('burst'); setTimeout(() => flash(gi), 180); } if (!quiet || gi >= 2) snd(gi >= 4 ? 'legend' : gi >= 3 ? 'hero' : gi >= 2 ? 'rare' : 'flip');
-    if (gi >= 4 && !r.mile && !S.ann.has(i)) { S.ann.add(i); annLegend(r.c, '변신 카드 뽑기'); }
+    $('pcg-all').onclick = () => flipAll(); $('pcg-ok').onclick = () => close(); $('pcg-re').onclick = () => { close(); again(); }; $('pcg-stop').onclick = () => autoStop('자동 뽑기를 멈췄어요.');
+    keys(); sumUpd(); deal(S, () => { if (opt.open) { res.forEach((r, i) => openCard(i, true)); return; } if (S.auto) { flipAll(true); setTimeout(() => { if (ov && ov._S === S && !S.seq) close(); }, 900 + n * 70); } }); }
+  // 모였다가 펼쳐지기 (카드 11장만 transform을 바꿈 — 매 프레임 DOM을 다시 만들지 않음)
+  function deal(S, then) { const deck = ov.querySelector('.pcg-deck, .pcg-sdeck'), cs = [...ov.querySelectorAll('.pcg-c')]; if (!deck || !cs.length) { S.ready = true; if (then) then(); return; }
+    const R = deck.getBoundingClientRect(), cx = R.left + R.width / 2, cy = R.top + R.height / 2;
+    cs.forEach((el, i) => { const r = el.getBoundingClientRect(), dx = cx - (r.left + r.width / 2), dy = cy - (r.top + r.height / 2), rot = ((i * 37) % 17) - 8; el.dataset.g = `translate(${dx.toFixed(0)}px,${dy.toFixed(0)}px) rotate(${rot}deg) scale(.92)`;
+      el.style.transition = 'none'; el.style.opacity = '0'; el.style.transform = `translate(${dx.toFixed(0)}px,${(dy - Math.min(260, innerHeight * 0.4)).toFixed(0)}px) rotate(${rot * 2}deg) scale(.7)`; });
+    void deck.offsetWidth; snd('gather');
+    requestAnimationFrame(() => { cs.forEach((el, i) => { el.style.transition = `transform .36s cubic-bezier(.3,.9,.4,1) ${i * 18}ms, opacity .25s ${i * 18}ms`; el.style.opacity = '1'; el.style.transform = el.dataset.g; }); });
+    const t1 = 380 + cs.length * 18 + 220; setTimeout(() => { if (!ov || ov._S !== S) return; snd('deal'); cs.forEach((el, i) => { el.style.transition = `transform .5s cubic-bezier(.2,1.15,.35,1) ${i * 45}ms`; el.style.transform = ''; }); }, t1);
+    setTimeout(() => { if (!ov || ov._S !== S) return; cs.forEach(el => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; el.classList.add('rdy'); }); S.ready = true; if (ov.querySelector('.pcg-c.y')) snd('gold'); const a = $('pcg-all'); if (a) a.focus(); if (then) then(); }, t1 + 520 + cs.length * 45); }
+  function flash(gi_, n) { const f = ov && ov.querySelector('.pcg-flash'); if (!f) return; f.style.setProperty('--fc', gi_ >= 4 ? 'rgba(255,214,120,.85)' : gi_ >= 3 ? 'rgba(200,140,255,.65)' : 'rgba(110,180,255,.5)'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); const bx = ov.querySelector('.pcg-box'); if (bx && gi_ >= 4) { bx.classList.remove('shake'); void bx.offsetWidth; bx.classList.add('shake'); } }
+  function flip(i) { const S = ov && ov._S; if (!S || S.k !== 'draw' || !S.ready || S.open.has(i) || S.seq) return; const r = S.res[i]; if (isGold(r.c) && !r.mile) { seqPlay(i); return; } openCard(i); }
+  function openCard(i, quiet) { const S = ov && ov._S; if (!S || S.open.has(i)) return; S.open.add(i); const r = S.res[i], g = gi(r.c), el = ov.querySelector(`.pcg-c[data-i="${i}"]`);
+    if (el) { el.classList.add('open'); if (g >= 4) el.insertAdjacentHTML('beforeend', BOLT); if (g >= 3) el.classList.add('burst'); }
+    if (g >= 3 && !quiet) setTimeout(() => flash(g), 180); if (!quiet || g >= 2) snd(g >= 4 ? 'legend' : g >= 3 ? 'hero' : g >= 2 ? 'rare' : 'flip');
+    if (S.k === 'draw' && g >= 4 && !r.mile && !S.ann.has(i)) { S.ann.add(i); annLegend(r.c, '변신 카드 뽑기'); }
     sumUpd(); }
-  function flipAll() { const S = ov && ov._S; if (!S) return; let k = 0; S.res.forEach((r, i) => { if (S.open.has(i)) return; const q = k++; setTimeout(() => flip(i, q > 0), q * 90); }); }
-  function sumUpd() { const S = ov && ov._S, el = $('pcg-sum'); if (!S || !el) return; const n = S.res.length, op = S.open.size;
-    if (op < n) { el.innerHTML = `카드를 눌러 뒤집어 보세요 <small>(${op} / ${n})</small>`; return; } const nw = S.res.filter(r => r.isNew).length;
-    el.innerHTML = `새 카드 <b>${nw}장</b> · 같은 카드 <b>${n - nw}장</b> · 마일리지 <b>${D.mile} / ${MILE}</b>${D.mile >= MILE ? ' <span class="pcg-mok">(전설 고르기 가능!)</span>' : ''}`; const a = $('pcg-all'); if (a) a.hidden = true; const b = $('pcg-ok'); if (b) b.focus(); }
-  function close() { const S = ov && ov._S; if (!S) return; S.res.forEach((r, i) => { if (!S.open.has(i)) flip(i, true); }); ov.hidden = true; ov._S = null; busy = false; if (ovKey) { removeEventListener('keydown', ovKey, true); ovKey = null; }
-    say(`[변신 카드] ` + S.res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + ` — 마일리지 ${D.mile} / ${MILE}`, '#e0c8ff'); refresh(); }
+  // 모두 뒤집기: 흰 카드·나머지 금빛 카드는 바로 · 가장 높은 금빛 카드 1장만 전체 화면 연출 (noSeq = 자동 뽑기 중 희귀까지는 연출 없이)
+  function flipAll(noSeq) { const S = ov && ov._S; if (!S || !S.ready || S.seq) return; if (S.k === 'syn') return synAll(); const L = S.res.map((r, i) => i).filter(i => !S.open.has(i)); if (!L.length) return;
+    let top = null; if (!noSeq) for (const i of L) { const r = S.res[i]; if (isGold(r.c) && !r.mile && (top == null || gi(r.c) > gi(S.res[top].c))) top = i; }
+    let k = 0; for (const i of L) if (i !== top) { const q = k++; setTimeout(() => openCard(i, q > 0 && !isGold(S.res[i].c)), q * 80); }
+    if (top != null) setTimeout(() => { if (ov && ov._S === S) seqPlay(top); }, k * 80 + 280); }
+  function sumUpd() { const S = ov && ov._S, el = $('pcg-sum'); if (!S || !el) return; const n = S.res.length, op = S.open.size; if (S.k === 'syn') return synSum2();
+    if (op < n) { el.innerHTML = S.ready ? `카드를 눌러 뒤집어 보세요 <small>(${op} / ${n}${S.res.some(r => isGold(r.c) && !r.mile) ? ' · 금빛 카드 = 희귀 이상' : ''})</small>` : '&nbsp;'; return; } const nw = S.res.filter(r => r.isNew).length;
+    el.innerHTML = `새 카드 <b>${nw}장</b> · 같은 카드 <b>${n - nw}장</b> · 마일리지 <b>${D.mile} / ${MILE}</b>${D.mile >= MILE ? ' <span class="pcg-mok">(전설 고르기 가능!)</span>' : ''}`;
+    const a = $('pcg-all'); if (a) a.hidden = true; const re = $('pcg-re'); if (re) re.hidden = !last || S.res[0].mile; const b = $('pcg-ok'); if (b) b.focus(); }
+  function close(esc_) { const S = ov && ov._S; if (!S) return; if (S.seq) seqEnd(true); if (S.k === 'syn') S.res.forEach((r, i) => { if (!S.open.has(i)) synOpen(i, true); }); else S.res.forEach((r, i) => { if (!S.open.has(i)) openCard(i, true); });
+    ov.hidden = true; ov._S = null; ov.innerHTML = ''; ov.classList.remove('seq'); window.__pcgCover = false; busy = false; if (lastRes) lastRes.hide = false; if (ovKey) { removeEventListener('keydown', ovKey, true); removeEventListener('keyup', ovKey, true); ovKey = null; } if (ovRs) { removeEventListener('resize', ovRs); ovRs = null; }
+    if (S.k === 'draw') say(`[변신 카드] ${S.ttl}: ` + S.res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + ` — 마일리지 ${D.mile} / ${MILE}`, '#e0c8ff'); else say(`[변신 카드] ${S.ttl} — ${synSum(S.res)}`, '#e0c8ff'); refresh();
+    if (esc_) { if (auto) autoStop('자동 뽑기를 멈췄어요.'); } else if (S.auto && auto) autoNext(); }
+  function keys() { if (ovKey) { removeEventListener('keydown', ovKey, true); removeEventListener('keyup', ovKey, true); }
+    ovKey = ev => { if (!ov || ov.hidden || !ov._S) return; const k = ev.key, sp = k === ' ' || ev.code === 'Space'; if (!(sp || k === 'Enter' || k === 'Escape' || k === 'ArrowRight')) return; ev.preventDefault(); ev.stopImmediatePropagation(); if (ev.type !== 'keydown' || ev.repeat) return;
+      const S = ov._S; if (S.seq) { if (k === 'Escape') seqEnd(); else seqKey(); return; } if (k === 'Escape') { close(true); return; } if (!S.ready) return;
+      if (S.open.size < S.res.length) { flipAll(); return; } if (sp && S.k === 'draw' && last && !S.res[0].mile) { close(); again(); return; } if (k !== 'ArrowRight') close(); };
+    addEventListener('keydown', ovKey, true); addEventListener('keyup', ovKey, true); }
+  // ----- 금빛 카드 전체 화면: 변신 카드 비(약 3초 · 누르면 건너뜀) → 한 장이 다가옴(금빛 뒷면) → 밀어서 결과 확인 → 등급 연출 → [확인]
+  let BK = null; function backImg() { if (BK) return BK; const w = 64, h = 93, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'), rr = (x, y, W, H, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + W, y, x + W, y + H, r); g.arcTo(x + W, y + H, x, y + H, r); g.arcTo(x, y + H, x, y, r); g.arcTo(x, y, x + W, y, r); g.closePath(); };
+    const gr = g.createRadialGradient(w / 2, h * 0.45, 4, w / 2, h * 0.45, h * 0.6); gr.addColorStop(0, '#6a4c1a'); gr.addColorStop(1, '#1c1206'); rr(1.5, 1.5, w - 3, h - 3, 6); g.fillStyle = gr; g.fill(); g.lineWidth = 2.5; g.strokeStyle = '#ffd36a'; g.stroke();
+    g.save(); g.translate(w / 2, h / 2); g.rotate(Math.PI / 4); g.strokeStyle = '#ffe9a0'; g.lineWidth = 1.6; g.strokeRect(-12, -12, 24, 24); g.restore(); g.fillStyle = '#fff2c0'; g.font = '900 20px "Nanum Myeongjo",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', w / 2, h / 2 + 1); return (BK = c); }
+  function seqPlay(i) { const S = ov && ov._S; if (!S || S.seq) return; const r = S.res[i], big = $('pcg-big'); if (!big) return openCard(i);
+    big.innerHTML = `<canvas class="pcg-cv"></canvas><div class="pcg-zt">희귀 이상 변신 카드!</div><div class="pcg-zc pcg-c y g${gi(r.c)}" style="--gc:${GC(r.c.g)}"><div class="pcg-in">${BACK}${faceHTML(r)}</div></div>`
+      + `<div class="pcg-sl" hidden><div class="ef-track"><div class="ef-fill"></div><span class="ef-hint">밀어서 결과 확인</span><div class="ef-knob" role="slider" aria-label="밀어서 결과 확인" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l6 7-6 7M13 5l6 7-6 7"/></svg></div></div></div><button type="button" class="sl-go pcg-bok" hidden>확인</button>`;
+    big.className = 'pcg-big'; big.hidden = false; ov.classList.add('seq'); fillArt(big); const cv = big.querySelector('canvas'), d = Math.min(2, window.devicePixelRatio || 1);
+    const Q = S.seq = { i, r, big, cv, g: cv.getContext('2d'), d, ph: 'rain', t0: performance.now(), tp: performance.now(), last: performance.now(), P: [], C: [], B: [], fl: 0, raf: 0, bt: 0 };
+    big.onclick = ev => { if (ev.target.closest('.pcg-sl') || ev.target.closest('.pcg-bok')) return; if (Q.ph === 'rain' || Q.ph === 'zoom') seqKey(); else if (Q.ph === 'rev' && performance.now() - Q.tp > 500) seqEnd(); };
+    big.querySelector('.pcg-bok').onclick = ev => { ev.stopPropagation(); seqEnd(); }; slider(big.querySelector('.pcg-sl'), () => seqReveal());
+    snd('charge'); Q.raf = requestAnimationFrame(seqFrame); Q.tm = setTimeout(() => seqZoom(), 2900); }
+  function seqZoom() { const Q = ov && ov._S && ov._S.seq; if (!Q || Q.ph !== 'rain') return; clearTimeout(Q.tm); Q.ph = 'zoom'; Q.tp = Q.rainEnd = performance.now(); Q.big.querySelector('.pcg-zc').classList.add('in'); snd('zoom'); Q.tm = setTimeout(() => seqSlide(), 1000); }
+  function seqSlide() { const Q = ov && ov._S && ov._S.seq; if (!Q || (Q.ph !== 'zoom' && Q.ph !== 'rain')) return; clearTimeout(Q.tm); if (Q.ph === 'rain') { Q.big.querySelector('.pcg-zc').classList.add('in'); Q.rainEnd = performance.now(); } Q.ph = 'slide'; Q.tp = performance.now(); const zc = Q.big.querySelector('.pcg-zc'); zc.classList.add('done');
+    const sl = Q.big.querySelector('.pcg-sl'); sl.hidden = false; const t = Q.big.querySelector('.pcg-zt'); if (t) t.textContent = '오른쪽으로 밀어서 결과를 확인하세요'; try { sl.querySelector('.ef-knob').focus(); } catch (e) {} }
+  function seqKey() { const Q = ov && ov._S && ov._S.seq; if (!Q) return; if (Q.ph === 'rain') seqZoom(); else if (Q.ph === 'zoom') seqSlide(); else if (Q.ph === 'slide') seqReveal(); else if (Q.ph === 'rev' && performance.now() - Q.tp > 400) seqEnd(); }
+  function seqReveal() { const Q = ov && ov._S && ov._S.seq; if (!Q || Q.ph !== 'slide') return; Q.ph = 'rev'; Q.tp = performance.now(); const g = gi(Q.r.c), big = Q.big; big.classList.add('r' + g); big.querySelector('.pcg-sl').hidden = true;
+    const zc = big.querySelector('.pcg-zc'); zc.classList.add('open'); if (g >= 4) zc.insertAdjacentHTML('beforeend', BOLT); const t = big.querySelector('.pcg-zt'); if (t) t.textContent = `[${Q.r.c.g}] ${Q.r.c.name}`;
+    Q.fl = g >= 4 ? 1 : g >= 3 ? 0.75 : 0.4; Q.fc = g >= 4 ? '255,236,170' : g >= 3 ? '210,150,255' : '140,200,255'; Q.flashes = g >= 4 ? [0.35, 0.75, 1.25, 1.8] : g >= 3 ? [0.45] : []; Q.shake = g >= 4 ? 0.8 : g >= 3 ? 0.45 : 0;
+    const W = innerWidth, H = innerHeight, cx = W / 2, cy = H / 2 - 30, col = g >= 4 ? ['#fff3c0', '#ffd36a', '#ffa630'] : g >= 3 ? ['#f0d8ff', '#c77dff', '#9a50ff'] : ['#e0f0ff', '#7fc0ff', '#3f9bff'];
+    for (let k = 0; k < (g >= 4 ? 320 : g >= 3 ? 200 : 110); k++) { const a = Math.random() * 6.283, v = 140 + Math.random() * (g >= 4 ? 820 : 560); Q.P.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 100, life: 0.8 + Math.random() * 1.4, t: 0, s: 1 + Math.random() * 2.6, c: col[k % 3] }); }
+    snd(g >= 4 ? 'legend' : g >= 3 ? 'hero' : 'rare'); if (g >= 4 && !Q.r.mile) { const S = ov._S; if (!S.ann.has(Q.i)) { S.ann.add(Q.i); annLegend(Q.r.c, '변신 카드 뽑기'); } }
+    setTimeout(() => { const b = big.querySelector('.pcg-bok'); if (b && Q === (ov && ov._S && ov._S.seq)) { b.hidden = false; b.focus(); } }, 750); }
+  function seqEnd(quiet) { const S = ov && ov._S, Q = S && S.seq; if (!Q) return; clearTimeout(Q.tm); cancelAnimationFrame(Q.raf); S.seq = null; Q.big.hidden = true; Q.big.innerHTML = ''; Q.big.onclick = null; ov.classList.remove('seq'); if (!quiet) { openCard(Q.i, true); const el = ov.querySelector(`.pcg-c[data-i="${Q.i}"]`); if (el) el.classList.add('pop'); } }
+  function seqFrame(now) { const S = ov && ov._S, Q = S && S.seq; if (!Q) return; Q.raf = requestAnimationFrame(seqFrame); const cv = Q.cv, d = Q.d, W = innerWidth, H = innerHeight, g = Q.g;
+    if (cv.width !== Math.round(W * d) || cv.height !== Math.round(H * d)) { cv.width = Math.round(W * d); cv.height = Math.round(H * d); }
+    const dt = Math.min(0.05, (now - Q.last) / 1000), T = (now - Q.t0) / 1000, tr = (now - Q.tp) / 1000; Q.last = now; g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
+    let sx = 0, sy = 0; if (Q.shake > 0) { Q.shake -= dt; const m = Math.max(0, Q.shake) * 18; sx = (Math.random() - 0.5) * m; sy = (Math.random() - 0.5) * m; Q.big.style.setProperty('--sx', sx.toFixed(1) + 'px'); Q.big.style.setProperty('--sy', sy.toFixed(1) + 'px'); } g.translate(sx, sy);
+    const cx = W / 2, cy = H / 2 - 30, bg = g.createRadialGradient(cx, cy, 10, cx, cy, Math.max(W, H) * 0.65); bg.addColorStop(0, `rgba(255,190,90,${Q.ph === 'rev' ? 0.22 : 0.1 + 0.06 * Math.sin(T * 5)})`); bg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = bg; g.fillRect(-20, -20, W + 40, H + 40);
+    // 변신 카드 비 (금빛 뒷면)
+    if (Q.ph === 'rain' && T < 2.7) { const n = Math.min(4, Math.max(1, Math.round(dt * (14 + T * 18)))); for (let k = 0; k < n; k++) { const s = 0.45 + Math.random() * 0.75; Q.C.push({ x: Math.random() * W, y: -70, vy: 260 + Math.random() * 520, vx: (Math.random() - 0.5) * 60, a: Math.random() * 6.283, va: (Math.random() - 0.5) * 7, s, f: Math.random() * 6.283 }); } }
+    const im = backImg(), keepC = []; for (const c of Q.C) { c.y += c.vy * dt; c.x += c.vx * dt; c.a += c.va * dt; c.f += dt * 6; if (c.y > H + 80) continue; keepC.push(c); const w = im.width * c.s, h = im.height * c.s, fx = Math.abs(Math.cos(c.f)) * 0.8 + 0.2;   // fx: 빙글 도는 느낌 (가로로 눌렸다 펴짐)
+      g.save(); g.translate(c.x, c.y); g.rotate(c.a); g.scale(fx, 1); g.globalAlpha = Q.rainEnd ? Math.max(0, 1 - (now - Q.rainEnd) / 650) : 1; g.drawImage(im, -w / 2, -h / 2, w, h); g.restore(); } Q.C = keepC;
+    // 반짝이 (늘 조금씩) · 결과 알갱이
+    if (Math.random() < 0.6) Q.P.push({ x: Math.random() * W, y: H + 5, vx: (Math.random() - 0.5) * 20, vy: -40 - Math.random() * 90, life: 1.6 + Math.random() * 1.4, t: 0, s: 0.8 + Math.random() * 1.6, c: '#ffd36a', tw: 1 });
+    g.globalCompositeOperation = 'lighter'; const keep = []; for (const p of Q.P) { p.t += dt; if (p.t > p.life) continue; keep.push(p); p.vx *= 0.985; p.vy = p.vy * 0.985 + (p.tw ? 0 : 160) * dt; p.x += p.vx * dt; p.y += p.vy * dt; const f = p.t / p.life;
+      g.globalAlpha = (1 - f) * (p.tw ? 0.5 + 0.5 * Math.sin(p.t * 12) : 1); g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.s, 0, 6.283); g.fill(); } Q.P = keep; g.globalAlpha = 1;
+    // 전설: 카드 둘레 금빛 번개
+    if (Q.ph === 'rev' && gi(Q.r.c) >= 4 && tr < 3) { Q.bt -= dt; const zr = Q.big.querySelector('.pcg-zc').getBoundingClientRect(); if (Q.bt <= 0) { Q.bt = 0.07; Q.B = Array.from({ length: 6 }, () => { const a = Math.random() * 6.283, R0 = Math.max(zr.width, zr.height) * 0.5, R1 = R0 * (1.35 + Math.random() * 0.7); return [cx + Math.cos(a) * R0 * 0.8, cy + Math.sin(a) * R0 * 0.9, cx + Math.cos(a + (Math.random() - 0.5)) * R1, cy + Math.sin(a + (Math.random() - 0.5)) * R1]; }); }
+      g.shadowColor = '#ffb020'; g.shadowBlur = 14; for (const b of Q.B) bolt2(g, b[0], b[1], b[2], b[3]); g.shadowBlur = 0; }
+    // 보라·파랑 고리
+    if (Q.ph === 'rev' && tr < 1.2) { const g2 = gi(Q.r.c), c2 = g2 >= 4 ? '255,214,120' : g2 >= 3 ? '199,125,255' : '90,170,255'; for (let k = 0; k < (g2 >= 3 ? 3 : 1); k++) { const a2 = tr - k * 0.12; if (a2 <= 0) continue; g.strokeStyle = `rgba(${c2},${Math.max(0, 1 - a2 / 1.1)})`; g.lineWidth = (g2 >= 3 ? 14 : 8) * (1 - a2 / 1.2) + 1; g.beginPath(); g.arc(cx, cy, 60 + a2 * Math.max(W, H) * 0.7, 0, 6.283); g.stroke(); } }
+    g.globalCompositeOperation = 'source-over';
+    // 번쩍 (전설은 여러 번)
+    if (Q.ph === 'rev') { if (Q.flashes && Q.flashes.length && tr >= Q.flashes[0]) { Q.flashes.shift(); Q.fl = Math.max(Q.fl, 0.85); } if (Q.fl > 0) { g.fillStyle = `rgba(${Q.fc},${Q.fl})`; g.fillRect(-20, -20, W + 40, H + 40); Q.fl = Math.max(0, Q.fl - dt * 2.6); } } }
+  function bolt2(g, x0, y0, x1, y1) { const n = 8, pts = [[x0, y0]], dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L; for (let i = 1; i < n; i++) { const f = i / n, j = (Math.random() - 0.5) * L * 0.25; pts.push([x0 + dx * f + nx * j, y0 + dy * f + ny * j]); } pts.push([x1, y1]);
+    g.strokeStyle = 'rgba(255,190,70,.65)'; g.lineWidth = 6; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); g.strokeStyle = 'rgba(255,252,230,.95)'; g.lineWidth = 2; g.stroke(); }
+  // 밀어서 결과 확인 (강화 연출의 손잡이와 같은 모양·같은 방식: 오른쪽 끝까지 밀고 손을 떼야 열림 · 중간에 놓으면 제자리로)
+  function slider(el, done) { const track = el.querySelector('.ef-track'), knob = el.querySelector('.ef-knob'), fill = el.querySelector('.ef-fill'); let drag = null;
+    const max = () => Math.max(1, track.clientWidth - knob.offsetWidth - 8), set = x => { knob.style.transform = `translateX(${x}px)`; fill.style.width = (x + knob.offsetWidth / 2 + 4) + 'px'; el.style.setProperty('--p', (x / max()).toFixed(3)); };
+    knob.addEventListener('pointerdown', ev => { ev.preventDefault(); ev.stopPropagation(); drag = { x0: ev.clientX, full: false }; try { knob.setPointerCapture(ev.pointerId); } catch (e) {} knob.classList.add('dn'); knob.style.transition = fill.style.transition = ''; });
+    knob.addEventListener('pointermove', ev => { if (!drag) return; const x = Math.max(0, Math.min(max(), ev.clientX - drag.x0)); drag.full = x >= max() - 3; set(drag.full ? max() : x); el.classList.toggle('full', drag.full); });
+    const up = ev => { if (!drag) return; const ok = drag.full && ev.type === 'pointerup'; drag = null; knob.classList.remove('dn'); el.classList.remove('full'); if (ok) { set(max()); done(); return; } knob.style.transition = 'transform .25s ease-out'; fill.style.transition = 'width .25s ease-out'; set(0); };
+    knob.addEventListener('pointerup', up); knob.addEventListener('pointercancel', up); el.addEventListener('click', ev => ev.stopPropagation()); requestAnimationFrame(() => set(0)); }
+  // ----- 직접 합성 결과 화면: 큰 카드(보유중 아이콘의 약 4배) · 금빛으로 일렁이는 뒷면 · 합성 횟수만큼 뒤집기 → 성공(위 등급 카드) / 실패(돌려받은 카드) · 천장 보상은 뒤집을 때 옆에 한 장 더
+  function synShow(out, ttl) { busy = true; ovEnsure(); const n = out.length;
+    ov.innerHTML = `<div class="pcg-flash"></div><div class="pcg-box syn"><div class="pcg-ttl">변신 카드 · ${esc(ttl)} ${n}번</div><div class="pcg-sdeck">${out.map((r, i) => cardHTML(r, i, ' sy ' + (r.ok ? 'ok' : 'no'), `<span class="pcg-tag ${r.ok ? 'ok' : 'no'}">${r.ok ? '성공!' : '실패 · 돌려받음'}</span>`)).join('')}</div><p class="pcg-sum" id="pcg-sum"></p><div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort">모두 뒤집기</button><button type="button" id="pcg-ok" class="sl-go">확인</button></div></div>`;
+    ov.hidden = false; fillArt(ov); const S = ov._S = { k: 'syn', res: out, ttl, open: new Set(), ann: new Set(), ready: false, seq: null }; synFit();
+    ov.querySelectorAll('.pcg-sdeck > .pcg-c').forEach(el => { el.onclick = () => synOpen(+el.dataset.i); }); $('pcg-all').onclick = () => synAll(); $('pcg-ok').onclick = () => close();
+    if (ovRs) removeEventListener('resize', ovRs); ovRs = () => synFit(); addEventListener('resize', ovRs); keys(); sumUpd(); deal(S); }
+  function synFit() { const dk = ov && ov.querySelector('.pcg-sdeck'); if (!dk) return; const n = dk.children.length || 1, W = innerWidth - 40, H = innerHeight - 180, gap = 12; let cw = 200;   // 보유중 아이콘(52px)의 약 4배부터 화면에 맞게 줄임
+    for (; cw > 46; cw -= 4) { const cols = Math.max(1, Math.floor((W + gap) / (cw + gap))), rows = Math.ceil(n / cols); if (rows * (cw * 1.45 + gap) - gap <= H) break; } dk.style.setProperty('--cw', cw + 'px'); }
+  function synOpen(i, quiet) { const S = ov && ov._S; if (!S || S.k !== 'syn' || (!S.ready && !quiet) || S.open.has(i)) return; S.open.add(i); const r = S.res[i], g = gi(r.c), el = ov.querySelector(`.pcg-sdeck > .pcg-c[data-i="${i}"]`);
+    if (el) { el.classList.add('open'); if (r.ok && g >= 4) el.insertAdjacentHTML('beforeend', BOLT); if (r.ok && g >= 3) el.classList.add('burst'); }
+    if (!quiet) { if (r.ok) { snd(g >= 4 ? 'legend' : g >= 3 ? 'hero' : 'rare'); if (g >= 3) setTimeout(() => flash(g), 160); } else snd('fail'); }
+    if (r.ok && g >= 4 && !S.ann.has(i)) { S.ann.add(i); annLegend(r.c, '변신 카드 합성'); }
+    if (r.pity && el) { const pr = { c: r.pity, isNew: r.pNew }, pg = gi(r.pity); el.insertAdjacentHTML('afterend', cardHTML(pr, 'p' + i, ' sy pt open pop' + (pg >= 3 ? ' burst' : ''), '<span class="pcg-tag pt">천장 보상!</span>')); const pe = el.nextElementSibling; if (pe && pg >= 4) pe.insertAdjacentHTML('beforeend', BOLT); fillArt(pe); synFit();
+      if (!quiet) setTimeout(() => { snd(pg >= 4 ? 'legend' : 'hero'); flash(pg); }, 420); if (pg >= 4 && !S.ann.has('p' + i)) { S.ann.add('p' + i); annLegend(r.pity, '변신 카드 합성 천장'); } }
+    sumUpd(); }
+  function synAll() { const S = ov && ov._S; if (!S || !S.ready) return; let k = 0; S.res.forEach((r, i) => { if (S.open.has(i)) return; const q = k++; setTimeout(() => synOpen(i, false), q * 160); }); }
+  function synSum2() { const S = ov._S, el = $('pcg-sum'), n = S.res.length, op = S.open.size; if (op < n) { el.innerHTML = S.ready ? `카드를 눌러 뒤집어 보세요 <small>(${op} / ${n})</small>` : '&nbsp;'; return; }
+    el.innerHTML = esc(synSum(S.res)) + ` · 천장 <b>희귀→영웅 ${D.pity.h}/${SYN.희귀.pity}</b> · <b>영웅→전설 ${D.pity.l}/${SYN.영웅.pity}</b>`; const a = $('pcg-all'); if (a) a.hidden = true; const b = $('pcg-ok'); if (b) b.focus(); }
   // ----- 특별상점 [변신 카드] 탭: 이제 [변신] 창에서 (창 열기 버튼만)
   function footFix() { const s = $('shop-sum'), bb = $('shop-buyall'); if (s) s.innerHTML = '<span class="muted">변신 카드는 위 메뉴 [변신] 창에서 어디서나 뽑고 합성해요</span>'; if (bb) bb.hidden = true; }
   function shopPanel(list, foot) { list.innerHTML = `<div class="pcg-shop"><p class="pcg-lead">변신 카드 <b>뽑기·합성·변신</b>은 이제 위 메뉴 <b>[변신]</b> 창에서 해요. 사냥 중에도 어디서나 열 수 있어요. (모바일: [메뉴] → [변신 카드])</p><button type="button" class="sl-go pcg-open">변신 카드 창 열기</button></div>`;
@@ -9901,11 +10023,11 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     // 오른쪽: 마일리지 · 전설 고르기 · 고른 카드 · 최근 결과
     $('pw-mbar').style.width = Math.min(100, D.mile / MILE * 100).toFixed(1) + '%'; $('pw-mn').textContent = `${D.mile} / ${MILE}`; $('pw-mb').classList.toggle('rdy', D.mile >= MILE);
     const pk = $('pw-pick'); pk.hidden = !pickOn; if (pickOn) pk.innerHTML = POOL['전설'].map(c => `<button type="button" data-id="${c.id}" style="--gc:${GC(c.g)}"><span class="pcg-art"><img data-pc="${c.id}" alt=""></span><b>${esc(c.name)}</b><small>${c.cls ? `<b class="pcg-jt">${jobTxt(c)}</b> · ` : ''}+${c.pct}%${c.opt.length ? ' · ' + c.opt.map(esc).join(' · ') : ''}</small>${has(c.id) ? `<em>보유 ${D.cards[c.id]}</em>` : ''}</button>`).join('');
-    const c = sel && PC_BY[sel]; $('pw-sel').innerHTML = !c ? '<p class="pw-hi">카드를 누르면 여기에 자세히 보여요.<br>끌어서 <b>변신 칸</b>에 놓으면 바로 변신해요.</p>'
+    const c = sel && PC_BY[sel]; $('pw-sel').innerHTML = !c ? '<p class="pw-hi">카드를 누르면 여기에 자세히 보여요.<br>[변신 칸에 넣기]를 누르거나 카드를 <b>변신 칸</b>으로 끌어다 놓으면 바로 변신해요.</p>'
       : `<div class="pw-nm"><span style="color:${GC(c.g)}">[${c.g}]</span> <b>${esc(c.name)}</b></div><div class="pw-lv">Lv.${c.lv}부터${!lvOk(c) ? ` <span class="pw-bad">(지금 Lv.${hero.lv})</span>` : ''} · ${c.cls ? `<b class="pw-job">${jobTxt(c)}</b>${!clsOk(c) ? ` <span class="pw-bad">(지금 ${CLASS_NAME[CLASS]})</span>` : ''}` : '모든 직업'}</div><div class="pw-eff">${['공격·이동 속도 +' + c.pct + '%', ...c.opt].map(esc).join('<br>')}</div><div class="pw-own">${has(c.id) ? `보유 <b>${D.cards[c.id]}장</b>${inSlot(c.id) ? ` (변신 칸 ${inSlot(c.id)})` : ''}${locked(c.id) ? ' · <b class="pw-lkt">잠금</b>' : ''}` : '<span class="pw-bad">없는 카드</span>'}</div>`
         + `<div class="pw-btns"><button type="button" class="sl-go" data-a="put"${!has(c.id) || !clsOk(c) || (my === c) ? ' disabled' : ''}>${my === c ? '변신 중' : !clsOk(c) ? jobTxt(c) : '변신 칸에 넣기'}</button><button type="button" class="inv-sort" data-a="lock"${has(c.id) ? '' : ' disabled'}>${locked(c.id) ? '잠금 풀기' : '잠그기'}</button></div>`;
-    $('pw-res').innerHTML = resHTML(); fillArt(w); tick(); footUpd(); }
-  function resHTML() { const R = lastRes; if (!R) return '<p class="pw-hi">뽑기·합성 결과가 여기에 남아요.</p>'; const ic = (c, tag, nw) => `<span class="pw-ri" style="--gc:${GC(c.g)}" title="[${c.g}] ${esc(c.name)}"><span class="pcg-art"><img data-pc="${c.id}" alt=""></span>${tag ? `<i class="${tag[0]}">${tag[1]}</i>` : ''}${nw ? '<em>NEW</em>' : ''}</span>`;
+    $('pw-res').innerHTML = resHTML(); fillArt(w); { const a = $('pw-skip'), b = $('pw-auto'); if (a) a.checked = skip; if (b) b.checked = auto; } optUpd(); tick(); footUpd(); }
+  function resHTML() { const R = lastRes; if (!R) return '<p class="pw-hi">뽑기·합성 결과가 여기에 남아요.</p>'; if (R.hide) return `<div class="pw-rh">최근 결과 · ${esc(R.t)}</div><p class="pw-hi">카드를 뒤집는 중…</p>`; const ic = (c, tag, nw) => `<span class="pw-ri" style="--gc:${GC(c.g)}" title="[${c.g}] ${esc(c.name)}"><span class="pcg-art"><img data-pc="${c.id}" alt=""></span>${tag ? `<i class="${tag[0]}">${tag[1]}</i>` : ''}${nw ? '<em>NEW</em>' : ''}</span>`;
     if (R.k === 'draw') return `<div class="pw-rh">최근 결과 · ${esc(R.t)}</div><div class="pw-rl">${R.L.map(r => ic(r.c, null, r.isNew)).join('')}</div>`;
     const L = R.L, ok = L.filter(r => r.ok), pt = L.filter(r => r.pity);
     if (L.length > 12) { const agg = (arr, f) => { const m = new Map(); for (const r of arr) { const c = f(r); m.set(c, (m.get(c) || 0) + 1); } return [...m].map(([c, n]) => ic(c, n > 1 ? ['n', '×' + n] : null)).join(''); };
@@ -9955,7 +10077,12 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     $('pw-again').onclick = () => again(); for (const b of w.querySelectorAll('.pw-db[data-k]')) b.onclick = () => draw(b.dataset.k === 'free' ? 'free' : +b.dataset.k);
     $('pw-mb').onclick = () => { if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 카드 1장 = 1점)`, '#f0c080'); return; } pickOn = !pickOn; renderWin(); };
     $('pw-pick').addEventListener('click', ev => { const b = ev.target.closest('[data-id]'); if (b) milePick(b.dataset.id); });
-    const lk = $('pw-look'); if (lk) lk.onclick = () => { prow = (prow + 1) % 8; }; }
+    const lk = $('pw-look'); if (lk) lk.onclick = () => { prow = (prow + 1) % 8; };
+    const sk = $('pw-skip'); if (sk) sk.onchange = () => setSkip(sk.checked); const au = $('pw-auto'); if (au) au.onchange = () => { setAuto(au.checked); if (!au.checked) { autoWhy = '자동 뽑기를 껐어요.'; optUpd(); } };
+    // Space = 다시 뽑기 (창이 열려 있고 결과 화면이 없을 때 · 글 쓰는 칸 제외) — 버튼에 포커스가 있어도 한 번만
+    let spDn = false; const spOk = ev => { if (ev.key !== ' ' && ev.code !== 'Space') return false; const w2 = $('polywin'), ak = $('askwin'); if (!w2 || w2.hidden || (ov && !ov.hidden) || (ak && !ak.hidden)) return false; const t = ev.target; return !(t && (t.tagName === 'TEXTAREA' || t.isContentEditable || (t.tagName === 'INPUT' && t.type !== 'checkbox'))); };
+    addEventListener('keydown', ev => { if (!spOk(ev)) return; ev.preventDefault(); ev.stopImmediatePropagation(); if (ev.repeat || busy) return; spDn = true; if (last) again(); else say('먼저 1회나 11회 뽑기를 해 주세요. (Space = 같은 뽑기 다시)', '#f0c080'); }, true);
+    addEventListener('keyup', ev => { if (spDn && (ev.key === ' ' || ev.code === 'Space')) { spDn = false; ev.preventDefault(); ev.stopImmediatePropagation(); } }, true); }
   // ----- 아이템 도감 [변신 카드] 탭 (26종 · 확률 · 얻는 곳 · 보유)
   function codexHTML(q, rar, mine) { const pc = p => (p >= 1 ? String(+p.toFixed(1)) : p >= 0.1 ? String(+p.toFixed(2)) : String(+p.toFixed(3))) + '%';
     const L = PCARD.filter(c => (!rar || c.g === rar) && (!mine || clsOk(c)) && (!q || q.split(/\s+/).every(t => (c.name + ' ' + c.g + ' 변신 카드 ' + effTxt(c) + (c.cls ? ' ' + jobTxt(c) : '')).toLowerCase().includes(t))));
@@ -9963,10 +10090,11 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     return { n: L.length, html: guide + L.map(c => { const p = PC_GRADE[c.g].p / POOL[c.g].length, gi = PC_GO.indexOf(c.g), lo = gi > 0 ? PC_GO[gi - 1] : null;
       return `<div class="cdx-card" style="--rc:${GC(c.g)}"><span class="cdx-ic pcg-ic"><img data-pc="${c.id}" alt=""></span><div><div class="cdx-nm" style="color:${GC(c.g)}">${esc(c.name)} 변신 카드</div><div class="cdx-meta">${c.g} · Lv.${c.lv}+ · ${c.cls ? `<b class="pcg-jt">${jobTxt(c)}</b>` : '모든 직업'}${c.fit ? ` (추천 ${CLASS_NAME[c.fit]})` : ''}</div></div><div class="cdx-st">${['공격 속도 +' + c.pct + '%', '이동 속도 +' + c.pct + '%', ...c.opt].map(esc).join('<br>')}</div><div class="cdx-src"><b>얻는 곳</b> [변신] 창 뽑기 ${pc(p)}${lo ? ` · ${lo} 4장 합성 ${SYN[lo].p * 100}%` : ''}${c.g === '전설' ? ` · 마일리지 ${fmt(MILE)}점` : ''}<br><b>보유</b> ${has(c.id) ? `<span class="pcg-yes">${D.cards[c.id]}장</span>${locked(c.id) ? ' · 잠금' : ''}` : '<span class="pcg-no">없음</span>'}</div></div>`; }).join('') }; }
   { const b = $('btn-poly'); if (b) b.onclick = () => openWin(); const c2 = $('cw-poly'); if (c2) c2.onclick = () => openWin(); bind(); }
-  setInterval(() => { if (sync()) { try { INV.render(); } catch (e) {} refresh(); } tick(); }, 1000);   // 변신 칸 맞추기 · 보유 골드 · 무료 뽑기 남은 시간
+  setInterval(() => { if (sync()) { try { INV.render(); } catch (e) {} refresh(); } tick(); if (auto && !busy && !autoT) { const w = $('polywin'); if (!w || w.hidden) autoStop('변신 카드 창을 닫아서 자동 뽑기를 멈췄어요.'); } }, 1000);   // 변신 칸 맞추기 · 보유 골드 · 무료 뽑기 남은 시간
   return { load, raw, canKeep, clsOk, cur: () => selfPoly(), rcCache: () => [...PMRC.keys()], drawForm: (g, pk, a, fr, row, x, y) => !!POLY[pk] && drawPoly(g, pk, a, fr, row, x, y, null, null, true), has, spare, free, avail, locked, setLock, inSlot, owned, state: () => D, bad: () => bad, freeLeft, draw, again, last: () => last, milePick,
     setSlot, clearSlot, slot: () => mySlot(), sync, charLoad, morph: id => setSlot(id), doMorph: id => setSlot(id), unmorph, autoSyn, manSyn, synOne: g => synOne(g, new Set(Object.keys(D.cards))), gAvail, tray: () => tray, setTray: (g, n) => { tray = { g: g || null, n: n || {} }; renderWin(); }, trayFill: () => { trayFill(); renderWin(); },
-    shopPanel, stopShop, openWin, renderWin, codexHTML, fillArt, art, sim, close, flipAll, busy: () => busy, lastRes: () => lastRes, COST1, COST11, MORPH, FREE_MS, MILE, SYN };
+    shopPanel, stopShop, openWin, renderWin, codexHTML, fillArt, art, sim, close, flipAll, busy: () => busy, lastRes: () => lastRes, COST1, COST11, MORPH, FREE_MS, MILE, SYN,
+    _force: ids => { FORCE = (ids || []).slice(); }, setSkip, setAuto, skip: () => skip, auto: () => auto, autoWhy: () => autoWhy, seqKey, ov: () => { const S = ov && !ov.hidden && ov._S; return S ? { k: S.k, n: S.res.length, open: S.open.size, ready: S.ready, seq: S.seq ? S.seq.ph : null, auto: S.auto } : null; } };
 })();
 window.DOLL = (() => {
   const CW = 144, CH = 120, M = /*DOLLMETA*/{ werewolf: { i: 0, ax: 72.0, ay: 117, bb: [27, 13, 90, 90] }, lizard: { i: 1, ax: 72.0, ay: 117, bb: [49, 7, 46, 102] }, dwarf: { i: 2, ax: 72.0, ay: 117, bb: [37, 12, 71, 95] }, orcwiz: { i: 3, ax: 72.0, ay: 117, bb: [39, 16, 63, 100] }, bugbear: { i: 4, ax: 72.0, ay: 117, bb: [42, 40, 60, 71] }, ogre: { i: 5, ax: 72.0, ay: 117, bb: [42, 10, 60, 104] }, basilisk: { i: 0, ax: 72.0, ay: 117, bb: [3, 47, 138, 51] }, orcwar: { i: 1, ax: 72.0, ay: 117, bb: [41, 25, 62, 81] }, drow: { i: 2, ax: 72.0, ay: 117, bb: [50, 8, 45, 108] }, necro: { i: 3, ax: 72.0, ay: 117, bb: [48, 23, 46, 92] }, cerberus: { i: 4, ax: 72.0, ay: 117, bb: [49, 21, 47, 85] }, fireant: { i: 5, ax: 72.0, ay: 117, bb: [40, 35, 64, 73] }, drake: { i: 0, ax: 72.0, ay: 117, bb: [36, 58, 72, 57] }, kbugbear: { i: 1, ax: 72.0, ay: 117, bb: [43, 39, 58, 72] }, troll: { i: 2, ax: 72.0, ay: 117, bb: [21, 15, 102, 86] }, wyvern: { i: 3, ax: 72.0, ay: 117, bb: [30, 48, 84, 69] }, shelob: { i: 4, ax: 72.0, ay: 117, bb: [19, 29, 106, 86] }, spartoi: { i: 5, ax: 72.0, ay: 117, bb: [42, 3, 68, 112] } }/*END*/, IMG = {}, ST = new Map();
@@ -10080,7 +10208,7 @@ function frame(now){
   const vw=Math.ceil(W/z), vh=Math.ceil(H/z), pw=Math.ceil(W*DPR), ph=Math.ceil(H*DPR);
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
-  SAVER.tick(dt); if (!SAVER.on()) {   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) */
+  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover) {   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); }
   curZ = z; requestAnimationFrame(frame);

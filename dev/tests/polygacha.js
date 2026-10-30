@@ -39,7 +39,7 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
   { const c0 = await coins(), d0 = (await S()).draws; await p.click('#pw-d1'); await p.waitForTimeout(500); await p.click('#pcg-ok'); await p.waitForTimeout(150);
     ok(c0 - await coins() === 39900 && (await S()).draws === d0 + 1, '① 1회 39,900 골드 · 1장'); const c1 = await coins();
     await p.click('#pw-d11'); await p.waitForTimeout(1300); ok(c1 - await coins() === 399000 && (await S()).draws === d0 + 12, '① 11회 399,000 골드 · 11장'); await p.screenshot({ path: 'dev/out/pg_11_back.png' });
-    await p.click('#pcg-all'); await p.waitForTimeout(2400); await p.screenshot({ path: 'dev/out/pg_11.png' }); await p.click('#pcg-ok'); await p.waitForTimeout(200);
+    await p.waitForFunction(() => PCG.ov() && PCG.ov().ready); await p.evaluate(() => PCG.flipAll(true)); await p.waitForTimeout(1600); await p.screenshot({ path: 'dev/out/pg_11.png' }); await p.click('#pcg-ok'); await p.waitForTimeout(200);
     ok(await p.evaluate(() => PCG.last() === 11 && /11회/.test(document.getElementById('pw-again').textContent) && !document.getElementById('pw-again').disabled), '[다시 뽑기] = 11회');
     const c2 = await coins(); await p.click('#pw-again'); await p.waitForTimeout(900); ok(c2 - await coins() === 399000 && (await S()).draws === d0 + 23, '[다시 뽑기] → 같은 11회 한 번 더'); await p.evaluate(() => PCG.close());
     ok(await p.evaluate(() => document.querySelectorAll('#pw-res .pw-ri').length) === 11, '최근 결과 칸에 11장');
@@ -47,7 +47,7 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
     await p.click('#pw-d1'); await p.waitForTimeout(200); ok((await S()).draws === d0 + 23 && /골드가 부족/.test(await lastLog()), '① 골드 부족하면 안 됨 (' + await lastLog() + ')');
     await p.evaluate(() => { __T.setCoins(5000000); }); const s = await S(), tot = Object.values(s.cards).reduce((a, b) => a + b, 0); ok(tot === s.draws && s.mile === s.draws, `카드 장수 합 ${tot} = 뽑은 수 ${s.draws} = 마일리지 ${s.mile}`); }
   // 강제 전설 연출 (Math.random 잠깐)
-  { await p.evaluate(() => { const R = Math.random; let n = 0; Math.random = () => (n++ % 2 ? 0.5 : 0.9995); try { PCG.draw(1); } finally { Math.random = R; } }); await p.waitForTimeout(500); await p.click('#pcg-ovl .pcg-c'); await p.waitForTimeout(800); await p.screenshot({ path: 'dev/out/pg_legend.png' }); await p.evaluate(() => PCG.close()); }
+  { await p.evaluate(() => { const R = Math.random; let n = 0; Math.random = () => (n++ % 2 ? 0.5 : 0.9995); try { PCG.draw(1); } finally { Math.random = R; } }); await p.waitForFunction(() => PCG.ov() && PCG.ov().ready); await p.evaluate(() => PCG.flipAll(true)); await p.waitForTimeout(900); await p.screenshot({ path: 'dev/out/pg_legend.png' }); await p.evaluate(() => PCG.close()); }
   // ② 마일리지 1000
   { await p.evaluate(() => { PCG.state().mile = 999; PCG.renderWin(); }); await p.click('#pw-mb'); await p.waitForTimeout(200); ok(await p.evaluate(() => document.getElementById('pw-pick').hidden) && /마일리지가 모자라요.*1000/.test(await lastLog()), '② 999점이면 전설 고르기 안 됨');
     await p.evaluate(() => { PCG.state().mile = 1003; PCG.renderWin(); }); await p.click('#pw-mb'); await p.waitForTimeout(300); ok(await p.evaluate(() => document.querySelectorAll('#pw-pick [data-id]').length) === 6, '② 1000점 → 전설 6종 고르기'); await p.screenshot({ path: 'dev/out/pg_mile.png' });
@@ -109,7 +109,7 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
     const s1 = await S(), L = await p.evaluate(() => PCG.lastRes().L.map(r => ({ ok: r.ok, g: r.c.g })));
     ok(L.length === 2 && L[0].ok && L[0].g === '영웅' && !L[1].ok && L[1].g === '희귀', '⑦ 2번 합성: 성공(영웅) · 실패(희귀 1장 돌려받음)');
     const used = (s0.cards.dark_elf - (s1.cards.dark_elf || 0)) + (s0.cards.cerberus - (s1.cards.cerberus || 0)); const back = L.filter(r => !r.ok).length; ok(used >= 8 - back && used <= 8, `⑦ 재료 8장 사용 (다크엘프·케르베로스 ${used}장 줄어듦 · 돌려받은 카드가 같은 종류면 +1)`);
-    ok(s1.pity.h === 1, '⑦ 천장 숫자: 성공 뒤 실패 1 → 1/7'); await p.screenshot({ path: 'dev/out/pg_man.png' }); await p.click('#pw-synb .pw-mt[data-g="희귀"]'); }
+    ok(s1.pity.h === 1, '⑦ 천장 숫자: 성공 뒤 실패 1 → 1/7'); await p.evaluate(() => PCG.close()); await p.waitForTimeout(200); await p.screenshot({ path: 'dev/out/pg_man.png' }); await p.click('#pw-synb .pw-mt[data-g="희귀"]'); }
   // ⑧ 변신 칸: 직업 · 레벨 제한 · 탭(눌러서) 넣기 · 빼기 · 쓰러짐 · 주문서
   await setCards(SET);
   { await p.click('#pw-grid .pw-c[data-id="arc_mage"]'); await p.waitForTimeout(200); ok(await p.evaluate(() => { const b = document.querySelector('#pw-sel [data-a="put"]'); return b.disabled && /마법사 전용/.test(b.textContent); }), '⑧ 기사: 아크메이지 = 마법사 전용 (버튼 막힘)');
