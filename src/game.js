@@ -1925,6 +1925,50 @@ function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; 
   if (M.lava) { const q = MOBILE ? 1 : 2, c2 = document.createElement('canvas'); c2.width = w * q; c2.height = h * q; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.imageSmoothingEnabled = true; g2.imageSmoothingQuality = 'high'; g2.filter = M.tint; g2.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w * q, h * q); g2.filter = 'none'; lavaSkin(c2, M.lava, fr, row, q); g.drawImage(c2, 0, 0, w, h); }   // 용암 몹: 2배로 그려 무늬를 만든 뒤 줄여서 (가는 금까지 매끈)
   else { g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; }
   TFR.set(key, c); return c; }
+// 10/30: 화룡의 둥지 불타는 전사·궁수·라바 골렘이 죽을 때 — 드래곤 플라이처럼 하얗게 바래며 재가 되고, 위에서부터 부스러져 흰 재 가루·불티로 날아올라 증발
+//   몸 그림(죽을 때는 늘 같은 한 장: 서 있는 1번 그림 · 방향별)에서 재 색·부스러지는 순서를 한 번만 만들어 두고(ASHC), 죽는 몹마다 작은 캔버스 하나를 1/30초마다 다시 칠함 · 가루는 코드로 몇십 개
+const ASH_DIE = new Set(['fn_warrior', 'fn_archer', 'fn_golem']), ASH_END = 1.85, ASHC = new Map(), ASHM = new WeakMap();
+const ashP = T => { const s = Math.max(0, Math.min(1, (T - 0.34) / 1.0)); return s * 0.8 + s * s * (3 - 2 * s) * 0.2; };   // 부스러진 정도 0→1 (0.34초부터 1초 동안)
+const ashR = (s, q, k) => { let x = Math.imul((s ^ Math.imul(q + 1, 0x9e3779b1)) | 0, 0x85ebca6b) ^ Math.imul(k + 7, 0xc2b2ae35); x ^= x >>> 15; x = Math.imul(x, 0x2c1b3c6d); x ^= x >>> 12; return (x >>> 0) / 4294967296; };
+function ashBase(k, row, c) { const key = k + '_' + row; let A = ASHC.get(key); if (A !== undefined) return A; if (ASHC.size > 40) ASHC.clear();
+  const w = c.width, h = c.height; let D; try { D = c.getContext('2d').getImageData(0, 0, w, h).data; } catch (e) { ASHC.set(key, null); return null; }
+  const n = w * h, m = new Float32Array(n), th = new Float32Array(n), ash = new Uint8ClampedArray(n * 3), Lu = i => (D[i * 4] * 0.3 + D[i * 4 + 1] * 0.59 + D[i * 4 + 2] * 0.11) / 255; let top = h, bot = 0, area = 0, sum = 0;
+  for (let i = 0; i < n; i++) { m[i] = Math.max(0, Math.min(1, (D[i * 4 + 3] - 150) / 80)); if (m[i] > 0.5) { const y = (i / w) | 0; if (y < top) top = y; if (y > bot) bot = y; area++; sum += Lu(i); } }   // 몸(불투명한 곳) · 바닥 그림자는 빼고
+  if (bot - top < 4) { ASHC.set(key, null); return null; } const mean = Math.max(0.04, sum / area);
+  const vn = (x, y, cs) => { const gx = x / cs, gy = y / cs, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), a = ashR(row, x0, y0), b = ashR(row, x0 + 1, y0), c2 = ashR(row, x0, y0 + 1), d = ashR(row, x0 + 1, y0 + 1);
+    return a + (b - a) * sx + (c2 - a) * sy + (a - b - c2 + d) * sx * sy; }, mk = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? 0 : m[y * w + x];
+  const ext = new Int16Array(h * 2).fill(-1); let lo = 9, hi = -9;
+  for (let y = 0; y < h; y++) { const yn = (y - top) / (bot - top); for (let x = 0; x < w; x++) { const i = y * w + x, j = i * 4; if (!D[j + 3]) continue;
+      const v = 112 + 92 * Math.min(1.7, Lu(i) / mean) + (ashR(row, x, y + 4099) - 0.5) * 34; ash[i * 3] = v - 3; ash[i * 3 + 1] = v; ash[i * 3 + 2] = v + 4;   // 재 색: 원래 명암 그대로 하얗게 (용암 금은 더 하얗게) · 잔 얼룩
+      const edge = 1 - Math.min(mk(x - 2, y), mk(x + 2, y), mk(x, y - 2), mk(x, y + 2)), t = yn * 0.58 + (vn(x, y, 8) * 0.62 + vn(x, y, 2.6) * 0.38) * 0.42 - edge * 0.07; th[i] = t;   // 위에서부터 · 덩어리진 얼룩 따라 · 가장자리 먼저
+      if (m[i] > 0.5) { if (t < lo) lo = t; if (t > hi) hi = t; if (ext[y * 2] < 0) ext[y * 2] = x; ext[y * 2 + 1] = x; } } }
+  for (let i = 0; i < n; i++) th[i] = (th[i] - lo) / (hi - lo + 1e-6);
+  for (let y = top + 1; y <= bot; y++) if (ext[y * 2] < 0) { ext[y * 2] = ext[y * 2 - 2]; ext[y * 2 + 1] = ext[y * 2 - 1]; }   // 빈 줄은 위 줄 폭으로
+  A = { w, h, D, m, th, ash, top, bot, ext, np: Math.round(Math.max(30, Math.min(52, area / 170))) }; ASHC.set(key, A); return A; }
+function ashFrame(f, A, T) { const st = Math.round(T * 30); let R = ASHM.get(f); if (!R || R.A !== A) { const c = document.createElement('canvas'); c.width = A.w; c.height = A.h; const g = c.getContext('2d'); R = { A, c, g, I: g.createImageData(A.w, A.h), st: -1 }; ASHM.set(f, R); }
+  if (R.st === st) return R.c; R.st = st; const t = st / 30, s0 = Math.max(0, Math.min(1, (t - 0.03) / 0.4)), wv = s0 * s0 * (3 - 2 * s0), p = ashP(t), D = A.D, O = R.I.data, n = A.w * A.h, BAND = 0.09, sh = Math.max(0, 1 - p * 1.25);
+  for (let i = 0; i < n; i++) { const j = i * 4, a = D[j + 3]; if (!a || (p > 0 && A.th[i] < p)) { O[j + 3] = 0; continue; } const mm = A.m[i];
+    if (mm < 0.03) { O[j] = D[j]; O[j + 1] = D[j + 1]; O[j + 2] = D[j + 2]; O[j + 3] = a * sh; continue; }   // 바닥 그림자: 몸이 사라지는 만큼 옅어짐
+    const k = wv * mm; let r = D[j] + (A.ash[i * 3] - D[j]) * k, gg = D[j + 1] + (A.ash[i * 3 + 1] - D[j + 1]) * k, b = D[j + 2] + (A.ash[i * 3 + 2] - D[j + 2]) * k;
+    const e = p > 0 ? 1 - (A.th[i] - p) / BAND : 0; if (e > 0) { const e2 = e * e; r += (255 - r) * e; gg += (170 + 82 * e2 - gg) * e; b += (95 + 140 * e2 - b) * e; }   // 부스러지는 가장자리: 주황 불티 → 흰빛
+    O[j] = r; O[j + 1] = gg; O[j + 2] = b; O[j + 3] = a; }
+  R.g.putImageData(R.I, 0, 0); return R.c; }
+function ashDie(g, f, c, dx, dy, M) { const A = ashBase(f.kind, f.row, c); if (!A) return false; const T = f.deadT || 0; if (T >= ASH_END) { ASHM.delete(f); return true; }
+  const p = ashP(T), hh = A.bot - A.top, hw = M.hw || 30, sd = (Math.round((f.hi || 0) * 977) + (f.uid || 0) * 131) | 0, mid = A.ext[Math.round(A.top + hh * 0.5) * 2], cx = dx + (mid >= 0 ? (mid + A.ext[Math.round(A.top + hh * 0.5) * 2 + 1]) / 2 : A.w / 2);
+  const pile = Math.min(1, p * 1.5) * Math.max(0, 1 - Math.max(0, T - 1.4) / 0.42);   // 발밑에 잠깐 쌓이는 흰 잿더미
+  if (pile > 0.01) { const sm = mxSmokeImg('226,224,220'), rx = hw * (0.34 + 0.3 * pile), ry = rx * 0.34; g.globalAlpha = 0.62 * pile; g.drawImage(sm, -rx, -1 - ry, rx * 2, ry * 2); g.globalAlpha = 0.5 * pile; g.drawImage(sm, -rx * 0.55, -2 - ry * 0.75, rx * 1.1, ry * 1.3); }
+  if (p < 1) { const fc = ashFrame(f, A, T); g.globalAlpha = 1; g.drawImage(fc, dx, dy); const hb = T < 0.4 ? Math.sin(Math.PI * Math.min(1, T / 0.4)) : 0;
+    if (hb > 0.01) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = hb * 0.5; g.drawImage(fc, dx, dy); mxG(g, '255,238,215', cx, dy + A.top + hh * 0.5, hh * 0.62, hb * 0.28); g.globalCompositeOperation = 'source-over'; } }   // 바래는 순간 하얗게 달아오름
+  else ASHM.delete(f);
+  const N = A.np; for (let q = 0; q < N + 8; q++) { const ember = q >= N && q < N + 4, puff = q >= N + 4, r1 = ashR(sd, q, 1), r2 = ashR(sd, q, 2), r3 = ashR(sd, q, 3), r4 = ashR(sd, q, 4), r5 = ashR(sd, q, 5);   // 흰 재 가루 N개 · 불티 4개 · 재 연기 4개
+    const te = 0.34 + ((ember || puff ? (q - N) % 4 * (N / 4) : q) + r1) / N * 0.98, life = Math.min(ASH_END - 0.03 - te, puff ? 0.6 + r2 * 0.25 : ember ? 0.45 + r2 * 0.3 : 0.5 + r2 * 0.35), age = T - te; if (age < 0 || age > life) continue;
+    const pe = ashP(te), yy = A.top + Math.max(0, Math.min(1, pe * 1.04 - 0.03)) * hh, ry = Math.round(yy) * 2, x0 = A.ext[ry], x1 = A.ext[ry + 1], xx = x0 >= 0 ? x0 + r3 * (x1 - x0) : A.w / 2;
+    const kk = age / life, a = Math.min(1, age / 0.07) * (1 - kk) * (1 - kk * 0.3), vy = puff ? 20 + r4 * 14 : ember ? 38 + r4 * 30 : 26 + r4 * 30, sw = (r5 - 0.5) * 34 + 7;
+    const px = dx + xx + sw * age + Math.sin(age * (4 + r4 * 3) + q) * (2 + r2 * 2.5), py = dy + yy - vy * age - 22 * age * age;
+    if (puff) { const rr = 5 + hw * 0.12 + age * 26; g.globalAlpha = a * 0.3; g.drawImage(mxSmokeImg('236,232,224'), px - rr, py - rr, rr * 2, rr * 2); }
+    else if (ember) { g.globalCompositeOperation = 'lighter'; mxG(g, kk < 0.45 ? '255,236,190' : '255,150,70', px, py, 3.4, a * 0.85); g.globalAlpha = a; g.fillStyle = '#fff4d8'; g.fillRect(px - 0.6, py - 0.6, 1.3, 1.3); g.globalCompositeOperation = 'source-over'; }
+    else { const s = 1.5 + r3 * r3 * 2.8, tw = 0.35 + 0.65 * Math.abs(Math.cos(age * (5 + r5 * 5) + q)), v = 222 + (r4 * 33 | 0); g.globalAlpha = a; g.fillStyle = `rgb(${v - 2},${v},${Math.min(255, v + 4)})`; g.fillRect(px - s / 2, py - s * tw / 2, s, Math.max(0.6, s * tw)); } }
+  g.globalAlpha = 1; return true; }
 function drawSheet(g, img, meta, frame, row, x, y, alpha=1, filter=null){
   if (!img.complete) return; g.save(); g.globalAlpha=alpha; const flash=filter&&filter.startsWith('brightness(2.6)'); if (filter&&!flash) g.filter=filter;
   const sc=meta.s||1; if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; }
@@ -2111,6 +2155,7 @@ function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && f.kind.startsWith('
     if (ART==='sheet'){ const M=MSHEET[f.kind], I=MIMG[f.kind]; let a='idle', fr=Math.floor(time*6+f.hi)%8;
       if (sheetAtk){ a='attack'; const af=M.af||16; fr=Math.min(af-1,Math.floor(f.atkT/ATK_T*af)); } else if (moving&&!f.dead){ a='walk'; fr=Math.floor(f.dist*4)%8; } else if (f.dead) fr=0;
       if (I[a].complete && I[a].naturalWidth){ if (M.tint){ const c=tintFrame(f.kind, a, I[a], M, fr, f.row), sc=M.s||1, dx=Math.round(-M.ax*sc), dy=Math.round(-M.ay*sc), fl2=f.dead&&f.deadT>0.1?null:fl, fla=fl2&&fl2.startsWith('brightness(2.6)');   /* 10/30: 물들인 몬스터(화둥 등)는 맞을 때·죽을 때도 물들인 그림(용암 스킨)으로 — 예전엔 번쩍임이 원래 그림으로 그려져 죽는 내내 스킨 전 몬스터가 보였음 */
+        if (f.dead&&ASH_DIE.has(f.kind)&&ashDie(g,f,c,dx,dy,M)){ g.restore(); return; }   /* 10/30: 화둥 전사·궁수·골렘은 하얗게 재가 되어 증발 */
         g.globalAlpha=al; if (fl2&&!fla) g.filter=fl2; g.drawImage(c, dx, dy); g.filter='none'; if (fla){ g.globalCompositeOperation='lighter'; g.globalAlpha=al*0.8; g.drawImage(c, dx, dy); g.drawImage(c, dx, dy); g.globalCompositeOperation='source-over'; } } else drawSheet(g, I[a], M, fr, f.row, 0, 0, al, fl); } if (S.flame && !f.dead) fnFlame(g, f, S); g.restore(); return; }
     if (ART==='fox'){ const anim = f.dead ? 'Survey' : moving ? (f.aggro?'Run':'Walk') : 'Survey';
       const fr = f.dead ? 0 : moving ? Math.floor(f.dist*(f.aggro?3:4))%8 : Math.floor(time*6+f.hi)%8;
@@ -2143,7 +2188,7 @@ function drawWorld(g, vw, vh){
       if (!s || !im[p.type+p.v]){ const pc=propCanvas(p.type, p.v); if (pc){ g.save(); g.globalAlpha=fade?0.4:1; g.drawImage(pc.c, Math.round(x-pc.ax), Math.round(y-pc.ay), pc.w, pc.h); g.restore(); } if (p.type==='bonfire') campFlame(g,x,y); return; }   // 사막 소품(코드 그림) — im['cactus0'] 등 정식 그림이 들어오면 위의 스프라이트 경로로
       if (im[p.type+p.v].complete){ const pim = ISLE && ISLE.def.sand ? sandProp(p.type+p.v, p.type) : ISLE && ISLE.def.snow ? snowImg(im[p.type+p.v]) : im[p.type+p.v]; g.save(); g.globalAlpha=fade?0.4:1; const sc=s.s||1, ps=prescaled(pim, sc); if (ps) g.drawImage(ps, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc)); else { if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; } g.drawImage(pim, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc), s.W*sc, s.H*sc); } g.restore(); } }}); }
   if (ISLE && ISLE.def.altar){ const A=ISLE.def.altar; list.push({d:A.i+A.j-4, f:()=>drawAltar(g,A,0)}); list.push({d:A.i+A.j+1, f:()=>drawAltar(g,A,1)}); }   /* v126: 소환의 제단 */
-  for (const f of foxes){ if (f.dead&&f.deadT>1.4) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>drawMobBody(g, f)}); }
+  for (const f of foxes){ if (f.dead&&f.deadT>(ASH_DIE.has(f.kind)?ASH_END:1.4)) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>drawMobBody(g, f)}); }
   if (DEATH) {} else   // 무덤은 어둠 위(이름표 단계)에서 그림
   list.push({d:hero.x+hero.z, f:()=>{ const [x,y]=W2P(hero.x,hero.z); const NF=a=>KN.anims[a].frames; let anim='idle', fr=Math.floor(time*6)%NF('idle');
     if (hero.atk){ anim=hero.atk.v||'attack'; const nf=KN.anims[anim]?NF(anim):8; fr=Math.min(nf-1,Math.floor(hero.atk.t/hero.atk.dur*nf)); if (!KN.anims[anim]&&CLASS==='knight') anim='attack'; } else if (hero.t<1){ anim='walk'; fr=Math.floor(hero.dist*4)%8; } else if (SCENE==='town' && KN.anims.look && CLASS==='knight'){ anim='look'; fr=Math.floor(time*2.5)%NF('look'); }
