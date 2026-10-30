@@ -1,5 +1,5 @@
 // 10/30 고렙 사냥터 방어 방식 (defbal 새 방향) 확인 (python3 dev/mkkt.py && bash dev/runkt.sh dev/tests/defstyle.js)
-//   ① 몹 물리 명중: 고렙 사냥터(오렌설원·용계·화둥) 90~95% · 다른 사냥터는 v193 식 그대로
+//   ① 몹 물리 명중: 모든 사냥터 90~95% (결투장·콜로세움·수호탑·이벤트 지역은 v193 식)
 //   ② AC별 물리 피해 감소 · ③ MR·불 저항별 마법 피해(평균·최대) · ④ 강타 확률(수천 번) · ⑤ 사냥터 밖은 마법 폭·강타 없음
 //   ⑥ 캐릭터 창 두 줄 값 + 스크린샷 dev/out/defstyle_cw.png · ⑦ '강타!' 연출 스크린샷 dev/out/defstyle_crit.png · 오류 없음
 const { chromium } = require('playwright'); const login = require('../tq.js');
@@ -13,7 +13,7 @@ const { chromium } = require('playwright'); const login = require('../tq.js');
     hit[z] = await p.evaluate(ks => { const T = __T, a0 = T.INV.ac, lv0 = T.hero.lv, o = {}; T.hero.lv = 56; for (const k of ks) { const S = T.MOB[k]; if (!S) continue; const r = {}; for (const ac of [-60, -125, -160]) { T.INV.ac = () => ac; r[ac] = Math.round(T.MOBHIT_(S) * 1000) / 10; const old = Math.max(S.boss ? 0.5 : 0.1, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (56 * 2 - ac) - 40 + (S.boss ? 10 : 0)) / 100)); r['v193_' + ac] = Math.round(old * 1000) / 10; } o[k] = r; } T.INV.ac = a0; T.hero.lv = lv0; return { hiz: T.HZ_.HIZ(), o }; }, ks);
     console.log('명중', z, hit[z].hiz ? '고렙' : '일반', JSON.stringify(hit[z].o));
     for (const [k, r] of Object.entries(hit[z].o)) { if (hit[z].hiz) ok(r[-125] >= 90 && r[-125] <= 95 && r[-60] >= 90, `고렙 명중 ${z} ${k} ${r[-125]}`); else ok(r[-125] === r['v193_-125'] && r[-60] === r['v193_-60'], `일반 사냥터 v193 다름 ${z} ${k}`); }
-    ok(!!hit[z].hiz === [11, 12, 16, 17, 22, 23].includes(z), `HIZ 플래그 ${z}`); }
+    ok(!!hit[z].hiz === true, `HIZ 플래그 ${z} (모든 사냥터)`); }
   // ② AC별 물리 피해 (화둥 2구역 · 기본 피해 100 · 불 저항 0) — 실제 hurtHero로 1000번 평균
   await go(23);
   const phys = await p.evaluate(() => { const T = __T, H = T.hero, a0 = T.INV.ac, o = {}; const src = { kind: 'fn_hcerberus', x: H.x, z: H.z }, bs = { kind: 'phoenix', x: H.x, z: H.z };
@@ -35,7 +35,7 @@ const { chromium } = require('playwright'); const login = require('../tq.js');
   // ⑤ 일반 사냥터: 마법 폭·강타 없음, 물리는 0~|AC|÷3 무작위
   await go(8);
   const nz = await p.evaluate(() => { const T = __T, H = T.hero, a0 = T.INV.ac; T.INV.ac = () => -125; const src = { kind: 'cerberus', x: H.x, z: H.z }; const m = new Set(); let ps = 0; T.DEFMODE_.log = {}; for (let i = 0; i < 1000; i++) { H.hp = 1e9; T.HURT_(100, src, 'magic'); m.add(1e9 - H.hp); H.hp = 1e9; T.HURT_(100, src, 'melee'); ps += 1e9 - H.hp; } const c = T.DEFMODE_.log['#crit'] || 0; T.DEFMODE_.log = null; T.INV.ac = a0; H.hp = 16; return { magic: [...m], phys: +(ps / 1000).toFixed(1), crit: c }; });
-  console.log('일반 사냥터(8): 마법 피해 값', JSON.stringify(nz.magic), '· 물리 평균(AC −125)', nz.phys, '· 강타', nz.crit); ok(nz.magic.length === 1 && nz.crit === 0 && nz.phys > 75 && nz.phys < 83, '일반 사냥터 그대로');
+  console.log('일반 사냥터(8): 마법 피해 값', JSON.stringify(nz.magic), '· 물리 평균(AC −125)', nz.phys, '· 강타', nz.crit); ok(nz.magic.length > 1 && nz.phys < 40, '버그베어밭(8)도 새 방식 (마법 들쭉날쭉 · 물리 % 감소)');
   // ⑥ 캐릭터 창 (AC −125 · MR 72 · 불 저항 35 가정)
   await go(23);
   const cw = await p.evaluate(async () => { const T = __T, cx0 = T.INV.cx; T.INV.ac = () => -125; T.INV.cx = k => k === 'mr' ? 72 : k === 'fireRes' ? 35 : cx0(k); document.getElementById('charwin').hidden = false; T.INV.render(); await new Promise(r => setTimeout(r, 900)); document.getElementById('cw-pdr').scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 200)); return { pdr: document.getElementById('cw-pdr').textContent, mdr: document.getElementById('cw-mdr').textContent, tip1: document.getElementById('cw-pdr').previousElementSibling.dataset.tip, lab: [document.getElementById('cw-pdr').previousElementSibling.textContent, document.getElementById('cw-mdr').previousElementSibling.textContent], mev: !!document.getElementById('cw-mev') }; });

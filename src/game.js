@@ -120,7 +120,7 @@ const defHit = S => { const D = DEFMODE, A = Math.max(0, -INV.ac()); let h;
   if (D.hit === 'ev') { const z = zoneEvB0(); if (z == null) return mobHitOld(S); h = 1 - Math.max(0, Math.min(D.evCap, D.evBase + D.evK * (A - z))); }
   else { h = Math.max(D.lvMin, Math.min(D.lvMax, (D.lvHit ? (S.hit || 0.8) : D.lvBase) + D.lvK * ((S.lv || 1) - hero.lv))) / (1 + D.acK * Math.max(0, A - D.acFrom) / 100); }
   if (S.boss) h = Math.max(0.5, Math.min(1, h + 0.1)); if (nightUp(S)) h = Math.min(1, h + 0.1); return h; };
-// 10/30 프로듀서 새 방향 — 고렙 사냥터(지역 표 hiz: 오렌설원·용의 계곡·화룡의 둥지)에서는 '맞는 건 다 맞는데 AC만큼 덜 아프고, 마법은 들쭉날쭉 + 가끔 강타'
+// 10/30 프로듀서 새 방향 — 사냥터(지역 표 hiz: 모든 사냥터·소환의 제단 — 결투장·콜로세움·수호탑·이벤트 지역 제외)에서는 '맞는 건 다 맞는데 AC만큼 덜 아프고, 마법은 들쭉날쭉 + 가끔 강타'
 //   몹 물리(근접·화살) 명중 = 92% + 0.5%×(몹Lv − 내Lv) (90~95% · 보스 95% · 화살은 여기서 회피 ER을 뺌)
 //   물리 피해 × 15 ÷ (15 + |AC|) (보스는 100 ÷ (100 + |AC|)) — 0~|AC|÷3 무작위 감소 대신 · AC 15마다 '버티는 힘' +1배 (천장 없음)
 //   몹 마법·범위 기술(숨결·화염 기둥·화산탄·파이어볼): 피해 ×0.5~1.1 무작위 · 12% 확률 '강타' ×2 (평균 ×0.9 — 평소엔 덜 아프고 가끔 훅) → MR(이곳 상한 60% = MR 120)·속성 저항(최대 60%)이 줄여 줌
@@ -128,7 +128,7 @@ const defHit = S => { const D = DEFMODE, A = Math.max(0, -INV.ac()); let h;
 const HIZ = () => !!(DEFMODE.hz && ISLE && SCENE === 'field' && !ARENA() && ISLE.def && ISLE.def.hiz);
 const hzHit = S => { const D = DEFMODE; return S.boss ? D.hzMax : Math.max(D.hzMin, Math.min(D.hzMax, D.hzHit + D.hzLvK * ((S.lv || 1) - hero.lv))); };
 const hzAcMul = (ac, boss) => { const K = boss ? DEFMODE.hzKB : DEFMODE.hzK; return K / (K + Math.max(0, -ac)); };   // 물리 피해 배수 (−AC가 클수록 작아짐)
-const hzMrCut = hz => Math.min(hz ? DEFMODE.hzMrCap : 0.5, mrTotal() / 200);   // MR 피해 감소율 (고렙 사냥터 상한 60% · 다른 곳 50%)
+const hzMrCut = hz => Math.min(hz ? DEFMODE.hzMrCap : 0.5, mrTotal() / 200);   // MR 피해 감소율 (사냥터 상한 60% · 다른 곳 50%)
 const zoneEvB0 = () => { const B = zoneEvB(); return B == null ? null : (DEFMODE.evB[ISLE.id] != null ? DEFMODE.evB[ISLE.id] : B); };
 const EVB_ON = false;   // 10/30 v195: 회피 구간(v194)은 시뮬에서 기준 캐릭터가 용계 34초·화둥 4분 만에 쓰러져 되돌림 — 기준을 다시 맞출 때까지 예전 명중 식
 const mobHit = S => { if (S && S.hwEv) return HWC.MOB_HIT; if (S && HIZ()) return hzHit(S); const B = EVB_ON ? zoneEvB() : null; if (B != null && S) { let h = 1 - evadeAt(INV.ac(), B); if (S.boss) h = Math.max(0.5, Math.min(1, h + 0.1)); if (nightUp(S)) h = Math.min(1, h + 0.1); return h; } return DEFMODE.hit === 'old' ? mobHitOld(S) : defHit(S); };
@@ -3598,44 +3598,44 @@ function snowFx(g, vw, vh) { if (!ISLE || !ISLE.def.snow) { SNOWF.length = 0; re
 const ISLAND = (() => {
   const N0 = 44;                    // 기본 크기(기존 사냥터 30×30의 약 2배 넓이) — 2구간은 한 변 1.5배(66)
   const DEF = {
-    1: { name: '이야기섬 1구간', tier: 1, seed: 11, portals: [{ i: 5, j: 5, to: 2, label: '2구간으로 ▲' }, { i: 40, j: 40, to: 'town', label: '▼ 마을로' }], tone: null,
+    1: { name: '이야기섬 1구간', tier: 1, hiz: true, seed: 11, portals: [{ i: 5, j: 5, to: 2, label: '2구간으로 ▲' }, { i: 40, j: 40, to: 'town', label: '▼ 마을로' }], tone: null,
          mobs: [['goblin', 10], ['orc', 8], ['orc_archer', 6], ['dwarf', 6]], groups: [] },
     // 2구간: 한 변 1.5배(66칸) — 언덕 위치·크기도 1.5배, 몬스터 수는 넓이(2.25배)만큼 늘려 밀도 유지
-    2: { name: '이야기섬 2구간', tier: 2, seed: 23, N: 66, hills: [{ x: 22.5, z: 37.5, h: 2.6, r: 7.5 }, { x: 43.5, z: 22.5, h: 2.0, r: 6.3, plateau: true, ramp: [-1, 1] }, { x: 36, z: 49.5, h: 1.5, r: 5.1 }, { x: 52, z: 46, h: 1.8, r: 5.6 }], portals: [{ i: 60, j: 60, to: 1, label: '▼ 1구간으로' }], tone: 'rgba(60,34,10,.22)',
+    2: { name: '이야기섬 2구간', tier: 2, hiz: true, seed: 23, N: 66, hills: [{ x: 22.5, z: 37.5, h: 2.6, r: 7.5 }, { x: 43.5, z: 22.5, h: 2.0, r: 6.3, plateau: true, ramp: [-1, 1] }, { x: 36, z: 49.5, h: 1.5, r: 5.1 }, { x: 52, z: 46, h: 1.8, r: 5.6 }], portals: [{ i: 60, j: 60, to: 1, label: '▼ 1구간으로' }], tone: 'rgba(60,34,10,.22)',
          mobs: [['werewolf', 13]], groups: [['orc_warrior', [['orc', 2], ['orc_archer', 1]], 9], ['hobgoblin', [['goblin', 3]], 9]] },
     // 사막필드: 1구간(56칸, Lv10~15) · 2구간(66칸, Lv15~20, 보스 거대 여왕개미). 모래빛 바닥 + 완만한 모래 언덕(사구)
     // 규칙: 모든 지역의 1구간은 평지, 2구간은 언덕·절벽 고원(경사로)·능선 지형 (정해 둔 언덕이 없으면 시드로 자동 생성 + 연결 확인)
-    3: { name: '사막필드 1구간', tier: 1, seed: 31, N: 56, sand: true, oases: 2,
+    3: { name: '사막필드 1구간', tier: 1, hiz: true, seed: 31, N: 56, sand: true, oases: 2,
          portals: [{ i: 4, j: 4, to: 4, label: '2구간으로 ▲' }, { i: 51, j: 51, to: 'town', label: '▼ 마을로' }], tone: null,
          hello: '모래바람이 붑니다. 스콜피온은 먼저 덤비니 조심하세요! 북쪽 끝 포털로 2구간에 갈 수 있어요.',
          mobs: [['lizardman', 18], ['giant_ant', 18], ['scorpion', 3]], groups: [] },
-    4: { name: '사막필드 2구간', tier: 2, seed: 47, N: 66, sand: true, oases: 1,
+    4: { name: '사막필드 2구간', tier: 2, hiz: true, seed: 47, N: 66, sand: true, oases: 1,
          portals: [{ i: 60, j: 60, to: 3, label: '▼ 1구간으로' }], tone: null,
          hello: '뜨거운 모래 아래 개미굴이 있다고 합니다. 보스 거대 여왕개미를 조심하세요!',
          mobs: [['scorpion', 16], ['basilisk', 14], ['fire_ant', 18]], groups: [['giant_ant', [['fire_ant', 2]], 5]] },
     // 오크숲: 울창한 숲 + 곳곳의 오크 부족 야영지(천막·토템·모닥불·목책·깃발·무기 걸이·뼈 무더기). 1구간(56칸, Lv15~20) · 2구간(66칸, Lv20~25, 보스 오우거)
-    5: { name: '오크숲 1구간', tier: 1, seed: 53, N: 56, forest: true, camps: 2,
+    5: { name: '오크숲 1구간', tier: 1, hiz: true, seed: 53, N: 56, forest: true, camps: 2,
          portals: [{ i: 4, j: 4, to: 6, label: '2구간으로 ▲' }, { i: 51, j: 51, to: 'town', label: '▼ 마을로' }], tone: null,
          hello: '울창한 숲 곳곳에 오크 부족의 흔적이 보입니다. 다크엘프는 먼저 덤비니 조심하세요! 북쪽 끝 포털로 2구간에 갈 수 있어요.',
          mobs: [['roba_orc', 16], ['dudamara_orc', 14], ['orc_wizard', 10], ['dark_elf', 3]], groups: [] },
-    6: { name: '오크숲 2구간', tier: 2, seed: 61, N: 66, forest: true, camps: 3,
+    6: { name: '오크숲 2구간', tier: 2, hiz: true, seed: 61, N: 66, forest: true, camps: 3,
          portals: [{ i: 60, j: 60, to: 5, label: '▼ 1구간으로' }], tone: 'rgba(60,90,50,.12)',
          hello: '오크 부족의 본거지입니다. 가스트와 다크엘프는 먼저 덤빕니다. 보스 오우거를 조심하세요!',
          mobs: [['dark_elf', 14], ['atuba_orc', 18], ['gast', 13]], groups: [] },
     // 버그베어밭: 어둡고 칙칙한 살육의 땅 — 핏자국·시체·해골 더미·꼬챙이·교수대 우리·고목. 곳곳에 살육터(시체 무더기), 2구간엔 버그베어 야영지
-    7: { name: '버그베어밭 1구간', tier: 1, seed: 71, N: 56, gore: true, sites: 3, camps: 1,
+    7: { name: '버그베어밭 1구간', tier: 1, hiz: true, seed: 71, N: 56, gore: true, sites: 3, camps: 1,
          portals: [{ i: 4, j: 4, to: 8, label: '2구간으로 ▲' }, { i: 51, j: 51, to: 'town', label: '▼ 마을로' }], tone: 'rgba(80,36,30,.28)',
          hello: '피비린내가 진동합니다... 곳곳에 시체가 널려 있어요. 해골 궁수는 멀리서 먼저 활을 쏩니다! 해골·좀비는 밤에 더 강해져요. 북쪽 끝 포털로 2구간에 갈 수 있어요.',
          mobs: [['skeleton_archer', 8], ['zombie', 16], ['bugbear', 16]], groups: [] },
-    8: { name: '버그베어밭 2구간', tier: 2, seed: 83, N: 66, gore: true, sites: 3, camps: 3,
+    8: { name: '버그베어밭 2구간', tier: 2, hiz: true, seed: 83, N: 66, gore: true, sites: 3, camps: 3,
          portals: [{ i: 60, j: 60, to: 7, label: '▼ 1구간으로' }], tone: 'rgba(70,26,24,.36)',
          hello: '버그베어 부족의 학살터입니다. 킹 버그베어는 먼저 덤빕니다. 바포메트가 나타나면 도망치세요...!',
          mobs: [['bugbear', 18], ['cerberus', 16], ['king_bugbear', 9]], groups: [] },
     // 본토던전 (상급): 벽과 골목의 미로 · 항상 밤처럼 어두움 · 모든 몬스터 선공(같은 골목에서 보여야 덤빔) · 1층 Lv35~40(보스 카스파 패밀리) · 2층 Lv40~45(보스 데스나이트)
-    9: { name: '본토던전 1층', tier: 1, seed: 9001, N: 65, maze: true, dark: true, floor: 1, down: 10, hills: [], portals: [], tone: null,
+    9: { name: '본토던전 1층', tier: 1, hiz: true, seed: 9001, N: 65, maze: true, dark: true, floor: 1, down: 10, hills: [], portals: [], tone: null,
          hello: '피비린내와 썩은 냄새가 가득한 어둠... 벽 너머의 몬스터는 당신을 보지 못하지만, 같은 골목에 들어서면 모두 덤빕니다. 구울에게 할퀴이면 독에 걸려요(큐어 포이즌·해독제). 미로 끝 어딘가에 2층으로 내려가는 계단이 있습니다.',
          mobs: [['dg_kbugbear', 12], ['ungoliant', 12], ['ghoul', 18]], groups: [] },
-    10: { name: '본토던전 2층', tier: 2, seed: 10007, N: 65, maze: true, dark: true, floor: 2, up: 9, hills: [], portals: [], tone: null,
+    10: { name: '본토던전 2층', tier: 2, hiz: true, seed: 10007, N: 65, maze: true, dark: true, floor: 2, up: 9, hills: [], portals: [], tone: null,
          hello: '더 깊은 어둠입니다. 네크로맨서의 저주 폭발(보라 범위)을 피하세요. 어딘가에 데스나이트가 잠들어 있습니다... 올라가는 계단은 바로 옆에 있어요.',
          mobs: [['dg_kbugbear', 12], ['dg_cerberus', 14], ['necromancer', 10]], groups: [] },
     // 오렌설원지역 (상급, 수속성): 눈보라가 몰아치는 눈 덮인 설원 · 1구역(Lv40~45) 엘모어 군단 야영지 — 선공은 없지만 3~5마리씩 무리, 하나를 치면 무리 전체가 반격 · 2구역(Lv45~50) 언덕 설원 + 얼어붙은 호수, 에틴·샤벨타이거(선공)·아이스 골렘, 보스 얼음여왕
@@ -3648,7 +3648,7 @@ const ISLAND = (() => {
          hello: '얼어붙은 호수와 눈 덮인 언덕입니다. 에틴과 샤벨타이거는 먼저 덤빕니다. 아이스 골렘에게 맞으면 몸이 얼어 느려져요. 얼음여왕이 나타나면 블리자드를 조심하세요!',
          mobs: [['ettin', 14], ['ice_golem', 13], ['sabertooth', 14]], groups: [] },
     // v126: 소환의 제단 — 영혼석으로 보스를 불러내는 곳 (몬스터 없음 · 자동사냥 안 됨)
-    13: { name: '소환의 제단', tier: 0, seed: 1313, N: 36, hills: [], portals: [{ i: 30, j: 30, to: 'town', label: '▼ 마을로' }], tone: 'rgba(40,10,70,.28)', altar: { i: 18, j: 15 },
+    13: { name: '소환의 제단', tier: 0, hiz: true, seed: 1313, N: 36, hills: [], portals: [{ i: 30, j: 30, to: 'town', label: '▼ 마을로' }], tone: 'rgba(40,10,70,.28)', altar: { i: 18, j: 15 },
          hello: '보랏빛 마력이 일렁이는 고대의 제단입니다. 제단 가까이에서 [영혼석]을 사용하면 그 영혼의 보스가 깨어납니다. 한 번에 한 마리만 불러낼 수 있어요.', mobs: [], groups: [] },
     // v136: 콜로세움 — 둥근 흙바닥(반지름 8.5칸 · 마을의 약 1/4) · 몬스터는 라운드마다 호스트가 불러냄 · 자동사냥 안 됨 · 항상 낮
     14: { name: '콜로세움', tier: 0, seed: 1414, N: 24, R: 8.5, arena: true, hills: [], portals: [], tone: null, mobs: [], groups: [],
