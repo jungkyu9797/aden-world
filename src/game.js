@@ -6260,7 +6260,7 @@ const TOWN = (() => {
     const upd = () => { list.querySelectorAll('.item').forEach(r => r._calc && r._calc(true)); foot(); }; SHOP_REFRESH = b.market ? () => { if (!p.hidden) upd(); } : null;
     const shopIcon = n => SHOP2ITEM[n] && ITEMS[SHOP2ITEM[n]] ? ITEMS[SHOP2ITEM[n]].icon : /마법서/.test(n) ? 'book' : /먹이/.test(n) ? 'food' : /목걸이/.test(n) ? 'amulet' : /강아지|늑대/.test(n) ? 'paw' : /물약/.test(n) ? 'pot_bl' : 'scroll';
     const tb = $('shop-tabs'); tb.hidden = !b.tabs; tb.innerHTML = '';
-    const rowsFor = items => { list.innerHTML = ''; if (PCG.stopShop) PCG.stopShop(); if (items === 'exch') { exchPanel(list, foot); foot(); return; } if (items === 'pcard') { PCG.shopPanel(list, foot); foot(); return; } if (typeof items === 'string') { PET.shopPanel(items, list); foot(); return; } items.forEach(addRow); foot(); };
+    const rowsFor = items => { list.innerHTML = ''; if (PCG.stopShop) PCG.stopShop(); if (items === 'exch') { exchPanel(list, foot); foot(); return; } if (items === 'pcard') { PCG.shopPanel(list, foot); return; } if (typeof items === 'string') { PET.shopPanel(items, list); foot(); return; } items.forEach(addRow); foot(); };
     if (b.tabs) { b.tab = b.tab || 0; b.tabs.forEach(([nm], k) => { const t = document.createElement('button'); t.type = 'button'; t.className = 'shop-tab'; t.setAttribute('role', 'tab'); t.textContent = nm; t.setAttribute('aria-selected', k === b.tab);
         t.onclick = () => { b.tab = k; tb.querySelectorAll('.shop-tab').forEach((x, q) => x.setAttribute('aria-selected', q === k)); rowsFor(b.tabs[k][1]); }; tb.appendChild(t); }); }
     const FIXK = 'aden_shopfix:' + PNAME(); let FIX = {}; try { FIX = JSON.parse(localStorage.getItem(FIXK) || '{}') || {}; } catch (e) { FIX = {}; } const fixSave = () => { try { localStorage.setItem(FIXK, JSON.stringify(FIX)); } catch (e) {} };   /* v125: 상점 수량 [고정] — 캐릭터마다 기억 */
@@ -8520,7 +8520,7 @@ const ACCOUNT = (() => {
     // 서버가 생기기 전에 만든 계정(이 기기/아티팩트 DB)이면 같은 비밀번호로 서버에 옮김 — 캐릭터 이름·이 기기 저장도 함께
     const r = await load(a); if (!r) return { ok: false, msg: '없는 계정이거나 비밀번호가 맞지 않습니다.' }; if ((await hashPw(pw, r.salt)) !== r.hash) return { ok: false, msg: '비밀번호가 맞지 않습니다.' };
     try { await CLOUD.signUp(a, pw); } catch (e) { return { ok: false, msg: e.code === 'EMAIL_EXISTS' ? '비밀번호가 맞지 않습니다.' : '계정을 서버로 옮기지 못했어요. (' + e.message + ')' }; }
-    const ch = r.chars || {}, low = a.toLowerCase(); await CLOUD.set(`users/${CLOUD.uid()}`, { acc: a, chars: JSON.stringify(ch), store: store.get('aden_store_' + low) || '[]', at: String(Date.now()) });
+    const ch = r.chars || {}, low = a.toLowerCase(), pcl = store.get('aden_pcard_' + low); await CLOUD.set(`users/${CLOUD.uid()}`, { acc: a, chars: JSON.stringify(ch), store: store.get('aden_store_' + low) || '[]', ...(pcl ? { polyCards: pcl } : {}), at: String(Date.now()) });   /* 이 기기에 저장된 변신 카드도 함께 옮김 */
     for (const c in ch) { try { await CLOUD.create('names/' + hex(ch[c]), { uid: CLOUD.uid(), name: ch[c], cls: c, at: String(Date.now()) }); const v = store.get('aden_save_' + low + '_' + c); if (v) await CLOUD.set(`users/${CLOUD.uid()}/chars/${c}`, { name: ch[c], data: v, ver: String(GAME_VER), at: String(Date.now()) }); } catch (e) {} }
     return { ok: true, chars: ch, moved: true }; }
   async function loginLegacy(a, pw) { const r = await load(a); if (!r) return { ok: false, msg: '없는 계정입니다. 아래 \'새 계정 만들기\'로 먼저 만들어 주세요.' }; if ((await hashPw(pw, r.salt)) !== r.hash) return { ok: false, msg: '비밀번호가 맞지 않습니다.' }; return { ok: true, chars: r.chars || {} }; }
@@ -8978,7 +8978,8 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   // ----- 특별상점 [변신 카드] 탭
   let shopEl = null, shopFoot = null, shopT = 0, pickOn = false;
   const rateRows = () => PC_GO.map(g => `<tr style="--gc:${GC(g)}"><td><b>${g}</b></td><td>${PC_GRADE[g].p}%</td><td>${POOL[g].map(c => esc(c.name)).join(' · ')}</td><td>+${PC_GRADE[g].pct}%</td><td>Lv.${PC_GRADE[g].lv}</td></tr>`).join('');
-  function shopPanel(list, foot) { shopEl = list; shopFoot = foot; pickOn = false; renderShop(); clearInterval(shopT); shopT = setInterval(() => { if (!shopEl || !shopEl.querySelector('.pcg-shop') || $('shop').hidden) { stopShop(); return; } const f = $('pcg-free'), b = shopEl.querySelector('.pcg-b.free'); if (!f || !b) return; const L = freeLeft(); f.textContent = L > 0 ? tl(L) + ' 뒤' : '지금 뽑을 수 있어요!'; b.classList.toggle('rdy', !L); }, 1000); }
+  function footFix() { const s = $('shop-sum'), bb = $('shop-buyall'); if (s) s.innerHTML = `<span class="muted">뽑은 카드는 계정의 모든 캐릭터가 함께 써요 · 변신은 [변신] 창에서 (${fmt(MORPH)} 골드)</span>`; if (bb) bb.hidden = true; }   // 이 탭엔 일괄 구매가 없음
+  function shopPanel(list, foot) { shopEl = list; shopFoot = () => { try { foot(); } catch (e) {} footFix(); }; pickOn = false; renderShop(); shopFoot(); clearInterval(shopT); shopT = setInterval(() => { if (!shopEl || !shopEl.querySelector('.pcg-shop') || $('shop').hidden) { stopShop(); return; } const f = $('pcg-free'), b = shopEl.querySelector('.pcg-b.free'); if (!f || !b) return; const L = freeLeft(); f.textContent = L > 0 ? tl(L) + ' 뒤' : '지금 뽑을 수 있어요!'; b.classList.toggle('rdy', !L); }, 1000); }
   function stopShop() { clearInterval(shopT); shopT = 0; }
   function renderShop() { const list = shopEl; if (!list || !list.isConnected) return; const L = freeLeft(), mp = Math.min(100, D.mile / MILE * 100), legs = POOL['전설'];
     list.innerHTML = `<div class="pcg-shop"><p class="pcg-lead">몬스터 <b>변신 카드</b>를 뽑아요. 뽑은 카드는 <b>계정의 모든 캐릭터</b>가 함께 쓰고, [변신] 창에서 <b>${fmt(MORPH)} 골드</b>를 내면 그 몬스터로 변신해요. 시간 제한 없음 · 직접 풀거나 쓰러지면 풀려요.</p>
@@ -9011,7 +9012,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
       if (M && img && img.complete && img.naturalWidth) { const af = a === 'attack' ? (M.af || 8) : 8, k = af !== 8 ? Math.min(af - 1, Math.floor(fr * af / 8)) : fr, hh = M.hh * P.s / M.s, sc = Math.min(1.45, 118 / Math.max(40, hh));
         g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; drawSheet(g, img, { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: P.s * sc }, k, prow, cx, cy, has(c.id) ? 1 : 0.45, M.tint || null); g.restore(); }
       raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step); }
-  function refresh() { try { if (shopEl && shopEl.querySelector('.pcg-shop') && !$('shop').hidden) renderShop(); } catch (e) {} try { renderWin(); } catch (e) {} try { const cw = $('codexwin'); if (cw && !cw.hidden && window.CODEX) CODEX.render(); } catch (e) {} }
+  function refresh() { try { if (shopEl && shopEl.querySelector('.pcg-shop') && !$('shop').hidden) { renderShop(); if (shopFoot) shopFoot(); } } catch (e) {} try { renderWin(); } catch (e) {} try { const cw = $('codexwin'); if (cw && !cw.hidden && window.CODEX) CODEX.render(); } catch (e) {} }
   // ----- 아이템 도감 [변신 카드] 탭 (20종 · 확률 · 얻는 곳 · 보유)
   function codexHTML(q, rar) { const pc = p => (p >= 1 ? String(+p.toFixed(1)) : p >= 0.1 ? String(+p.toFixed(2)) : String(+p.toFixed(3))) + '%', SURE = { 희귀: 80, 영웅: 18, 전설: 2 };
     const L = PCARD.filter(c => (!rar || c.g === rar) && (!q || q.split(/\s+/).every(t => (c.name + ' ' + c.g + ' 변신 카드 ' + effTxt(c)).toLowerCase().includes(t))));

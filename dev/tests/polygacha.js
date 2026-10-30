@@ -64,7 +64,7 @@ async function relog(p, acc, cls, name, mp) { await p.goto(URL + (mp ? '?mp=bc' 
     ok(af.c === 990000, '⑤ 변신 1만 골드 (' + af.c + ')'); ok(af.a - before.a === 15 && af.m - before.m === 15, `⑤ 전설 공속·이속 +15% (${before.a}→${af.a}, ${before.m}→${af.m})`); ok(af.mr - before.mr === 2 && af.sp - before.sp === 1, '⑤ 카스파 옵션 MP 회복 +2 · SP +1');
     await p.waitForTimeout(1500); ok(await p.evaluate(() => __T.BUFF.poly > 999000), '⑤ 시간이 지나도 변신 유지 (BUFF.poly ' + await p.evaluate(() => Math.round(__T.BUFF.poly)) + ')');
     await p.screenshot({ path: 'dev/out/pg_win.png' });
-    await p.evaluate(() => { document.getElementById('polywin').hidden = true; __T.ZOOMT = 2.2; }); await p.waitForTimeout(1500); await p.screenshot({ path: 'dev/out/pg_morph.png', clip: { x: 340, y: 150, width: 600, height: 460 } });
+    await p.evaluate(() => { document.getElementById('polywin').hidden = true; __T.TOWN.placeAt(18.5, 22.5); __T.ZOOMT = 2.2; }); await p.waitForTimeout(1500); await p.screenshot({ path: 'dev/out/pg_morph.png', clip: { x: 340, y: 150, width: 600, height: 460 } });
     await p.evaluate(() => PCG.unmorph()); await p.click('#ask-yes'); await p.waitForTimeout(200); ok(await p.evaluate(() => __T.BUFF.poly === 0 && __T.INV.cx('atkSpd')) === before.a, '⑤ 변신 풀기 → 원래대로');
     // 일반 카드로 변신 → 다른 카드로 바꾸기
     await p.evaluate(() => PCG.doMorph('goblin')); ok(await p.evaluate(() => __T.INV.cx('atkSpd')) - before.a === 1, '⑤ 일반(고블린) +1%');
@@ -100,5 +100,7 @@ async function relog(p, acc, cls, name, mp) { await p.goto(URL + (mp ? '?mp=bc' 
     ok(await p.evaluate(() => __T.BUFF.poly) === 0, '⑥ 마법사는 변신하지 않은 채로 시작 (변신은 캐릭터마다)');
     await p.evaluate(() => { __T.setCoins(50000); __T.hero.lv = 20; }); await p.evaluate(() => PCG.doMorph('goblin')); ok(await p.evaluate(() => __T.BUFF.poly > 999000 && __T.coins === 40000), '⑥ 마법사도 계정 카드로 변신');
     await p.evaluate(() => { PCG.state().mile = 5; }); await p.evaluate(() => __T.SAVE.now(true, true)); await relog(p, acc, 'knight', ''); ok((await S()).mile === 5, '⑥ 마법사에서 바꾼 마일리지가 기사에서도 보임'); }
+  await p.evaluate(() => { __T.INV.toggleWin('charwin'); }); await p.waitForTimeout(500); await p.screenshot({ path: 'dev/out/pg_charwin.png' });
+  await p.click('#cw-poly'); await p.waitForTimeout(400); ok(await p.evaluate(() => !document.getElementById('polywin').hidden), '캐릭터 창 [변신 카드] 버튼 → 변신 창');
   ok(errs.length === 0, '⑨ 오류 없음' + (errs.length ? ': ' + errs.join(' | ') : ''));
   console.log(fails ? `실패 ${fails}개` : '모두 통과'); await b.close(); })();
