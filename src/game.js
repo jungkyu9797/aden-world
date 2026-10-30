@@ -2110,7 +2110,8 @@ function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && f.kind.startsWith('
     if (ART==='scorpion'){ g.globalAlpha=al; drawScorpion(g,0,0,f); g.restore(); return; }
     if (ART==='sheet'){ const M=MSHEET[f.kind], I=MIMG[f.kind]; let a='idle', fr=Math.floor(time*6+f.hi)%8;
       if (sheetAtk){ a='attack'; const af=M.af||16; fr=Math.min(af-1,Math.floor(f.atkT/ATK_T*af)); } else if (moving&&!f.dead){ a='walk'; fr=Math.floor(f.dist*4)%8; } else if (f.dead) fr=0;
-      if (I[a].complete && I[a].naturalWidth){ if (M.tint && !fl){ const c=tintFrame(f.kind, a, I[a], M, fr, f.row), sc=M.s||1; g.globalAlpha=al; g.drawImage(c, Math.round(-M.ax*sc), Math.round(-M.ay*sc)); } else drawSheet(g, I[a], M, fr, f.row, 0, 0, al, fl || M.tint || null); } if (S.flame && !f.dead) fnFlame(g, f, S); g.restore(); return; }
+      if (I[a].complete && I[a].naturalWidth){ if (M.tint){ const c=tintFrame(f.kind, a, I[a], M, fr, f.row), sc=M.s||1, dx=Math.round(-M.ax*sc), dy=Math.round(-M.ay*sc), fl2=f.dead&&f.deadT>0.1?null:fl, fla=fl2&&fl2.startsWith('brightness(2.6)');   /* 10/30: 물들인 몬스터(화둥 등)는 맞을 때·죽을 때도 물들인 그림(용암 스킨)으로 — 예전엔 번쩍임이 원래 그림으로 그려져 죽는 내내 스킨 전 몬스터가 보였음 */
+        g.globalAlpha=al; if (fl2&&!fla) g.filter=fl2; g.drawImage(c, dx, dy); g.filter='none'; if (fla){ g.globalCompositeOperation='lighter'; g.globalAlpha=al*0.8; g.drawImage(c, dx, dy); g.drawImage(c, dx, dy); g.globalCompositeOperation='source-over'; } } else drawSheet(g, I[a], M, fr, f.row, 0, 0, al, fl); } if (S.flame && !f.dead) fnFlame(g, f, S); g.restore(); return; }
     if (ART==='fox'){ const anim = f.dead ? 'Survey' : moving ? (f.aggro?'Run':'Walk') : 'Survey';
       const fr = f.dead ? 0 : moving ? Math.floor(f.dist*(f.aggro?3:4))%8 : Math.floor(time*6+f.hi)%8;
       const img = S.tint ? tinted(f.kind,anim) : im['fox_'+anim]; if (img) drawSheet(g, img, S.sc!==1?{...FX,s:S.sc}:FX, fr, f.row, 0, 0, al, fl); g.restore(); return; }
