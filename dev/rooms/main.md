@@ -1,4 +1,4 @@
-지금 메인방: https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a (10/30 교대)
+지금 메인방: https://claude.ai/code/session_01PSbXoE3P89u67qQ9tBHXXm (10/30 교대)
 
 # 메인방(배포 담당 방) 인수인계 — 10/30 교대
 
