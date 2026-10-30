@@ -40,6 +40,9 @@ const ok = (c, m) => console.log((c ? 'OK  ' : 'FAIL') + ' ' + m);
     const g1 = __T.GROUND.here().filter(d => d.id === 'burnt_ward').length; return { tries: n, dead: e.dead, ward: g1 - g0, allyHp: [aHp, a.hp], msg: __T.log.slice(-6).map(l => l.t).filter(t => /쓰러뜨렸습니다/.test(t)), drop: F.stat().drop }; });
   console.log('⑤', JSON.stringify(s5)); ok(s5.dead && s5.ward === 1, '⑤ 플레이어가 라인 봇을 잡으면 타버린 불멸의 가호 1개'); ok(s5.allyHp[0] === s5.allyHp[1], '⑤ 반왕 봇은 공격이 안 들어감');
   await p.waitForTimeout(800); await p.screenshot({ path: 'dev/out/fb_ward.png' });
+  const s5b = await p.evaluate(() => { const F = window.__FB, H = __T.hero, e = F.spawnTest(F.roster().B.find(b => b.cls === 'wizard').uid, H.i + 1, H.j + 1); e.hp = 1; const g0 = __T.GROUND.here().filter(d => d.id === 'burnt_ward').length; let n = 0; while (!e.dead && n++ < 60) __T.strike(e);
+    return { dead: e.dead, ward: __T.GROUND.here().filter(d => d.id === 'burnt_ward').length - g0, msg: __T.log.slice(-3).map(l => l.t).filter(t => /쓰러뜨렸습니다/.test(t)) }; });
+  console.log('⑤ again', JSON.stringify(s5b)); ok(s5b.dead && s5b.ward === 0 && /10분/.test(s5b.msg.join()), '⑤ 같은 봇을 10분 안에 다시 잡으면 가호 없음 (메시지로 알림)');
   // ⑥ 라인 봇에게 죽으면 사망 손실 (가호 없음 → 경험치 5%·골드 10% / 가호 있음 → 가호가 탐)
   const s6a = await p.evaluate(() => { const F = window.__FB, H = __T.hero; for (const f of F.bots()) f.gone = true; F.DBG.noAI = false; __T.GOD_INV = false; __T.BUFF.invis = 0; __T.setCoins(10000); H.exp = 6; H.hp = 4;
     const e = F.spawnTest(F.roster().B.find(b => b.cls === 'knight').uid, H.i + 1, H.j); return { bot: e && e.bot.name, ward: __T.INV.count('immortal_ward') }; });
@@ -69,16 +72,18 @@ const ok = (c, m) => console.log((c ? 'OK  ' : 'FAIL') + ' ' + m);
   await p.waitForTimeout(3200); await p.screenshot({ path: 'dev/out/fb_fight.png' });
   await p.screenshot({ path: 'dev/out/fb_label.png', clip: { x: 320, y: 80, width: 640, height: 400 } });
   await p.evaluate(R => { window.__FB.setRef(R); __T.BUFF.invis = 0; }, REF);
-  // 성능: 같은 사냥터에서 봇 8명 + 몹 vs 몹만 (헤드리스 크롬 기준)
-  await p.evaluate(z => { __T.GOD_INV = true; __T.BUFF.invis = 0; window.__FB.DBG.noEnsure = false; __T.TOWN.toZone(z); }, Z.z); await p.waitForTimeout(500);
-  await p.evaluate(() => { const F = window.__FB, H = __T.hero; F.DBG.noEnsure = true; for (const f of F.bots()) f.gone = true; const R = F.roster(); for (let k = 0; k < 8; k++) F.spawnTest((k % 2 ? R.B : R.A)[k].uid, H.i + (k % 4) * 2 - 3, H.j + Math.floor(k / 4) * 3 - 2); });
-  const fps = () => p.evaluate(() => new Promise(r => { let n = 0, w = 0; const t0 = performance.now(); let l = t0; const f = t => { n++; w = Math.max(w, t - l); l = t; if (t - t0 < 3000) requestAnimationFrame(f); else r({ fps: Math.round(n / ((t - t0) / 1000)), worst: Math.round(w) }); }; requestAnimationFrame(f); }));
-  const perfB = await fps(); const simB = await p.evaluate(() => window.__FB.sim(30)); const nB = await p.evaluate(() => ({ bots: window.__FB.bots().length, mobs: __T.foxes.filter(f => !f.fb && !f.dead).length }));
-  await p.screenshot({ path: 'dev/out/fb_perf.png' });
-  await p.evaluate(() => { for (const f of window.__FB.bots()) f.gone = true; }); await p.waitForTimeout(300);
+  // 성능 (헤드리스 크롬 · 그래픽카드 없음): 사막필드 1구간에서 몹만 vs 봇 8명이 화면 안에서 싸울 때 · 봇 계산 시간(프레임당) · 30초 모의 계산 시간
+  await p.evaluate(() => { __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(3); }); await p.waitForTimeout(800);
+  await p.evaluate(() => { const F = window.__FB; F.DBG.noEnsure = true; for (const f of F.bots()) f.gone = true; __T.TOWN.placeAt(27.5, 30.5); }); await p.waitForTimeout(1500);
+  const fps = () => p.evaluate(() => new Promise(r => { let n = 0, w = 0; const L = [], t0 = performance.now(); let l = t0; const f = t => { n++; L.push(t - l); w = Math.max(w, t - l); l = t; if (t - t0 < 4000) requestAnimationFrame(f); else { L.sort((a, b) => a - b); r({ fps: Math.round(n / ((t - t0) / 1000)), p90ms: Math.round(L[Math.floor(L.length * 0.9)]), worstMs: Math.round(w) }); } }; requestAnimationFrame(f); }));
   const perfN = await fps(); const simN = await p.evaluate(() => window.__FB.sim(30));
-  console.log('perf', JSON.stringify({ with: { ...perfB, sim30ms: simB, ...nB }, without: { ...perfN, sim30ms: simN } }));
-  await p.evaluate(() => { window.__FB.DBG.noEnsure = false; });
+  await p.evaluate(() => { const F = window.__FB, H = __T.hero, R = F.roster(); for (let k = 0; k < 8; k++) F.spawnTest((k % 2 ? R.B : R.A)[k].uid, H.i + (k % 4) * 3 - 5, H.j + Math.floor(k / 4) * 4 - 3); }); await p.waitForTimeout(2500);
+  const perfB = await fps(); await p.screenshot({ path: 'dev/out/fb_perf.png' });
+  const cost = await p.evaluate(() => new Promise(r => { const F = window.__FB, om = F.mobTick, ot = F.tick; let a = 0, n = 0; F.mobTick = (f, dt) => { const t = performance.now(); om(f, dt); a += performance.now() - t; }; F.tick = dt => { const t = performance.now(); ot(dt); a += performance.now() - t; };
+    const t0 = performance.now(); const fr = t => { n++; if (t - t0 < 2000) requestAnimationFrame(fr); else { F.mobTick = om; F.tick = ot; r((a / n).toFixed(3)); } }; requestAnimationFrame(fr); }));
+  const simB = await p.evaluate(() => window.__FB.sim(30)), nB = await p.evaluate(() => ({ bots: window.__FB.bots().length, mobs: __T.foxes.filter(f => !f.fb && !f.dead).length, lod: window.__FB.lod() }));
+  console.log('perf', JSON.stringify({ mobsOnly: { ...perfN, sim30ms: simN }, with8bots: { ...perfB, sim30ms: simB, aiMsPerFrame: cost, ...nB } }));
+  await p.evaluate(() => { const F = window.__FB; for (const f of F.bots()) f.gone = true; F.DBG.noEnsure = false; __T.BUFF.invis = 0; });
   // ⑨ 수호탑 대전: 필드 봇 없이 그대로
   await p.evaluate(() => { __T.TOWN.goTown(); }); await p.waitForTimeout(600); await p.evaluate(() => window.__TW.enter()); await p.waitForTimeout(2500);
   const s9 = await p.evaluate(() => { const S0 = window.__TW.state(); const r = window.__TW.sim(150); return { here: window.__FB.here(), fb: __T.foxes.filter(f => f.fb).length, tw: __T.foxes.filter(f => f.bot && !f.fb).length, ph0: S0 && S0.ph, r }; });
@@ -92,15 +97,23 @@ const ok = (c, m) => console.log((c ? 'OK  ' : 'FAIL') + ' ' + m);
   const refs = await Promise.all(pg.map(q => q.evaluate(() => { const r = window.__FB.ref(); return r.n + ' Lv' + r.lv; }))); console.log('⑧ 기준 유저 (각 PC가 고른 것)', JSON.stringify(refs)); ok(refs[0] === refs[1], '⑧ 두 PC가 같은 기준 유저를 고름 (presence 전투력)');
   for (const q of pg) await q.evaluate(([R, z]) => { window.__FB.setRef(R); __T.GOD_INV = true; __T.TOWN.toZone(z); }, [REF, Z.z]);
   await pg[0].waitForTimeout(1200); await pg[1].evaluate(() => { const H = __T.hero; __T.TOWN.placeAt(H.x + 1, H.z); }); await pg[0].waitForTimeout(7000);
-  const sv = await Promise.all(pg.map(q => q.evaluate(() => { const F = window.__FB, P = [[__T.hero.x, __T.hero.z], ...__T.NET.others().filter(o => o.pr.z === 'isle' + __T.ISLE.id).map(o => [o.pr.x, o.pr.y])];
+  const look = () => Promise.all(pg.map(q => q.evaluate(() => { const F = window.__FB, P = [[__T.hero.x, __T.hero.z], ...__T.NET.others().filter(o => o.pr.z === 'isle' + __T.ISLE.id).map(o => [o.pr.x, o.pr.y])];
     return { host: F.host(), all: F.bots().filter(f => !f.dead).map(f => f.bot.clan + ':' + f.bot.name).sort(), near: F.bots().filter(f => !f.dead && P.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 18)).map(f => f.bot.clan + ':' + f.bot.name).sort(), tagged: F.bots().every(f => !!f.bot && !!f.bot.clan) }; })));
+  const same = sv => { const H = sv[0].host ? 0 : 1, G = 1 - H; return sv[H].host && !sv[G].host && sv[G].all.length > 0 && sv[H].near.every(x => sv[G].all.includes(x)) && sv[G].all.every(x => sv[H].all.includes(x)) && sv[G].tagged; };
+  { const hi = (await Promise.all(pg.map(q => q.evaluate(() => window.__FB.host())))).indexOf(true); const at = await pg[hi].evaluate(() => { const f = window.__FB.bots().find(x => !x.dead); return f ? [f.x, f.z] : null; });   // 두 사람을 봇 옆으로 (봇이 24칸 밖이면 몬스터 목록에 안 실림)
+    if (at) { for (let k = 0; k < 2; k++) await pg[k].evaluate(([x, z, k]) => __T.TOWN.placeAt(x + 2 + k, z + 1), [at[0], at[1], k]); await pg[0].waitForTimeout(2500); } }
+  let sv = await look(); for (let t = 0; t < 3 && !same(sv); t++) { await pg[0].waitForTimeout(1200); sv = await look(); }   // 막 죽거나 귀환한 봇은 다음 패킷(0.1초)까지 게스트에 남아 있을 수 있어 몇 번 다시 봄
   const H = sv[0].host ? 0 : 1, G = 1 - H; console.log('⑧', JSON.stringify(sv));
-  ok(sv[H].host && !sv[G].host && sv[G].all.length > 0 && sv[H].near.every(x => sv[G].all.includes(x)) && sv[G].all.every(x => sv[H].all.includes(x)) && sv[G].tagged, `⑧ 게스트도 호스트와 같은 봇이 보임 (호스트 ${sv[H].all.length}명 · 게스트 ${sv[G].all.length}명 · 18칸 안 ${sv[H].near.length}명 모두 일치)`);
+  ok(same(sv), `⑧ 게스트도 호스트와 같은 봇이 보임 (호스트 ${sv[H].all.length}명 · 게스트 ${sv[G].all.length}명 · 18칸 안 ${sv[H].near.length}명 모두 일치)`);
   const pk = await pg[H].evaluate(() => { const P = __T.NET.dbgPayload(), all = JSON.stringify(P).length, m = (P.m || []).length, bots = (P.m || []).filter(r => window.__FB.isUid(r[0])).length; return { all, m, bots, botBytes: JSON.stringify((P.m || []).filter(r => window.__FB.isUid(r[0]))).length, fbx: P.fbx ? JSON.stringify(P.fbx).length : 0, fb: P.fb ? JSON.stringify(P.fb).length : 0, cap: window.__bigNet ? 60000 : 3900 }; });
   console.log('⑧ 패킷(호스트 presence)', JSON.stringify(pk));
   await pg[G].screenshot({ path: 'dev/out/fb_guest.png' }); await pg[H].screenshot({ path: 'dev/out/fb_host.png' });
+  // 라인 봇 둘을 두 플레이어 옆에 불러 전투를 일으킴 → 알림은 호스트·게스트 모두 한 번씩만 (계속 싸워도)
+  await pg[H].evaluate(() => { const F = window.__FB, H = __T.hero, R = F.roster(); F.DBG.noEnsure = true; F.spawnTest(R.B.find(b => b.cls === 'knight').uid, H.i + 2, H.j); F.spawnTest(R.B.find(b => b.cls === 'elf').uid, H.i + 3, H.j + 2); });
+  await pg[H].waitForTimeout(6000); await pg[G].screenshot({ path: 'dev/out/fb_guest_fight.png' });
   const al = await Promise.all(pg.map(q => q.evaluate(() => __T.log.map(l => l.t).filter(t => /전투 중입니다/.test(t)))));
-  console.log('⑧ 알림 (호스트·게스트 채팅)', JSON.stringify(al)); ok(al[H].length <= 1 && al[G].length <= 1 && al[H].length === al[G].length, '⑦ 같은 싸움 알림은 호스트·게스트 모두 한 번씩만');
+  console.log('⑧ 알림 (호스트·게스트 채팅)', JSON.stringify(al)); ok(al[H].length === 1 && al[G].length === 1 && al[H][0] === al[G][0], '⑦ 같은 싸움 알림은 호스트·게스트 모두 한 번씩만');
+  const gh = await pg[G].evaluate(() => ({ hp: __T.hero.hp, hits: __T.log.map(l => l.t).filter(t => /라인/.test(t)).length, fx: (window.__FB.stat().alerts || []).length })); console.log('⑧ 게스트', JSON.stringify(gh));
   // /혈맹 명령 (채팅창)
   await pg[G].evaluate(() => { const e = document.getElementById('chat-in'); e.value = '/혈맹'; __T.CHAT.send(); }); await pg[G].waitForTimeout(400);
   console.log('/혈맹', JSON.stringify(await pg[G].evaluate(() => __T.log.slice(-3).map(l => l.t).filter(t => /^\[혈맹\]/.test(t)))));
