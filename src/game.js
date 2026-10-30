@@ -9264,6 +9264,9 @@ const MUI = (() => {
   setup(document.querySelector('#wmap .pn'), 'wmap', 'off', '.wm-side h2', true);
   setup(document.querySelector('#escmenu .esc-box'), 'esc', 'off', 'h2', true);
 })();
+// 10/30 프로듀서: 모든 마법인형·재료 아이템 무게 0 (가호조각·날개·용/화룡 재료 — 나중에 추가되는 재료도 여기 이름을 넣거나 mat0: true)
+{ const MAT0 = new Set(['gold_wing', 'silver_wing', 'dragon_scale', 'drake_claw', 'dragon_heart', 'fire_scale', 'astazio_ash', 'phoenix_feather', 'ifrit_heart']);
+  for (const [id, d] of Object.entries(ITEMS)) if (d && (d.doll || d.mat0 || MAT0.has(id) || id.startsWith('gfrag_'))) d.w = 0; }
 requestAnimationFrame(frame);
 setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();
