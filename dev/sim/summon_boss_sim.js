@@ -20,7 +20,7 @@ const BOSS = {
 };
 const MID = [['cx_st3', 'weapon', 6], ['leather_helm', 'helm', 4], ['cx_ts1', 'shirt', 4], ['leather_boots', 'boots', 4], ['leather_gloves', 'gloves', 4], ['silver_ring', 'ring1', 0], ['cx_rg3', 'ring2', 0], ['cx_am3', 'amulet', 0], ['cx_be3', 'belt', 0], ['cx_cl3', 'cloak', 4], ['cx_ar3', 'armor', 4]];
 (async () => { const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 800, height: 600 } })).newPage(); const errs = []; p.on('pageerror', x => errs.push(String(x).slice(0, 200)));
-  await p.goto('http://127.0.0.1:8766/_sim2.html'); await p.waitForSelector('#lg-mode', { state: 'visible', timeout: 60000 }); await p.click('#lg-mode');
+  await p.goto('http://127.0.0.1:' + (process.env.KT_PORT || 8766) + '/_sim2.html'); await p.waitForSelector('#lg-mode', { state: 'visible', timeout: 60000 }); await p.click('#lg-mode');
   await p.fill('#lg-acc', 'ws' + Date.now() % 1e6 + Math.floor(Math.random() * 99)); await p.fill('#lg-pw', 'abcd'); await p.fill('#lg-pw2', 'abcd'); await p.click('#lg-go');
   await p.waitForSelector('.cs-card[data-cls="wizard"]', { state: 'visible', timeout: 60000 }); await p.click('.cs-card[data-cls="wizard"]'); await p.click('#cs-start');
   await p.waitForSelector('#nm-in', { state: 'visible' }); await p.fill('#nm-in', 'ws' + Date.now() % 1e5); await p.click('#nm-go');
