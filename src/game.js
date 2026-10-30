@@ -334,7 +334,10 @@ function heroRelease(f){   // 활시위를 놓는 순간 / 마력탄을 쏘는 �
 // v146: 결투장 — 다른 유저 때리기 (몬스터와 같은 공식: 상대 AC·레벨로 명중 · 무기 피해 · 치명타 · 축복 추가 타격) → 상대 화면에서 받는 피해 감소(AC·MR·리덕션 등) 적용
 // v155: 대인전 명중 (결투장·앞으로 PvP 필드 공통) — 몬스터용 공식(방어 1당 −3%)은 유저의 큰 AC(−50~−100)에서 거의 다 빗나가서 따로: 50% + 레벨 차 1당 3% + 힘·민첩·지능 보너스 + 장비 명중 − 상대 방어 1당 0.4% (마력탄은 0.2%) · 20~95%
 function hitSb(mode) { const st = INV.stat(); return mode === 'bow' ? (st.dex >= 16 ? 0.05 : 0) + (st.dex >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.dex - 20) / 2)) * 0.01 : mode === 'magic' ? 0.12 + (st.int >= 16 ? 0.05 : 0) + (st.int >= 18 ? 0.05 : 0) : (st.str >= 16 ? 0.05 : 0) + (st.str >= 18 ? 0.05 : 0) + Math.max(0, Math.floor((st.str - 20) / 2)) * 0.01; }
-function pvpHitP(D, mode) { const ac = D && D.ac != null ? D.ac : 10; return Math.max(0.2, Math.min(0.95, 0.5 + 0.03 * (hero.lv - ((D && D.lv) || 1)) + hitSb(mode) + INV.cx('hit') * 0.03 + (mode === 'magic' ? 0 : INV.cx(mode === 'bow' ? 'hitR' : 'hitM') * 0.03) + (BUFF.bounce > 0 && !mode ? 0.15 : 0) + (mode === 'bow' && BUFF.windshot > 0 ? Math.min(0.1, 0.05 + Math.floor(hero.lv / 10) * 0.01) : 0) - (10 - ac) * (mode === 'magic' ? 0.002 : 0.004))); }
+// 10/30: 대인전 미스가 너무 많아 긴장감·타격감이 없음 → 기본 50% → 70% · 상대 방어 1당 0.4% → 0.2% (마력탄 0.2% → 0.1%) · 20~95% 그대로
+//  · 전투력(combatPower)은 예전 식(PVP_HIT_CP)으로 계산 — 이번 변경으로 전투력 숫자·직업별 균형이 흔들리지 않게
+const PVP_HIT = { base: 0.7, acK: 0.002, acKM: 0.001 }, PVP_HIT_CP = { base: 0.5, acK: 0.004, acKM: 0.002 };
+function pvpHitP(D, mode, K) { K = K || PVP_HIT; const ac = D && D.ac != null ? D.ac : 10; return Math.max(0.2, Math.min(0.95, K.base + 0.03 * (hero.lv - ((D && D.lv) || 1)) + hitSb(mode) + INV.cx('hit') * 0.03 + (mode === 'magic' ? 0 : INV.cx(mode === 'bow' ? 'hitR' : 'hitM') * 0.03) + (BUFF.bounce > 0 && !mode ? 0.15 : 0) + (mode === 'bow' && BUFF.windshot > 0 ? Math.min(0.1, 0.05 + Math.floor(hero.lv / 10) * 0.01) : 0) - (10 - ac) * (mode === 'magic' ? K.acKM : K.acK))); }
 function pvpStrike(p, mode){ if (!PVPZ() || !NET.alive(p)) { hero.target = null; return; } const D = NET.duelDef(p), S = { lv: D.lv, mac: D.ac }, [x, y] = W2P(p.x, p.z); breakInvis();
   { let hp_ = pvpHitP(D, mode); if (mode === 'bow') { if (p.galeUntil > time) hp_ = Math.min(0.95, hp_ + 0.5); if (D.so) hp_ = Math.max(0.05, hp_ - 0.25); }   /* 스트라이커 게일 +50% · 상대 솔리드 캐리지 −25% */
     if (!GOD_OHK && Math.random() > hp_) { floatText(x + (Math.random() * 18 - 9), y - 108, 'MISS', { color: '#c8d0d8', size: 11 }); return; } }
@@ -1057,9 +1060,9 @@ const CP_K = { lv: 40, hp: 2, mp: 0.6, ac: 22, mr: 12, atk: { melee: 60, bow: 77
 function combatPower() { const keep = {}; for (const k in BUFF) { keep[k] = BUFF[k]; BUFF[k] = 0; }
   try { const st = INV.stat(), W_ = INV.eqE('weapon'), wt = W_ && ITEMS[W_.id] ? ITEMS[W_.id].wtype : null, T = { lv: hero.lv, ac: -hero.lv };   /* 기준 상대: 같은 레벨 · AC −(레벨) */
     let atk = 0, ak = '';
-    if (CLASS === 'wizard') { const B = magicDmg(); atk = (B[0] + B[1]) / 2 * spellMul() * (1 + spellCritP({ lv: hero.lv, mr: 40 }) * 0.5) * pvpHitP(T, 'magic') / (1.15 / GSPD); ak = 'magic'; }   /* v186: 배운 마법은 빼고 순수 능력치만 (마법 공격력 × 지능·SP 마법 배율 × 마법 치명타 × 명중) */
+    if (CLASS === 'wizard') { const B = magicDmg(); atk = (B[0] + B[1]) / 2 * spellMul() * (1 + spellCritP({ lv: hero.lv, mr: 40 }) * 0.5) * pvpHitP(T, 'magic', PVP_HIT_CP) / (1.15 / GSPD); ak = 'magic'; }   /* v186: 배운 마법은 빼고 순수 능력치만 (마법 공격력 × 지능·SP 마법 배율 × 마법 치명타 × 명중) */
     else { const R = INV.dmg(), bow = wt === 'bow', avg = (R[0] + R[1]) / 2 + (INV.blessHit() ? 0.35 * 1.5 : 0), crit = Math.min(1, 0.12 + INV.cx('crit') / 100);
-      atk = avg * pvpHitP(T, bow ? 'bow' : undefined) * (1 + crit * 0.8) * (1 + INV.cx('atkSpd') / 100) / ((bow ? 1.0 : 0.9) / GSPD); ak = bow ? 'bow' : 'melee'; }
+      atk = avg * pvpHitP(T, bow ? 'bow' : undefined, PVP_HIT_CP) * (1 + crit * 0.8) * (1 + INV.cx('atkSpd') / 100) / ((bow ? 1.0 : 0.9) / GSPD); ak = bow ? 'bow' : 'melee'; }
     const ac = INV.ac(), mr = INV.cx('mr'), ev = Math.min(30, Math.floor(st.dex / 3)), res = ['earthRes', 'waterRes', 'fireRes', 'windRes'].reduce((a, k) => a + (INV.cx(k) || 0), 0), dr = (INV.cx('dr') || 0) + (INV.cx('drMelee') || 0) * 0.5;
     const P = { lv: hero.lv * CP_K.lv, hp: hero.max * CP_K.hp, mp: hero.maxmp * CP_K.mp, atk: atk * (CP_K.atk[ak] || 60), ac: Math.max(0, 10 - ac) * CP_K.ac, mr: mr * CP_K.mr, etc: dr * CP_K.dr + ev * CP_K.ev + res * CP_K.res };
     for (const k in P) P[k] = Math.max(0, Math.round(P[k])); const total = Object.values(P).reduce((a, b) => a + b, 0);
@@ -7682,7 +7685,7 @@ const TWM = (() => {
   const isMelee = e => e === hero ? CLASS === 'knight' : e.isRemote ? (refOf(e.peer).c || 'knight') === 'knight' : e.bot && e.bot.cls === 'knight';
   const keyT = e => !e ? 0 : e === hero ? myKey() : e.isRemote ? 'p:' + e.peer : e.uid;
   function front(t) { const o = OT(t); let m = null; for (const k of teams()['k' + t]) { const d = tdist(k, o); if (m == null || d < m) m = d; } return m; }
-  // ----- 전투: 명중 · 피해 (유저와 같은 구조 — 방어 1당 0.4% · 레벨 차 1당 3%)
+  // ----- 전투: 명중 · 피해 (유저와 같은 구조 — 레벨 차 1당 3% · 방어 1당 TWB.acK) · 10/30: 대인전 방어 보정 절반에 맞춰 0.3% → 0.15% (기본 80%는 그대로)
   function hitChance(a, T) { const st = a.bot.st, lvT = T === hero ? hero.lv : T.bot ? T.bot.st.lv : T.isRemote ? (refOf(T.peer).lv || st.lv) : st.lv, acT = T === hero ? INV.ac() : T.bot ? T.bot.st.ac : T.isRemote ? (refOf(T.peer).ac ?? 0) : 10;
     return Math.max(0.2, Math.min(0.95, TWB.hit + 0.03 * (st.lv - lvT) - (10 - acT) * TWB.acK)); }
   function rollD(a, mul) { let d = a.bot.st.d * TWB.dm * (a.bot.cls === 'wizard' ? TWB.wiz : 1) * (0.75 + Math.random() * 0.5) * (mul || 1);   /* 법사 봇: 마법은 빗나가지 않으니 한 방은 약하게 */ const cr = Math.random() < 0.1; if (cr) d *= 1.5; return [Math.max(1, Math.round(d)), cr]; }
@@ -7727,7 +7730,7 @@ const TWM = (() => {
     S.res = { w, lh: lh && lh.startsWith('p:') ? lh : (lh || null), kt: kt && S.sc[kt][0] > 0 ? kt : null, dt: dt && S.sc[dt][1] > 0 ? dt : null, how: how || (lh ? 'tower' : 'time') }; setPh('end'); }
   function setPh(ph) { S.ph = ph; S.t = 0; if (!SIM) publish(); }
   // ----- 봇 판단 (호스트 · 초당 4~5회) · 행동 (매 프레임)
-  const TWB = { hit: 0.8, acK: 0.003, wiz: 0.62, dm: 1.3, spd: 1.4, pot: 0.035, potAt: 0.5, heal: 0.09, healCd: 4.5 };   // 봇 밸런스 (모의전으로 맞춤)
+  const TWB = { hit: 0.8, acK: 0.0015, wiz: 0.62, dm: 1.3, spd: 1.4, pot: 0.035, potAt: 0.5, heal: 0.09, healCd: 4.5 };   // 봇 밸런스 (모의전으로 맞춤)
   const rngT = c => RNG[c] + (c === 'knight' ? 0 : 2);   // 수호탑은 커서 원거리는 2칸 더 멀리서
   const SPD = 3.2 * GSPD * TWB.spd, ATK = { knight: 0.9, elf: 1.0, wizard: 1.15 }, RNG = { knight: 1, elf: 8, wizard: 7 }, AGR = { knight: 7, elf: 9, wizard: 9 };
   function mobTick(f, dt) { if (f.twr) { f.flash = Math.max(0, (f.flash || 0) - dt); if (!f.dead && f.hp <= 0) down(f); return; } botTick(f, dt); }
