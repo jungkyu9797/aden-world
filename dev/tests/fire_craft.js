@@ -1,8 +1,8 @@
 // 화룡 장비 7종 (제작 장인 브론) 테스트 (python3 dev/mkkt.py && bash dev/runkt.sh dev/tests/fire_craft.js)
-// ① 재료를 넣고 7종 실제 제작 ② 재료가 모자라면 안 만들어짐 ③ 착용 후 수치(방어·화염 저항·공격·SP) ④ 오류 없음 · 스크린샷 dev/out/fire_craft.png (제작 창) · fire_craft_icons.png (아이콘 크게) · fire_craft_look.png (기사 착용 모습)
+// ① 재료를 넣고 7종 실제 제작 ② 재료가 모자라면 안 만들어짐 (10/30: 다른 재료가 다 있어도 이프리트의 심장이 없으면 못 만듦) ③ 착용 후 수치(방어·화염 저항·공격·SP) ④ 오류 없음 · 스크린샷 dev/out/fire_craft.png (제작 창) · fire_craft_icons.png (아이콘 크게) · fire_craft_look.png (기사 착용 모습)
 const { chromium } = require('playwright'); const login = require('../tq.js');
 const FD = ['fd_helm', 'fd_armor', 'fd_gloves', 'fd_boots', 'fd_sword', 'fd_staff', 'fd_bow'];
-const MATS = [['fire_scale', 94], ['astazio_ash', 17], ['phoenix_feather', 3]];   // 7종 재료 합 (비늘 10+20+8+8+16×3 · 재 2+4+1+1+3×3 · 깃털 3)
+const MATS = [['fire_scale', 94], ['astazio_ash', 17], ['phoenix_feather', 3], ['ifrit_heart', 7]];   // 7종 재료 합 (비늘 10+20+8+8+16×3 · 재 2+4+1+1+3×3 · 깃털 3 · 심장 1×7)
 (async () => { const b = await chromium.launch(); const errs = []; let fail = 0; const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m); } };
   const page = async (cls, name) => { const p = await b.newPage({ viewport: { width: 1280, height: 800 } }); p.on('pageerror', e => errs.push(cls + ': ' + e.message));
     p.on('console', m => { if (/장비 도감|아이콘 없음|해석하지 못한/.test(m.text())) errs.push(cls + ' console: ' + m.text()); }); await login(p, { cls, name }); return p; };
@@ -11,10 +11,12 @@ const MATS = [['fire_scale', 94], ['astazio_ash', 17], ['phoenix_feather', 3]]; 
   const D = await p.evaluate(FD => { const T = __T, I = T.ITEMS, keys = Object.keys(I);
     const inDrop = id => [T.DROP_TABLE, T.MOB_DROPS].some(Tb => Object.values(Tb).some(L => L.some(r => r[0] === id))) || T.CX_HERO.includes(id) || [T.CX_ZONE, T.CX_ZONE_R, T.CX_ZONE_H].some(Z => Object.values(Z).some(L => L.includes(id)));
     return { last: keys.slice(-7), defs: FD.map(id => { const d = I[id]; return d && { id, name: d.name, rar: d.rar, lv: d.lv, cls: d.cls, dmg: d.dmg, ac: d.ac, mr: d.mr, hit: d.hit, xd: d.xdmg, fire: d.fireRes, hp: d.hp, mp: d.mp, sp: d.sp, str: d.str, dex: d.dex, drg: d.dragonDmg, drgM: d.dragonMagic, mpD: d.mpDrain, look: d.look, icon: !!T.CXI[d.icon], price: d.price, src: d.src, desc: d.desc, drop: inDrop(id) }; }),
-      mats: ['fire_scale', 'astazio_ash', 'phoenix_feather'].map(id => I[id].desc), dv: ['dv_helm', 'dv_armor', 'dv_gloves', 'dv_boots', 'dv_sword', 'dv_staff', 'dv_bow'].map(id => { const d = I[id]; return [d.name, d.dmg, d.ac, d.mr, d.fireRes, d.hp]; }) }; }, FD);
+      mats: ['fire_scale', 'astazio_ash', 'phoenix_feather', 'ifrit_heart'].map(id => I[id].desc), heart: I.ifrit_heart && { rar: I.ifrit_heart.rar, desc: I.ifrit_heart.desc }, dv: ['dv_helm', 'dv_armor', 'dv_gloves', 'dv_boots', 'dv_sword', 'dv_staff', 'dv_bow'].map(id => { const d = I[id]; return [d.name, d.dmg, d.ac, d.mr, d.fireRes, d.hp]; }) }; }, FD);
   for (const d of D.defs) { ok(d, 'missing item'); if (!d) continue; console.log(JSON.stringify(d)); ok(d.icon, d.id + ' icon'); ok(!d.drop, d.id + ' in drop table'); ok(/제작 장인 브론/.test(d.src), d.id + ' src'); ok(d.fire > 0, d.id + ' fireRes'); }
   ok(JSON.stringify(D.last) === JSON.stringify(FD), 'ITEMS 맨 뒤가 아님: ' + D.last.join(','));
   for (const t of D.mats) { console.log('mat:', t); ok(/제작 장인 브론/.test(t) && !/나중에/.test(t), 'material desc'); }
+  ok(D.heart && D.heart.rar === '영웅' && /^화룡 장비의 핵심 재료/.test(D.heart.desc), 'heart desc: 화룡 장비의 핵심 재료');
+  for (const d of D.defs) if (d) ok(/이프리트의 심장 1/.test(d.src), d.id + ' src에 심장');
   console.log('dv:', JSON.stringify(D.dv));
   // ② 재료 부족(비늘 7 · 재 2 · 깃털 0 — 가장 적게 드는 장갑·장화도 비늘 8) → 버튼 꺼짐 · 억지로 눌러도 안 만들어짐
   await p.evaluate(() => { const T = __T; T.hero.lv = 56; T.INV.load({ bag: [{ id: 'fire_scale', n: 7 }, { id: 'astazio_ash', n: 2 }, { id: 'red_potion', n: 5 }], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.render(); T.CRAFT_.open(); document.querySelector('#craftwin [data-ct="gear"]').click(); });
@@ -23,6 +25,13 @@ const MATS = [['fire_scale', 94], ['astazio_ash', 17], ['phoenix_feather', 3]]; 
     const bt = document.querySelector('#cr-list button[data-gr="fd_helm"]'); bt.disabled = false; bt.click();
     return { st, ask: !document.getElementById('askwin') || document.getElementById('askwin').hidden, log: __T.log.slice(-1).map(x => x.t || x.text || x)[0], n: __T.INV.count('fd_helm'), sc: __T.INV.count('fire_scale') }; }, FD);
   console.log('lack', JSON.stringify(lack)); ok(lack.st.every(x => x === true), 'buttons not disabled when lacking'); ok(lack.n === 0 && lack.sc === 7, 'crafted without materials'); ok(/재료가 모자라요/.test(lack.log || ''), 'lack message');
+  // ②-2 심장만 없음 (비늘·재·깃털은 넉넉) → 7종 모두 버튼 꺼짐
+  await p.evaluate(MATS => { const T = __T; T.INV.load({ bag: MATS.filter(([id]) => id !== 'ifrit_heart').map(([id, n]) => ({ id, n })).concat([{ id: 'red_potion', n: 5 }]), bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.render(); }, MATS);
+  await p.waitForTimeout(400);
+  const noHeart = await p.evaluate(FD => FD.map(id => { const bt = document.querySelector(`#cr-list button[data-gr="${id}"]`); return bt ? bt.disabled : 'none'; }), FD);
+  console.log('noHeart', JSON.stringify(noHeart)); ok(noHeart.every(x => x === true), 'craftable without ifrit heart');
+  const need = await p.evaluate(() => [...document.querySelectorAll('#cr-list .cr-row')].filter(r => r.querySelector('button[data-gr^="fd_"]')).map(r => r.textContent.replace(/\s+/g, ' ').trim().slice(0, 400)));
+  console.log('rows', JSON.stringify(need)); ok(need.length === 7 && need.every(t => /이프리트의 심장/.test(t)), 'recipe rows show heart');
   // ① 재료 넣고 7종 제작
   await p.evaluate(MATS => { const T = __T; T.INV.load({ bag: MATS.map(([id, n]) => ({ id, n })).concat([{ id: 'red_potion', n: 5 }]), bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.render(); }, MATS);
   await p.waitForTimeout(500);

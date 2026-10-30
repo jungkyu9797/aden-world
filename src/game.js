@@ -5560,10 +5560,12 @@ CX_ZONE[22] = [...CX_ZONE[16]]; CX_ZONE[23] = [...CX_ZONE[17]]; CX_ZONE_R[22] = 
 //   방어구: 용비늘보다 AC +1~2 · 화염 저항 +3~5 · HP 조금 더 (4부위 화염 저항 합 46 · 용비늘 35) — 영웅(데스나이트·커츠) 부위 AC는 넘지 않게 (세트 효과 없음 · 용비늘과 같음)
 //   무기: 용비늘 무기보다 기본 공격 +1~2 · 용족 추가 피해 조금 더 · 화염 저항 +5 · 불 속성은 붙이지 않음 (속성은 속성 주문서로 무기마다 붙이는 방식 — 같은 속성(불) 몬스터에게는 속성 피해 0이라
 //   용의 계곡 드레이크·드레이크 킹과 화룡의 둥지 몬스터·피닉스(모두 불)에게 오히려 손해 → 비워 두면 물 속성 주문서로 불 몬스터에게 2배)
-//   재료: 화룡의 비늘(2구역 몬스터 6% · 1구역 1.5~3% · 아시타지오 30% · 피닉스 6~14개) · 아시타지오의 재(아시타지오 35%) · 피닉스의 깃털(피닉스 반드시 1개)
-//   필요 개수(제작 장인 브론 GEAR_R): 기준 캐릭터 2구역 자동사냥 시간당 약 111마리 → 비늘 약 7개 · 재 약 1.4개(아시타지오 2마리 · 4분 뒤 다시 나옴 · 찾아다니며 시간당 4마리쯤) → 방어구 4종 약 6.5시간 · 무기 약 2.3시간 + 깃털
+//   재료: 화룡의 비늘(2구역 몬스터 6% · 1구역 1.5~3% · 아시타지오 30% · 피닉스 6~14개 · 이프리트 2~4개) · 아시타지오의 재(아시타지오 35%) · 피닉스의 깃털(피닉스 반드시 1개)
+//     · 이프리트의 심장(10/30 · 핵심 재료 · 7종 모두 1개씩): 중간 보스 이프리트 50% — 1·2구역에 1마리씩, 잡은 뒤 1~1.5시간(평균 1.25시간) 뒤 알림 없이 다시 나옴 · 기준 캐릭터 혼자 약 6분에 잡음
+//       → 구역마다 시간당 최대 약 0.7마리(1.25시간 + 처치·찾기 약 10분) = 심장 약 0.35개 · 두 구역을 다 돌면 시간당 약 0.7개 → 7개 약 10시간 (서버 전체가 같은 이프리트를 나눠 가짐)
+//   필요 개수(제작 장인 브론 GEAR_R): 기준 캐릭터 2구역 자동사냥 시간당 약 105~111마리 (10/30 구역마다 40마리로 늘었지만 처치 속도는 화력에 묶여 거의 그대로) → 비늘 약 7개 · 재 약 1.4개(아시타지오 2마리 · 4분 뒤 다시 나옴 · 찾아다니며 시간당 4마리쯤) → 방어구 4종 약 6.5시간 · 무기 약 2.3시간 + 깃털
 //   (용비늘: 용계 2구역 시간당 약 330마리 → 용의 비늘 17 · 발톱 3.5 → 4종 약 5.1시간 · 무기 약 1.7시간 + 심장 — 다음 단계라 약 1.3배)
-{ const SRC_F = n => `제작 장인 브론 (${n} · 100%)`, M_A = (s, a) => `화룡의 비늘 ${s} · 아시타지오의 재 ${a}`, M_W = '피닉스의 깃털 1 · 아시타지오의 재 3 · 화룡의 비늘 16';
+{ const SRC_F = n => `제작 장인 브론 (${n} · 100%)`, M_A = (s, a) => `이프리트의 심장 1 · 화룡의 비늘 ${s} · 아시타지오의 재 ${a}`, M_W = '피닉스의 깃털 1 · 이프리트의 심장 1 · 아시타지오의 재 3 · 화룡의 비늘 16';
   Object.assign(CODEX_ID, { '화룡의 투구': 'fd_helm', '화룡의 갑옷': 'fd_armor', '화룡의 장갑': 'fd_gloves', '화룡의 장화': 'fd_boots', '화룡의 검': 'fd_sword', '화룡의 지팡이': 'fd_staff', '화룡의 활': 'fd_bow' });
   Object.assign(CX_SPEC, {   // 기본 그림 (아래에서 직접 그린 그림으로 바꿈)
     '화룡의 투구': ['helm', { s: 'horned', c1: '#ff7a3a', c2: '#4a0804', ac: '#ffd060' }], '화룡의 갑옷': ['armor', { s: 'scale', c1: '#ff7a3a', c2: '#4a0804' }],
@@ -5579,13 +5581,13 @@ CX_ZONE[22] = [...CX_ZONE[16]]; CX_ZONE[23] = [...CX_ZONE[17]]; CX_ZONE_R[22] = 
     ['한손검', '영웅', '화룡의 검', '기사', 55, '9~24', 0, 3, 3, 0, '힘 +1 · 용족 추가 피해 +8 · 화염 저항 +5', 12, 2, SRC_F(M_W), 0],
     ['지팡이', '영웅', '화룡의 지팡이', '마법사', 55, '6~14', 0, 0, 0, 5, 'SP +7 · MP +40 · 용족 마법 피해 +20% · 화염 저항 +5', 8, 2, SRC_F(M_W), 0],
     ['활', '영웅', '화룡의 활', '요정', 55, '8~20', 0, 3, 4, 0, '민첩 +1 · 화살 소모 없음 · 용족 추가 피해 +6 · 화염 저항 +5', 8, 2, SRC_F(M_W), 0] ];
-  const DESC = { fd_helm: '화룡의 둥지에서 모은 화룡의 비늘과 아시타지오의 재로 제작 장인 브론이 벼려 낸 투구. 불꽃처럼 뻗은 뿔이 화룡의 열기를 막아 줘요.',
-    fd_armor: '화룡의 비늘을 한 장씩 겹쳐 아시타지오의 재로 담금질한 갑옷. 가슴의 불씨가 꺼지지 않아 용암의 열기도 견뎌요.',
-    fd_gloves: '화룡의 비늘로 덮고 손끝에 발톱을 단 장갑. 아시타지오의 재로 굳혀 불 속에서도 달아오르지 않아요.',
-    fd_boots: '화룡의 비늘을 엮은 무릎 높이의 장화. 아시타지오의 재를 먹여 용암 바닥의 열기를 덜 받아요.',
-    fd_sword: '피닉스의 깃털을 녹여 넣고 화룡의 비늘·아시타지오의 재로 벼려 낸 기사의 검. 칼날이 불꽃처럼 일렁이고 용족을 더 깊이 베어요.',
-    fd_staff: '타지 않는 피닉스의 깃털을 감고 화룡의 비늘로 만든 발톱이 불의 구슬을 움켜쥔 법사의 지팡이. 용족에게 마법이 더 세게 들어가요.',
-    fd_bow: '피닉스의 깃털로 시위를 매고 화룡의 비늘·아시타지오의 재로 활대를 만든 요정의 활. 화살 없이도 불꽃 화살이 날아가요.' };
+  const DESC = { fd_helm: '화룡의 둥지에서 모은 화룡의 비늘과 아시타지오의 재로 제작 장인 브론이 벼려 낸 투구. 이마에 박힌 이프리트의 심장이 타오르고, 불꽃처럼 뻗은 뿔이 화룡의 열기를 막아 줘요.',
+    fd_armor: '화룡의 비늘을 한 장씩 겹쳐 아시타지오의 재로 담금질한 갑옷. 가슴에 박힌 이프리트의 심장이 꺼지지 않아 용암의 열기도 견뎌요.',
+    fd_gloves: '화룡의 비늘로 덮고 손끝에 발톱을 단 장갑. 손등의 이프리트의 심장과 아시타지오의 재로 굳혀 불 속에서도 달아오르지 않아요.',
+    fd_boots: '화룡의 비늘을 엮은 무릎 높이의 장화. 이프리트의 심장을 녹여 넣고 아시타지오의 재를 먹여 용암 바닥의 열기를 덜 받아요.',
+    fd_sword: '피닉스의 깃털과 이프리트의 심장을 녹여 넣고 화룡의 비늘·아시타지오의 재로 벼려 낸 기사의 검. 칼날이 불꽃처럼 일렁이고 용족을 더 깊이 베어요.',
+    fd_staff: '타지 않는 피닉스의 깃털을 감고 화룡의 비늘로 만든 발톱이 이프리트의 심장(불의 구슬)을 움켜쥔 법사의 지팡이. 용족에게 마법이 더 세게 들어가요.',
+    fd_bow: '피닉스의 깃털로 시위를 매고 화룡의 비늘·아시타지오의 재로 활대를 만든 요정의 활. 손잡이에 박힌 이프리트의 심장 덕에 화살 없이도 불꽃 화살이 날아가요.' };
   for (const r of ROWS) { const id = CX_MAKE(r), d = ITEMS[id]; d.craft = true; d.desc = DESC[id];   // 제작 전용: 보스·사냥터 무작위 드랍표에서는 뺌
     if (['helm', 'armor', 'gloves', 'boots'].includes(d.slot)) d.look = 'p';   // 기사 그림: 금속(판금) 그림 (용비늘 장비와 같음)
     for (const L of [CX_HERO, ...Object.values(CX_ZONE), ...Object.values(CX_ZONE_R), ...Object.values(CX_ZONE_H), ...Object.values(CX_BOSS)]) { const k = L.indexOf(id); if (k >= 0) L.splice(k, 1); }
@@ -8676,8 +8678,8 @@ const CRAFT = (() => { const $ = id => document.getElementById(id); let tab = 'm
   const GEAR_R = [{ id: 'qa_wing', need: [['gold_wing', 10], ['silver_wing', 10]] },   // v146: 장비 제작 (100%)
     { id: 'dv_helm', need: [['dragon_scale', 20], ['drake_claw', 2]] }, { id: 'dv_armor', need: [['dragon_scale', 40], ['drake_claw', 5]] }, { id: 'dv_gloves', need: [['dragon_scale', 15], ['drake_claw', 2]] }, { id: 'dv_boots', need: [['dragon_scale', 15], ['drake_claw', 2]] },   // v153: 용의 계곡
     { id: 'dv_sword', need: [['dragon_heart', 1], ['dragon_scale', 30], ['drake_claw', 5]] }, { id: 'dv_staff', need: [['dragon_heart', 1], ['dragon_scale', 30], ['drake_claw', 5]] }, { id: 'dv_bow', need: [['dragon_heart', 1], ['dragon_scale', 30], ['drake_claw', 5]] },
-    { id: 'fd_helm', need: [['fire_scale', 10], ['astazio_ash', 2]] }, { id: 'fd_armor', need: [['fire_scale', 20], ['astazio_ash', 4]] }, { id: 'fd_gloves', need: [['fire_scale', 8], ['astazio_ash', 1]] }, { id: 'fd_boots', need: [['fire_scale', 8], ['astazio_ash', 1]] },   // 화룡의 둥지
-    { id: 'fd_sword', need: [['phoenix_feather', 1], ['astazio_ash', 3], ['fire_scale', 16]] }, { id: 'fd_staff', need: [['phoenix_feather', 1], ['astazio_ash', 3], ['fire_scale', 16]] }, { id: 'fd_bow', need: [['phoenix_feather', 1], ['astazio_ash', 3], ['fire_scale', 16]] }];
+    { id: 'fd_helm', need: [['ifrit_heart', 1], ['fire_scale', 10], ['astazio_ash', 2]] }, { id: 'fd_armor', need: [['ifrit_heart', 1], ['fire_scale', 20], ['astazio_ash', 4]] }, { id: 'fd_gloves', need: [['ifrit_heart', 1], ['fire_scale', 8], ['astazio_ash', 1]] }, { id: 'fd_boots', need: [['ifrit_heart', 1], ['fire_scale', 8], ['astazio_ash', 1]] },   // 화룡의 둥지 (10/30: 7종 모두 이프리트의 심장 1개)
+    { id: 'fd_sword', need: [['phoenix_feather', 1], ['ifrit_heart', 1], ['astazio_ash', 3], ['fire_scale', 16]] }, { id: 'fd_staff', need: [['phoenix_feather', 1], ['ifrit_heart', 1], ['astazio_ash', 3], ['fire_scale', 16]] }, { id: 'fd_bow', need: [['phoenix_feather', 1], ['ifrit_heart', 1], ['astazio_ash', 3], ['fire_scale', 16]] }];
   const SLOT_K = { weapon: '무기', helm: '투구', armor: '갑옷', cloak: '망토', gloves: '장갑', boots: '장화', shield: '방패', belt: '벨트', ring: '반지', amulet: '목걸이', shirt: '티셔츠' };
   const gearInfo = d => [SLOT_K[d.slot] || '', d.cls ? cxClsName(d) : '모든 클래스', d.lv ? 'Lv.' + d.lv : '', d.ac ? 'AC ' + d.ac : '', d.mr ? 'MR ' + d.mr : ''].filter(Boolean).join(' · ');
   const gearOk = R => R.need.every(([m, n]) => INV.count(m) >= n);
