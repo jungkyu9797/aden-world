@@ -7937,8 +7937,8 @@ const TWM = (() => {
     { const vw = cv.width / curZ, vh = cv.height / curZ; if (x < cam[0] - vw / 2 - 90 || x > cam[0] + vw / 2 + 90 || y < cam[1] - vh / 2 - 30 || y > cam[1] + vh / 2 + 150) return; }   // 화면 밖은 안 그림
     let anim = 'idle', fr = Math.floor(time * 6 + (f.uid % 7)) % 8; if (f.atkT != null && f.atkT < 0.62 && !f.dead && !DBG.idle) { anim = b.cls === 'knight' ? (f.uid % 2 ? 'attack2' : 'attack') : b.cls === 'wizard' ? 'cast' : 'attack'; fr = Math.min(7, Math.floor(f.atkT / (0.7 / GSPD) * 8)); } else if (moving) { anim = 'walk'; fr = Math.floor((f.dist || 0) * 4) % 8; }
     g.save(); g.globalAlpha = al; g.strokeStyle = `rgba(${ally ? TWL.A.c : TWL.B.c},.6)`; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, 15, 7.5, 0, 0, 7); g.stroke();
-    const eq = gearOf(b), en = b.en, far = LOD >= 2 || (LOD >= 1 && Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 6), eqf = far ? (s => s === 'armor' || s === 'weapon' || s === 'helm' ? eq[s] || null : null) : (s => eq[s] || null), glf = s => s === 'weapon' && en >= 7 ? en : 0;   // 프레임이 떨어지면 먼 봇은 갑옷·투구·무기만
-    if (!DBG.noSprite) { LOWQ = true; drawHeroSprite(g, anim, fr, f.row || 0, x, y, f.flash > 0 ? 'brightness(2.2) saturate(.4)' : null, b.cls, eqf, glf, null); LOWQ = false; }
+    const eq = gearOf(b), en = b.en, lod = f.fb ? FBOT.lod() : LOD, far = lod >= 2 || ((lod >= 1 || f.fb) && Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 6), eqf = far ? (s => s === 'armor' || s === 'weapon' || s === 'helm' ? eq[s] || null : null) : (s => eq[s] || null), glf = s => s === 'weapon' && en >= 7 ? en : 0;   // 프레임이 떨어지면 먼 봇은 갑옷·투구·무기만
+    if (!DBG.noSprite) { LOWQ = true; drawHeroSprite(g, anim, fr, f.row || 0, x, y, f.flash > 0 && !(f.fb && far) ? 'brightness(2.2) saturate(.4)' : null, b.cls, eqf, glf, null); LOWQ = false; }   /* v191: 필드 봇은 6칸 밖이면 늘 간단히 (갑옷·투구·무기만 · 맞을 때 번쩍임 없음) */
     if (f.immT > time && !f.dead) { g.globalAlpha = al * (0.55 + 0.2 * Math.sin(time * 3)); g.strokeStyle = 'rgba(130,255,170,.85)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(x, y, 21, 9.5, 0, 0, 7); g.stroke(); g.fillStyle = 'rgba(120,255,170,.12)'; g.fill(); }   // 봇 이뮨은 발밑 초록 고리만 (전신 오라는 너무 밝음)
     g.restore(); if (f.dead || DBG.noLabel) return;
     const top = y - 104; g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; if (b.clan) clanName(g, x, top, '[' + b.clan + ']', ally ? CLAN_C.A : CLAN_C.B, b.name, ally ? '#9fd8ff' : '#ff8a7a'); else { g.strokeText(b.name, x, top); g.fillStyle = ally ? '#9fd8ff' : '#ff8a7a'; g.fillText(b.name, x, top); }   /* v191: 필드 봇은 [혈맹] 이름 */
@@ -8045,11 +8045,12 @@ window.__TW = TWM;
 const FBOT = (() => {
   const K_ = TWM.kit, CLAN = { A: '반왕', B: '라인' }, KIND = { knight: 'fb_k', elf: 'fb_e', wizard: 'fb_w' }, UID0 = { A: 72000, B: 72100 }, NB = { A: 18, B: 20 };
   const isUid = u => (u >= 72000 && u < 72000 + NB.A) || (u >= 72100 && u < 72100 + NB.B);
-  const C = { SLOT: 1200, CAP: 8, REST: 0.1, ALT: 0.25, RESP: [75, 120], HOME: 45, ALERT: 180, POT: 0.05, POT_AT: 0.5, POT_N: 40, HUNT: 1.35, SPD: 1.3, VIEW: 12, MOB_R: 10, NEAR_P: 5, DROP_P: 0.3, FAR: 6 };   // 밸런스·규칙 값 (FBOT.cfg로 바꿀 수 있음)
+  const C = { SLOT: 1200, CAP: 8, REST: 0.1, ALT: 0.25, RESP: [75, 120], HOME: 45, ALERT: 180, POT: 0.05, POT_AT: 0.5, POT_N: 40, HUNT: 1.35, SPD: 1.3, VIEW: 12, MOB_R: 10, NEAR_P: 5, DROP_P: 0.3, DROP_CD: 600, FAR: 6 };   // 밸런스·규칙 값 (FBOT.cfg로 바꿀 수 있음)
   const hsh = s => { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
   const live = f => !!f && !f.dead && !f.gone;
   const myId = () => NET.me() || 'me';
   const zkey = () => ISLE ? 'isle' + ISLE.id : '';
+  const jo = (w, a, b) => { const s = String(w), c = s.charCodeAt(s.length - 1); if (c >= 0xAC00 && c <= 0xD7A3) return JOSA(s, a, b); return s + ('013678'.includes(s[s.length - 1]) ? a : b); };   // 이름이 숫자로 끝나면 읽는 소리로 (3 → 삼: 받침 있음) · 영문 끝은 받침 없음
   let SIM = false;
   // ----- 명단 (고정 씨앗)
   let RO = null;
@@ -8109,7 +8110,7 @@ const FBOT = (() => {
     for (const f of foxes) if (f.fb && f.bot && live(f)) T[f.bot.team].push(f);
     if (heroOk()) { T.A.push(hero); T.P.push(hero); }
     if (!SIM) for (const o of NET.others()) { if (o.pr.z !== zkey() || !(o.pr.hp > 0) || o.pr.dd > 0 || o.pr.iv) continue; const p = NET.proxyOf(o.peer); if (!NET.alive(p)) continue; T.A.push(p); T.P.push(p); }
-    try { OTT = SIM ? new Set() : NET.othersTargets(); } catch (e) { OTT = new Set(); } return (TM = T); }
+    try { OTT = SIM ? new Set() : new Set([...NET.othersTargets(), ...NET.partyTargets()]); } catch (e) { OTT = new Set(); } return (TM = T); }   // 다른 플레이어(파티원 포함)가 노리거나 때리는 몹
   const foesOf = b => teams()[b.team === 'A' ? 'B' : 'A'], alliesOf = b => teams()[b.team];
   const validT = e => !!e && (e === hero ? heroOk() : e.isRemote ? NET.alive(e) && !((NET.peerObj(e.peer) || { pr: {} }).pr.iv) : live(e) && !!e.fb);
   const los = (a, b) => !MAZE() || DGLOS(a, b);
@@ -8149,20 +8150,22 @@ const FBOT = (() => {
     for (const m of foxes) if (m.tgt === f) { m.tgt = null; m.aggro = false; } snd(f, 'die'); STAT.die++;
     const top = loot(f); fx(['d', f.uid, top || 0]); if (top && top === myId()) killMsg(f); f.dmgBy = null; f.fbD = 0; }
   // 라인 봇을 플레이어가 잡으면 타버린 불멸의 가호 (플레이어 몫이 받은 피해의 30% 이상일 때) · 우선권은 기존 몹 드랍처럼 공헌도대로 · 봇끼리·몹이 잡으면 없음
+  const DROPT = new Map();
   function loot(f) { if (!f.bot || f.bot.team !== 'B') return null; const Cm = new Map(); let pd = 0;
     if (f.dmgBy) for (const [w, v] of f.dmgBy) { if (!w || !(v > 0) || w.fb) continue; const p = w.isRemote ? w.peer : myId(); Cm.set(p, (Cm.get(p) || 0) + v); pd += v; }
     const bd = f.fbD || 0; if (!(pd > 0) || pd < C.DROP_P * (pd + bd)) return null;
+    const now = Date.now(); if (now - (DROPT.get(f.uid) || 0) < C.DROP_CD * 1000) return null; DROPT.set(f.uid, now);   // 같은 봇은 10분에 한 번만 (되살아나는 봇을 계속 잡아 가호를 모으지 못하게)
     GROUND.capStart(); GROUND.drop('burnt_ward', 1, f.i, f.j); const items = GROUND.capEnd(); STAT.drop++;
     const shares = new Map([...Cm].map(([p, v]) => [p, v / pd])); if (NET.me() && NET.others().some(o => o.pr.z === zkey())) { try { NET.assignLoot(items, shares, f, MOB[f.kind]); } catch (e) {} }
     return [...shares].sort((x, y) => y[1] - x[1])[0][0]; }
-  function killMsg(f) { const b = f.bot; say(`[${b.clan} 혈맹] ${JOSA(b.name, '을', '를')} 쓰러뜨렸습니다! ${ITEMS.burnt_ward.name}이(가) 떨어졌습니다.`, '#ffd86a'); if (near(f, 20)) { const [x, y] = W2P(f.x, f.z); floatText(x, y - 120, '처치!', { color: '#ffd86a', size: 15, big: true, life: 1.2 }); } }
+  function killMsg(f) { const b = f.bot; say(`[${b.clan} 혈맹] ${jo(b.name, '을', '를')} 쓰러뜨렸습니다! ${JOSA(ITEMS.burnt_ward.name, '이', '가')} 떨어졌습니다.`, '#ffd86a'); if (near(f, 20)) { const [x, y] = W2P(f.x, f.z); floatText(x, y - 120, '처치!', { color: '#ffd86a', size: 15, big: true, life: 1.2 }); } }
   function down(f) { if (!f || f.dead) return; botDie(f, (f.bx && f.bx.hitBy) || null); }   // 플레이어에게 쓰러짐 (killCheck)
   function onDmg(f, who, d) { if (!f.fb || !who || !(d > 0)) return; const w = who.isPet ? hero : who; if (f.bx && (w === hero || w.isRemote)) { f.bx.hitBy = w; f.bx.hitByT = time; } engage(w, f); }
   // ----- 전체 채팅 알림: 전투가 시작되면 (지역 호스트만 · 같은 지역은 3분에 한 번 · 받는 쪽도 같은 지역 3분 안이면 무시)
   const ALERT = new Map();
   function engage(a, T) { if (SIM || !here() || !host()) return; const A = sideOf(a), B = sideOf(T); if (!A || !B || A.t === B.t) return; const ban = A.t === 'A' ? A : B, lin = A.t === 'A' ? B : A, k = 'fb:' + ISLE.id, now = Date.now();
     if (now - (ALERT.get(k) || 0) < C.ALERT * 1000) return; ALERT.set(k, now);
-    const t = `${zoneTitle()}에서 [반왕 혈맹] ${JOSA(ban.n, '이', '가')} [라인 혈맹] ${JOSA(lin.n, '과', '와')} 전투 중입니다`; STAT.alerts.push(t); say('[전체] ' + t, '#ffb070', 1); NET.announceAll(t, k); }
+    const t = `${zoneTitle()}에서 [반왕 혈맹] ${jo(ban.n, '이', '가')} [라인 혈맹] ${jo(lin.n, '과', '와')} 전투 중입니다`; STAT.alerts.push(t); say('[전체] ' + t, '#ffb070', 1); NET.announceAll(t, k); }
   function onAlert(t, k) { const now = Date.now(); if (now - (ALERT.get(k) || 0) < (C.ALERT - 10) * 1000) return; ALERT.set(k, now); STAT.alerts.push(t); say('[전체] ' + String(t).slice(0, 90), '#ffb070', 1); }
   // ----- 봇 판단 (호스트 · 초당 약 3~5회) · 행동 (매 프레임)
   const ATK = { knight: 0.9, elf: 1.0, wizard: 1.15 }, RNG = { knight: 1, elf: 8, wizard: 7 }, AGR = { knight: 7, elf: 9, wizard: 9 };
@@ -8281,9 +8284,11 @@ const FBOT = (() => {
     lastZ = z; lastArr = foxes; PEND.length = 0; ensT = 0.6; for (const f of foxes) if (f.fb && !NET.guestMob(f)) f.gone = true; }   // 들어오자마자 예전 봇은 정리 → 0.6초 뒤 새로
   function tick(dt) { if (!window.__gameOn) return;
     if ((refT -= dt) <= 0) { refT = 4; const r = K_.myRef(), s = JSON.stringify(r); if (s !== refS) { refS = s; NET.setExtra('fb', r); } }   // 내 기준 능력치 (다른 PC가 봇 세기를 정할 때 씀)
-    zoneSwitch(); live_ = here() ? foxes.filter(f => f.fb && live(f)) : [];
+    zoneSwitch(); live_ = here() ? foxes.filter(f => f.fb && live(f)) : []; lodTick(dt);
     if (!here()) { if (pub) { pub = null; NET.setExtra('fbx', null); } return; }
     if (host()) { if ((ensT -= dt) <= 0) { ensT = 1; if (!DBG.noEnsure) ensure(); } pendTick(); publish(); } else guestFx(); }
+  // 그리기 부담 조절 (수호탑 대전과 같은 방식): 봇이 있는 사냥터에서 프레임이 계속 24 밑이면 봇 그림을 한 단계씩 간단히 (1 = 6칸 밖 간단히 · 2 = 모두 간단히)
+  let LODF = 0, dtE = 1 / 60, lodT = 0; function lodTick(dt) { if (SIM) return; dtE += (Math.min(0.2, dt) - dtE) * 0.05; lodT += dt; if (lodT < 2) return; lodT = 0; const fps = 1 / dtE; if (live_.length && fps < 24 && LODF < 2) LODF++; else if ((fps > 45 || !live_.length) && LODF > 0) LODF--; }
   // 선공 몬스터가 근처 봇을 노림 (FBOT.nearBot) · 몹 AI 쪽에서 씀
   function nearBot(f, r) { let b = null, bd = r + 1; for (const e of live_) { const d = cheb(f.i, f.j, e.i, e.j); if (d < bd) { bd = d; b = e; } } return b; }
   // ----- 표시: 혈맹 이름표 · /혈맹 (어디서 사냥 중인지)
@@ -8300,9 +8305,9 @@ const FBOT = (() => {
   // 테스트용: 시간을 빨리 돌림 (몹·봇만 · 내 캐릭터는 가만히)
   function sim(sec, dt) { dt = dt || 0.05; SIM = true; const t0 = performance.now(); try { for (let k = 0, n = Math.round(sec / dt); k < n; k++) { time += dt; for (const f of foxes.slice()) updateFox(f, dt); ISLAND.tick(dt); tick(dt); } } finally { SIM = false; } return Math.round(performance.now() - t0); }
   const DBG = {};
-  return { tick, mobTick, tag, down, onDmg, mobHit, nearBot, onAlert, tagOn, report, table, sim, isUid, DBG, cfg: o => o ? Object.assign(C, o) : C,
+  return { tick, mobTick, tag, down, onDmg, mobHit, nearBot, onAlert, tagOn, report, table, sim, isUid, DBG, lod: () => LODF, cfg: o => o ? Object.assign(C, o) : C,
     live: () => live_.length > 0, roster, plan, planAt, ref: refNow, setRef(r) { FORCE = r ? Object.assign({ peer: '', n: 'TEST', cp: 1e9, fb: null }, r) : null; refAt = -9; PL = null; return refNow(); }, zones, here, host,
-    bots: () => foxes.filter(f => f.fb && !f.gone), stat: () => STAT, spawnTest(uid, i, j) { const b = roster().by.get(uid); return b ? spawn(b, [i, j]) : null; }, away: AWAY, alerts: ALERT };
+    bots: () => foxes.filter(f => f.fb && !f.gone), stat: () => STAT, spawnTest(uid, i, j) { const b = roster().by.get(uid); if (!b) return null; for (let r = 0; r < 6; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { const a = i + di, c = j + dj; if (Math.max(Math.abs(di), Math.abs(dj)) === r && walkable(a, c) && !occ(a, c)) return spawn(b, [a, c]); } return null; }, away: AWAY, alerts: ALERT };
 })();
 window.__FB = FBOT;
 
