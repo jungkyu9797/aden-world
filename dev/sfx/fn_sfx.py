@@ -1,6 +1,6 @@
 # 화룡의 둥지 몬스터 효과음 — 코드로 직접 합성한 오리지널 소리 (녹음·추출 소리 없음)
 # 쓰는 법: python3 dev/sfx/fn_sfx.py  → assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3 (44.1kHz 모노 96kbps)
-#   미리 듣기용 wav: python3 dev/sfx/fn_sfx.py --wav <폴더>
+#   미리 듣기용 wav: python3 dev/sfx/fn_sfx.py --wav <폴더>  ·  한 몹만: --only fn_ifrit
 import os, sys, subprocess, numpy as np
 from scipy import signal
 
@@ -157,10 +157,24 @@ def S():
     d = 1.6; x = np.zeros(N(d)); b_ = buzz(1.1, 130, 45, 26) * np.linspace(1, 0, N(1.1)) ** 1.3; place(x, b_ * .8, 0); place(x, bp(noise(.05), 1500, 5000) * env(N(.05), .0005, .03, 5) * .6, 0)
     place(x, thump(.3, 160, 70, .1) * .7, 1.1); place(x, rocks(.25, 4, 1500, 5000) * .35, 1.12); place(x, crackle(.5, 40, .25), 1.1)
     out['fn_fly_death'] = finish(x, .8)
+    # 이프리트(불의 정령 중간 보스 · 10/30): 낮은 으르렁 + 불꽃 주먹이 휙 내려와 쿵 + 불길 확 / 기술(attack2): 불길이 빨려 들며 커지다가 펑 터짐 / 맞으면 불꽃 확 + 짧은 신음 / 쓰러지면 길게 꺼지는 포효 + 불꽃이 사방으로 흩어지는 쉬익
+    d = 1.2; x = np.zeros(N(d)); place(x, growl(.5, 68, 58, (240, 620), 5, .8) * env(N(.5), .03, .4, 2.5) * .55, 0); place(x, whoosh(.36, 170, 1500, 1.3) * .95, .02); place(x, thump(.8, 82, 30, .5) * 1.3, .3)
+    place(x, lp(noise(.5), 650, 3) * env(N(.5), .004, .35, 4) * 1.2, .3); place(x, roar(.75) * env(N(.75), .02, .55, 3) * .75, .3); place(x, crackle(.8, 85, .5), .3)
+    out['fn_ifrit_attack'] = finish(x, .88)
+    d = 1.7; x = np.zeros(N(d)); place(x, sweep_bp(noise(1.0), 110, 1700, 1.2) * np.linspace(0, 1, N(1.0)) ** 1.6 * 1.2, 0); place(x, growl(.9, 60, 72, (220, 600), 4, .9) * env(N(.9), .15, .7, 2) * .5, .05)
+    place(x, thump(.7, 95, 32, .45) * 1.25, .95); place(x, lp(noise(.6), 1500, 2) * env(N(.6), .003, .4, 3.5) * 1.2, .95); place(x, roar(.7) * env(N(.7), .02, .5, 3) * .6, .95); place(x, crackle(1.5, 90, .5), .15)
+    out['fn_ifrit_attack2'] = finish(x, .9)
+    d = .55; x = np.zeros(N(d)); place(x, bp(noise(.14), 500, 2800) * env(N(.14), .002, .09, 4) * .9, 0); place(x, growl(.38, 95, 72, (300, 800), 6, .7) * env(N(.38), .01, .28, 3) * .6, .02); place(x, crackle(.45, 70, .45), .02); place(x, roar(.3) * env(N(.3), .01, .2, 3) * .35, 0)
+    out['fn_ifrit_hit'] = finish(x, .8)
+    d = 3.2; x = np.zeros(N(d)); place(x, growl(1.7, 74, 34, (220, 620), 4, .9) * env(N(1.7), .06, 1.4, 2) * .75, 0); place(x, thump(.9, 90, 28, .6) * 1.1, .5); place(x, lp(noise(1.2), 1200, 2) * env(N(1.2), .01, .8, 3) * 1.0, .5)
+    place(x, sweep_bp(noise(1.6), 260, 3200, 1.1) * np.sin(np.pi * np.linspace(0, 1, N(1.6))) ** .7 * 1.1, .55); place(x, roar(2.0) * np.linspace(.9, 0, N(2.0)) * .55, .5); place(x, crackle(2.4, 70, .5), .5); place(x, sizzle(1.4, .25) * np.linspace(1, 0, N(1.4)), 1.6)
+    out['fn_ifrit_death'] = finish(x, .86)
     return out
 
 if __name__ == '__main__':
-    snd = S(); wav = '--wav' in sys.argv; dst = sys.argv[sys.argv.index('--wav') + 1] if wav else os.path.join(ROOT, 'assets', 'sound', 'sfx'); os.makedirs(dst, exist_ok=True)
+    snd = S(); wav = '--wav' in sys.argv; only = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else ''   # --only fn_ifrit → 그 몹 소리만 새로 씀 (다른 소리 파일은 그대로)
+    if only: snd = {k: v for k, v in snd.items() if k.startswith(only)}
+    dst = sys.argv[sys.argv.index('--wav') + 1] if wav else os.path.join(ROOT, 'assets', 'sound', 'sfx'); os.makedirs(dst, exist_ok=True)
     for k, x in snd.items():
         raw = x.tobytes(); p = os.path.join(dst, k + ('.wav' if wav else '.mp3'))
         args = ['ffmpeg', '-y', '-v', 'error', '-f', 'f32le', '-ar', str(SR), '-ac', '1', '-i', '-'] + (['-c:a', 'pcm_s16le'] if wav else ['-c:a', 'libmp3lame', '-b:a', '96k']) + [p]

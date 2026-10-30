@@ -128,7 +128,7 @@ const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, e
     apply(o) { if (!o) return; set(o); SFX_ON = s.sfxOn; applySfxVol(); if (typeof TOWN !== 'undefined' && TOWN.setBgm) TOWN.setBgm(s.bgmOn); } }; })();
 SFX_ON = SND.get().sfxOn;
 function applySfxVol() { if (master) master.gain.value = SFX_ON ? 0.4 * SND.sfxK() : 0; }
-const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf','skeleton_archer','zombie','bugbear','cerberus','king_bugbear','baphomet','deathknight','fn_warrior','fn_archer','fn_golem','fn_bomb','fn_egg','fn_fly','fn_ashtazio','phoenix']), K2 = new Set(['deathknight','fn_ashtazio','phoenix']);   /* v179: 데스나이트 전용 합성음 (공격·스킬·피격·사망) */   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
+const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf','skeleton_archer','zombie','bugbear','cerberus','king_bugbear','baphomet','deathknight','fn_warrior','fn_archer','fn_golem','fn_bomb','fn_egg','fn_fly','fn_ashtazio','phoenix','fn_ifrit']), K2 = new Set(['deathknight','fn_ashtazio','phoenix','fn_ifrit']);   /* v179: 데스나이트 전용 합성음 (공격·스킬·피격·사망) */   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
   const AL = { elmore_soldier: 'atuba_orc', elmore_warrior: 'orc_warrior', elmore_mage: 'orc_wizard', ettin: 'ogre', ice_golem: 'ogre', sabertooth: 'cerberus', ice_queen: 'orc_wizard', dg_kbugbear: 'king_bugbear', dg_cerberus: 'cerberus', ghoul: 'zombie', ungoliant: 'shelob', spartoi: 'skeleton_archer', necromancer: 'orc_wizard', kaspar: 'orc_wizard', merkyor: 'orc_wizard', balthazar: 'orc_wizard', sema: 'orc_wizard', dv_skel: 'skeleton_archer', dv_archer: 'skeleton_archer', dv_lizard: 'lizardman', wyvern: 'basilisk', drake: 'basilisk', lesser_dragon: 'baphomet', drake_king: 'baphomet', fn_salamander: 'basilisk', fn_hcerberus: 'cerberus' };   /* v190: 화룡의 둥지 몹 소리는 dev/sfx/fn_sfx.py로 만든 전용 합성음 */
   const buf = {}, pend = {};   /* v124: 한 번만 받아서 해독해 두고 WebAudio로 재생 (재생할 때마다 Audio를 복제·해독하면 끊김) — 못 받으면 예전 방식 */
   function load(k) { if (pend[k]) return; pend[k] = fetch('assets/sound/sfx/' + k + '.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(a => new Promise((res, rej) => AC.decodeAudioData(a, res, rej))).then(b => { buf[k] = b; }).catch(() => { buf[k] = null; }); }
@@ -387,7 +387,7 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
 function killCheck(f){ if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
   const D=NET.distribute(f,S); if (!D){ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=rint(S.coin); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else if (S.hwEv) hwLoot(f); else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
+  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 function dmgMob(f, d, who){ if (f && f.bindUntil > time) return; if (f && f.ashT > 0) return; if (f && TWM.ally(f)) return; if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
@@ -508,7 +508,7 @@ function updateFox(f,dt){
   if (f.ashT > 0 && !f.dead){ f.ashT -= dt; f.atkT = null; f.casting = null; f.flash = 0; if (f.ashT <= 0) phxRise(f, S); return; }   // 피닉스 잿더미
   if (S.boss && !f.dead && !f.enraged && f.max > 0 && f.hp > 0 && f.hp <= f.max * (f.enrAt || (f.enrAt = 0.3 + Math.random() * 0.2))) bossEnrage(f, S);
   if (S.dummy){ f.flash=Math.max(0,(f.flash||0)-dt); f.kx=0; f.ky=0; f.aggro=false; f.stunT=Math.max(0,(f.stunT||0)-dt); f.slowT=Math.max(0,(f.slowT||0)-dt); if (f.dlog){ while (f.dlog.length && time-f.dlog[0][0]>10) f.dlog.shift(); if (!f.dlog.length || time-f.dlog[f.dlog.length-1][0]>4){ f.hp=f.max; f.ttk0=0; } } return; }   // 허수아비: 가만히 서서 맞기만
-  if (f.dead){ f.deadT+=dt; if (S.boss||f.summoned||ARENA()){ if (f.deadT>(S.boss?3:1.6)) f.gone=true; return; }
+  if (f.dead){ f.deadT+=dt; if (S.boss||S.midb||f.summoned||ARENA()){ if (f.deadT>(S.boss||S.midb?3:1.6)) f.gone=true; return; }   /* 10/30: 중간 보스(이프리트)는 제자리에서 다시 안 태어남 — ISLAND가 1~1.5시간 뒤 다시 냄 */
     if (f.deadT>(S.resp||9)){ const L=f.leader, c=L&&!L.dead?[L.i,L.j]:f.home; const p=(c&&spotNear(c[0],c[1],L?2:3))||freeTile(7);
       const keep={home:f.home,leader:f.leader,grp:f.grp,uid:f.uid}; Object.assign(f,mkMob(f.kind,p[0],p[1]),keep); if (f.home){ f.hi=f.home[0]; f.hj=f.home[1]; } } return; }
   if (S.boss && f.hp < f.max) { const now = Date.now(); if (!f.lastDmgAt) f.lastDmgAt = now;   // 보스: 2분 동안 아무도 못 때리면 체력 회복 — 초당 최대 HP의 2% (오래 비워 둔 지역이면 들어오자마자 그만큼 한꺼번에)
@@ -655,6 +655,11 @@ const BOSS_SKILL = {
   fn_salamander: [{ id: 'breath', cd: [6, 7], range: 3, cast: 0.6, use(f){ breathCone(f, 3, [42, 66]); } }],
   fn_hcerberus: [{ id: 'fball', cd: [5, 7], range: 5, cast: 0.5, use(f){ const T = BT || hero; AOES.push({ kind: 'mag', c: '255,130,40', x: T.x, z: T.z, r: 1.1, warn: 0.7, t: 0, life: 1.1, landed: false, dmg: [20, 30], fire: true, res: 'fire', nostun: true, quiet: true, onLand: DG_LAND.fire }); } }],
   fn_ashtazio: [{ id: 'pillar', cd: [9, 12], range: 6, cast: 0.9, use(f){ const T = BT || hero; AOES.push({ kind: 'mag', c: '255,90,30', x: T.x, z: T.z, r: 1.9, warn: 1.0, t: 0, life: 1.5, landed: false, dmg: [52, 75], fire: true, res: 'fire', nostun: true, msg: ['아시타지오의 화염 기둥에 휩싸였습니다!', '화염 기둥을 피했습니다.'], onLand: DG_LAND.hell }); } }],
+  // 이프리트(중간 보스): ① 화염 폭발 — 주먹으로 땅을 내리쳐 주변 붉은 원 ② 불덩이 — 대상 발밑 주황 원 · 시전 멘트 없음 (맞으면·피하면 짧은 알림만) · 아시타지오 화염 기둥보다 약하게
+  fn_ifrit: [
+    { id: 'nova', cd: [12, 16], range: 2, cast: 1.0, use(f){ AOES.push({ kind: 'slam', fire: true, x: f.x, z: f.z, r: 2.6, warn: 1.0, t: 0, life: 1.5, landed: false, dmg: [40, 58], res: 'fire', nostun: true, onLand: DG_LAND.hell, msg: ['이프리트의 화염 폭발에 휩쓸렸습니다!', '화염 폭발을 피했습니다.'] }); } },
+    { id: 'fball', cd: [8, 11], range: 6, cast: 0.8, use(f){ const T = BT || hero; AOES.push({ kind: 'mag', c: '255,120,30', x: T.x, z: T.z, r: 1.5, warn: 0.9, t: 0, life: 1.3, landed: false, dmg: [32, 46], fire: true, res: 'fire', nostun: true, onLand: DG_LAND.fire, msg: ['이프리트의 불덩이에 맞았습니다!', '불덩이를 피했습니다.'] }); } },
+  ],
   phoenix: [
     { id: 'breath', cd: [9, 12], range: 4, cast: 1.0, use(f){ say('피닉스가 불꽃 숨결을 내뿜습니다! 앞쪽 불길 밖으로 피하세요!', '#ffab6a'); breathCone(f, 4, [38, 56], { warn: 0.8, msg: ['피닉스의 불꽃에 휩싸였습니다!', '불꽃을 피했습니다.'] }); } },
     { id: 'storm', cd: [12, 16], range: 9, cast: 1.1, use(f){ say('피닉스가 불꽃 폭풍을 부릅니다! 붉은 원을 피하세요!', '#ff9a5a'); const grp = Math.random(), a0 = Math.random() * 6.283;
@@ -863,7 +868,7 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     if (!GOD_MP) hero.mp -= PET.sumMp(); SKCD[id] = k.cd / heroSpd(); if (!hero.atk) hero.atk = { t: 0, dur: 0.5 / GSPD, hit: true, v: 'cast' }; mxCast('ebolt', hero); PET.sumCast(cap - live); return; }
   if (id === 'stun') { if (!T || cheb(T.i, T.j, hero.i, hero.j) > 1) { say('스턴: 바로 옆의 대상을 선택하세요.', '#9c9682'); return; }
     if (!GOD_MP) hero.mp -= k.mp; SKCD[id] = k.cd / heroSpd(); face(hero, T); hero.atk = { t: 0, dur: 0.5, hit: true, f: T };
-    const S = MOB[T.kind], ch = Math.max(0.1, Math.min(0.9, 0.5 + 0.05 * (hero.lv - S.lv) - (S.boss ? 0.25 : 0))); const [fx, fy] = W2P(T.x, T.z);
+    const S = MOB[T.kind], ch = Math.max(0.1, Math.min(0.9, 0.5 + 0.05 * (hero.lv - S.lv) - (S.boss || S.midb ? 0.25 : 0))); const [fx, fy] = W2P(T.x, T.z);
     if (T.bot && (T.stunT > 0 || (T.stunImm || 0) > time)) { floatText(fx, fy - headY(T) - 10, T.stunT > 0 ? '이미 기절 중' : '스턴 면역', { color: '#c8d0d8', size: 11 }); spellSfx('stunfail'); return; }   // 수호탑 봇도 유저와 같은 규칙
     const okS = Math.random() < ch; mLog(T, okS, k.name); if (okS) { const t = 1 + Math.random() * 3; T.stunT = t; if (T.bot) T.stunImm = time + t + STUN_IMM_SEC; T.stunMax = t; T.dingT = 0.18; T.aggro = true; if (NET.guestMob(T)) NET.status(T, t, 0); floatText(fx, fy - headY(T) - 14, `스턴! ${t.toFixed(1)}초`, { color: '#ffe066', size: 19, big: true, life: 1.4, rise: 34 }); spellFx('stun', T); spellSfx('stun');
       { const hy = fy - headY(T) * 0.6; impact(fx, hy, 'bolt', '#ffe066'); impact(fx, fy - headY(T) - 4, 'bolt', '#fff6c0'); shake = Math.max(shake, 0.18); hitstop = Math.max(hitstop, 0.06);   // 큰 섬광 + 별 파편 + 쾅
@@ -873,7 +878,7 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     return; }
   const spellTgt = rng => { if (!T || cheb(T.i, T.j, hero.i, hero.j) > rng) { say(`${k.name}: ${rng}칸 안의 대상을 선택하세요.`, '#9c9682'); return false; } if (!FLOS(hero, T)) { say('장애물이 있습니다.', '#9c9682'); return false; } return true; };
   const spend = () => { if (!GOD_MP) hero.mp -= k.mp; SKCD[id] = k.cd / heroSpd(); face(hero, T); if (CLASS !== 'knight' && !hero.atk) hero.atk = { t: 0, dur: 0.5 / GSPD, hit: true, v: 'cast' }; };
-  const resist = (S, mr) => { const ms = INV.cx('magicSucc') / 100; return Math.max(0.05, Math.min(0.75 + ms, 0.35 + ms + 0.03 * (hero.lv - S.lv) + 0.01 * (INV.stat().int - 12) - (mr ? (S.mr || 0) / 200 + (S.boss ? 0.15 : 0) : 0))); };   // v146: 마법 성공률 옵션(흑장로의 지팡이 등) 적용
+  const resist = (S, mr) => { const ms = INV.cx('magicSucc') / 100; return Math.max(0.05, Math.min(0.75 + ms, 0.35 + ms + 0.03 * (hero.lv - S.lv) + 0.01 * (INV.stat().int - 12) - (mr ? (S.mr || 0) / 200 + (S.boss || S.midb ? 0.15 : 0) : 0))); };   // v146: 마법 성공률 옵션(흑장로의 지팡이 등) 적용
   const cast_ = () => { if (!GOD_MP) hero.mp -= k.mp; SKCD[id] = k.cd / heroSpd(); if (!hero.atk) hero.atk = { t: 0, dur: 0.5 / GSPD, hit: true, v: 'cast' }; };
   if (SPELL[id] && SPELL[id].self) { cast_(); mxCast(id, hero); mxSelf(id, hero); NET.mx(id, hero); spellSfx(id); SKYFX.push({ kind: 'aoe', id, f: hero, t: 0, dur: 0.3 }); return; }   // v149: 내 주변 범위 마법
   if (id === 'abarrier') { if (!GOD_MP) hero.mp -= k.mp; SKCD[id] = k.cd; BUFF.abar = 5; BUFF.mlock = 12; hero.atk = null; hero.target = null; cleanseMe(); mxCast(id, hero); mxSelf(id, hero); NET.mx(id, hero); spellSfx(id); floatText(hx, hy - 110, '앱솔루트 배리어!', { color: '#f4f8ff', size: 15, big: true }); say('앱솔루트 배리어! 5초 동안 모든 피해 무효 · 그동안 이동과 귀환만 가능 · 12초 동안 마법 사용 불가', '#e8f0ff'); return; }
@@ -894,7 +899,7 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     else floatText(fx, fy - headY(T) - 12, S.boss ? '보스는 면역 — 튕겨냄' : '저항! 턴 언데드 실패', { color: '#b9a6d8', size: 12, big: true, life: 1.1 });
     return; }
   if (id === 'slow') { if (!spellTgt(8)) return; const S = MOB[T.kind]; spend(); const [fx, fy] = W2P(T.x, T.z); spellSfx('slow'); mxCast(id, hero); NET.mx(id, T);
-    const okW = Math.random() < resist(S, true); mLog(T, okW, k.name); if (okW) { T.slowT = S.boss ? 4 : 10; T.aggro = true; if (NET.guestMob(T)) NET.status(T, 0, T.slowT); mxSelf('slow', T); floatText(fx, fy - headY(T) - 14, `슬로우! ${T.slowT}초`, { color: '#c9a0ff', size: 13, big: true }); }
+    const okW = Math.random() < resist(S, true); mLog(T, okW, k.name); if (okW) { T.slowT = S.boss || S.midb ? 4 : 10; T.aggro = true; if (NET.guestMob(T)) NET.status(T, 0, T.slowT); mxSelf('slow', T); floatText(fx, fy - headY(T) - 14, `슬로우! ${T.slowT}초`, { color: '#c9a0ff', size: 13, big: true }); }
     else floatText(fx, fy - headY(T) - 12, '슬로우 실패', { color: '#c8d0d8', size: 11 });
     return; }
   // v124: 요정 정령마법 — 트리플 애로우 · 윈드 샷 · 스톰 샷 · 스트라이커 게일 · 어스 바인드 · 폴루트 워터 (방해 마법 성공 확률 = 기사 스턴 공식)
@@ -905,7 +910,7 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     BUFF[k.buff] = BUFF_DEF[k.buff].dur; mxSelf(id, hero); NET.mx(id, hero); spellSfx(id); floatText(hx, hy - 100, k.name, { color: BUFF_DEF[k.buff].c, size: 13 }); say(`${k.name}! (10분 · ${BUFF_DEF[k.buff].desc})`, '#cfe4ff'); return; }
   if (id === 'striker_gale' || id === 'earth_bind' || id === 'pollute_water') { if (!spellTgt(8)) return; const S = MOB[T.kind], [fx, fy] = W2P(T.x, T.z);
     if (id === 'earth_bind' && (T.bindImm || 0) > time) { say('어스 바인드: 방금 풀린 대상이라 잠시 다시 걸리지 않아요.', '#9c9682'); return; }
-    spend(); mxCast(id, hero); T.aggro = true; const ms_ = INV.cx('magicSucc') / 100, ch = Math.max(0.1, Math.min(0.9 + ms_, 0.5 + ms_ + 0.05 * (hero.lv - S.lv) - (S.boss ? 0.25 : 0)));
+    spend(); mxCast(id, hero); T.aggro = true; const ms_ = INV.cx('magicSucc') / 100, ch = Math.max(0.1, Math.min(0.9 + ms_, 0.5 + ms_ + 0.05 * (hero.lv - S.lv) - (S.boss || S.midb ? 0.25 : 0)));
     const okE = Math.random() < ch; mLog(T, okE, k.name); if (!okE) { floatText(fx, fy - headY(T) - 12, `${k.name} 실패`, { color: '#c8d0d8', size: 11 }); spellSfx('stunfail'); return; }
     if (id === 'striker_gale') { T.galeUntil = time + 12; mxSelf(id, T); NET.mx(id, T); floatText(fx, fy - headY(T) - 14, '스트라이커 게일! 12초', { color: '#ff8a7a', size: 14, big: true }); spellSfx(id); }
     else if (id === 'earth_bind') { const t = 1 + Math.random() * 4; T.stunT = Math.max(T.stunT || 0, t); T.stunMax = T.stunT; T.dingT = 99; T.bindUntil = time + t; T.bindImm = time + t + 6; if (NET.guestMob(T)) NET.status(T, t, 0, t); mxSelf(id, T); NET.mx(id, T, t); floatText(fx, fy - headY(T) - 14, `어스 바인드! ${t.toFixed(1)}초`, { color: '#ffd870', size: 16, big: true, life: 1.3 }); spellSfx(id); shake = Math.max(shake, 0.1); }
@@ -1140,10 +1145,10 @@ function drawAuras(g, x, y, im, ab) {
   if (ab) { g.save(); const r = 34, cy = y - 44, pu = 0.5 + 0.5 * Math.sin(time * 5), gr = g.createRadialGradient(x - 8, cy - 10, 4, x, cy, r + 6); gr.addColorStop(0, 'rgba(255,255,255,.08)'); gr.addColorStop(0.75, 'rgba(200,225,255,.15)'); gr.addColorStop(1, `rgba(235,245,255,${(0.45 + 0.3 * pu).toFixed(2)})`);
     g.fillStyle = gr; g.beginPath(); g.ellipse(x, cy, r, r * 1.35, 0, 0, 7); g.fill(); g.strokeStyle = `rgba(255,250,220,${(0.55 + 0.3 * pu).toFixed(2)})`; g.lineWidth = 2; g.stroke();
     g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(200,230,255,.35)'; g.lineWidth = 1; for (let k = 0; k < 3; k++) { const a0 = time * 1.2 + k * 2.09; g.beginPath(); g.ellipse(x, cy, r * Math.abs(Math.cos(a0)), r * 1.35, 0, 0, 7); g.stroke(); } g.restore(); } }
-const slowChance = S => { const ms = INV.cx('magicSucc') / 100; return Math.max(0.05, Math.min(0.75 + ms, 0.35 + ms + 0.03 * (hero.lv - (S.lv || 1)) + 0.01 * (INV.stat().int - 12) - ((S.mr || 0) / 200 + (S.boss ? 0.15 : 0)))); };   // 4서클 슬로우와 같은 성공률
+const slowChance = S => { const ms = INV.cx('magicSucc') / 100; return Math.max(0.05, Math.min(0.75 + ms, 0.35 + ms + 0.03 * (hero.lv - (S.lv || 1)) + 0.01 * (INV.stat().int - 12) - ((S.mr || 0) / 200 + (S.boss || S.midb ? 0.15 : 0)))); };   // 4서클 슬로우와 같은 성공률
 function spellExtra(m, P) { if (!m || m.dead || m.hp <= 0) return; const S = MOB[m.kind] || {};
-  if (P.stun && !S.boss && Math.random() < P.stun) { m.stunT = Math.max(m.stunT || 0, 1); m.stunMax = m.stunT; m.dingT = 0.18; if (NET.guestMob(m)) NET.status(m, 1, 0); const [x, y] = W2P(m.x, m.z); floatText(x, y - headY(m) - 14, '감전!', { color: '#bfe4ff', size: 12 }); }
-  if (P.slow) { const ok = Math.random() < slowChance(S); if (S.magic) mLog(m, ok, '블리자드 슬로우'); if (ok) { m.slowT = Math.max(m.slowT || 0, S.boss ? 4 : 10); if (NET.guestMob(m)) NET.status(m, 0, m.slowT); } } }
+  if (P.stun && !S.boss && !S.midb && Math.random() < P.stun) { m.stunT = Math.max(m.stunT || 0, 1); m.stunMax = m.stunT; m.dingT = 0.18; if (NET.guestMob(m)) NET.status(m, 1, 0); const [x, y] = W2P(m.x, m.z); floatText(x, y - headY(m) - 14, '감전!', { color: '#bfe4ff', size: 12 }); }
+  if (P.slow) { const ok = Math.random() < slowChance(S); if (S.magic) mLog(m, ok, '블리자드 슬로우'); if (ok) { m.slowT = Math.max(m.slowT || 0, S.boss || S.midb ? 4 : 10); if (NET.guestMob(m)) NET.status(m, 0, m.slowT); } } }
 function cleanseMe() { let n = 0; for (const k of ['slow', 'root', 'poison', 'stun']) if (BUFF[k] > 0) { BUFF[k] = 0; n++; } return n; }   // v149: 리무브 커스
 let abSayT = -9;
 const abSay = t => { if (time - abSayT > 1) { abSayT = time; say(t, '#cfd8e8'); } };
@@ -2149,6 +2154,7 @@ function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && f.kind.startsWith('
     if (ART==='dragonfly'){ g.globalAlpha=al; drawDragonfly(g,f); g.restore(); return; }
     if (ART==='fireegg'){ g.globalAlpha=al; drawFireEgg(g,f); g.restore(); return; }
     if (ART==='ashtazio'){ g.globalAlpha=al; drawAshtazio(g,f); g.restore(); return; }
+    if (ART==='ifrit'){ drawIfrit(g,f); g.restore(); return; }   /* 10/30: 이프리트 (죽는 그림 IFRIT_END초 · 투명도는 그림 안에서) */
     if (ART==='spider'){ g.globalAlpha=al; drawSpider(g,0,0,f); g.restore(); return; }
     if (ART==='ant'){ g.globalAlpha=al; drawAnt(g,0,0,f); g.restore(); return; }
     if (ART==='scorpion'){ g.globalAlpha=al; drawScorpion(g,0,0,f); g.restore(); return; }
@@ -2188,7 +2194,7 @@ function drawWorld(g, vw, vh){
       if (!s || !im[p.type+p.v]){ const pc=propCanvas(p.type, p.v); if (pc){ g.save(); g.globalAlpha=fade?0.4:1; g.drawImage(pc.c, Math.round(x-pc.ax), Math.round(y-pc.ay), pc.w, pc.h); g.restore(); } if (p.type==='bonfire') campFlame(g,x,y); return; }   // 사막 소품(코드 그림) — im['cactus0'] 등 정식 그림이 들어오면 위의 스프라이트 경로로
       if (im[p.type+p.v].complete){ const pim = ISLE && ISLE.def.sand ? sandProp(p.type+p.v, p.type) : ISLE && ISLE.def.snow ? snowImg(im[p.type+p.v]) : im[p.type+p.v]; g.save(); g.globalAlpha=fade?0.4:1; const sc=s.s||1, ps=prescaled(pim, sc); if (ps) g.drawImage(ps, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc)); else { if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; } g.drawImage(pim, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc), s.W*sc, s.H*sc); } g.restore(); } }}); }
   if (ISLE && ISLE.def.altar){ const A=ISLE.def.altar; list.push({d:A.i+A.j-4, f:()=>drawAltar(g,A,0)}); list.push({d:A.i+A.j+1, f:()=>drawAltar(g,A,1)}); }   /* v126: 소환의 제단 */
-  for (const f of foxes){ if (f.dead&&f.deadT>(ASH_DIE.has(f.kind)?ASH_END:1.4)) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>drawMobBody(g, f)}); }
+  for (const f of foxes){ if (f.dead&&f.deadT>(ASH_DIE.has(f.kind)?ASH_END:f.kind==='fn_ifrit'?IFRIT_END:1.4)) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>drawMobBody(g, f)}); }
   if (DEATH) {} else   // 무덤은 어둠 위(이름표 단계)에서 그림
   list.push({d:hero.x+hero.z, f:()=>{ const [x,y]=W2P(hero.x,hero.z); const NF=a=>KN.anims[a].frames; let anim='idle', fr=Math.floor(time*6)%NF('idle');
     if (hero.atk){ anim=hero.atk.v||'attack'; const nf=KN.anims[anim]?NF(anim):8; fr=Math.min(nf-1,Math.floor(hero.atk.t/hero.atk.dur*nf)); if (!KN.anims[anim]&&CLASS==='knight') anim='attack'; } else if (hero.t<1){ anim='walk'; fr=Math.floor(hero.dist*4)%8; } else if (SCENE==='town' && KN.anims.look && CLASS==='knight'){ anim='look'; fr=Math.floor(time*2.5)%NF('look'); }
@@ -2718,6 +2724,8 @@ Object.assign(MOB, {
 //   (10/29 프로듀서 결정: 개체 수 용계의 약 50% · 모든 몬스터 선공)
 //   1구역: 불타는 전사(화상) · 불타는 궁수(원거리) · 라바 골렘(느리고 단단 · 맞으면 느려짐) · 드래곤 플라이(빠름 · 3마리 무리) · 폭탄꽃(제자리 · 불씨 원거리 · 약함)
 //   2구역: 사라만다(불 숨결) · 혼 켈베로스(물기 + 불덩이) · 아시타지오(불 마법 · 화염 기둥 · 드묾) · 파이어에그(제자리 · 아주 약함 · 복권) / 보스 피닉스(3~4명 · 한 번 되살아남)
+//   10/30 중간 보스 이프리트(midb): 1구역·2구역에 1마리씩 · 잡으면 1시간~1시간 30분 뒤 구역 안 무작위 자리에 다시 (알림·멘트·보스 HP바 없음 — ISLAND BOSS의 quiet) · HP = 불타는 전사 ×10 · 공격 = 불타는 전사 +20%
+//     선공 · 불 · 화염 폭발(주변)·불덩이(대상 발밑) · 스턴·슬로우는 보스처럼 잘 안 걸림 · 드랍: 이프리트의 심장 50% · 화룡의 비늘 2~4개(반드시)
 Object.assign(MOB, {
   fn_warrior:   { name: '불타는 전사', lv: 54, hp: 1800, dmg: [74, 120], mac: 2, hit: 0.93, mr: 20, exp: 9350, coin: [2200, 3650], walk: 1.4, run: 3.8, cd: 1.25, aggr: 6, burn: true, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불꽃 대검' },
   fn_archer:    { name: '불타는 궁수', lv: 54, hp: 1550, dmg: [68, 108], mac: 3, hit: 0.93, mr: 20, exp: 8500, coin: [2000, 3350], walk: 1.1, run: 3.0, cd: 1.55, range: 6, aggr: 6, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불화살' },
@@ -2728,6 +2736,7 @@ Object.assign(MOB, {
   fn_hcerberus: { name: '혼 켈베로스', lv: 56, hp: 1950, dmg: [83, 135], mac: 2, hit: 0.94, mr: 25, exp: 12600, coin: [3050, 4900], walk: 1.6, run: 4.2, cd: 1.17, aggr: 6, burn: true, el: 'fire', skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 32, hh: 48, atkTxt: '불 송곳니' },
   fn_ashtazio:  { name: '아시타지오', lv: 57, hp: 3000, dmg: [90, 135], mac: 1, hit: 0.95, mr: 55, exp: 19500, coin: [4900, 8700], walk: 1.0, run: 2.6, cd: 2.0, range: 6, spell: 'fire', aggr: 7, el: 'fire', skills: true, resp: 240, art: 'ashtazio', sc: 0.9, hw: 30, hh: 90, atkTxt: '파이어볼' },
   fn_egg:       { name: '파이어에그', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
+  fn_ifrit:     { name: '이프리트', lv: 58, hp: 18000, dmg: [89, 144], mac: 0, hit: 0.96, mr: 40, exp: 75000, coin: [17500, 29000], walk: 1.2, run: 3.2, cd: 1.4, aggr: 7, burn: true, el: 'fire', skills: true, midb: true, art: 'ifrit', sc: 0.92, hw: 32, hh: 110, atkTxt: '불꽃 주먹' },
   phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
 // 렌더링된 몬스터 스프라이트 (그래픽팀) — 있는 몬스터는 정식 그림, 없으면 임시 그림
@@ -2820,7 +2829,7 @@ for (const k in SIZE_FIX) { const M = MSHEET[k], S = MOB[k]; if (!M || !S) conti
 const DROP_Y = { drake: 24, drake_king: 54 };
 for (const k in DROP_Y) { const M = MSHEET[k]; if (!M) continue; M.ay -= DROP_Y[k]; M.hh = Math.max(60, M.hh - Math.round(DROP_Y[k] * M.s)); }
 /* v159: 발밑 대상 고리 크기 따로 (날개가 넓은 몹은 그림 폭으로 재면 고리가 너무 큼) — 클릭 범위는 그대로 */
-const RING = { drake: 26, drake_king: 36, phoenix: 40, fn_salamander: 30 }; for (const k in RING) if (MOB[k]) MOB[k].ring = RING[k];
+const RING = { drake: 26, drake_king: 36, phoenix: 40, fn_salamander: 30, fn_ifrit: 40 }; for (const k in RING) if (MOB[k]) MOB[k].ring = RING[k];
 { const FN_SZ = { fn_hcerberus: 0.72, fn_salamander: 0.78 }; for (const k in FN_SZ) { const M = MSHEET[k], S = MOB[k], f = FN_SZ[k]; if (!M || !S) continue; M.s *= f; M.hh = Math.max(50, Math.round(M.hh * f)); M.hw = Math.max(18, Math.round(M.hw * f)); S.sc = (S.sc || 1) * f; } }   // 화룡의 둥지: 물들인 임시 그림 크기 맞춤
 const MIMG = {}; for (const k in MSHEET) { MIMG[k] = {}; for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_${a}.webp`; i.decode && i.decode().catch(() => {}); MIMG[k][a] = i; }
   Object.assign(MOB[k], { art0: MOB[k].art, art: 'sheet', hh: MSHEET[k].hh, hw: MSHEET[k].hw }); }
@@ -3382,6 +3391,124 @@ function drawAshtazio(g, f) { const S = MOB[f.kind], A0 = g.globalAlpha, G = (c,
       g.globalAlpha = A0 * Math.max(0, 1 - k * 0.8); g.fillStyle = q % 3 ? '#5c5650' : q % 2 ? '#8a8078' : `rgba(255,140,50,${(1 - k).toFixed(2)})`; g.fillRect(x, y, 2, 2); }
     g.restore(); }
 }
+// 이프리트 (화룡의 둥지 중간 보스 · 오리지널 코드 그림 — 불의 정령 컨셉만 · 리니지 리소스 안 봄): 근육질 상반신이 통째로 불꽃인 거대한 정령 (아시타지오보다 큼)
+//   이글거리는 주황 몸 + 검붉은 근육 결 · 가슴 한가운데 하얗게 고동치는 불씨(심장) · 흑요석 뿔 두 개(끝이 달아오름) · 머리·어깨 뒤로 나부끼는 불꽃 갈기 · 하반신은 땅에서 솟아 소용돌이치는 불기둥 · 양손에 불덩이
+//   걷기 = 불기둥이 뒤로 끌리며 미끄러짐 · 공격 = 오른 주먹을 치켜들었다(쿨이 차면 미리) 내리침 → 주먹에서 불꽃 · 기술 = 두 팔을 벌려 머리 위에 큰 불덩이 + 발밑 불의 고리 · 맞음 = 하얗게 번쩍
+//   죽음 = 불꽃이 사방으로 흩어지며 몸이 위로 풀려 사라지고 땅에 불씨만 잠깐 남음
+const IFRIT_END = 2.0;   // 죽는 그림 길이(초)
+function drawIfrit(g, f) { const S = MOB[f.kind], A0 = g.globalAlpha, t = time + (f.hi || 0), d = DIRV[f.row] || [1, 0], dl = Math.hypot(d[0], d[1]) || 1, d0 = d[0] / dl, d1 = d[1] / dl;
+  const ux = (d0 - d1) / Math.SQRT2, uy = (d0 + d1) / Math.SQRT2, rx = -uy, rz = ux;   // 바라보는 쪽(화면 가로 ux · 앞뒤 uy: +면 보는 사람 쪽) · 몸 오른쪽(화면 가로 rx · 앞뒤 rz: +면 앞)
+  const dead = !!f.dead, dk = dead ? Math.min(1, (f.deadT || 0) / IFRIT_END) : 0, fire = dead ? Math.max(0, 1 - dk * 1.25) : 1, moving = f.t < 1 && !dead, front = uy > -0.3, wd = 0.62 + 0.38 * Math.abs(uy), sc = S.sc || 1;
+  const ap = f.atkT != null && !dead ? Math.min(1, f.atkT / ATK_T) : -1, C = !dead && f.casting && f.casting.k ? f.casting : null, cp = C ? Math.min(1, Math.max(0, 1 - C.t / (C.k.cast || 1))) : 0;
+  let wind = 0, punch = 0;   // wind: 오른 주먹을 치켜듦 · punch: 내리침 (실제 타격은 공격 시작 약 0.2초 뒤)
+  if (!C && ap >= 0) { if (ap < 0.17) { const e = ap / 0.17; punch = e * e; wind = 1 - punch; } else punch = Math.max(0, 1 - (ap - 0.17) / 0.83 * 1.6); }
+  else if (!C && f.aggro && !moving && !dead && f.cool < 0.65) { const e = 1 - f.cool / 0.65; wind = e * e * (3 - 2 * e); }
+  const lift = C ? Math.min(1, cp * 2.5) : 0, br = Math.sin(t * 2.1), pu = 0.55 + 0.45 * Math.sin(t * 3.3), hv = 4 + Math.sin(t * 1.5) * 2, wob = 1 + dk * 2.5;
+  const AL = A0 * (dead ? Math.max(0, 1 - dk * 1.1) : 1), G = (c, x, y, r, a, sy) => { mxG(g, c, x, y, r, a * AL, sy); g.globalAlpha = AL; };
+  if (dead && !f._ifx) { f._ifx = 1; const [wx, wy] = W2P(f.x, f.z);   // 죽는 순간: 몸의 불꽃이 사방으로 흩어짐 (한 번)
+    for (let q = 0; q < 40; q++) { const a = Math.random() * 6.283, sp = mxR(50, 170), h = mxR(10, 125) * sc; mxP(wx + Math.cos(a) * 10 * sc, wy - h, { k: 'flame', s: mxR(3, 8), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.55 - mxR(30, 90), life: mxR(0.55, 1.2), dr: 1.5 }); }
+    mxBurst(wx, wy - 70 * sc, 14, () => ({ k: 'flame', s: mxR(3, 6), life: mxR(0.4, 0.9), dr: 2 }), 70, 200, 50); }
+  g.save(); g.scale(sc, sc); g.lineCap = 'round'; g.lineJoin = 'round';
+  // 그림자 · 땅 불빛 · 기술 시전 중 불의 고리
+  g.fillStyle = `rgba(0,0,0,${(0.42 * (1 - dk)).toFixed(2)})`; g.beginPath(); g.ellipse(0, 1, 23, 7.5, 0, 0, 7); g.fill();
+  g.globalCompositeOperation = 'lighter'; mxG(g, '255,110,30', 0, 0, 36 + lift * 12, (0.3 + 0.06 * br + cp * 0.3) * A0 * Math.max(0, 1 - dk * 0.7), 0.42); g.globalAlpha = A0;
+  if (C) { const rr = 24 + cp * 14, fl = 0.6 + 0.4 * Math.sin(time * 22); g.strokeStyle = `rgba(255,${(120 + 80 * fl) | 0},40,${(0.35 + 0.5 * cp).toFixed(2)})`; g.lineWidth = 1.6 + cp * 1.4; g.beginPath(); g.ellipse(0, 0, rr, rr * 0.38, 0, 0, 7); g.stroke();
+    g.fillStyle = 'rgba(255,140,40,.75)'; for (let q = 0; q < 10; q++) { const a = q * 0.628 + time * 1.4, x = Math.cos(a) * rr, y = Math.sin(a) * rr * 0.38, h = (6 + 5 * Math.sin(time * 9 + q * 2)) * cp; g.beginPath(); g.moveTo(x - 2.2, y); g.quadraticCurveTo(x - 1.6, y - h * 0.6, x, y - h - 2); g.quadraticCurveTo(x + 1.6, y - h * 0.6, x + 2.2, y); g.fill(); } }
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = AL;
+  const lean = (moving ? 3 : 0) + punch * 5 - wind * 2;
+  g.translate(ux * lean, -hv + uy * lean * 0.5 - dk * 18); if (dead) g.scale(1 + dk * 0.22, 1 + dk * 0.08);
+  if (f.flash > 0 && !(dead && (f.deadT || 0) > 0.1)) g.filter = 'brightness(2.2) saturate(.35)';   // 죽은 뒤에는 번쩍임 없이 (죽으면 flash가 줄지 않음)
+  const tongue = (x, y, h, w, ln, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(x - w, y); g.quadraticCurveTo(x - w * 0.8, y - h * 0.55, x + ln, y - h); g.quadraticCurveTo(x + w * 0.8, y - h * 0.55, x + w, y); g.closePath(); g.fill(); };
+  const fx = ux * 3 * (front ? 1 : -1), hx = ux * 3.2, hy = -96 + br * 0.7;   // 가슴 무늬·머리 위치 (바라보는 쪽으로 조금)
+  // 아우라 (몸 뒤 열기)
+  g.globalCompositeOperation = 'lighter'; G('255,120,30', 0, -64, 50, (0.2 + 0.08 * pu) * fire, 1.1); g.globalCompositeOperation = 'source-over';
+  // 불꽃 갈기: 머리·어깨 뒤로 일렁이며 뒤쪽 위로 나부낌
+  const MN = [[-19, -80, 15], [-14, -90, 19], [-8, -100, 22], [-3, -105, 24], [3, -105, 24], [8, -100, 22], [14, -90, 19], [19, -80, 15]];
+  const mane = () => { if (fire <= 0) return; for (let pass = 0; pass < 3; pass++) { if (pass) g.globalCompositeOperation = 'lighter';
+      MN.forEach(([x0, y0, h0], q) => { const bx = x0 * wd * (front ? 1.05 : 1) - ux * 4 + hx * 0.4, b_ = y0 + br * 0.7 + uy * 3, h = (h0 + 4.5 * Math.sin(t * 7.1 + q * 1.9) * wob) * fire * (pass ? (pass === 1 ? 0.7 : 0.4) : 1) * (front ? 1.25 : 1.05), w = pass ? (pass === 1 ? 2.6 : 1.4) : 4.6, ln = (-ux * 9 + Math.sin(t * 5 + q) * 2.5) * (pass ? 0.75 : 1);
+        tongue(bx, b_, h, w, ln, pass === 0 ? 'rgba(190,36,8,.9)' : pass === 1 ? 'rgba(255,140,40,.75)' : 'rgba(255,236,160,.7)'); }); } g.globalCompositeOperation = 'source-over'; };
+  // 하반신: 땅에서 솟는 소용돌이 불기둥 (허리 -44 → 땅) — 아래로 갈수록 가늘고 비틀림 · 걸을 때 뒤로 끌림
+  const colm = () => { const yT = -44, yB = hv - 1.5, H = (yB - yT) * (1 - dk * 0.75), n = 12, trail = (moving ? -ux * 8 : 0) - ux * punch * 3, tw = t * 5.5;
+    const cxk = k => Math.sin(tw * 0.5 + k * 3.2) * 2.4 * k * wob + trail * k * k, hwk = k => (16 - 12 * Math.pow(k, 0.8)) * wd * (1 + 0.09 * Math.sin(tw + k * 9) * wob) * (1 - dk * 0.5);
+    for (const [m, col] of [[1, 'rgba(140,22,6,.95)'], [0.78, 'rgba(225,66,14,.93)'], [0.52, 'rgba(255,148,40,.9)'], [0.26, 'rgba(255,232,150,.85)']]) { g.fillStyle = col; g.beginPath();
+      for (let i = 0; i <= n; i++) { const k = i / n, jag = (i % 2 ? 1.8 : -0.4) * m * Math.sin(tw * 1.3 + i) * wob; g.lineTo(cxk(k) - hwk(k) * m - jag, yT + H * k); }
+      for (let i = n; i >= 0; i--) { const k = i / n, jag = (i % 2 ? -0.4 : 1.8) * m * Math.sin(tw * 1.1 + i * 1.3) * wob; g.lineTo(cxk(k) + hwk(k) * m + jag, yT + H * k); }
+      g.closePath(); g.fill(); }
+    g.globalCompositeOperation = 'lighter'; g.lineWidth = 1.7;   // 아래에서 위로 감아 올라가는 밝은 띠
+    for (let q = 0; q < 5; q++) { const ph = (t * 0.95 + q / 5) % 1, k = 1 - ph, y = yT + H * k, w = hwk(k), x0 = cxk(k); g.strokeStyle = `rgba(255,${200 + q * 10},120,${(0.6 * Math.sin(ph * Math.PI) * fire).toFixed(2)})`; g.beginPath(); g.ellipse(x0, y, w * 0.92, w * 0.32, -0.25, 0.12 * Math.PI, 0.95 * Math.PI); g.stroke(); }
+    G('255,140,40', cxk(1), yT + H, 12, 0.55 * fire, 0.5);   // 땅에 닿는 끝
+    for (let q = 0; q < 4; q++) { const a = t * 6 + q * 1.57, x = cxk(1) + Math.cos(a) * 7 * wd, y = yT + H + Math.sin(a) * 2.2; tongue(x, y, 5 + 2 * Math.sin(t * 9 + q), 1.6, -Math.sin(a) * 2, 'rgba(255,170,60,.7)'); }
+    g.globalCompositeOperation = 'source-over'; };
+  // 상반신 윤곽 (오른쪽 반 · 왼쪽은 거울): 허리 → 옆구리 → 겨드랑이 → 승모근 → 목
+  const TR = [[11.5, -40], [12.5, -50], [17, -61], [20, -70], [18, -77], [12, -83], [6, -87]];
+  const torso = () => { const P = TR.map(([x, y]) => [x * wd, y + (y < -60 ? br * 0.7 : 0)]), cx_ = ux * 1.2;
+    g.beginPath(); g.moveTo(cx_ - P[P.length - 1][0], P[P.length - 1][1]); for (let i = P.length - 1; i >= 0; i--) g.lineTo(cx_ - P[i][0], P[i][1]); g.quadraticCurveTo(cx_, -37, cx_ + P[0][0], P[0][1]); for (const p of P) g.lineTo(cx_ + p[0], p[1]); g.closePath();
+    const gr = g.createRadialGradient(fx, -66, 2, fx, -64, 34); if (front) { gr.addColorStop(0, '#fff4c0'); gr.addColorStop(0.16, '#ffc84c'); gr.addColorStop(0.48, '#f2661a'); gr.addColorStop(0.82, '#ac260a'); gr.addColorStop(1, '#6a1004'); } else { gr.addColorStop(0, '#ffa23a'); gr.addColorStop(0.45, '#d2440f'); gr.addColorStop(1, '#5a0c04'); }
+    g.fillStyle = gr; g.fill(); g.strokeStyle = `rgba(80,8,2,${(0.55 * (1 - dk)).toFixed(2)})`; g.lineWidth = 1.1; g.stroke();
+    // 근육 결 (앞: 가슴·복근·옆구리 · 뒤: 등뼈·날개뼈)
+    g.strokeStyle = 'rgba(110,16,4,.62)'; g.lineWidth = 1.35; const w = wd, y0 = br * 0.7;
+    if (front) { g.beginPath(); for (const s of [-1, 1]) { g.moveTo(fx, -66 + y0); g.quadraticCurveTo(fx + s * 9 * w, -61 + y0, fx + s * 16.5 * w, -70 + y0); } g.moveTo(fx, -81 + y0); g.lineTo(fx, -42); g.stroke();
+      g.lineWidth = 1.1; g.beginPath(); for (const y of [-58, -52, -46.5]) for (const s of [-1, 1]) { g.moveTo(fx + s * 1.3, y); g.quadraticCurveTo(fx + s * 3.5 * w, y + 1.2, fx + s * 6.2 * w, y - 0.6); } for (const s of [-1, 1]) { g.moveTo(fx + s * 10.5 * w, -60); g.quadraticCurveTo(fx + s * 8.5 * w, -52, fx + s * 9 * w, -44); } g.stroke(); }
+    else { g.beginPath(); g.moveTo(cx_, -84 + y0); g.lineTo(cx_, -42); for (const s of [-1, 1]) { g.moveTo(cx_ + s * 3 * w, -78 + y0); g.quadraticCurveTo(cx_ + s * 14 * w, -76 + y0, cx_ + s * 12 * w, -63 + y0); } g.stroke(); }
+    // 빛: 바라보는 쪽 테두리 + 가슴 불씨(심장)
+    g.globalCompositeOperation = 'lighter';
+    if (fire > 0) { const ls = Math.abs(ux) > 0.2 ? Math.sign(ux) : 1; g.strokeStyle = `rgba(255,210,120,${(0.45 * fire).toFixed(2)})`; g.lineWidth = 1.6; g.beginPath(); g.moveTo(cx_ + ls * P[1][0], P[1][1]); for (let i = 2; i < P.length - 1; i++) g.lineTo(cx_ + ls * P[i][0], P[i][1]); g.stroke();
+      if (front) { const hb = Math.pow(0.5 + 0.5 * Math.sin(t * 4.2), 3); G('255,214,110', fx, -67 + y0, 10 + hb * 6, (0.75 + 0.25 * hb) * fire, 1); g.fillStyle = `rgba(255,248,205,${(0.9 * fire).toFixed(2)})`; g.beginPath(); g.moveTo(fx, -72 + y0); g.lineTo(fx + 2.6, -67 + y0); g.lineTo(fx, -62.5 + y0); g.lineTo(fx - 2.6, -67 + y0); g.closePath(); g.fill(); }
+      for (const s of [-1, 1]) for (let q = 0; q < 3; q++) { const k = (q + 0.5) / 3, p0 = P[1 + q], fl = Math.sin(t * 8 + q * 2.1 + s); tongue(cx_ + s * (p0[0] + 0.5), p0[1] + 2, (6 + 3 * fl) * fire * wob, 2, s * (2.5 + k * 2) - ux * 2, 'rgba(255,150,50,.55)'); } }
+    g.globalCompositeOperation = 'source-over'; };
+  // 어깨 (삼각근): 불타는 둥근 근육 + 위로 솟는 불꽃
+  const shoulder = s => { const x = rx * s * 19 + ux * 0.5, y = -75 + rz * s * 1.5 + br * 0.7, gr = g.createRadialGradient(x - 1.5, y - 2.5, 0.5, x, y, 8); gr.addColorStop(0, '#ffd070'); gr.addColorStop(0.5, '#e85a16'); gr.addColorStop(1, '#8a1a06');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, 7.4, 6.4, s * rx * 0.4, 0, 7); g.fill();
+    if (fire > 0) { g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 2; q++) tongue(x + (q - 0.5) * 4, y - 3, (8 + 3 * Math.sin(t * 7 + q * 2 + s)) * fire * wob, 2.2, -ux * 3, 'rgba(255,160,60,.6)'); g.globalCompositeOperation = 'source-over'; } };
+  // 팔: 어깨 → 팔꿈치 → 주먹 (오른손 s=1 은 치켜들었다 내리침 · 기술 때 두 팔을 벌려 위로) · 손에 불덩이
+  const handAt = s => { const r0 = [rx * s * 25 + ux * 4, -47 + rz * s * 2], up = [rx * s * 17 - ux * 6, -108], hit = [rx * s * 8 + ux * 27, -40 + uy * 7], cast = [rx * s * 31 + ux * 2, -103];
+    let p = r0; if (s > 0) { p = [p[0] + (up[0] - r0[0]) * wind + (hit[0] - r0[0]) * punch, p[1] + (up[1] - r0[1]) * wind + (hit[1] - r0[1]) * punch]; } if (lift) p = [p[0] + (cast[0] - p[0]) * lift, p[1] + (cast[1] - p[1]) * lift];
+    return [p[0], p[1] + br * 0.6 * (1 - lift)]; };
+  const ball = (x, y, r, a) => { if (a <= 0) return; g.globalCompositeOperation = 'lighter'; G('255,130,40', x, y, r * 3 + 4, 0.55 * a, 1); g.fillStyle = `rgba(230,70,20,${(0.9 * a).toFixed(2)})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    g.fillStyle = `rgba(255,196,80,${(0.9 * a).toFixed(2)})`; g.beginPath(); g.arc(x - r * 0.12, y + r * 0.08, r * 0.64, 0, 7); g.fill(); g.fillStyle = `rgba(255,248,214,${a.toFixed(2)})`; g.beginPath(); g.arc(x - r * 0.18, y + r * 0.12, r * 0.3, 0, 7); g.fill();
+    for (let q = 0; q < 3; q++) { const an = t * 4 + q * 2.1, cx = x + Math.cos(an) * r * 0.5; tongue(cx, y - r * 0.2, r * (1.4 + 0.5 * Math.sin(t * 9 + q)), r * 0.35, -ux * 1.5, `rgba(255,130,40,${(0.6 * a).toFixed(2)})`); } g.globalCompositeOperation = 'source-over'; };
+  const arm = s => { const sx = rx * s * 19 + ux * 0.5, sy = -74 + rz * s * 1.5 + br * 0.7, [x, y] = handAt(s), ex = (sx + x) / 2 + rx * s * 7 + (s > 0 ? -ux * 3 * wind : 0), ey = (sy + y) / 2 + 5 - (s > 0 ? wind * 4 : 0) - lift * 4;
+    for (const [w1, w2, col] of [[11, 9, '#8a1a06'], [8.6, 6.8, '#d6461a'], [3.4, 2.6, 'rgba(255,190,90,.85)']]) { g.strokeStyle = col; g.lineWidth = w1; g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke(); g.lineWidth = w2; g.beginPath(); g.moveTo(ex, ey); g.lineTo(x, y); g.stroke(); }
+    g.fillStyle = '#e2561a'; g.beginPath(); g.ellipse((sx + ex) / 2 + rx * s * 1.2, (sy + ey) / 2, 5.6, 4.4, Math.atan2(ey - sy, ex - sx), 0, 7); g.fill();   // 이두근
+    g.strokeStyle = 'rgba(110,16,4,.55)'; g.lineWidth = 1; g.beginPath(); g.moveTo(ex, ey); g.lineTo((ex + x) / 2 + 1, (ey + y) / 2); g.stroke();
+    const gr = g.createRadialGradient(x - 1.5, y - 1.5, 0.5, x, y, 6.5); gr.addColorStop(0, '#ffe08a'); gr.addColorStop(0.6, '#ec661c'); gr.addColorStop(1, '#8a1a06'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, 5.6, 0, 7); g.fill();   // 주먹
+    if (fire > 0) { g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 2; q++) { const k = 0.35 + q * 0.3; tongue(ex + (x - ex) * k, ey + (y - ey) * k - 2, (6 + 2.5 * Math.sin(t * 8 + q + s * 2)) * fire * wob, 1.8, -ux * 2.5 - (x - ex) * 0.08, 'rgba(255,150,50,.55)'); } g.globalCompositeOperation = 'source-over';
+      if (!lift) ball(x + ux * 1.5, y - 6.5, 3.8 + 0.5 * Math.sin(t * 6 + s), fire * (s > 0 && punch > 0.6 ? 0.4 : 1));   // 손에 든 작은 불덩이
+      if (s > 0 && ap >= 0.1 && ap < 0.34) { const k = (ap - 0.1) / 0.24; g.globalCompositeOperation = 'lighter'; G('255,220,140', x, y, 10 + k * 16, (1 - k) * 0.95, 0.8); G('255,120,40', x, y + 2, 16 + k * 18, (1 - k) * 0.7, 0.5); g.globalCompositeOperation = 'source-over'; } } };   // 내리친 주먹의 불꽃
+  // 머리: 단단한 턱 · 이글거리는 눈 · 흑요석 뿔
+  const head = () => { const ew = Math.max(0.32, uy), gr = g.createRadialGradient(hx + ux * 2, hy - 2, 1, hx, hy, 11); gr.addColorStop(0, front ? '#ffe49a' : '#ffa040'); gr.addColorStop(0.55, front ? '#ff8a2a' : '#d84a12'); gr.addColorStop(1, '#9a2408');
+    g.fillStyle = '#8a1e08'; g.beginPath(); g.ellipse(hx + ux * 1.6, hy + 5, 6.6, 3.8, 0, 0, 7); g.fill();   // 턱
+    g.fillStyle = gr; g.beginPath(); g.ellipse(hx, hy, 7.8, 9.2, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(80,8,2,.55)'; g.lineWidth = 0.9; g.stroke();
+    if (front) { const ex0 = hx + ux * 2.8; g.strokeStyle = 'rgba(90,12,4,.85)'; g.lineWidth = 2.3; g.beginPath(); g.moveTo(ex0 - 6.2 * ew, hy - 3.4); g.quadraticCurveTo(ex0, hy - 0.4, ex0 + 6.2 * ew, hy - 3.4); g.stroke();   // 찌푸린 눈썹 뼈
+      if (fire > 0) { g.globalCompositeOperation = 'lighter'; for (const s of [-1, 1]) { const x = ex0 + s * 3.1 * ew, y = hy - 0.8; G('255,240,170', x, y, 5.5, 0.8 * fire, 1); g.fillStyle = `rgba(255,255,230,${fire.toFixed(2)})`; g.beginPath(); g.ellipse(x, y, 1.9 * Math.max(0.55, ew), 0.9, -s * 0.35, 0, 7); g.fill(); }
+        const mo = C ? 1.6 : punch * 1.2; if (mo > 0.2) { G('255,200,90', ex0, hy + 5.4, 4 + mo * 2, 0.7 * fire, 0.6); g.fillStyle = `rgba(255,240,180,${(0.9 * fire).toFixed(2)})`; g.beginPath(); g.ellipse(ex0, hy + 5.4, 3 * ew + 0.4, mo, 0, 0, 7); g.fill(); }   // 기술·주먹 때 벌린 입
+        g.strokeStyle = `rgba(255,236,170,${(0.85 * fire).toFixed(2)})`; g.lineWidth = 1.1; g.beginPath(); g.moveTo(ex0 - 3.6 * ew, hy + 4.4); g.lineTo(ex0 - 1.8 * ew, hy + 5.6); g.lineTo(ex0 - 0.6 * ew, hy + 4.9); g.lineTo(ex0 + 0.6 * ew, hy + 5.6); g.lineTo(ex0 + 1.8 * ew, hy + 4.9); g.lineTo(ex0 + 3.6 * ew, hy + 5.8); g.stroke(); g.globalCompositeOperation = 'source-over'; } } };   // 두 눈 · 불빛 새는 일그러진 입
+  const horn = s => { const wh = Math.max(0.42, Math.abs(uy)), back = [-ux, -uy * 0.5], b0 = [hx + s * wh * 6 - ux * 0.8, hy - 5.5], c1 = [b0[0] + s * wh * 10 + back[0] * 3, b0[1] - 2], tip = [b0[0] + s * wh * 13 + back[0] * 9, b0[1] - 21 + back[1] * 5];
+    const pt = k => [(1 - k) * (1 - k) * b0[0] + 2 * (1 - k) * k * c1[0] + k * k * tip[0], (1 - k) * (1 - k) * b0[1] + 2 * (1 - k) * k * c1[1] + k * k * tip[1]];
+    const cols = ['#1c100c', '#26150f', '#301a12', '#3c2014', '#5a2a14', '#9a3c14', '#e2701e', '#ffc860'];
+    for (let i = 0; i < 8; i++) { const a = pt(i / 8), b = pt((i + 1) / 8); g.strokeStyle = cols[i]; g.lineWidth = 6.4 - i * 0.74; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    g.strokeStyle = 'rgba(255,140,60,.35)'; g.lineWidth = 0.7; for (const k of [0.2, 0.36, 0.52]) { const a = pt(k), b = pt(k + 0.04); g.beginPath(); g.moveTo(a[0] - 2, a[1] + 0.6); g.lineTo(b[0] + 2, b[1] - 0.6); g.stroke(); }   // 뿔 마디 (안쪽 열기)
+    if (fire > 0) { g.globalCompositeOperation = 'lighter'; G('255,130,40', tip[0], tip[1], 6 + 1.5 * Math.sin(t * 5 + s), 0.7 * fire, 1); g.globalCompositeOperation = 'source-over'; } };
+  const hb = Math.abs(uy) < 0.3 ? (Math.abs(ux) > 0.2 ? -Math.sign(ux) : -1) : -1;   // 옆모습이면 먼 쪽 뿔을 먼저
+  // 그리는 순서 (바라보는 쪽에 따라): 갈기(앞모습) → 뒤쪽 팔 → 불기둥 → 몸 → 어깨 → 머리·뿔 → 앞쪽 팔 → 기술 불덩이
+  if (front) mane();
+  for (const s of [-1, 1]) if (rz * s < -0.2) { shoulder(s); arm(s); }
+  colm(); torso();
+  for (const s of [-1, 1]) if (rz * s >= -0.2) shoulder(s);
+  if (front) { horn(hb); horn(-hb); head(); } else { head(); horn(hb); horn(-hb); mane(); }
+  for (const s of [-1, 1]) if (rz * s >= -0.2) arm(s);
+  if (C && fire > 0) { const bx = ux * 3, by = -120 - lift * 4, r = 4 + cp * 9 + Math.sin(t * 10) * 0.6; ball(bx, by, r, 1);   // 기술: 머리 위 큰 불덩이 · 두 손에서 불줄기
+    g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(255,170,60,${(0.55 * lift).toFixed(2)})`; g.lineWidth = 2; for (const s of [-1, 1]) { const [x, y] = handAt(s); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo((x + bx) / 2, Math.min(y, by) - 8 + Math.sin(t * 12 + s) * 3, bx, by); g.stroke(); } g.globalCompositeOperation = 'source-over'; }
+  // 불티: 몸에서 위로 날림
+  if (fire > 0) { g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 10; q++) { const ph = (t * 0.7 + q / 10) % 1, x = Math.sin(q * 2.3 + 1) * 18 * wd + Math.sin(t * 2 + q) * 2 - ux * ph * 10, y = -30 - (q * 9) % 60 - ph * 40;
+      g.fillStyle = `rgba(255,${(160 + q * 9) | 0},60,${(Math.sin(ph * Math.PI) * 0.9 * fire).toFixed(2)})`; g.fillRect(x, y, 1.6, 1.6); } g.globalCompositeOperation = 'source-over'; }
+  g.filter = 'none'; g.restore();
+  // 죽은 뒤: 땅에 남은 불씨가 잦아듦
+  if (dead) { const k = dk, sd = (f.hi || 0) * 5.3; g.save(); g.scale(sc, sc); g.globalCompositeOperation = 'lighter'; mxG(g, '255,120,40', 0, -2, 20, 0.5 * A0 * (1 - k), 0.45);
+    for (let q = 0; q < 16; q++) { const a = q * 0.41 + sd, r = (5 + (q % 5) * 4) * (0.4 + k), x = Math.cos(a) * r * 1.3, y = -2 + Math.sin(a) * r * 0.35 - ((q * 7) % 20) * k;
+      g.globalAlpha = A0 * Math.max(0, 1 - k) * (0.5 + 0.5 * Math.sin(time * 9 + q)); g.fillStyle = q % 3 ? 'rgba(255,150,50,1)' : 'rgba(255,230,150,1)'; g.fillRect(x, y, 1.8, 1.8); }
+    g.globalAlpha = A0; g.globalCompositeOperation = 'source-over'; g.restore(); }
+}
 // 피닉스: 쓰러지면 잿더미(4초 · 피해 안 받음)로 무너졌다가 HP 30%로 한 번 되살아남
 function phxAsh(f, S) { f.hp = 1; f.reborn = true; f.ashT = 4; f.casting = null; f.atkT = null; f.stunT = 0; f.bleed = null; const [x, y] = W2P(f.x, f.z); shake = Math.max(shake, 0.5);
   mxBurst(x, y - 30, 40, () => ({ k: 'dot', c: '90,84,80', s: mxR(2, 4), life: mxR(0.8, 1.4), dr: 1 }), 40, 140, 60); mxBurst(x, y - 30, 24, () => ({ k: 'flame', s: mxR(4, 8), life: mxR(0.4, 0.7), dr: 2 }), 60, 160, 80);
@@ -3488,12 +3615,12 @@ const ISLAND = (() => {
     // 화룡의 둥지 (상급, 불속성 — 물 속성 무기·마법이 잘 듭니다): 용의 계곡 너머 화산 분화구 · 용암 웅덩이(들어가면 지속 피해 · 길찾기는 피해 감) · 가끔 하늘에서 화산탄(떨어질 자리 표시) · 흑요석 기둥 · 화룡의 뼈와 알 껍질
     22: { name: '화룡의 둥지 1구역', tier: 1, seed: 2203, N: 60, gore: true, valley: true, fire: true, sites: 2, camps: 0, lava: 7, streams: 2, lavaDmg: [24, 34], bombDmg: [10, 15], bombGap: [13, 19],
          portals: [{ i: 4, j: 4, to: 23, label: '2구역으로 ▲' }, { i: 55, j: 55, to: 17, label: '▼ 용의 계곡으로' }], tone: 'rgba(120,30,8,.24)',
-         hello: '불타는 분화구입니다. 땅의 붉은 용암 웅덩이에 들어가면 계속 불에 탑니다! 가끔 하늘에서 화산탄이 떨어지니 붉은 원을 피하세요. 이곳의 몬스터는 모두 먼저 덤빕니다! 화염 저항이 높을수록 불 피해가 줄고, 피닉스의 가호가 있으면 용암·화산탄 피해를 받지 않아요. 북쪽 끝 포털로 2구역에 갈 수 있어요.',
-         mobs: [['fn_warrior', 7], ['fn_archer', 5], ['fn_golem', 3], ['fn_bomb', 3]], groups: [['fn_fly', [['fn_fly', 2]], 2]] },
+         hello: '불타는 분화구입니다. 땅의 붉은 용암 웅덩이에 들어가면 계속 불에 탑니다! 가끔 하늘에서 화산탄이 떨어지니 붉은 원을 피하세요. 이곳의 몬스터는 모두 먼저 덤빕니다! 화염 저항이 높을수록 불 피해가 줄고, 피닉스의 가호가 있으면 용암·화산탄 피해를 받지 않아요. 이따금 불의 정령 이프리트가 아무 기척 없이 나타나 떠돕니다 — 매우 강하니 조심하세요! 북쪽 끝 포털로 2구역에 갈 수 있어요.',
+         mobs: [['fn_warrior', 12], ['fn_archer', 9], ['fn_golem', 5], ['fn_bomb', 5]], groups: [['fn_fly', [['fn_fly', 2]], 3]] },   // 10/30: 40마리 (24 → 40 · 비율 그대로 · 드래곤 플라이 3마리×3무리)
     23: { name: '화룡의 둥지 2구역', tier: 2, seed: 2311, N: 66, gore: true, valley: true, fire: true, sites: 3, camps: 0, lava: 9, streams: 3, lavaDmg: [32, 44], bombDmg: [14, 21], bombGap: [11, 17],
          portals: [{ i: 60, j: 60, to: 22, label: '▼ 1구역으로' }], tone: 'rgba(130,26,6,.28)',
-         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 사라만다의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다! 피닉스의 가호조각을 모아 가호를 만들면 용암·화산탄 피해를 받지 않아요.',
-         mobs: [['fn_salamander', 10], ['fn_hcerberus', 10], ['fn_ashtazio', 2], ['fn_egg', 3]], groups: [] },
+         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 사라만다의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다! 피닉스의 가호조각을 모아 가호를 만들면 용암·화산탄 피해를 받지 않아요. 이곳에도 이따금 불의 정령 이프리트가 소리 없이 나타납니다.',
+         mobs: [['fn_salamander', 16], ['fn_hcerberus', 16], ['fn_ashtazio', 3], ['fn_egg', 5]], groups: [] },   // 10/30: 40마리 (25 → 40 · 드문 아시타지오는 2 → 3만)
     // 할로윈 이벤트 지역 (21번): 음침한 호박밭 — 귀신이 떠다니고 핏빛 살육터 소품 · 시야는 늘 낮처럼 · 마을 NPC 할로윈 허수아비 잭으로만 입장 · 나가려면 귀환 주문서
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
          hello: '으스스한 호박밭에 들어왔습니다... 호박 머리 허수아비로 변신했어요! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. 호박괴물을 쓰러뜨려 호박씨를 모으세요. (주는 피해 1 + 모자 강화 · 받는 피해 1 · 나가려면 귀환 주문서·귀환 부적)',
@@ -3883,6 +4010,9 @@ const ISLAND = (() => {
     deathknight: { zone: 10, ent: null, P: DEMO ? 180 : 10800, R: DEMO ? 60 : 1200, RP: DEMO ? 180 : 10800, RR: DEMO ? 60 : 1200, title: '데스나이트', where: '본토던전 2층', againTxt: DEMO ? '데모: 3~4분 뒤' : '3시간~3시간 20분 뒤' },
     drake_king: { zone: 17, ent: null, P: DEMO ? 180 : 12600, R: DEMO ? 60 : 1800, RP: DEMO ? 180 : 10800, RR: DEMO ? 60 : 1800, title: '드레이크 킹', where: '용의 계곡 2구역', againTxt: DEMO ? '데모: 3~4분 뒤' : '3시간~3시간 30분 뒤' },   // v153
     phoenix: { zone: 23, ent: null, P: DEMO ? 180 : 12600, R: DEMO ? 60 : 1800, RP: DEMO ? 180 : 10800, RR: DEMO ? 60 : 1800, title: '피닉스', where: '화룡의 둥지 2구역', againTxt: DEMO ? '데모: 3~4분 뒤' : '3시간~3시간 30분 뒤' },   // 화룡의 둥지
+    // 10/30: 중간 보스 이프리트 — 1구역·2구역에 1마리씩 (kind: 실제 몬스터) · 잡은 뒤 1시간~1시간 30분 사이 무작위로 다시 나타남 · quiet: 등장·토벌 공지, 근처 등장 연출, 월드맵 표시 없음 · 자리는 구역 안 무작위 (용암 웅덩이·포털 근처 빼고)
+    ifrit22: { zone: 22, kind: 'fn_ifrit', quiet: true, ent: null, P: DEMO ? 180 : 5400, R: DEMO ? 60 : 1800, RP: DEMO ? 120 : 3600, RR: DEMO ? 60 : 1800, title: '이프리트', where: '화룡의 둥지 1구역', againTxt: DEMO ? '데모: 2~3분 뒤' : '1시간~1시간 30분 뒤' },
+    ifrit23: { zone: 23, kind: 'fn_ifrit', quiet: true, ent: null, P: DEMO ? 180 : 5400, R: DEMO ? 60 : 1800, RP: DEMO ? 120 : 3600, RR: DEMO ? 60 : 1800, title: '이프리트', where: '화룡의 둥지 2구역', againTxt: DEMO ? '데모: 2~3분 뒤' : '1시간~1시간 30분 뒤' },
   };
   const KILL = (() => { try { return JSON.parse(localStorage.getItem('aden_bk') || '{}') || {}; } catch (e) { return {}; } })(), keepK = () => { try { localStorage.setItem('aden_bk', JSON.stringify(KILL)); } catch (e) {} };
   const hsh = str => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
@@ -3906,15 +4036,15 @@ const ISLAND = (() => {
     else if (id === 1) say('먼저 덤비는 몬스터가 없는 초보 사냥터입니다. 북쪽 끝 포털로 2구간에 갈 수 있어요.', '#9fd0e8');
     else say('무리 중 하나를 때리면 무리 전체가 덤빕니다. 보스 셸로브를 조심하세요!', '#f0c080'); }
   // 보스 등장: 자리도 모든 PC가 같게 (구간 번호로 정한 무작위) · 막 등장한 순간 근처(12칸)에 있으면 극적인 연출
-  function spawnBoss(kind, n, fresh) { const B = BOSS[kind], z = get(B.zone);
-    const ex = z.mobs.find(m => m.kind === kind && !m.dead && !m.gone && !m.summoned && !m.reaper && !m.soulBoss && !(m.uid != null && isRpUid(m.uid))); if (ex) { B.ent = ex; return; }   // 호스트에게서 받은 보스가 이미 있으면 그대로
-    const R = rngOf(hsh(kind + ':pos:' + n)); let p = null; const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6);
+  function spawnBoss(kind, n, fresh) { const B = BOSS[kind], z = get(B.zone), MK = B.kind || kind;   // MK: 실제 몬스터 (이프리트는 시간표 칸 이름과 다름)
+    const ex = z.mobs.find(m => m.kind === MK && !m.dead && !m.gone && !m.summoned && !m.reaper && !m.soulBoss && !(m.uid != null && isRpUid(m.uid))); if (ex) { B.ent = ex; return; }   // 호스트에게서 받은 보스가 이미 있으면 그대로
+    const R = rngOf(hsh(kind + ':pos:' + n)); let p = null; const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6) && !(B.quiet && z.lava && z.lava.has(j * 1000 + i));
     for (let t = 0; t < 800 && !p; t++) { const i = 2 + Math.floor(R() * (z.N - 4)), j = 2 + Math.floor(R() * (z.N - 4)); if (ok(i, j)) p = [i, j]; } if (!p) p = [z.N >> 1, z.N >> 1];
     if (z.hall) p = [z.hall[0], z.hall[1]];   // 던전 보스: 보스 방 가운데
-    const boss = mkMob(kind, ...p); boss.home = p; boss.uid = BUID(kind); z.mobs.push(boss); B.ent = boss;
+    const boss = mkMob(MK, ...p); boss.home = p; boss.uid = BUID(kind); z.mobs.push(boss); B.ent = boss;
     if (B.fam) { const grp = [boss]; boss.grp = grp; B.fam.slice(1).forEach((k2, q) => { const [a, b] = [[2, 0], [0, 2], [2, 2]][q]; let pp = [p[0] + a, p[1] + b]; if (!ok(pp[0], pp[1])) pp = [p[0] - a, p[1] - b]; if (!ok(pp[0], pp[1])) pp = p;
       const m = mkMob(k2, ...pp); m.home = pp; m.uid = BUID(kind) + 100 + q; m.leader = boss; m.grp = grp; grp.push(m); z.mobs.push(m); }); }
-    if (fresh && ISLE === z && cheb(p[0], p[1], hero.i, hero.j) <= 12) { const [bx, by] = W2P(p[0] + 0.5, p[1] + 0.5); shake = 0.7; impact(bx, by, 'quake', '#6a4a2a'); impact(bx, by - 20, 'bolt', '#ff7a5a');
+    if (fresh && !B.quiet && ISLE === z && cheb(p[0], p[1], hero.i, hero.j) <= 12) { const [bx, by] = W2P(p[0] + 0.5, p[1] + 0.5); shake = 0.7; impact(bx, by, 'quake', '#6a4a2a'); impact(bx, by - 20, 'bolt', '#ff7a5a');
       for (let q = 0; q < 26; q++) { const a = Math.random() * 6.283, sp = 40 + Math.random() * 70; parts.push({ x: bx + Math.cos(a) * 10, y: by, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.4 - 20, life: 0.9, max: 0.9, dust: true }); }
       if (AC && SFX_ON) { const t = AC.currentTime; nz(t, 1.1, 300, 70, 0.7); tone(t, 'sawtooth', 110, 45, 1.0, 0.25); tone(t + 0.15, 'sawtooth', 160, 60, 0.8, 0.12); }
       say(`***** 땅이 갈라지며 바로 근처에서 ${JOSA(B.title, '이', '가')} 튀어나왔습니다! *****`, '#ff5040'); } }
@@ -3924,15 +4054,18 @@ const ISLAND = (() => {
     bossDown(kind, by) { { const fk = Object.keys(BOSS).find(k => BOSS[k].fam && BOSS[k].fam.includes(kind)); if (fk) { const F = BOSS[fk], left = get(F.zone).mobs.filter(m => F.fam.includes(m.kind) && !m.dead && !m.gone).length;
         if (left) { say(`${MOB[kind].name}을(를) 쓰러뜨렸습니다! 카스파 패밀리가 아직 ${left}명 남았습니다.`, '#f2e6a8'); return; } kind = fk; } }
       const B = BOSS[kind || 'shelob']; if (!B) return; TELE.ev('bossdown', { b: kind || 'shelob', by: String(by || PNAME()).slice(0, 12) }); B.ent = null; KILL[kind] = { k: Math.max(killedK(kind), lastSlot(kind)), by: String(by || PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; announce(`${KILL[kind].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); say(`${JOSA(B.title.split(' ').pop(), '을', '를')} 쓰러뜨렸습니다! (${B.againTxt} 다시 나타납니다)`, '#f2e6a8'); },
+    // 10/30: 중간 보스(이프리트)를 잡으면 조용히 기록만 (공지·채팅 없음) — 기록은 다른 보스처럼 저장·다른 사람과 공유되어 모두 같은 시각에 다시 나타남
+    midDown(f) { const k = Object.keys(BOSS).find(q => BOSS[q].quiet && BOSS[q].kind === f.kind && (BOSS[q].ent === f || f.uid === BUID(q))); if (!k) return; const B = BOSS[k];
+      TELE.ev('bossdown', { b: k, by: String(PNAME()).slice(0, 12) }); B.ent = null; KILL[k] = { k: Math.max(killedK(k), lastSlot(k)), by: String(PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; },
     bossTimers: () => Object.fromEntries(Object.keys(BOSS).map(k => [k, isAlive(k) ? 'alive' : Math.round(nextAt(k) - nowS())])),
     bossKills: () => KILL,
     // 다른 사람이 잡은 소식: 더 최근 구간이면 받아들이고, 내 화면의 보스는 치움 + 토벌 공지
     mergeKills(o, quiet) { if (!o || typeof o !== 'object') return; for (const k in o) { const B = BOSS[k], x = o[k]; if (!B || !x) continue; const xt = +x.t || 0, ct = KT(k); if (!(xt ? xt > ct + 1 : !ct && +x.k > killedK(k))) continue; const was = isAlive(k);   // v139: 잡은 시각이 더 늦은 기록을 받아들임 (quiet: 불러올 때는 공지 없이)
-        KILL[k] = { k: Math.max(+x.k || 0, killedK(k)), by: String(x.by || '누군가').slice(0, 12), t: xt }; keepK(); if (quiet) { B.was = isAlive(k); if (!B.was && B.ent && !B.ent.dead) removeBoss(k); continue; } if (was && !isAlive(k)) { announce(`${KILL[k].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); B.was = false; if (B.ent && !B.ent.dead) removeBoss(k); } } },
+        KILL[k] = { k: Math.max(+x.k || 0, killedK(k)), by: String(x.by || '누군가').slice(0, 12), t: xt }; keepK(); if (quiet) { B.was = isAlive(k); if (!B.was && B.ent && !B.ent.dead) removeBoss(k); continue; } if (was && !isAlive(k)) { if (!B.quiet) announce(`${KILL[k].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); B.was = false; if (B.ent && !B.ent.dead) removeBoss(k); } } },
     tick(dt) {
       for (const k in BOSS) { const B = BOSS[k], alive = isAlive(k), fresh = B.was === false && alive; if (B.was === undefined) B.was = alive;
         if (B.fam && B.ent && (B.ent.dead || B.ent.gone)) { const nx = get(B.zone).mobs.find(m => B.fam.includes(m.kind) && !m.dead && !m.gone); if (nx) B.ent = nx; }   // 카스파 패밀리: 남은 형제가 있으면 계속
-        if (fresh) announce(`${B.where} 어딘가에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, '#ff7a5a', 'boss'); B.was = alive;   // 모든 PC가 같은 시각에 공지
+        if (fresh && !B.quiet) announce(`${B.where} 어딘가에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, '#ff7a5a', 'boss'); B.was = alive;   // 모든 PC가 같은 시각에 공지
         if (B.ent && (B.ent.gone || B.ent.dead)) { if (B.ent.gone) B.ent = null; continue; }
         if (alive && !B.ent && !NET.guestIn('isle' + B.zone)) spawnBoss(k, sidOf(k), fresh); else if (!alive && B.ent && !B.ent.dead) removeBoss(k); }
       for (let k = arrows.length - 1; k >= 0; k--) { const a = arrows[k]; a.t += dt; if (a.t >= a.dur) { arrows.splice(k, 1); if (a.pl) { if (a.onHit) a.onHit(); continue; } if (a.kind === 'fireball') { const [bx, by] = a.tg ? W2P(a.tg.x, a.tg.z) : W2P(hero.x, hero.z); fireBurst(bx, by - (a.tg ? 16 : 30)); } if (a.tg) { if (!a.tg.dead) { const [ix, iy] = W2P(a.tg.x, a.tg.z); if (a.tg.isRemote) { NET.hitRemote(a.tg, a.src, MOB[a.src.kind], a.dmg, a.hit, a.kind === 'fireball'); continue; } if (Math.random() < 0.75) { PET.hurt(a.tg, a.dmg, a.src); impact(ix, iy - 16, 'hit', '#ffd890'); } else impact(ix, iy + 2, 'miss'); } continue; } const [ix, iy] = W2P(hero.x, hero.z); if (Math.random() < a.hit - (BUFF.solid > 0 && a.kind !== 'fireball' ? 0.25 : 0)) { hurtHero(a.dmg, a.src, a.kind === 'fireball' ? 'magic' : 'ranged'); impact(ix, iy - 30, 'hit', a.kind === 'fireball' ? '#ff8a3a' : '#ffd890'); if (a.kind !== 'fireball') MSFX('elf', 'arrowhit', 0.45); if (a.kind === 'fireball' && !GOD_INV && Math.random() < 0.25 * Math.max(0.2, 1 - elemRes('fire') / 50)) { hero.burnT = 3; say('파이어볼에 맞아 화상을 입었습니다!', '#ff9a5a'); } } else { heroMiss(); impact(ix + (Math.random() - 0.5) * 20, iy + 2, 'miss'); } } }
@@ -3948,8 +4081,8 @@ const ISLAND = (() => {
 // ============================================================ 바닥 드랍 아이템 (보스 전리품): 아이콘으로 보이고, 마우스를 올리면 정보, 클릭하면 걸어가서 주움
 // 셸로브 드랍표 — 칸마다 따로 굴림(희귀할수록 낮게), 최소 1개는 보장
 const JOSA = (w, a, b) => { const c = String(w).charCodeAt(String(w).length - 1); return w + (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 ? a : b); };
-const BOSS_FIXED = { phoenix: [['phoenix_feather', 1, 1], ['fire_scale', 6, 14]], drake_king: [['dragon_heart', 1, 1], ['dragon_scale', 5, 12], ['drake_claw', 1, 3]] };   // v158: 보스가 반드시 떨어뜨리는 재료 [id, 최소, 최대] — 전리품 · 사냥터 도감 · 아이템 도감이 같이 씀
-const DROP_MIN = { phoenix: 4, drake_king: 4, ice_queen: 3, queen_ant: 2, ogre: 2, baphomet: 3, kaspar: 2, merkyor: 2, balthazar: 2, sema: 2, deathknight: 3 };
+const BOSS_FIXED = { fn_ifrit: [['fire_scale', 2, 4]], phoenix: [['phoenix_feather', 1, 1], ['fire_scale', 6, 14]], drake_king: [['dragon_heart', 1, 1], ['dragon_scale', 5, 12], ['drake_claw', 1, 3]] };   // v158: 보스가 반드시 떨어뜨리는 재료 [id, 최소, 최대] — 전리품 · 사냥터 도감 · 아이템 도감이 같이 씀
+const DROP_MIN = { fn_ifrit: 0, phoenix: 4, drake_king: 4, ice_queen: 3, queen_ant: 2, ogre: 2, baphomet: 3, kaspar: 2, merkyor: 2, balthazar: 2, sema: 2, deathknight: 3 };
 const DROP_TABLE = {
   shelob: [['scroll_acc', 0.15], ['scroll_armor', 0.40], ['scroll_weapon', 0.30], ['scroll_earth', 0.15], ['scroll_water', 0.10], ['bless_scroll', 0.18, 1, 3], ['book_slow', 0.10], ['bscroll_armor', 0.08], ['bscroll_weapon', 0.05], ['book_eruption', 0.03]],
   // 거대 여왕개미: 최소 2개. [아이템, 확률, 최소 수량, 최대 수량]
@@ -4005,7 +4138,7 @@ const GROUND = (() => {
       ring.sort(() => Math.random() - 0.5); for (const [i, j] of ring) { if (out.length >= k) break; if ((r === 0 || walkable(i, j)) && !used.has(j * 1000 + i)) { used.add(j * 1000 + i); out.push([i, j]); } } }
     while (out.length < k) out.push([ci, cj]); return out; }
   function bossLoot(f) { const T = DROP_TABLE[f.kind]; if (!T) return; let got = T.filter(([, p]) => Math.random() < p); if (MOB[f.kind].duo) got = got.concat(T.filter(([, p]) => Math.random() < p));   // v129: 2인 보스는 전리품 2번
-    const tot = T.reduce((a, x) => a + x[1], 0); while (got.length < (DROP_MIN[f.kind] || 1)) { let r = Math.random() * tot; const pk = T.find(x => (r -= x[1]) < 0) || T[0]; if (!got.includes(pk)) got.push(pk); }
+    const tot = T.reduce((a, x) => a + x[1], 0); while (got.length < (DROP_MIN[f.kind] ?? 1)) { let r = Math.random() * tot; const pk = T.find(x => (r -= x[1]) < 0) || T[0]; if (!got.includes(pk)) got.push(pk); }
     if (CX_BOSS[f.kind] && CX_HERO.length && Math.random() < (HERO_P[f.kind] || 0) * (MOB[f.kind].duo ? 1.5 : 1)) got.push([CX_HERO[Math.floor(Math.random() * CX_HERO.length)], 1]);   // 영웅 장비: 보스마다 정해진 확률로 1개 (HERO_P)
     /* v179: 가호조각은 바닥에 떨어지지 않고, 기여도 1% 이상인 캐릭터의 가방에 1개씩 바로 들어감 (NET.gahoGive) */
     for (const [id, a, b] of BOSS_FIXED[f.kind] || []) got.push(a === 1 && b === 1 ? [id, 1] : [id, 1, a, b]);   // v153: 드레이크 킹 — 용의 심장 1 · 비늘 5~12 · 발톱 1~3 (반드시)
@@ -5383,8 +5516,11 @@ CX_ZONE[16] = [...CX_ZONE[11]]; CX_ZONE[17] = [...CX_ZONE[12]]; CX_ZONE_R[16] = 
 ITEMS.fire_scale = { name: '화룡의 비늘', icon: 'fire_scale', w: 0.1, stack: true, rar: '희귀', price: 5000, desc: '화룡의 둥지 몬스터가 떨어뜨리는 이글거리는 붉은 비늘 (2구역에서 잘 나옴). 제작 장인 브론에게서 화룡 장비(투구·갑옷·장갑·장화·직업 무기)를 만들 때 쓰여요. 상점에 팔 수 있어요.' };
 ITEMS.astazio_ash = { name: '아시타지오의 재', icon: 'astazio_ash', w: 0.1, stack: true, rar: '희귀', price: 15000, desc: '아시타지오가 쓰러질 때 남기는 꺼지지 않는 불씨가 섞인 재. 제작 장인 브론에게서 화룡 장비(투구·갑옷·장갑·장화·직업 무기)를 만들 때 쓰여요. 상점에 팔 수 있어요.' };
 ITEMS.phoenix_feather = { name: '피닉스의 깃털', icon: 'phoenix_feather', w: 0.2, stack: true, rar: '영웅', price: 200000, desc: '피닉스를 쓰러뜨리면 반드시 떨어지는 불타는 깃털. 손에 쥐어도 뜨겁지 않아요. 제작 장인 브론에게서 화룡의 검·화룡의 지팡이·화룡의 활을 만들 때 쓰여요.' };
+ITEMS.ifrit_heart = { name: '이프리트의 심장', icon: 'ifrit_heart', w: 0.2, stack: true, rar: '영웅', price: 100000, desc: '화룡 장비의 핵심 재료. 화룡의 둥지 1·2구역에 알림 없이 나타나는 불의 정령 이프리트를 쓰러뜨리면 50% 확률로 떨어지는, 아직도 고동치며 타오르는 심장 결정이에요. 제작 장인 브론에게서 화룡 장비 7종(투구·갑옷·장갑·장화·직업 무기)을 만들 때 1개씩 들어가요. 상점에 팔 수 있어요.' };   // 10/30
+DROP_TABLE.fn_ifrit = [['ifrit_heart', 0.5]];   // 이프리트: 심장 50% (+ BOSS_FIXED 화룡의 비늘 2~4개 · DROP_MIN 0 = 못 얻을 수도 있음)
 CXI.fire_scale = '<defs><linearGradient id="g_fsc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0a0"/><stop offset=".45" stop-color="#ff7a1a"/><stop offset="1" stop-color="#6a0a04"/></linearGradient></defs><circle cx="17" cy="17" r="15" fill="#ff6a1a" opacity=".16"/><path d="M17 3c7 3 11 9 11 15 0 7-5 12-11 13-6-1-11-6-11-13 0-6 4-12 11-15z" fill="url(#g_fsc)" stroke="#2a0604" stroke-width="1"/><path d="M10 16q7 5 14 0M11 22q6 4 12 0" fill="none" stroke="#7a1a06" stroke-width="1.1"/><path d="M17 8c-1 3 2 4 1 7 2-1 3-3 2-5 2 2 2 5 0 7" fill="none" stroke="#fff6c0" stroke-width="1.1" stroke-linecap="round"/>';
 CXI.astazio_ash = '<defs><radialGradient id="g_aas" cx=".5" cy=".6" r=".6"><stop offset="0" stop-color="#8a7e74"/><stop offset="1" stop-color="#2a2420"/></radialGradient></defs><path d="M4 27c2-6 7-9 13-9s11 3 13 9c-4 3-22 3-26 0z" fill="url(#g_aas)" stroke="#120e0c" stroke-width="1"/><circle cx="13" cy="23" r="1.6" fill="#ff8a2a"/><circle cx="20" cy="22" r="1.2" fill="#ffd060"/><circle cx="17" cy="25.5" r="1" fill="#ff6a1a"/><path d="M17 18c-2-4 1-6 0-10 3 3 4 6 2 10" fill="#ff7a1a" opacity=".85"/><path d="M17 17c-1-2 0-3 0-5 1 2 2 3 1 5" fill="#ffe08a"/>';
+CXI.ifrit_heart = '<defs><radialGradient id="g_ifh" cx=".46" cy=".44" r=".62"><stop offset="0" stop-color="#fffbe2"/><stop offset=".28" stop-color="#ffd448"/><stop offset=".62" stop-color="#ff5a12"/><stop offset="1" stop-color="#7a0a04"/></radialGradient><linearGradient id="g_ifh2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5a12"/><stop offset=".6" stop-color="#ffb030"/><stop offset="1" stop-color="#fff0a0" stop-opacity=".2"/></linearGradient></defs><circle cx="17" cy="18" r="15.5" fill="#ff6a1a" opacity=".2"/><path d="M10.2 10.5C8 7.6 9.6 5.2 8.8 2.6c2.6 1.6 3.6 3.6 3.2 6.2 1-1.8 1.4-3.4 1-5.4 2.4 2 2.6 4.4 2 6.6M23.8 10.5c2.2-2.9.6-5.3 1.4-7.9-2.6 1.6-3.6 3.6-3.2 6.2-1-1.8-1.4-3.4-1-5.4-2.4 2-2.6 4.4-2 6.6" fill="url(#g_ifh2)" stroke="#ff7a1a" stroke-width=".4"/><path d="M17 31.5L5.2 17.6C2.8 14.6 3.6 9.2 7.8 8.2c3.2-.8 6.4.8 9.2 4 2.8-3.2 6-4.8 9.2-4 4.2 1 5 6.4 2.6 9.4z" fill="url(#g_ifh)" stroke="#3a0602" stroke-width="1.1" stroke-linejoin="round"/><path d="M17 12.2V31.5M7.8 8.2l4.4 9.4 4.8-5.4 4.8 5.4 4.4-9.4M5.2 17.6h7l4.8 13.9 4.8-13.9h7" fill="none" stroke="#8a1e06" stroke-width=".75" opacity=".75" stroke-linejoin="round"/><path d="M17 15.4l-3.1 4.4 3.1 5.8 3.1-5.8z" fill="#fff8d8" opacity=".92"/><circle cx="17" cy="19.6" r="5.4" fill="#fff2b0" opacity=".28"/><path d="M8.4 11.4c1-1.5 2.9-1.9 4.3-1.2" fill="none" stroke="#fff6d8" stroke-width="1.2" stroke-linecap="round"/><circle cx="24.6" cy="13.4" r=".9" fill="#fff6d8"/>';   // 타오르는 심장 결정 (직접 그림)
 CXI.phoenix_feather = '<defs><linearGradient id="g_phf" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8a1a04"/><stop offset=".45" stop-color="#ff6a1a"/><stop offset=".8" stop-color="#ffd040"/><stop offset="1" stop-color="#fff6c8"/></linearGradient></defs><circle cx="18" cy="16" r="15" fill="#ff8a1a" opacity=".18"/><path d="M6 30C8 20 14 9 29 4c-2 9-7 18-17 23z" fill="url(#g_phf)" stroke="#3a0a02" stroke-width="1"/><path d="M6 30L24 9" stroke="#fff0c0" stroke-width="1.1"/><path d="M12 22l-4-3M15 18l-3-4M18 14l-2-4M14 24l5 1M18 20l5 0M21 15l5-1" stroke="#7a1a04" stroke-width=".9" stroke-linecap="round"/>';
 // 피닉스의 가호 (8번째 가호 · 조각·제작은 다른 가호와 같음: 기여도 1% 이상이면 조각 1개 · 조각 5개 → 40%) — 가방에 가지고 있으면 화룡의 둥지(22·23)의 용암 웅덩이·화산탄 피해를 받지 않음 (fireTick·aoeTick의 phxGuard)
 //   몬스터 공격·아시타지오 화염 기둥·피닉스 기술 같은 다른 불 피해는 그대로 · 효과가 켜짐/꺼짐뿐이라 가호 조합(강화)·축복 부여는 막음 (gonoff) · 아이콘은 직접 그린 불새 (보스 그림으로 덮지 않음: GAHO_DEF 5번째 값 1)
@@ -6789,7 +6925,7 @@ const TOWN = (() => {
     ['bugbear_field', '버그베어밭', '중급', '20~30', 470, 300, '시체와 핏자국이 널린 어둡고 끔찍한 살육의 땅. 1구간(Lv 20~25): 먼저 활을 쏘는 해골 궁수·좀비(해골·좀비는 밤에 강해짐)·버그베어. 2구간(Lv 25~30): 버그베어·불을 무는 켈베로스·먼저 덤비는 킹 버그베어, 그리고 보스 바포메트(잡으면 3시간~3시간 30분 뒤 다시 등장). 버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 잘 떨어뜨린다.'],
     ['dark_knight_field', '본토던전', '상급', '30~40', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 30~35): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 35~40): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
     ['dragon_valley', '용의 계곡', '상급', '47~54', 900, 300, '용족이 지배하는 검붉은 협곡 (불 속성 — 물 속성 무기·마법이 잘 듭니다). 1구역(Lv 47~50): 먼저 덤비는 빠른 해골 돌격병·해골 궁수, 3마리씩 무리 지은 트롤. 2구역(Lv 50~54, 모두 선공): 와이번(독)·불 숨결을 뿜는 드레이크·드물게 번개와 토네이도를 쓰는 흑장로, 그리고 보스 드레이크 킹(약 3시간마다, 2인 이상). 용의 비늘·드레이크의 발톱·용의 심장으로 제작 장인 브론에게서 용비늘 장비와 직업 무기를 만들 수 있어요.'],
-    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(약 3시간마다, 3~4명 · 한 번 되살아남). 화룡의 비늘·아시타지오의 재·피닉스의 깃털로 제작 장인 브론에게서 화룡 장비(방어구 4종·직업 무기 3종)를 만들 수 있어요. 용의 계곡 2구역 북쪽 포털로도 갈 수 있어요.'],
+    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(약 3시간마다, 3~4명 · 한 번 되살아남). 1·2구역 어딘가에는 이따금 불의 정령 이프리트(중간 보스)가 알림 없이 나타나요 — 쓰러뜨리면 화룡 장비의 핵심 재료인 이프리트의 심장을 얻을 수 있어요. 화룡의 비늘·아시타지오의 재·피닉스의 깃털·이프리트의 심장으로 제작 장인 브론에게서 화룡 장비(방어구 4종·직업 무기 3종)를 만들 수 있어요. 용의 계곡 2구역 북쪽 포털로도 갈 수 있어요.'],
     ['summon_altar', '소환의 제단', '상급', '30~50', 700, 560, '영혼석으로 보스를 불러내는 고대의 제단. 몬스터는 없고, 사냥터에서 감시자 리퍼를 쓰러뜨려 얻은 [영혼석]을 제단 가까이에서 쓰면 그 보스(같은 능력치·드랍)가 나타나요. 한 번에 한 마리.'],
     ['oren_elmore', '오렌설원지역', '상급', '40~50', 800, 130, '눈보라가 몰아치는 북쪽의 눈 덮인 설원 (수속성 — 불 속성 무기·마법이 잘 듭니다). 1구역(Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다니며 하나를 치면 무리 전체가 반격. 2구역(Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 얼어붙는 아이스 골렘, 그리고 보스 얼음여왕(약 3시간마다, 블리자드·콘 오브 콜드).'],
   ];
@@ -6823,12 +6959,13 @@ const TOWN = (() => {
     bugbear_field: { zones: [[7, '1구간 · Lv 20~25'], [8, '2구간 · Lv 25~30']], boss: 'baphomet', bossTxt: '2구간 · 잡으면 3시간~3시간 30분 뒤 다시 나타남' },
     oren_elmore: { zones: [[11, '1구역 · Lv 40~45'], [12, '2구역 · Lv 45~50']], boss: 'ice_queen', bossTxt: '2구역 · 잡으면 3시간~3시간 20분 뒤 다시 나타남 (블리자드·콘 오브 콜드)' },
     dragon_valley: { zones: [[16, '1구역 · Lv 47~50'], [17, '2구역 · Lv 50~54']], boss: 'drake_king', bossTxt: '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (2인 이상 · 불 숨결·꼬리·드레이크 부르기)' },
-    fire_dragon_nest: { zones: [[22, '1구역 · Lv 53~55'], [23, '2구역 · Lv 55~57']], boss: 'phoenix', bossTxt: '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)' },
+    fire_dragon_nest: { zones: [[22, '1구역 · Lv 53~55'], [23, '2구역 · Lv 55~57']], boss: 'phoenix', bossTxt: '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)',
+      bosses: [['phoenix', '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)', ['phoenix']], ['fn_ifrit', '중간 보스 · 1구역·2구역에 1마리씩 · 알림 없이 어딘가에 나타남 · 잡으면 1시간~1시간 30분 뒤 (화염 폭발·불덩이)', ['fn_ifrit']]] },
     dark_knight_field: { zones: [[9, '1층 · Lv 30~35'], [10, '2층 · Lv 35~40']], boss: 'deathknight', bossTxt: '', bosses: [['kaspar', '1층 보스 카스파 패밀리 · 넷 모두 쓰러지면 약 2시간 뒤', ['kaspar', 'merkyor', 'balthazar', 'sema']], ['deathknight', '2층 보스 · 약 3시간마다', ['deathknight']]] } };
   const RORD = { '영웅': 0, '희귀': 1, '고급': 2, '일반': 3 };
   function zoneKinds(id) { const d = ISLAND.def(id); if (!d) return []; const ks = new Set(); (d.mobs || []).forEach(([k]) => ks.add(k)); (d.groups || []).forEach(([k, mem]) => { ks.add(k); (mem || []).forEach(([m]) => ks.add(m)); }); return [...ks].filter(k => MOB[k] && !MOB[k].boss); }
   function codexHTML(r) { const R_ = REGION_INFO[r[0]]; if (!R_) return '<p class="wc-none">이 사냥터의 몬스터·아이템 도감은 맵이 열리면 채워집니다.</p>';
-    const mobCell = k => { const S = MOB[k]; return `<div class="wc-mob${S.boss ? ' boss' : ''}"><canvas width="56" height="56" data-k="${k}"></canvas><b>${S.name}</b><small>Lv.${S.lv}${S.el ? ` · <em style="color:${ATTR_C[S.el]}">${ATTR_N[S.el]}</em>` : ''}${S.aggr && !S.boss ? ' · <em>선공</em>' : ''}${S.boss ? ' · <em>보스</em>' : ''}</small></div>`; };
+    const mobCell = k => { const S = MOB[k]; return `<div class="wc-mob${S.boss || S.midb ? ' boss' : ''}"><canvas width="56" height="56" data-k="${k}"></canvas><b>${S.name}</b><small>Lv.${S.lv}${S.el ? ` · <em style="color:${ATTR_C[S.el]}">${ATTR_N[S.el]}</em>` : ''}${S.aggr && !S.boss ? ' · <em>선공</em>' : ''}${S.boss ? ' · <em>보스</em>' : ''}${S.midb ? ' · <em>중간 보스</em>' : ''}</small></div>`; };
     const itemCell = (id, src) => { const d = ITEMS[id]; if (!d) return ''; const rr = d.rar || '일반'; const tipTxt = INV.tipOf({ id, n: 1, on: false }).split('\n').filter(l => !/더블클릭|꾹 누르고/.test(l)).concat('획득: ' + src).join('\n').replace(/"/g, '&quot;'); return `<span class="wc-it" data-itip="${tipTxt}" data-ic="${rarC(id)}" style="--rar:${rr === '일반' ? '#b9b4a8' : RARITY_C[rr]}">${ICON(d.icon)}</span>`; };
     const sortIds = ids => [...new Set(ids)].filter(id => ITEMS[id]).sort((a, b) => (RORD[ITEMS[a].rar || '일반'] - RORD[ITEMS[b].rar || '일반']) || ITEMS[a].name.localeCompare(ITEMS[b].name, 'ko'));
     const zoneIds = R_.zones.map(z => z[0]), kinds = new Set(zoneIds.flatMap(zoneKinds));
