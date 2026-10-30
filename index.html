@@ -788,6 +788,13 @@ html.mob.mob-chat #mob-send{display:block;position:fixed;z-index:40;top:calc(8px
 html.mob .gw{max-height:calc(100dvh - 12px);overflow-y:auto;overscroll-behavior:contain}
 html.mob :is(#charwin,#invwin,#storewin,#sellwin,#colowin,#craftwin,#bulkwin,#petwin,#autowin,#godpanel){top:calc(52px + env(safe-area-inset-top,0px))!important;bottom:auto!important;max-height:calc(100dvh - 58px - env(safe-area-inset-top,0px))}
 html.mob #codexwin{height:calc(100dvh - 16px)}
+#logwin{box-sizing:border-box;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100vw - 24px));height:min(72vh,640px);display:flex;flex-direction:column;gap:6px;padding:12px 14px 10px;z-index:18;cursor:default;user-select:text}
+html.mob #logwin{height:calc(100dvh - 12px - env(safe-area-inset-top,0px));max-height:none;overflow:hidden;top:calc(50% + env(safe-area-inset-top,0px)/2)}
+.gl-head{margin:0;font-size:12px;color:#b8ad92;display:flex;justify-content:space-between;gap:8px} .gl-n{color:#8a8068;white-space:nowrap}
+.gl-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;border:1px solid #5a4a2e;background:rgba(8,6,4,.55);box-shadow:inset 0 0 10px #000;padding:4px 8px;border-radius:3px}
+.gl-day{position:sticky;top:-4px;margin:0 -8px;padding:4px 8px 3px;background:#1d1710;border-bottom:1px solid #4a3c24;color:#d8b968;font:700 12px "Noto Sans KR",sans-serif;z-index:1}
+.gl-row{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px dashed #2e271c;font-size:13px;line-height:1.45} .gl-row time{flex:none;color:#9c9682;font:600 12px ui-monospace,Consolas,monospace} .gl-row span{text-shadow:0 1px 0 #000;word-break:keep-all;overflow-wrap:anywhere}
+.gl-empty{color:#8a8068;text-align:center;margin:30px 10px;font-size:13px;line-height:1.6} .gl-foot{margin:0;font-size:11px;color:#8a8068;text-align:center}
 @media (max-height:600px){html.mob .dg-gacha .dg-gt{top:calc(50% + 12vh)} html.mob .dg-gacha .dg-zz{font-size:24px} html.mob .dg-gacha .dg-gt span{font-size:14px} html.mob .dg-gacha .dg-gok{top:calc(50% + 36vh)}}
 html.mob #saver{gap:6px;justify-content:flex-start;padding:8px 0 10px;overflow-y:auto} html.mob .sv-clock{font-size:26px} html.mob .sv-top{font-size:13px;gap:10px}
 html.mob .sv-card{padding:10px 14px;gap:6px} html.mob .sv-who b{font-size:18px} html.mob .sv-who small{font-size:13px} html.mob .sv-bar{height:17px} html.mob .sv-bar span{font-size:11.5px;line-height:17px}
@@ -818,6 +825,7 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 <button type="button" id="mm-home" hidden>마을로 귀환<small>&nbsp;</small></button>
 <button type="button" id="mm-alch">연금술<small>장비 합성</small></button>
 <button type="button" id="mm-codex">아이템 도감<small>&nbsp;</small></button>
+<button type="button" id="mm-glog">게임 기록<small>전체 공지 200줄</small></button>
 <button type="button" id="mm-mp" hidden>월드 서버<small></small></button>
 <button type="button" id="mm-saver">절전 모드<small>화면 끄고 사냥</small></button>
 <button type="button" id="mm-bgm">배경음악<small></small></button>
@@ -835,7 +843,7 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 <ol id="ag-and" hidden><li>브라우저 오른쪽 위 메뉴 <b>[⋮]</b>를 누르세요. (삼성 인터넷은 아래쪽 <b>[≡]</b>)</li><li><b>[앱 설치]</b> 또는 <b>[홈 화면에 추가]</b>를 누르세요.</li><li><b>[설치]</b>를 누르면 홈 화면·앱 목록에 아덴 월드 아이콘이 생겨요.</li></ol>
 <p class="ag-note">설치하면 주소창 없이 전체 화면 가로 모드로 열려요. 저장은 계정 서버에 되니까 PC와 같은 계정·캐릭터로 이어서 할 수 있어요. (앱으로 처음 열 때는 로그인을 한 번 더 해 주세요)</p>
 <button type="button" id="ag-ok" class="ag-btn">확인</button></div></div></div>
-<div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>서버 연결 중…</button><button id="btn-alch" type="button">연금술</button><button id="btn-codex" type="button">아이템 도감</button><button id="btn-saver" type="button" title="화면 그리기를 멈추고 사냥은 계속 (밀어서 해제)">절전</button></div>
+<div class="partybox" id="partybox" hidden aria-label="파티"></div><div class="pmenu" id="pmenu" hidden role="menu"></div><div class="topbar"><button id="btn-map" type="button">월드맵</button><button id="btn-home" type="button" hidden>마을로 귀환</button><button id="btn-inv" type="button">인벤토리 (Tab)</button><button id="btn-bgm" type="button" aria-pressed="true">♪ 배경음악</button><button id="btn-dn" type="button" hidden>낮/밤 전환 (데모)</button><button id="btn-god" type="button" hidden aria-pressed="false">갓 모드 (테스트)</button><button id="btn-upd" type="button" hidden class="upd">⬇ 업데이트</button><button id="btn-mp" type="button" hidden>서버 연결 중…</button><button id="btn-alch" type="button">연금술</button><button id="btn-codex" type="button">아이템 도감</button><button id="btn-glog" type="button" title="보스 처치·영웅·전설 획득 같은 전체 공지 기록 (최근 200줄)">게임 기록</button><button id="btn-saver" type="button" title="화면 그리기를 멈추고 사냥은 계속 (밀어서 해제)">절전</button></div>
 <audio id="bgm" src="assets/sound/bgm_town.mp3" loop preload="auto"></audio><audio id="bgm-island" src="assets/sound/bgm_island.mp3" loop preload="auto"></audio><audio id="bgm-desert" src="assets/sound/bgm_desert.mp3" loop preload="none"></audio><audio id="bgm-orc" src="assets/sound/bgm_orc.mp3" loop preload="none"></audio><audio id="bgm-bugbear" src="assets/sound/bgm_bugbear.mp3" loop preload="none"></audio><audio id="bgm-boss" src="assets/sound/bgm_boss.mp3" loop preload="auto"></audio>
 <div class="ovl" id="shop" hidden><div class="pn shop"><h2><span id="shop-title">상점</span><button type="button" data-close aria-label="닫기">×</button></h2>
   <div class="who"><canvas id="shop-face" width="96" height="96"></canvas><div><b id="shop-npc"></b><p id="shop-hello"></p></div></div>
@@ -939,6 +947,10 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
  <div class="mp-list" id="mp-list"></div>
  <p id="mp-msg" class="nm-msg" role="status" aria-live="polite"></p>
  <div class="mp-foot"><small>게임을 켜면 자동으로 하나뿐인 월드 서버에 접속해요. 일반 채팅은 같은 지역에만, 파티 채팅은 어디서나 보여요. 채팅 맨 앞에 <b>!</b>를 붙이면 전체 채팅이에요. (인터넷 공용 서버를 거쳐 연결되며 채팅 내용은 암호화되지 않아요)</small></div></div>
+<div class="gw" id="logwin" hidden role="dialog" aria-label="게임 기록"><span class="gw-plate">게임 기록</span><button class="x" type="button" data-closewin="logwin">닫기</button>
+ <p class="gl-head">보스 등장·토벌 · 영웅·전설 획득 · 고강화 성공 같은 전체 공지 <span id="glog-n" class="gl-n"></span></p>
+ <div class="gl-list" id="glog-list" role="log" aria-label="전체 공지 기록"></div>
+ <p class="gl-foot">최근 200줄까지 이 기기에 남아요 · 새 기록이 위에 쌓여요</p></div>
 <div class="gw" id="whowin" hidden role="dialog" aria-label="다른 유저 캐릭터 정보"><span class="gw-plate">캐릭터 정보</span><button class="x" type="button" data-closewin="whowin">닫기</button>
  <div class="who-hd" id="who-hd"></div>
  <div class="cw who-top"><dl id="who-info"></dl><canvas id="who-look" class="cw-look" width="150" height="190" title="클릭: 방향 바꾸기" aria-label="착용한 모습"></canvas></div>
