@@ -1,6 +1,6 @@
 // 화룡의 둥지 그림·소리 확인: 드래곤플라이·폭탄꽃·용암 몹이 공격하고 죽는 동안 오류 없는지 + 전용 효과음 mp3가 모두 열리는지 (bash dev/runkt.sh dev/tests/fn_art_sfx.js)
 const { chromium } = require('playwright'); const login = require('../tq.js');
-const SND = ['fn_warrior', 'fn_archer', 'fn_golem', 'fn_bomb', 'fn_egg', 'fn_fly', 'fn_ashtazio', 'phoenix'].flatMap(k => ['attack', 'hit', 'death'].concat(k === 'fn_ashtazio' || k === 'phoenix' ? ['attack2'] : []).map(t => k + '_' + t));
+const SND = ['fn_warrior', 'fn_archer', 'fn_golem', 'fn_bomb', 'fn_egg', 'fn_fly', 'fn_ashtazio', 'phoenix', 'fn_ifrit'].flatMap(k => ['attack', 'hit', 'death'].concat(['fn_ashtazio', 'phoenix', 'fn_ifrit'].includes(k) ? ['attack2'] : []).map(t => k + '_' + t));
 (async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 800 } }); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await login(p, { cls: 'knight', name: 'fnS' }); await p.evaluate(() => { __T.GOD_INV = true; });
   const snd = await p.evaluate(async L => { const AC = new (window.AudioContext || window.webkitAudioContext)(), bad = [], dur = {};
