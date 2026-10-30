@@ -5908,7 +5908,7 @@ const INV = (() => {
     if (d.use === 'home' && TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; }   // 수호탑 대전: 귀환 부적 사용 불가
     if (d.use === 'home' && ARENA()) { askYesNo('콜로세움을 포기하고 나가시겠습니까?', '마을로 돌아갑니다.', () => { if (!ARENA() || (!d.free && !take(e.id))) return; say(`${JOSA(d.name, '을', '를')} 사용했습니다. (콜로세움 포기)`, '#e8d8a8'); TOWN.goTown(); }); return; }   // v136
     if (d.use === 'home') { if (SCENE === 'town') { say('이미 마을에 있어요.', '#9c9682'); return; } if (!d.free) take(e.id); say(`${JOSA(d.name, '을', '를')} 사용했습니다.`, '#e8d8a8'); TOWN.goTown(); return; }
-    if (d.use === 'tele') { if (SCENE === 'town') { say('마을에서는 쓸 수 없습니다.', '#9c9682'); return; } if (ARENA() || TW()) { say(TW() ? '수호탑 대전에서는 순간이동 주문서를 쓸 수 없어요.' : '콜로세움에서는 순간이동 주문서를 쓸 수 없어요.', '#f08a7a'); return; } const p = freeTile(4); take(e.id); hero.i = hero.fi = p[0]; hero.j = hero.fj = p[1]; hero.x = p[0] + .5; hero.z = p[1] + .5; hero.t = 1; hero.target = null; moveGoal = null; say('순간이동 했습니다.', '#e8d8a8'); return; }
+    if (d.use === 'tele') { if (SCENE === 'town') { say('마을에서는 쓸 수 없습니다.', '#9c9682'); return; } if (ARENA() || TW()) { say(TW() ? '수호탑 대전에서는 순간이동 주문서를 쓸 수 없어요.' : '콜로세움에서는 순간이동 주문서를 쓸 수 없어요.', '#f08a7a'); return; } const p = freeTile(4); take(e.id); hero.i = hero.fi = p[0]; hero.j = hero.fj = p[1]; hero.x = p[0] + .5; hero.z = p[1] + .5; hero.t = 1; hero.target = null; moveGoal = null; say('순간이동 했습니다.', '#e8d8a8'); try { TRADE.moved(); } catch (e_) {} return; }
     say(`${d.name}은(는) 지금 쓸 수 없습니다.`, '#9c9682'); }
   // ===== 강화 (리니지식): 안전 강화 = 무기 +6 · 방어구 +4 (등급 상관없음), 넘기면 1/3 확률로 성공·실패 시 증발. 속성(땅)은 무기 1~3단
   let tgtScroll = null;
@@ -7881,7 +7881,7 @@ const NET = (() => {
   function peersAt(sx, sy) { if (!room) return []; const [px, py] = toWorldPx(sx, sy), L = []; for (const o of othersInZone()) { const v = peers.get(o.peer); if (!v) continue; const [x, y] = W2P(v.x, v.z), dx = px - x, dy = py - (y - 40); if (Math.abs(dx) < 20 && Math.abs(dy) < 52) L.push(o); } return L; }   // v157: 겹친 유저 모두
   function peerAt(sx, sy) { if (!room) return null; const [px, py] = toWorldPx(sx, sy); let b = null, bd = 1e9; for (const o of othersInZone()) { const v = peers.get(o.peer); if (!v) continue; const [x, y] = W2P(v.x, v.z), dx = px - x, dy = py - (y - 40); if (Math.abs(dx) < 20 && Math.abs(dy) < 52) { const q = dx * dx + dy * dy; if (q < bd) { bd = q; b = o; } } } return b; }
   function openMenu(o, cx, cy) { const m = document.getElementById('pmenu'); if (!m) return; const same = partyId && o.pr.pt === partyId;
-    m.innerHTML = `<b>${esc_(nmOf(o.pr))}</b><small>${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1}${o.pr.dd > 0 ? ' · 사망' : ''}</small>` + (o.pr.dd > 0 ? `<button type="button" data-a="rev">부활 주문서 사용 (${scrolls()}개)</button>` : '') + (same ? '<span class="pm-in">같은 파티원</span>' : '<button type="button" data-a="inv">파티 초대</button>') + (SCENE === 'town' && o.pr.z === 'town' ? '<button type="button" data-a="trade">교환 신청</button>' : '<span class="pm-in" style="color:#9c9682">교환은 마을에서만</span>') + '<button type="button" data-a="x">닫기</button>';
+    m.innerHTML = `<b>${esc_(nmOf(o.pr))}</b><small>${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1}${o.pr.dd > 0 ? ' · 사망' : ''}</small>` + (o.pr.dd > 0 ? `<button type="button" data-a="rev">부활 주문서 사용 (${scrolls()}개)</button>` : '') + (same ? '<span class="pm-in">같은 파티원</span>' : '<button type="button" data-a="inv">파티 초대</button>') + '<button type="button" data-a="trade">교환 신청</button>' + '<button type="button" data-a="x">닫기</button>';
     m.hidden = false; const w = m.offsetWidth, h = m.offsetHeight; m.style.left = Math.max(8, Math.min(innerWidth - w - 8, cx + 10)) + 'px'; m.style.top = Math.max(8, Math.min(innerHeight - h - 8, cy - 10)) + 'px';
     m.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.a; if (!a) return; m.hidden = true; if (a === 'inv') invite(o.peer); else if (a === 'trade') TRADE.request(o.peer); else if (a === 'rev') reviveReq(o.peer); }; }
   addEventListener('pointerdown', ev => { const m = document.getElementById('pmenu'); if (m && !m.hidden && !m.contains(ev.target)) m.hidden = true; }, true);
@@ -8878,24 +8878,31 @@ const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; 
   const ptd = () => { const o = partner(), t = o && o.pr.td; return t && S && t.id === S.id && t.to === NET.me() ? t : null; };
   const clean = e => { const c = JSON.parse(JSON.stringify(e, (k, v) => k && k[0] === '_' ? undefined : v)); delete c.on; delete c.locked; delete c.godTemp; return c; };
   const tradable = e => !(ITEMS[e.id] && ITEMS[e.id].bound) && !e.on && !e.locked && !e.godTemp && !GOD_INF(e.id) && !(e.pet && e.pet.state === 'out') && ITEMS[e.id];
-  function push() { if (!S) { NET.setExtra('td', null); return; } NET.setExtra('td', { id: S.id, to: S.peer, st: S.st, v: ver, pv: S.pv == null ? -1 : S.pv, g: gold, it: offer.map(x => Object.assign(clean(x.e), { n: x.n })) }); }
+  function push() { if (!S) { NET.setExtra('td', null); return; } NET.setExtra('td', { id: S.id, to: S.peer, st: S.st, v: ver, pv: S.pv == null ? -1 : S.pv, g: gold, it: offer.map(x => Object.assign(clean(x.e), { n: x.n })), w: S.why || '' }); }
+  // 거리·지역 상관없이 교환 (접속자 목록·플레이어 메뉴) — 교환 창이 열린 뒤 나나 상대가 순간이동·지역 이동·사망하면 자동 취소
+  const zkT = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field', pDead = pr => !!pr && (pr.dd > 0 || (pr.hp != null && pr.hp <= 0)), TPMSG = '상대방이 텔을 타거나 사망하여 거래가 취소되었습니다.';
+  function anchor() { if (!S) return; const o = partner(); S.z0 = zkT(); S.lx = hero.x; S.lz = hero.z; S.pz = o ? o.pr.z : null; S.tp = false; }
+  function moved() { if (S && (S.st === 'open' || S.st === 'lock' || S.st === 'ok')) S.tp = true; }   // 순간이동 주문서 등
   const hideTip = () => { const st = document.getElementById('stat-tip'); if (st) st.hidden = true; };
   function end(msg, c) { hideTip(); if (msg) say(msg, c || '#9c9682'); if (S && S.st !== 'done' && S.st !== 'cancel') { S.st = 'cancel'; push(); } setTimeout(() => { if (!S || S.st === 'cancel' || S.st === 'done') { S = null; offer = []; gold = 0; push(); } }, 2500); $('tradewin').hidden = true; asked = false; }
   // 신청 (내가)
-  function request(peer) { const o = NET.others().find(q => q.peer === peer); if (!o) return; if (SCENE !== 'town' || o.pr.z !== 'town') { say('교환은 마을에서만 할 수 있어요.', '#f0c080'); return; }
+  function request(peer) { const o = NET.others().find(q => q.peer === peer); if (!o) return; if (DEATH || hero.hp <= 0) { say('쓰러진 상태에서는 교환을 신청할 수 없어요.', '#f0c080'); return; } if (pDead(o.pr)) { say('상대가 쓰러져 있어서 교환을 신청할 수 없어요.', '#f0c080'); return; }
     if (S && S.st !== 'cancel' && S.st !== 'done') { say('이미 교환 중이에요.', '#f0c080'); return; }
     S = { id: 'T' + Math.random().toString(36).slice(2, 9), peer, name: String(o.pr.n || '상대').slice(0, 12), st: 'req', at: Date.now(), pv: -1 }; offer = []; gold = 0; ver = 0; asked = false; push();
     say(`${S.name}님에게 교환을 신청했습니다.`, '#a8d8ff'); }
   // 받은 신청 확인 · 상대 상태 따라가기
   function tick(dt) { tickT -= dt || 0.1; if (tickT > 0) return; tickT = 0.1; const me = NET.me(); if (!me) return;
     for (const o of NET.others()) { const t = o.pr.td; if (!t || t.to !== me || t.st !== 'req') continue; if (seenReq.get(o.peer) === t.id) continue; seenReq.set(o.peer, t.id);
-      if (S && S.st !== 'cancel' && S.st !== 'done') continue; if (SCENE !== 'town') continue; const nm = String(o.pr.n || '상대').slice(0, 12), id = t.id, peer = o.peer;
+      if (S && S.st !== 'cancel' && S.st !== 'done') continue; if (DEATH || hero.hp <= 0) continue; const nm = String(o.pr.n || '상대').slice(0, 12), id = t.id, peer = o.peer;
       if (AC && SFX_ON) tone(AC.currentTime, 'triangle', 660, 990, 0.2, 0.06);
-      INV.askYesNo(`${nm}님이 교환을 신청했습니다.`, '수락하시겠습니까?', () => { S = { id, peer, name: nm, st: 'open', pv: -1 }; offer = []; gold = 0; ver = 0; asked = false; push(); open(); }, () => { S = { id, peer, name: nm, st: 'no', pv: -1 }; push(); setTimeout(() => { if (S && S.st === 'no') { S = null; push(); } }, 2500); }); }
+      INV.askYesNo(`${nm}님이 교환을 신청했습니다.`, '수락하시겠습니까?', () => { if (DEATH || hero.hp <= 0) return; S = { id, peer, name: nm, st: 'open', pv: -1 }; offer = []; gold = 0; ver = 0; asked = false; anchor(); push(); open(); }, () => { S = { id, peer, name: nm, st: 'no', pv: -1 }; push(); setTimeout(() => { if (S && S.st === 'no') { S = null; push(); } }, 2500); }); }
     if (!S) return; const o = partner(), t = ptd();
-    if (S.st === 'req') { if (t && t.st === 'no') { end(`${S.name}님이 교환을 거절했습니다.`); return; } if (t && t.st === 'open') { S.st = 'open'; push(); open(); return; } if (Date.now() - S.at > 30000 || !o) { end('교환 신청에 응답이 없습니다.'); } return; }
+    if (S.st === 'req') { if (t && t.st === 'no') { end(`${S.name}님이 교환을 거절했습니다.`); return; } if (t && t.st === 'open') { S.st = 'open'; anchor(); push(); open(); return; } if (Date.now() - S.at > 30000 || !o) { end('교환 신청에 응답이 없습니다.'); } return; }
     if (S.st === 'no' || S.st === 'cancel' || S.st === 'done') return;
-    if (!o || o.pr.z !== 'town' || SCENE !== 'town') { end('상대가 멀어져서 교환이 취소되었습니다.', '#f08a7a'); return; }
+    if (!o) { end('상대가 접속을 끊어서 교환이 취소되었습니다.', '#f08a7a'); return; }
+    { if (S.z0 == null) anchor(); const jump = Math.hypot(hero.x - S.lx, hero.z - S.lz) > 6; S.lx = hero.x; S.lz = hero.z;   // 나: 순간이동·지역 이동·사망
+      if (S.tp || jump || zkT() !== S.z0 || DEATH || hero.hp <= 0) { S.why = 'tp'; end(DEATH || hero.hp <= 0 ? '쓰러져서 거래가 취소되었습니다.' : '순간이동(지역 이동)을 해서 거래가 취소되었습니다.', '#f08a7a'); return; }
+      if (pDead(o.pr) || (S.pz != null && o.pr.z !== S.pz) || (t && t.st === 'cancel' && t.w === 'tp')) { end(TPMSG, '#f08a7a'); return; } }   // 상대
     if (t && t.st === 'cancel') { end(`${S.name}님이 교환을 취소했습니다.`, '#f08a7a'); return; }
     if (!t) return;
     if ((S.st === 'lock' || S.st === 'ok') && t.v !== S.pv && t.st !== 'done') { S.st = 'open'; S.pv = -1; asked = false; push(); say('상대가 항목을 바꿔서 확인이 풀렸어요. 다시 확인해 주세요.', '#f0c080'); }
@@ -8943,7 +8950,7 @@ const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; 
       $('tw-gold').oninput = ev => { if (!S || S.st !== 'open') { ev.target.value = gold || ''; return; } const v = Math.max(0, Math.min(coins, Math.floor(+ev.target.value || 0))); if (String(v) !== ev.target.value && ev.target.value !== '') ev.target.value = v || ''; gold = v; changed(); };
       $('tw-ok').onclick = () => { if (!S || S.st !== 'open') return; const t = ptd(); if (!t) { say('상대가 아직 교환창을 열지 않았어요.', '#f0c080'); return; } if (gold > coins) { say('골드가 부족해요.', '#f08a7a'); return; } S.st = 'lock'; S.pv = t.v; asked = false; push(); render(); };
       $('tw-cancel').onclick = () => end('교환을 취소했습니다.'); $('tw-x').onclick = () => end('교환을 취소했습니다.'); } }
-  return { request, tick, active: () => !!S && S.st !== 'cancel' && S.st !== 'done' };
+  return { request, tick, moved, active: () => !!S && S.st !== 'cancel' && S.st !== 'done' };
 })();
 // ============================================================ 업데이트 (로그인 화면): PC 실행 파일은 업데이트 서버에서 바뀐 파일만 받아 덮어씀 · 웹은 새로 불러오기
 const UPD = (() => { const $ = id => document.getElementById(id), N = () => window.native; let busy = false;
@@ -9179,9 +9186,9 @@ const MPP = (() => {
   function render() { const n = NET.count(), on = state === 'on' || NET.hasArtRoom(); const b = $('btn-mp'); if (b) b.textContent = on ? `접속 ${n}명` : '서버 연결 중…'; const w = $('mpwin'); if (!w || w.hidden) return;
     $('mp-status').textContent = on ? `월드 서버 · ${n}명 접속 중` : state === 'connecting' ? '월드 서버에 연결하는 중…' : '연결 대기 중 (자동으로 다시 시도해요)';
     const pid = NET.partyId(), me = { n: PNAME(), c: CLASS, lv: hero.lv, z: null, me: 1, cp: myCP().total }, L = [me, ...NET.others().map(o => ({ ...o.pr, peer: o.peer }))], E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-    const lst = $('mp-list'), html = on ? L.map(p => { const pm = !p.me && pid && p.pt === pid; return `<div class="mp-pl${p.me ? ' me' : ''}"><b class="mp-nm" role="button" tabindex="0" data-who="${p.me ? 'me' : E(p.peer)}" title="캐릭터 정보 보기" style="color:${p.me ? '#ffffff' : pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(p.n)}${p.me ? ' (나)' : ''}</b><span>${E(CLASS_NAME[p.c] || '')} Lv.${p.lv | 0}${p.cp ? ` · 전투력 ${cpFmt(p.cp)}` : ''}</span><span class="mp-z">${E(zoneTitle(p.z))}</span>${p.me || pm ? '<i></i>' : `<button type="button" class="mp-sm" data-inv="${E(p.peer)}">파티 초대</button>`}</div>`; }).join('') : '';
+    const lst = $('mp-list'), html = on ? L.map(p => { const pm = !p.me && pid && p.pt === pid; return `<div class="mp-pl${p.me ? ' me' : ''}"><b class="mp-nm" role="button" tabindex="0" data-who="${p.me ? 'me' : E(p.peer)}" title="캐릭터 정보 보기" style="color:${p.me ? '#ffffff' : pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(p.n)}${p.me ? ' (나)' : ''}</b><span class="mp-cl">${E(CLASS_NAME[p.c] || '')} Lv.${p.lv | 0}${p.cp ? `<small>전투력 ${cpFmt(p.cp)}</small>` : ''}</span><span class="mp-z">${E(zoneTitle(p.z))}</span>${p.me ? '<i></i>' : `<span class="mp-act">${pm ? '' : `<button type="button" class="mp-sm" data-inv="${E(p.peer)}">파티 초대</button>`}<button type="button" class="mp-sm mp-tr" data-trade="${E(p.peer)}" title="거리·지역 상관없이 교환 신청">교환</button></span>`}</div>`; }).join('') : '';
     if (lst.dataset.h === html) return; lst.dataset.h = html; lst.innerHTML = html;
-    lst.querySelectorAll('[data-inv]').forEach(x => x.onclick = () => NET.invite(x.dataset.inv));
+    lst.querySelectorAll('[data-inv]').forEach(x => x.onclick = () => NET.invite(x.dataset.inv)); lst.querySelectorAll('[data-trade]').forEach(x => x.onclick = () => TRADE.request(x.dataset.trade));
     lst.querySelectorAll('[data-who]').forEach(x => { x.onclick = () => WHO.open(x.dataset.who); x.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopPropagation(); WHO.open(x.dataset.who); } }; }); }
   function start(c) { code = c; myId = 'w' + Math.random().toString(36).slice(2, 10); others.clear(); state = 'connecting'; tries = 0; render(); tryBroker(); }
   function tryBroker() { const L = BROKERS(); if (tries >= L.length) { state = 'off'; nextTry = performance.now() + 15000; msg('월드 서버에 연결하지 못했어요. 15초 뒤 다시 시도해요. (인터넷 연결을 확인해 주세요)', false); return; }
