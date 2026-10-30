@@ -101,7 +101,7 @@ const lowLvMul = S => { const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? 
 const gahoExp = n => { const g = n > 0 ? INV.gaho('exp') : 0, r = g ? Math.round(n * (1 + g / 100)) : n; return n > 0 && BUFF.hwexp > 0 ? Math.round(r * (1 + HWC.CANDY_EXP / 100)) : r; };   // 할로윈 호박 사탕: 경험치 +%   // v153: 드레이크 킹의 가호 — 몬스터 처치 경험치 +%
 let OFFL_HOOK = null, TITLE_SHOW = false;   /* v120: 오프라인 사냥 기록기 (아래 OFFL) — 정의되기 전에 불려도 안전하게 */
 const lowLvTag = S => { const m = lowLvMul(S); return m < 1 ? ` (낮은 레벨 −${Math.round((1 - m) * 100)}%)` : ''; };
-const mobHit = S => S && S.hwEv ? HWC.MOB_HIT : Math.max(S.boss ? 0.5 : 0.10, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (hero.lv * 2 - INV.ac()) - 40 + (S.boss ? 10 : 0) + (nightUp(S) ? 10 : 0)) / 100));   // v109: (몬스터 레벨×3 + 명중) − (내 레벨×2 + 방어력) − 40 · 최저 10% · 최고 95% · 보스 +10%
+const mobHit = S => S && S.hwEv ? HWC.MOB_HIT : Math.max(S.boss ? Math.max(0.5, S.minHit || 0) : (S.minHit || 0.10), Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (hero.lv * 2 - INV.ac()) - 40 + (S.boss ? 10 : 0) + (nightUp(S) ? 10 : 0)) / 100));   // v109: (몬스터 레벨×3 + 명중) − (내 레벨×2 + 방어력) − 40 · 최저 10% · 최고 95% · 보스 +10%
 const mobHitM = S => Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * (S.lv - hero.lv) + (nightUp(S) ? 0.05 : 0)));   // 몬스터 마법: AC 무시
 const walkable = (i,j) => i>=0&&j>=0&&i<MAP&&j<MAP&&!blockedT[j][i];
 const DIRV = META.dirs;
@@ -9915,6 +9915,8 @@ const MUI = (() => {
 // 10/30 프로듀서: 모든 마법인형·재료 아이템 무게 0 (가호조각·날개·용/화룡 재료 — 나중에 추가되는 재료도 여기 이름을 넣거나 mat0: true)
 { const MAT0 = new Set(['gold_wing', 'silver_wing', 'dragon_scale', 'drake_claw', 'dragon_heart', 'fire_scale', 'astazio_ash', 'phoenix_feather', 'ifrit_heart']);
   for (const [id, d] of Object.entries(ITEMS)) if (d && (d.doll || d.mat0 || MAT0.has(id) || id.startsWith('gfrag_'))) d.w = 0; }
+// 10/30 프로듀서: 화룡의 둥지 몬스터(이프리트·피닉스 포함)는 근접·화살 최저 명중 60% (AC가 아주 좋아도 60%는 맞음 · 그보다 약한 AC는 원래 식대로 더 맞음)
+for (const k in MOB) if (k.startsWith('fn_') || k === 'phoenix') MOB[k].minHit = 0.6;
 requestAnimationFrame(frame);
 setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();
