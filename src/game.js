@@ -2441,13 +2441,13 @@ const GLOG = (() => { const KEY = 'aden_glog', MAX = 200; let L = null; const g 
   const load = () => { if (L) return L; try { L = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { L = []; } if (!Array.isArray(L)) L = []; L = L.filter(x => x && x.t && x.at); return L; };
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(L)); } catch (e) {} };
   const isOpen = () => { const w = g('logwin'); return !!w && !w.hidden; };
-  function render() { const box = g('glog-list'); if (!box) return; load(); const fr = document.createDocumentFragment(), now = new Date(), today = now.toDateString(), yest = new Date(now.getTime() - 864e5).toDateString(); let day = '';
+  function render(fresh) { const box = g('glog-list'); if (!box) return; load(); const fr = document.createDocumentFragment(), now = new Date(), today = now.toDateString(), yest = new Date(now.getTime() - 864e5).toDateString(); let day = '';
     for (let i = L.length - 1; i >= 0; i--) { const x = L[i], d = new Date(x.at), ds = d.toDateString();
       if (ds !== day) { day = ds; const h = document.createElement('div'); h.className = 'gl-day'; h.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일` + (ds === today ? ' · 오늘' : ds === yest ? ' · 어제' : ''); fr.appendChild(h); }
-      const r = document.createElement('div'); r.className = 'gl-row'; const tm = document.createElement('time'); tm.textContent = `${f2(d.getHours())}:${f2(d.getMinutes())}`; tm.dateTime = d.toISOString(); const sp = document.createElement('span'); sp.textContent = x.t; if (x.c) sp.style.color = x.c; r.append(tm, sp); fr.appendChild(r); }
+      const r = document.createElement('div'); r.className = 'gl-row' + (fresh && i === L.length - 1 ? ' gl-new' : ''); const tm = document.createElement('time'); tm.textContent = `${f2(d.getHours())}:${f2(d.getMinutes())}`; tm.dateTime = d.toISOString(); const sp = document.createElement('span'); sp.textContent = x.t; if (x.c) sp.style.color = x.c; r.append(tm, sp); fr.appendChild(r); }
     box.textContent = ''; if (!L.length) { const p = document.createElement('p'); p.className = 'gl-empty'; p.textContent = '아직 기록이 없어요. 보스 등장·토벌, 영웅·전설 획득, 고강화 성공 같은 전체 공지가 여기에 시각과 함께 쌓여요.'; box.appendChild(p); } else box.appendChild(fr);
-    const n = g('glog-n'); if (n) n.textContent = `${L.length} / ${MAX}줄`; }
-  function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); L.push({ at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }); if (L.length > MAX) L.splice(0, L.length - MAX); save(); if (isOpen()) render(); }
+    const n = g('glog-n'); if (n) n.textContent = `${L.length} / ${MAX}줄`; if (fresh) box.scrollTop = 0; }   // 새 기록: 맨 위로 올리고 잠깐 빛남 (아래로 내려 보던 중에도 바로 보이게)
+  function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); L.push({ at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }); if (L.length > MAX) L.splice(0, L.length - MAX); if (isOpen()) render(true); save(); }
   function open(v) { const w = g('logwin'); if (!w) return; w.hidden = v === undefined ? !w.hidden : !v; if (!w.hidden) { render(); const b = g('glog-list'); if (b) b.scrollTop = 0; } }
   { const b = g('btn-glog'); if (b) b.onclick = () => open(); }
   return { add, open, render, list: () => load().slice() }; })();

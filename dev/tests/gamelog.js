@@ -21,6 +21,8 @@ const rows = p => p.evaluate(() => ({ open: !document.getElementById('logwin').h
     await p.evaluate(() => __T.ANN_('보스 등장: 화산 어딘가에 이프리트가 나타났습니다!', '#ff7a5a', 'boss')); await p.waitForTimeout(100); v = await rows(p); ok('열린 채로 새 공지 바로 보임', /이프리트/.test(v.rows[0]) && v.rows.length === 5);
     // 200줄 한도
     await p.evaluate(() => { for (let i = 0; i < 230; i++) __T.GLOG_.add('테스트 공지 ' + i, '#ffd86a'); }); v = await rows(p); ok('최대 200줄 (오래된 것부터 지움)', v.rows.length === 200 && /테스트 공지 229/.test(v.rows[0]) && /테스트 공지 30$/.test(v.rows[199]) && v.n === '200 / 200줄');
+    // 아래로 내려 보던 중에 새 공지 → 바로 맨 위에 보이고 빛남 (기록 지연 없음)
+    { const r = await p.evaluate(() => { const box = document.getElementById('glog-list'); box.scrollTop = 2000; const s0 = box.scrollTop, t0 = performance.now(); __T.ANN_('방금 뜬 공지: 바포메트 토벌!', '#ffd86a'); const first = box.querySelector('.gl-row'); return { s0, s1: box.scrollTop, ms: performance.now() - t0, txt: first && first.textContent, flash: !!(first && first.classList.contains('gl-new')) }; }); console.log('instant', JSON.stringify(r)); ok('새 공지가 뜨는 즉시 맨 위에 기록 (스크롤 내려 있어도)', r.s0 > 0 && r.s1 === 0 && /방금 뜬 공지/.test(r.txt || '') && r.flash && r.ms < 50); }
     await p.keyboard.press('Escape'); await p.waitForTimeout(150); ok('Esc → 닫힘', !(await rows(p)).open);
     await p.click('#btn-glog'); await p.waitForTimeout(100); await p.click('#logwin [data-closewin=logwin]'); ok('[닫기]', !(await rows(p)).open);
     // 다시 접속해도 남아 있음
