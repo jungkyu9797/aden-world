@@ -1,4 +1,4 @@
-지금 메인방: https://claude.ai/code/session_01PSbXoE3P89u67qQ9tBHXXm (10/30 교대)
+지금 메인방: https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a (10/30 교대 · 예약 작업으로 연 방은 PC에 안 보여서 이 방 유지)
 
 # 메인방(배포 담당 방) 인수인계 — 10/30 교대
 
