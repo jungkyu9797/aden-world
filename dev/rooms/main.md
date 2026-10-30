@@ -1,3 +1,5 @@
+지금 메인방: https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a (10/30 교대)
+
 # 메인방(배포 담당 방) 인수인계 — 10/30 교대
 
 예전 메인방: https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D (대화가 길어져 교대). 이 파일과 CLAUDE.md를 먼저 읽는다.
