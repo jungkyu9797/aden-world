@@ -21,13 +21,12 @@
   - 소리: `dev/sfx/fn_sfx.py`처럼 numpy로 합성 → `assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3` → `MSFX`의 `has` 목록에 몹 이름 추가(보스 스킬음이 있으면 `K2`에도).
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
-## 지금 상태 (10/30 10시)
-- 마지막 배포 **v190** (main 3f67033, 10/29). main 맨 위는 653900e(테스트 판 도구만 바뀜).
-- **승인 대기**: `firenest` 화룡의 둥지 (`work/firenest`, 작업방 https://claude.ai/code/session_01PSbXoBvKAHzsPfe3GYuL7F 가 아직 일하는 중 — 벌이·시뮬 손봄). 메인방이 10/30에 같은 갈래에 그림 다듬기·드래곤플라이·폭탄꽃·전용 효과음·파이어 에그 이름을 넣었음(e47c585 → 1f7d2d0). 테스트 판 bc66b8a8b0cf(`meta/test`) = main + work/firenest. 프로듀서: "테스트해 보고 작업판에서 승인".
-  - work/firenest는 아직 v190 이전 main에서 갈라져 있음(GAME_VER 189) → 배포 때 main과 합칠 때 충돌 정리.
-  - 작업방이 push를 계속하니, 말 걸 때마다 `git ls-remote origin refs/heads/work/firenest`가 `meta/test` 판과 다르면 묶음 판을 다시 올린다.
-- **내 답변 필요**: `aibot` (① 수호탑 봇 다듬기 ② 필드 봇 1단계(추천, 8번 지역) ③ PvP 규칙) · `polymon` 몬스터 변신 20종 — 그림이 따로 있는 35종을 레벨별로 보여 줬음(고블린 Lv1 … 와이번 Lv53, 보스 ★ 셸로브·여왕개미·오우거·바포메트·카스파) + 색만 바꾼 변종 20여 종. 프로듀서가 20종을 고르면 `create_trigger`로 작업방(`work/polymon`, `dev/rooms/polymon.md` 먼저 작성)을 연다. 지금 변신은 `POLY`(데스나이트 = 몬스터 그림 사용 예, 다크·실버 6종 = PMSHEET)로 되어 있어 같은 방식으로 붙이면 됨.
-- 메모함(`ideas` status new)은 비어 있음.
+## 지금 상태 (10/30 10:40 KST)
+- **10/30 작업 방식 바뀜(프로듀서 결정): 방 하나.** 새 작업방(create_trigger)을 열지 않고 메인방 안에서 보조 작업자(Agent)로 동시에 작업. 작업판은 현황판(대화방 열기 버튼 뺌, 작업판 v10). 자세한 건 CLAUDE.md '작업판 운영'.
+- 마지막 배포 **v190**.
+- **승인 대기**: `firenest` 화룡의 둥지. 10/30 메인방이 work/firenest에 최신 main(v190)을 합쳤음(충돌 없음 · GAME_VER 190 · 테스트 통과) → 배포 때 그대로 합치면 됨. 묶음 테스트 판 6249eab0f0fd. 화둥 작업방(https://claude.ai/code/session_01PSbXoBvKAHzsPfe3GYuL7F)은 프로듀서가 아직 쓰는 중(몬스터 이름 바꿈 등) — 그 방 push가 오면 묶음 판 다시 올리기.
+- **내 답변 필요**: `aibot` (① 수호탑 봇 다듬기 ② 필드 봇 1단계(추천, 8번 지역) ③ PvP 규칙) · `polymon` 몬스터 변신 20종 — 그림이 따로 있는 35종 중 고르기. 정해지면 메인방에서 보조 작업자로 진행.
+- 정리: 예전 메인방 예약 알림(trig_01Tc8yQBN8ZhUFwrByCxWq2t) 끔. 끝난 갈래(work/admany·aibot·alchauto·arkaprice·fix·halloween·summon, release/v189)는 지우려 했으나 이 환경에서 원격 갈래 삭제가 막힘(403) — 프로듀서가 GitHub에서 지우거나 그대로 둬도 무방.
 
 ## 메인방 도구·요령
 - 묶음 테스트 판: 작업판에서 ready·test·queued 카드의 branch → `python3 dev/stage_test.py <갈래들>` → 테스트 아티팩트(https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6) publish `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` → 테스트 db `tbuild/cur` = build.json의 {id, at, n} → 작업판 db `meta/test` = 같은 값 + branches. (다른 대화에서 처음 올릴 때는 먼저 Artifact read 한 번 — 페이지가 4.5MB라 읽기가 막히면 publish를 바로 해 보고, 거절되면 돌려준 판 위에 다시 올린다.)
