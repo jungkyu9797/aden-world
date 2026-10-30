@@ -101,7 +101,14 @@ const lowLvMul = S => { const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? 
 const gahoExp = n => { const g = n > 0 ? INV.gaho('exp') : 0, r = g ? Math.round(n * (1 + g / 100)) : n; return n > 0 && BUFF.hwexp > 0 ? Math.round(r * (1 + HWC.CANDY_EXP / 100)) : r; };   // 할로윈 호박 사탕: 경험치 +%   // v153: 드레이크 킹의 가호 — 몬스터 처치 경험치 +%
 let OFFL_HOOK = null, TITLE_SHOW = false;   /* v120: 오프라인 사냥 기록기 (아래 OFFL) — 정의되기 전에 불려도 안전하게 */
 const lowLvTag = S => { const m = lowLvMul(S); return m < 1 ? ` (낮은 레벨 −${Math.round((1 - m) * 100)}%)` : ''; };
-const mobHit = S => S && S.hwEv ? HWC.MOB_HIT : Math.max(S.boss ? 0.5 : 0.10, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (hero.lv * 2 - INV.ac()) - 40 + (S.boss ? 10 : 0) + (nightUp(S) ? 10 : 0)) / 100));   // v109: (몬스터 레벨×3 + 명중) − (내 레벨×2 + 방어력) − 40 · 최저 10% · 최고 95% · 보스 +10%
+// 10/30 프로듀서: 몬스터 근접·화살 공격 회피 — 사냥터마다 기준 AC(B)에서 회피 20%, AC 1방마다 0.5%씩 (10방 = 5% · 최대 60% · 최소 0%) · 레벨 무관
+//   예) 화룡의 둥지(B=120): AC −120 20% · −127 23.5% · −130 25% · −110 15% · −100 10% · −80 0%
+//   보스는 명중 +10%(최저 50%) · 언데드 밤 +10% · 화살은 여기에 회피 ER을 더 · 마법·범위 기술은 따로 · 결투장·콜로세움·수호탑·소환의 제단·이벤트 지역은 예전 식
+const ZONE_EVB = { 1: 10, 2: 20, 3: 20, 4: 30, 5: 30, 6: 40, 7: 40, 8: 50, 9: 70, 10: 80, 11: 90, 12: 100, 16: 100, 17: 110, 22: 120, 23: 120 };
+const evadeAt = (ac, B) => Math.max(0, Math.min(0.6, 0.2 + 0.005 * (-ac - B)));   // 10/30 프로듀서: 1방 단위 — AC 1마다 0.5% (10방 = 5%)
+const zoneEvB = () => (ISLE && SCENE === 'field' && !ARENA() && ZONE_EVB[ISLE.id] != null) ? ZONE_EVB[ISLE.id] : null;
+const mobHit = S => { if (S && S.hwEv) return HWC.MOB_HIT; const B = zoneEvB(); if (B != null && S) { let h = 1 - evadeAt(INV.ac(), B); if (S.boss) h = Math.max(0.5, Math.min(1, h + 0.1)); if (nightUp(S)) h = Math.min(1, h + 0.1); return h; } return mobHitOld(S); };
+const mobHitOld = S => Math.max(S.boss ? 0.5 : 0.10, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (hero.lv * 2 - INV.ac()) - 40 + (S.boss ? 10 : 0) + (nightUp(S) ? 10 : 0)) / 100));   // v109: (몬스터 레벨×3 + 명중) − (내 레벨×2 + 방어력) − 40 · 최저 10% · 최고 95% · 보스 +10%
 const mobHitM = S => Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * (S.lv - hero.lv) + (nightUp(S) ? 0.05 : 0)));   // 몬스터 마법: AC 무시
 const walkable = (i,j) => i>=0&&j>=0&&i<MAP&&j<MAP&&!blockedT[j][i];
 const DIRV = META.dirs;
@@ -776,7 +783,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 193;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 194;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2153,7 +2160,20 @@ function desertFx(g, vw, vh) { if (!ISLE || !ISLE.def.sand) return; const dk = D
   if (dk > 0.05) { g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgba(110,140,210,${Math.min(1, dk) * 0.55})`; g.fillRect(0, 0, vw, vh); }
   g.restore(); }
 // v144: 몬스터 한 마리 그리기 (필드 몬스터 · 소환수 · 다른 사람 화면의 소환수 공용)
-function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && (f.kind.startsWith('tw_') || f.kind.startsWith('fb_')))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
+// 10/30 프로듀서: 내가 고른 대상(몹·AI 봇)은 생김새를 따라 빨간 테두리 — 몸을 작은 캔버스에 한 번 그려서 빨간 실루엣을 사방으로 조금씩 밀어 깐 뒤 몸을 위에 얹음
+const TGO = { c: null, c2: null, k: 0, f: '' };   // f: 그림자처럼 반투명한 부분은 테두리에서 빼는 SVG 필터(알파 문턱)
+function tgoFilter() { if (TGO.f) return TGO.f; try { const ns = 'http://www.w3.org/2000/svg', s = document.createElementNS(ns, 'svg'); s.setAttribute('width', '0'); s.setAttribute('height', '0'); s.style.position = 'absolute'; s.setAttribute('aria-hidden', 'true'); s.innerHTML = '<filter id="tgoA" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncA type="linear" slope="5" intercept="-2.6"/></feComponentTransfer></filter>'; document.body.appendChild(s); TGO.f = 'url(#tgoA)'; } catch (e) { TGO.f = 'none'; } return TGO.f; }
+function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] || {}, big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = Math.round(260 * Math.min(2.4, big)), H = Math.round(300 * Math.min(2.4, big)), ox = W / 2, oy = H * 0.78, k = Math.min(2, Math.max(1, curZ || 1));
+  let c = TGO.c, c2 = TGO.c2; if (!c) { c = TGO.c = document.createElement('canvas'); c2 = TGO.c2 = document.createElement('canvas'); }
+  const cw = Math.ceil(W * k), ch = Math.ceil(H * k); if (c.width !== cw || c.height !== ch) { c.width = c2.width = cw; c.height = c2.height = ch; }
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
+  drawMobBody(x, f); x.setTransform(1, 0, 0, 1, 0, 0);
+  const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
+  const d = 4 / (curZ || 1), L = px - ox, T = py - oy; /* 10/30 프로듀서: 테두리 2배 두껍게 (2px → 4px) */ g.save(); g.globalAlpha = 0.8 + 0.2 * Math.sin(time * 6);
+  for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; g.drawImage(c2, L + Math.cos(a) * d, T + Math.sin(a) * d, W, H); } g.drawImage(c2, L + d * 0.5, T, W, H); g.drawImage(c2, L - d * 0.5, T, W, H);   /* 두꺼워져도 둥글게: 12방향 + 안쪽 2번 */
+  g.restore(); g.drawImage(c, L, T, W, H); }
+function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO.busy = true; try { drawTgtOutline(g, f); } finally { TGO.busy = false; } return; }   /* 고른 대상은 빨간 테두리 (안에서 다시 이 함수를 부름) */
+  if (f.bot || f.twr || (f.kind && (f.kind.startsWith('tw_') || f.kind.startsWith('fb_')))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
     const sheetAtk = S.art==='sheet' && !f.dead && f.atkT!=null; mobPose(f, sheetAtk?0.5:1);
     const al=f.dead?Math.max(0,1-f.deadT/1.4):1, fl=f.flash>0?'brightness(2.6) saturate(0)':MP.red?'sepia(.55) saturate(2.4) hue-rotate(-38deg) brightness(1.08)':null;
     g.save(); g.translate(Math.round(x+MP.lx), Math.round(y+MP.ly)); if (MP.rot) g.rotate(MP.rot); if (MP.sx!==1||MP.sy!==1) g.scale(MP.sx,MP.sy);
@@ -2751,7 +2771,7 @@ Object.assign(MOB, {
   fn_ashtazio:  { name: '아시타지오', lv: 57, hp: 3000, dmg: [90, 135], mac: 1, hit: 0.95, mr: 55, exp: 19500, coin: [4900, 8700], walk: 1.0, run: 2.6, cd: 2.0, range: 6, spell: 'fire', aggr: 7, el: 'fire', skills: true, resp: 240, art: 'ashtazio', sc: 0.9, hw: 30, hh: 90, atkTxt: '파이어볼' },
   fn_egg:       { name: '파이어에그', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
   fn_ifrit:     { name: '이프리트', lv: 58, hp: 18000, dmg: [89, 144], mac: 0, hit: 0.96, mr: 40, exp: 75000, coin: [17500, 29000], walk: 1.2, run: 3.2, cd: 1.4, aggr: 7, burn: true, el: 'fire', skills: true, midb: true, art: 'ifrit', sc: 0.92, hw: 32, hh: 110, atkTxt: '불꽃 주먹' },
-  phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
+  phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
 // 렌더링된 몬스터 스프라이트 (그래픽팀) — 있는 몬스터는 정식 그림, 없으면 임시 그림
 const MSHEET = {
@@ -3637,7 +3657,7 @@ const ISLAND = (() => {
          mobs: [['fn_warrior', 12], ['fn_archer', 9], ['fn_golem', 5], ['fn_bomb', 5]], groups: [['fn_fly', [['fn_fly', 2]], 3]] },   // 10/30: 40마리 (24 → 40 · 비율 그대로 · 드래곤 플라이 3마리×3무리)
     23: { name: '화룡의 둥지 2구역', tier: 2, seed: 2311, N: 66, gore: true, valley: true, fire: true, sites: 3, camps: 0, lava: 9, streams: 3, lavaDmg: [32, 44], bombDmg: [14, 21], bombGap: [11, 17],
          portals: [{ i: 60, j: 60, to: 22, label: '▼ 1구역으로' }], tone: 'rgba(130,26,6,.28)',
-         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 사라만다의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다! 피닉스의 가호조각을 모아 가호를 만들면 용암·화산탄 피해를 받지 않아요. 이곳에도 이따금 불의 정령 이프리트가 소리 없이 나타납니다.',
+         hello: '화룡이 잠든 둥지입니다. 피닉스를 빼면 이곳의 몬스터는 모두 먼저 덤빕니다! 사라만다의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다! 피닉스의 가호조각을 모아 가호를 만들면 용암·화산탄 피해를 받지 않아요. 이곳에도 이따금 불의 정령 이프리트가 소리 없이 나타납니다.',
          mobs: [['fn_salamander', 16], ['fn_hcerberus', 16], ['fn_ashtazio', 3], ['fn_egg', 5]], groups: [] },   // 10/30: 40마리 (25 → 40 · 드문 아시타지오는 2 → 3만)
     // 할로윈 이벤트 지역 (21번): 음침한 호박밭 — 귀신이 떠다니고 핏빛 살육터 소품 · 시야는 늘 낮처럼 · 마을 NPC 할로윈 허수아비 잭으로만 입장 · 나가려면 귀환 주문서
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
@@ -4027,7 +4047,7 @@ const ISLAND = (() => {
     ice_queen: { zone: 12, ent: null, P: DEMO ? 180 : 10800, R: DEMO ? 60 : 1200, RP: DEMO ? 180 : 10800, RR: DEMO ? 60 : 1200, title: '얼음여왕', where: '오렌설원지역 2구역', againTxt: DEMO ? '데모: 3~4분 뒤' : '3시간~3시간 20분 뒤' },
     deathknight: { zone: 10, ent: null, P: DEMO ? 180 : 10800, R: DEMO ? 60 : 1200, RP: DEMO ? 180 : 10800, RR: DEMO ? 60 : 1200, title: '데스나이트', where: '본토던전 2층', againTxt: DEMO ? '데모: 3~4분 뒤' : '3시간~3시간 20분 뒤' },
     drake_king: { zone: 17, ent: null, P: DEMO ? 180 : 12600, R: DEMO ? 60 : 1800, RP: DEMO ? 180 : 10800, RR: DEMO ? 60 : 1800, title: '드레이크 킹', where: '용의 계곡 2구역', againTxt: DEMO ? '데모: 3~4분 뒤' : '3시간~3시간 30분 뒤' },   // v153
-    phoenix: { zone: 23, ent: null, P: DEMO ? 180 : 12600, R: DEMO ? 60 : 1800, RP: DEMO ? 180 : 10800, RR: DEMO ? 60 : 1800, title: '피닉스', where: '화룡의 둥지 2구역', againTxt: DEMO ? '데모: 3~4분 뒤' : '3시간~3시간 30분 뒤' },   // 화룡의 둥지
+    phoenix: { zone: 23, ent: null, P: DEMO ? 180 : 21600, R: DEMO ? 60 : 3600, RP: DEMO ? 180 : 18000, RR: DEMO ? 60 : 3600, title: '피닉스', where: '화룡의 둥지 2구역', againTxt: DEMO ? '데모: 3~4분 뒤' : '5시간~6시간 뒤' },   /* 10/30 프로듀서: 잡힌 때부터 5~6시간 */   // 화룡의 둥지
     // 10/30: 중간 보스 이프리트 — 1구역·2구역에 1마리씩 (kind: 실제 몬스터) · 잡은 뒤 1시간~1시간 30분 사이 무작위로 다시 나타남 · quiet: 등장·토벌 공지, 근처 등장 연출, 월드맵 표시 없음 · 자리는 구역 안 무작위 (용암 웅덩이·포털 근처 빼고)
     ifrit22: { zone: 22, kind: 'fn_ifrit', quiet: true, ent: null, P: DEMO ? 180 : 5400, R: DEMO ? 60 : 1800, RP: DEMO ? 120 : 3600, RR: DEMO ? 60 : 1800, title: '이프리트', where: '화룡의 둥지 1구역', againTxt: DEMO ? '데모: 2~3분 뒤' : '1시간~1시간 30분 뒤' },
     ifrit23: { zone: 23, kind: 'fn_ifrit', quiet: true, ent: null, P: DEMO ? 180 : 5400, R: DEMO ? 60 : 1800, RP: DEMO ? 120 : 3600, RR: DEMO ? 60 : 1800, title: '이프리트', where: '화룡의 둥지 2구역', againTxt: DEMO ? '데모: 2~3분 뒤' : '1시간~1시간 30분 뒤' },
@@ -6264,7 +6284,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       s('cw-exp', (hero.exp / needExp(hero.lv) * 100).toFixed(2) + '%'); s('cw-hp', `${Math.ceil(hero.hp)}/${hero.max}`); s('cw-mp', `${Math.ceil(hero.mp)}/${hero.maxmp}`);
       s('cw-ac', ac()); s('cw-w', Math.round(wPct() * 100) + '%' + [beltWR() ? `벨트 −${beltWR()}%` : '', BUFF.decwt > 0 ? '디크리즈' : ''].filter(Boolean).map(t => ' (' + t + ')').join('')); const d = dmg(); s('cw-dmg', `${d[0]} ~ ${d[1]}`);
       for (const k in BASE) { const el = $('cw-' + k); if (el) { const h = `${STAT[k]}${BONUS[k] ? ` <small>(+${BONUS[k]})</small>` : ''}${hero.bonusPts > 0 ? ` <button type="button" class="sp" data-st="${k}" aria-label="${NAMES_ST[k]} 올리기">+</button>` : ''}`; if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; } } }
-      s('cw-bp', hero.bonusPts); const cw = $('charwin'); if (!cw.dataset.sp) { cw.dataset.sp = 1; cw.addEventListener('click', ev => { const b = ev.target.closest('button.sp'); if (b) askYesNo(`${NAMES_ST[b.dataset.st]}을(를) 올리시겠습니까?`, `보너스 포인트 1개를 사용합니다. (남은 포인트 ${hero.bonusPts})`, () => addStat(b.dataset.st)); }); } s('cw-er', Math.min(30, Math.floor(STAT.dex / 3)) + '%'); s('cw-mb', intMB(STAT.int)); s('cw-ml', magicLv()); s('cw-sp', heroSP()); s('cw-mm', '×' + spellMul().toFixed(2)); s('cw-mc', Math.round(spellCritP({ lv: hero.lv }) * 100) + '%'); s('cw-mr', sum('mr') + (BUFF.rmagic > 0 ? 10 : 0)); s('cw-res', `${sum('earthRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('waterRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('fireRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('windRes') + (BUFF.relem > 0 ? 10 : 0)}`);
+      s('cw-bp', hero.bonusPts); const cw = $('charwin'); if (!cw.dataset.sp) { cw.dataset.sp = 1; cw.addEventListener('click', ev => { const b = ev.target.closest('button.sp'); if (b) askYesNo(`${NAMES_ST[b.dataset.st]}을(를) 올리시겠습니까?`, `보너스 포인트 1개를 사용합니다. (남은 포인트 ${hero.bonusPts})`, () => addStat(b.dataset.st)); }); } s('cw-er', Math.min(30, Math.floor(STAT.dex / 3)) + '%'); { const B = zoneEvB(); s('cw-mev', B == null ? '-' : Math.round(evadeAt(INV.ac(), B) * 1000) / 10 + '%'); } s('cw-mb', intMB(STAT.int)); s('cw-ml', magicLv()); s('cw-sp', heroSP()); s('cw-mm', '×' + spellMul().toFixed(2)); s('cw-mc', Math.round(spellCritP({ lv: hero.lv }) * 100) + '%'); s('cw-mr', sum('mr') + (BUFF.rmagic > 0 ? 10 : 0)); s('cw-res', `${sum('earthRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('waterRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('fireRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('windRes') + (BUFF.relem > 0 ? 10 : 0)}`);
       if (window.LOOKPV) LOOKPV.kick();
       SLOTS.forEach(([k]) => { const el = $('eq-' + k); if (!el) return; const e = eq[k]; el.innerHTML = e ? ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (e.locked ? '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>' : '') : ''; { const rr = e ? ITEMS[e.id].rar || '일반' : null; el.classList.toggle('rar', !!e); el.classList.remove('r-0', 'r-1', 'r-2', 'r-3'); if (e) { el.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); el.classList.add('r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } } el.dataset.itip = e ? tip(e) : el.dataset.label; el.dataset.ic = e ? rarC(e.id) : '#d9cfb5'; el.removeAttribute('title'); el.classList.toggle('has', !!e); { const t_ = e ? enTierOf(e.id, e.en) : 0; for (let q = 1; q <= 4; q++) el.classList.toggle('eg' + q, t_ === q); } el.ondblclick = () => e && !recentApply() && unequip(e);
         el.onclick = () => { if (tgtScroll && e) { lastApplyT = performance.now(); applyScroll(e); } }; el.onpointerdown = ev => e && holdStart(ev, e); });
@@ -6932,7 +6952,7 @@ const TOWN = (() => {
     ['bugbear_field', '버그베어밭', '중급', '20~30', 470, 300, '시체와 핏자국이 널린 어둡고 끔찍한 살육의 땅. 1구간(Lv 20~25): 먼저 활을 쏘는 해골 궁수·좀비(해골·좀비는 밤에 강해짐)·버그베어. 2구간(Lv 25~30): 버그베어·불을 무는 켈베로스·먼저 덤비는 킹 버그베어, 그리고 보스 바포메트(잡으면 3시간~3시간 30분 뒤 다시 등장). 버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 잘 떨어뜨린다.'],
     ['dark_knight_field', '본토던전', '상급', '30~40', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 30~35): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 35~40): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
     ['dragon_valley', '용의 계곡', '상급', '47~54', 900, 300, '용족이 지배하는 검붉은 협곡 (불 속성 — 물 속성 무기·마법이 잘 듭니다). 1구역(Lv 47~50): 먼저 덤비는 빠른 해골 돌격병·해골 궁수, 3마리씩 무리 지은 트롤. 2구역(Lv 50~54, 모두 선공): 와이번(독)·불 숨결을 뿜는 드레이크·드물게 번개와 토네이도를 쓰는 흑장로, 그리고 보스 드레이크 킹(약 3시간마다, 2인 이상). 용의 비늘·드레이크의 발톱·용의 심장으로 제작 장인 브론에게서 직업 무기(드래곤 슬레이어·용의 지팡이·용의 활)를 만들 수 있어요.'],
-    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(약 3시간마다, 3~4명 · 한 번 되살아남). 1·2구역 어딘가에는 이따금 불의 정령 이프리트(중간 보스)가 알림 없이 나타나요 — 쓰러뜨리면 화룡 갑옷의 핵심 재료인 이프리트의 심장을 얻을 수 있어요. 화룡의 비늘·아시타지오의 재·피닉스의 깃털·이프리트의 심장으로 제작 장인 브론에게서 화룡 갑옷 3종(화룡의 갑옷·화룡의 로브·화룡의 가죽갑옷 · 영웅 · 직업 전용 · 화염 저항 +50)을 만들 수 있어요.'],
+    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(잡힌 뒤 5~6시간마다, 3~4명 · 한 번 되살아남). 1·2구역 어딘가에는 이따금 불의 정령 이프리트(중간 보스)가 알림 없이 나타나요 — 쓰러뜨리면 화룡 갑옷의 핵심 재료인 이프리트의 심장을 얻을 수 있어요. 화룡의 비늘·아시타지오의 재·피닉스의 깃털·이프리트의 심장으로 제작 장인 브론에게서 화룡 갑옷 3종(화룡의 갑옷·화룡의 로브·화룡의 가죽갑옷 · 영웅 · 직업 전용 · 화염 저항 +50)을 만들 수 있어요.'],
     ['summon_altar', '소환의 제단', '상급', '30~50', 700, 560, '영혼석으로 보스를 불러내는 고대의 제단. 몬스터는 없고, 사냥터에서 감시자 리퍼를 쓰러뜨려 얻은 [영혼석]을 제단 가까이에서 쓰면 그 보스(같은 능력치·드랍)가 나타나요. 한 번에 한 마리.'],
     ['oren_elmore', '오렌설원지역', '상급', '40~50', 800, 130, '눈보라가 몰아치는 북쪽의 눈 덮인 설원 (수속성 — 불 속성 무기·마법이 잘 듭니다). 1구역(Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다니며 하나를 치면 무리 전체가 반격. 2구역(Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 얼어붙는 아이스 골렘, 그리고 보스 얼음여왕(약 3시간마다, 블리자드·콘 오브 콜드).'],
   ];
@@ -6966,8 +6986,8 @@ const TOWN = (() => {
     bugbear_field: { zones: [[7, '1구간 · Lv 20~25'], [8, '2구간 · Lv 25~30']], boss: 'baphomet', bossTxt: '2구간 · 잡으면 3시간~3시간 30분 뒤 다시 나타남' },
     oren_elmore: { zones: [[11, '1구역 · Lv 40~45'], [12, '2구역 · Lv 45~50']], boss: 'ice_queen', bossTxt: '2구역 · 잡으면 3시간~3시간 20분 뒤 다시 나타남 (블리자드·콘 오브 콜드)' },
     dragon_valley: { zones: [[16, '1구역 · Lv 47~50'], [17, '2구역 · Lv 50~54']], boss: 'drake_king', bossTxt: '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (2인 이상 · 불 숨결·꼬리·드레이크 부르기)' },
-    fire_dragon_nest: { zones: [[22, '1구역 · Lv 53~55'], [23, '2구역 · Lv 55~57']], boss: 'phoenix', bossTxt: '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)',
-      bosses: [['phoenix', '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)', ['phoenix']], ['fn_ifrit', '중간 보스 · 1구역·2구역에 1마리씩 · 알림 없이 어딘가에 나타남 · 잡으면 1시간~1시간 30분 뒤 (화염 폭발·불덩이)', ['fn_ifrit']]] },
+    fire_dragon_nest: { zones: [[22, '1구역 · Lv 53~55'], [23, '2구역 · Lv 55~57']], boss: 'phoenix', bossTxt: '2구역 · 잡으면 5시간~6시간 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)',
+      bosses: [['phoenix', '2구역 · 잡으면 5시간~6시간 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)', ['phoenix']], ['fn_ifrit', '중간 보스 · 1구역·2구역에 1마리씩 · 알림 없이 어딘가에 나타남 · 잡으면 1시간~1시간 30분 뒤 (화염 폭발·불덩이)', ['fn_ifrit']]] },
     dark_knight_field: { zones: [[9, '1층 · Lv 30~35'], [10, '2층 · Lv 35~40']], boss: 'deathknight', bossTxt: '', bosses: [['kaspar', '1층 보스 카스파 패밀리 · 넷 모두 쓰러지면 약 2시간 뒤', ['kaspar', 'merkyor', 'balthazar', 'sema']], ['deathknight', '2층 보스 · 약 3시간마다', ['deathknight']]] } };
   const RORD = { '영웅': 0, '희귀': 1, '고급': 2, '일반': 3 };
   function zoneKinds(id) { const d = ISLAND.def(id); if (!d) return []; const ks = new Set(); (d.mobs || []).forEach(([k]) => ks.add(k)); (d.groups || []).forEach(([k, mem]) => { ks.add(k); (mem || []).forEach(([m]) => ks.add(m)); }); return [...ks].filter(k => MOB[k] && !MOB[k].boss); }
@@ -9228,6 +9248,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 194, items: ["몬스터나 AI 봇을 대상으로 고르면 그 생김새를 따라 빨간 테두리가 생겨서 무엇을 골랐는지 한눈에 보여요.", "피닉스는 쓰러지면 5시간~6시간 뒤에 다시 나타나요. (전에는 3시간~3시간 30분)", "피닉스는 이제 먼저 덤비지 않아요. 공격하면 싸움이 시작돼요.", "먼저 덤비는(선공) 몬스터가 나를 알아채는 거리가 1칸 늘었어요. (4~7칸 → 5~8칸)", "몬스터의 근접·화살 공격을 피하는 확률이 방어력(AC)에 따라 1방 단위로 정해져요. 사냥터마다 기준 AC에서 회피 20%이고, AC 1방마다 0.5%씩 오르내려요(10방 = 5% · 최대 60%). 예) 화룡의 둥지: AC −120 회피 20% · −127 23.5% · −130 25% · −110 15% · −100 10% · −80 0%.", "기준 AC(회피 20%): 이야기섬 −10/−20 · 사막필드 −20/−30 · 오크숲 −30/−40 · 버그베어밭 −40/−50 · 본토던전 −70/−80 · 오렌설원 −90/−100 · 용의 계곡 −100/−110 · 화룡의 둥지 −120 (1/2구역). 보스에게는 10% 덜 피하고, 화살은 회피 ER만큼 더 피해요. 캐릭터 창 [몹 공격 회피]에서 지금 사냥터 회피 확률을 볼 수 있어요."] },
     { v: 193, items: ["새 사냥터 [화룡의 둥지]가 열렸어요! 월드맵에서 갈 수 있어요. (권장 Lv 53~60)", "1구역 불타는 분화구에는 불타는 전사·불타는 궁수·라바 골렘·드래곤 플라이·폭탄꽃, 2구역 화룡의 둥지에는 사라만다·혼 켈베로스·아시타지오·파이어에그가 살아요. 모두 먼저 덤비고 용의 계곡보다 훨씬 세지만, 마리당 경험치·골드도 훨씬 많아요. 몬스터마다 전용 효과음도 있어요.", "용암 웅덩이에 들어가면 계속 불에 타요. 가끔 하늘에서 떨어지는 화산탄(붉은 원)을 피하세요. 화염 저항이 불 피해를 줄여 줘요.", "필드 보스 피닉스가 2구역에 약 3시간마다 나타나요. 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 HP 30%로 되살아나요!", "새 아이템: 화룡의 비늘·아시타지오의 재·피닉스의 깃털(화룡 갑옷 제작 재료) · 화염의 반지·화염의 목걸이(희귀) · 화룡의 반지·불사조의 목걸이(영웅).", "새 가호 [피닉스의 가호]: 피닉스를 쓰러뜨릴 때 기여도가 1% 이상이면 피닉스의 가호조각이 가방에 들어와요. 조각 5개로 제작 장인 브론에게서 만들면(성공 40%), 가방에 가지고만 있어도 화룡의 둥지의 용암 웅덩이·화산탄 피해를 받지 않아요. (몬스터 공격 등 다른 불 피해는 그대로 · 켜짐/꺼짐 효과라 강화·축복은 없어요)", "1구역·2구역에는 몬스터가 각각 40마리씩 살고 있어요.", "가끔 중간 보스 [이프리트](거대한 불의 정령)가 아무 알림 없이 1구역·2구역 어딘가에 1마리씩 나타나요 — 쓰러뜨리면 1시간~1시간 30분 뒤 다시 나타나고, 50% 확률로 화룡 갑옷의 핵심 재료 [이프리트의 심장](영웅)을 떨어뜨려요.", "제작 장인 브론에게서 화룡의 둥지 재료로 직업 전용 [화룡 갑옷]을 만들 수 있어요! 화룡의 갑옷(기사)·화룡의 로브(법사)·화룡의 가죽갑옷(요정) — 영웅 · Lv55 · 화염 저항 +50 · 재료: 이프리트의 심장 5 · 아시타지오의 재 10 · 화룡의 비늘 20 · 피닉스의 깃털 1 (성공 100%)", "용비늘 방어구(투구·갑옷·장갑·장화)는 이제 제작할 수 없어요. 이미 가진 용비늘 방어구는 그대로 쓸 수 있고, 용비늘 무기(드래곤 슬레이어·용의 지팡이·용의 활) 제작은 그대로예요.", "강화 BGM은 게임을 켤 때마다 꺼진 채로 시작해요. 켜면 그 접속 동안만 켜져 있어요."] },
     { v: 192, items: ["제작 장인 브론의 제작 창에서도 장비·가호·인형과 재료를 꾹 누르고 있으면 가방처럼 상세 정보(능력치·설명)를 볼 수 있어요. (마우스를 올리면 이름이 떠요)", "대인전(결투장·수호탑 대전) 명중률을 올렸어요. 기본 명중 50% → 70%, 상대 방어(AC) 때문에 빗나가는 정도는 절반으로 줄여서 MISS가 훨씬 덜 나와요. (수호탑 봇도 방어 보정 절반)", "마법인형과 재료 아이템(가호조각·금빛/은빛 날개·용의 비늘·드레이크의 발톱·용의 심장 등)의 무게가 0이 됐어요.", "캐릭터 정보 창(접속자 목록에서 이름 누르기)에 경험치 대신 지금 변신 상태가 보여요. 착용 장비의 강화 수치는 상대도 v191 이상이면 보여요."] },
     { v: 191, items: ["바닥에 떨어진 아이템은 떨어진 지 10분이 지나면 사라져요. 사라지기 30초 전부터 깜빡여요.", "한 지역 바닥에는 아이템이 최대 50개까지 남아요. 넘으면 가장 오래된 것부터 사라져요.", "캐릭터 정보 창의 캐릭터 미리보기 밑에 [장비 이펙트: 켬/끔] 버튼이 생겼어요. 끄면 강화·영웅 장비 빛(무기·방어구 빛·반짝임)과 데스나이트 세트 불티가 내 캐릭터·다른 유저·미리보기 모두에서 안 보여요. (내 화면에서만 적용 · 이 기기에 기억 · 버프·스킬·변신 효과는 그대로)", "접속자 목록(월드 서버 창)에서 이름을 누르면 그 캐릭터의 정보 창이 떠요. 레벨·경험치·전투력·있는 지역·착용 장비(강화 수치·등급 색 · 마우스를 올리면 아이템 정보)·캐릭터 모습을 볼 수 있어요. (가방·창고·골드는 안 보여요 · 상대도 이번 버전이어야 경험치·강화 수치·목걸이·반지·인형이 보여요)"] },
@@ -10209,6 +10230,8 @@ const MUI = (() => {
 // 10/30 프로듀서: 모든 마법인형·재료 아이템 무게 0 (가호조각·날개·용/화룡 재료 — 나중에 추가되는 재료도 여기 이름을 넣거나 mat0: true)
 { const MAT0 = new Set(['gold_wing', 'silver_wing', 'dragon_scale', 'drake_claw', 'dragon_heart', 'fire_scale', 'astazio_ash', 'phoenix_feather', 'ifrit_heart']);
   for (const [id, d] of Object.entries(ITEMS)) if (d && (d.doll || d.mat0 || MAT0.has(id) || id.startsWith('gfrag_'))) d.w = 0; }
+// 10/30 프로듀서: 선공 몬스터가 알아채는 거리 +1칸 (모든 선공 몹 · 4~7칸 → 5~8칸)
+for (const k in MOB) { const S = MOB[k]; if (S && S.aggr > 0 && !S.aggr1) { S.aggr += 1; S.aggr1 = true; } }
 requestAnimationFrame(frame);
 setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();
