@@ -44,9 +44,9 @@ let SCENE='field', ZONE='새벽 들판', PROPS=META.props, ISLE=null;
 const propAt = new Map(); META.props.forEach(p=>propAt.set(p.j*MAP+p.i,p));
 // ============================================================ 낮과 밤 (24분 주기: 낮 16분 · 밤 8분, 전환 1분)
 const DN = (() => {
-  const DAY = 30*60, NIGHT = 30*60, CYC = DAY + NIGHT, FADE = 60;   // v197: 현실 시각 30분 낮 · 30분 밤 (매시 정각~30분 낮 · 30분~정각 밤 — 모든 사람이 같은 시각)
+  const DAY = 60*60, NIGHT = 60*60, CYC = DAY + NIGHT, FADE = 60;   // 현실 시각 1시간 낮 · 1시간 밤 (한국 시각 짝수 시 낮 · 홀수 시 밤 — 0시 낮, 1시 밤, 2시 낮 … 모든 사람이 같은 시각)
   let t = 3*60, was = null, dark = 0, force = null;
-  const clk = () => (Date.now() / 1000) % CYC, phaseN = () => force != null ? force === 1 : clk() >= DAY;
+  const clk = () => (Date.now() / 1000 + 9 * 3600) % CYC, phaseN = () => force != null ? force === 1 : clk() >= DAY;
   const BLOCK = new Set(['tree','rock','house','wall','dwall']);
   let bset = null, bsrc = null, vis = new Map(), vkey = '';
   function target(){ if (ISLE && ISLE.def && ISLE.def.dark) return 1; if (ISLE && ISLE.def && (ISLE.def.arena || ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) return 0; if (force!=null) return force; const u = clk();
@@ -61,7 +61,7 @@ const DN = (() => {
   let nsT = 0; function nightSync(dt){ if ((nsT -= dt) > 0) return; nsT = 0.25; const k = nightK();   // 밤: 모든 몬스터(보스 포함) 체력 +20% — 남은 체력 비율은 그대로
     for (const f of foxes) { if (f.bot || f.twr || f.fb || f.isPet || f.sum) continue; const S = MOB[f.kind]; if (!S || S.dummy) continue; const k0 = f.nk || 1; if (k0 === k) continue; const r = k / k0; f.max = Math.max(1, Math.round(f.max * r)); if (!f.dead) f.hp = Math.min(f.max, Math.max(1, f.hp * r)); f.nk = k; } }
   function update(dt){ t += dt; dark += (target()-dark)*Math.min(1,dt*1.5); nightSync(dt);
-    const n = isNight(); if (was!==null && n!==was) say(n ? '밤이 되었습니다. 시야가 좁아지고 모든 몬스터가 강해집니다. (보스 포함 · 체력·공격력 +20%)' : '날이 밝았습니다. 몬스터가 원래 힘으로 돌아왔어요.', n ? '#a8b8f0' : '#f2e6a8'); was = n; }
+    const n = isNight(); if (was!==null && n!==was) say(n ? '밤이 되었습니다. 모든 몬스터가 강해지는 대신(보스 포함 · 체력·공격력 +20%) 경험치·골드를 20% 더 받아요.' : '날이 밝았습니다. 몬스터와 보상이 원래대로 돌아왔어요.', n ? '#a8b8f0' : '#f2e6a8'); was = n; }
   const limited = () => SCENE==='field' && vd() > 0.05;
   function visMap(){ const key=hero.i+','+hero.j+','+Math.round(R()*4)+','+(PROPS.length)+SCENE; if (key===vkey) return vis; vkey=key; vis=new Map();
     const r=R(), B=blockers(), rr=Math.ceil(r)+2;
@@ -94,10 +94,10 @@ const DN = (() => {
     for (const f of foxes){ if (f.dead||f.gone||!seen(f.i,f.j)) continue; const S=MOB[f.kind]; lit(f.x,f.z,S.hh||Math.round(62*S.sc),S.hw||Math.round(14*S.sc+6),0.9); }
     lit(hero.x,hero.z,74,24,0.85); c.restore(); }
   function label(){ const u=clk(), n=isNight(), m=Math.max(0,Math.ceil((n?(CYC-u):(DAY-u))/60)), tl=force!=null?' (고정)':` · ${m}분 뒤 ${n?'낮':'밤'}`; if (ISLE && ISLE.def && ISLE.def.dark) return `☾ 던전 · 바깥은 ${n?'밤':'낮'}`+tl; return (n?'☾ 밤':'☀ 낮')+tl; }
-  return { update, draw, seen, isNight, dark: () => dark, label, toggle(){ force = force==null ? (isNight()?0:1) : (force===1?0:1); }, set(v){ force = v == null ? null : v ? 1 : 0; } };
+  return { update, draw, seen, isNight, dark: () => dark, label, toggle(){ force = force==null ? (isNight()?0:1) : (force===1?0:1); }, set(v){ force = v == null ? null : v ? 1 : 0; }, left: () => Math.max(0, Math.ceil(((isNight() ? CYC : DAY) - clk()) / 60)) };
 })();
 const nightUp = S => false;   // v197: 언데드만 밤에 공격 1.5배·명중 +10% → 모든 몬스터가 밤에 체력·공격력 +20% (nightK)로 통일
-const NIGHT_K = 1.2, nightK = () => DN.isNight() && SCENE !== 'town' && !(ISLE && ISLE.def && (ISLE.def.arena || ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) ? NIGHT_K : 1;   // 밤: 보스 포함 모든 몬스터 (던전도 바깥 시각을 따름 · 결투장·콜로세움·수호탑·이벤트 지역은 없음)
+const NIGHT_K = 1.2, nightK = () => DN.isNight() && SCENE !== 'town' && !(ISLE && ISLE.def && (ISLE.def.arena || ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) ? NIGHT_K : 1, nightR = () => nightK() > 1 ? 1.2 : 1;   // 밤: 보스 포함 모든 몬스터 · 밤 보상(경험치·골드) +20% (던전도 바깥 시각을 따름 · 결투장·콜로세움·수호탑·이벤트 지역은 없음)
 const ENR_SPD = 1.5, ENR_DMG = 1.2, enrMul = f => (f && f.enraged ? ENR_DMG : 1) * (f && !f.bot && !f.twr && !f.fb ? nightK() : 1);   /* v197: 밤 공격력 +20% (몬스터의 근접·화살·마법·범위 공격 모두 여기를 거침) */   /* v126: 보스 광폭화 */
 const mobDmg = (S, f) => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1) * (S.boss ? 1.5 : 1) * (S.solo ? SOLO_MUL : 1) * (S.atkMul || 1) * enrMul(f));   // v109: 보스 기본 공격 ×1.5 · v112: 단일 보스 ×1.4 더
 const lowLvMul = S => { const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };   // v111: 내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치 −5% (최대 −50%)
@@ -130,7 +130,7 @@ const defHit = S => { const D = DEFMODE, A = Math.max(0, -INV.ac()); let h;
 //     (몹 물리 피해는 v193 '명중 최저 10%'에 맞춰져 있어서, 웬만하면 맞는 v2에서는 그대로 두면 AC 100 넘는 캐릭터가 3~4배 받음 → 사냥터 배율로 낮춤)
 const HIZ = () => !!(DEFMODE.hz && ISLE && SCENE === 'field' && !ARENA() && ISLE.def && ISLE.def.hiz);
 const v2Z = k => { const z = ISLE && ISLE.id, o = DEFMODE['z' + k], v = o && o[z]; if (v != null) return v; const D = ISLE && ISLE.def, w = D && D[k === 'C' ? 'coinX' : 'v2' + k]; return w != null ? w : k === 'P' ? DEFMODE.v2PDef : 1; };   // 사냥터별 배율 (P 물리 · M 마법 · C 골드) · 물리는 따로 안 정한 사냥터 기본 ×0.5
-const coinX = () => DEFMODE.hz && ISLE && ISLE.def && ISLE.def.hiz ? v2Z('C') : 1;
+const coinX = () => (DEFMODE.hz && ISLE && ISLE.def && ISLE.def.hiz ? v2Z('C') : 1) * nightR();
 const v2AcA = () => Math.max(0, -INV.ac());
 const v2Ev = boss => Math.min(DEFMODE.v2EvCap, v2AcA() * DEFMODE.v2EvK) * (boss ? 0.5 : 1);   // 물리 회피 (AC 1당 0.15% · 최대 25%)
 const hzHit = S => { const D = DEFMODE; let h = Math.max(D.v2Min, Math.min(D.v2Hit, D.v2Hit + D.v2LvK * ((S.lv || 1) - hero.lv))) - v2Ev(S.boss); if (nightUp(S)) h += 0.05; return Math.max(0.05, Math.min(0.95, h)); };
@@ -299,7 +299,7 @@ function mobStatus(f){ const S=MOB[f.kind], L=[];
   if (f.bleed) L.push({ k:'bleed', psn:f.bleed.psn, n:`${f.bleed.psn ? '독' : '출혈'} — 초당 ${f.bleed.dps} 피해`, t:f.bleed.t, ty:'de' });
   if (f.hitDn>0) L.push({ k:'hitdn', n:`명중 저하 −${f.hitDnV||0}`, t:f.hitDn, ty:'de' });
   if (f.regenOn) L.push({ k:'regen', n:'체력 회복 중 — 2분 동안 아무도 때리지 않음', ty:'buf' });
-  if (nightK() > 1 && !S.dummy) L.push({ k:'night', n:'밤의 힘 — 체력·공격력 +20%', ty:'buf' });
+  if (nightK() > 1 && !S.dummy) L.push({ k:'night', n:'밤의 힘 — 체력·공격력 +20% (잡으면 경험치·골드 +20%)', ty:'buf' });
   return L; }
 function stGlyph(g, q, x, y){ g.save(); g.translate(x,y); g.textAlign='center'; g.textBaseline='middle';
   if (q.k==='el'){ g.fillStyle=ATTR_C[q.el]; g.beginPath(); g.moveTo(0,-4.6); g.lineTo(4.6,0); g.lineTo(0,4.6); g.lineTo(-4.6,0); g.closePath(); g.fill(); g.fillStyle='#120e08'; g.font='900 5.5px "Noto Sans KR",sans-serif'; g.fillText(ATTR_N[q.el][0],0,0.4); }
@@ -427,9 +427,9 @@ function drawBigFx(g, vw, vh, ox, oy) { if (!BIGFX.length) return; const [hx, hy
     g.restore(); } }
 // 경험치는 각자 가한 피해만큼 나눠 먹음 (나 vs 펫, 넘친 피해는 안 셈)
 function addDmg(f, who, d){ if (!f||d<=0) return; if (who && who.sum) who = hero; if (f.bot || f.twr) TWM.onDmg(f, who, d);   /* v144: 소환수가 준 피해는 내 것 */ if (MOB[f.kind] && MOB[f.kind].dummy){ (f.dlog||(f.dlog=[])).push([time, d]); if (MOB[f.kind].real && !f.ttk0) f.ttk0=time; } f.lastDmgAt=Date.now(); f.regenAt=0; f.regenOn=false; (f.dmgBy||(f.dmgBy=new Map())).set(who,(f.dmgBy.get(who)||0)+d); }
-function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.values()) tot+=v; const hd=M?(M.get(hero)||0):0; const heroExp=gahoExp(Math.round((tot>0?S.exp*hd/tot:S.exp)*lowLvMul(S))); const parts=[];
+function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.values()) tot+=v; const hd=M?(M.get(hero)||0):0; const heroExp=gahoExp(Math.round((tot>0?S.exp*hd/tot:S.exp)*lowLvMul(S)*nightR())); const parts=[];
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
-  if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
+  if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot*nightR()); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
 function killCheck(f){ if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
   const D=NET.distribute(f,S); if (!D){ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=Math.round(rint(S.coin)*coinX()); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
@@ -473,7 +473,7 @@ const BUFF_DEF = { hwexp: { name: '호박 사탕', get desc() { return `몬스�
                    mlock: { name: '마법 봉인', desc: '마법을 쓸 수 없음 (앱솔루트 배리어 뒤 · 물약·주문서는 가능)', icon: 'sk_abarrier', dur: 12, c: '#a8b0c8', bad: true } };
 const BUFFRECT = [], PETRECT = [];
 const hasWard = () => { try { return INV.count('immortal_ward') > 0; } catch (e) { return false; } };   // v172: 불멸의 가호 표시 (버프·디버프 줄 맨 앞)
-const WARD_TIP = k => k === '_ward' ? ['불멸의 가호', '가호의 보호를 받고 있습니다 · 사망 패널티 없음', `쓰러지면 가호 1개가 대신 타요 (남은 가호 ${INV.count('immortal_ward')}개)`] : ['[디버프] 불멸의 가호 없음', '가호의 보호를 받지 못하고 있습니다', '사망 패널티: 경험치 −5% · 골드 −10%'];
+const WARD_TIP = k => k === '_night' ? ['[디버프] 밤', '모든 몬스터(보스 포함)의 체력·공격력 +20%', `대신 잡으면 경험치·골드 +20% · ${DN.left()}분 뒤 낮`] : k === '_ward' ? ['불멸의 가호', '가호의 보호를 받고 있습니다 · 사망 패널티 없음', `쓰러지면 가호 1개가 대신 타요 (남은 가호 ${INV.count('immortal_ward')}개)`] : ['[디버프] 불멸의 가호 없음', '가호의 보호를 받지 못하고 있습니다', '사망 패널티: 경험치 −5% · 골드 −10%'];
 const HEALK = () => BUFF.poll > 0 ? 0.5 : 1;   // 폴루트 워터: 받는 회복 50%
 let BIND_IMM = 0;   // 어스 바인드가 풀린 뒤 6초는 다시 안 걸림
 let STUN_IMM = 0; const STUN_IMM_SEC = 3;   // 대인전 스턴: 기절 중엔 안 겹치고 풀린 뒤 3초는 면역 (유저·수호탑 봇 · 몬스터가 거는 스턴은 그대로)
@@ -2679,6 +2679,7 @@ function drawUI(g, vw, vh){
       g.fillStyle='rgba(0,0,0,.65)'; g.fillRect(bx,by+sz-3,sz,3); g.fillStyle=d.hp/PET.mxh(d)<0.35?'#e8503a':'#5ad06a'; g.fillRect(bx,by+sz-3,sz*Math.max(0,d.hp)/PET.mxh(d),3); g.restore();
       PETRECT.push([bx,by,sz,sz,pt]); if (mp&&mp[0]>=bx&&mp[0]<=bx+sz&&mp[1]>=by&&mp[1]<=by+sz) ptip={pt,x:bx,y:by}; bx-=6; }
     if (PET.list().length) bx-=4;
+    if (nightK() > 1){ dx-=sz; const x=dx, y=dy, im2=iconImg('night_moon'); g.save(); g.fillStyle='rgba(70,6,6,.7)'; g.fillRect(x-1,y-1,sz+2,sz+2); g.strokeStyle='#ff3a2a'; g.lineWidth=2; g.strokeRect(x-1,y-1,sz+2,sz+2); if (im2.complete&&im2.naturalWidth){ g.imageSmoothingEnabled=true; g.drawImage(im2,x+2,y+2,sz-4,sz-4); } g.fillStyle='#ff3a2a'; g.beginPath(); g.moveTo(x-1,y-1); g.lineTo(x+7,y-1); g.lineTo(x-1,y+7); g.closePath(); g.fill(); g.restore(); BUFFRECT.push([x,y,sz,sz,'_night']); if (mp&&mp[0]>=x&&mp[0]<=x+sz&&mp[1]>=y&&mp[1]<=y+sz) tip={k:'_night',x,y}; dx-=6; }   // 밤 (사냥터): 디버프 줄
     const BKS=Object.keys(BUFF_DEF).filter(k=>BUFF[k]>0&&BUFF_DEF[k].icon);   /* v172: 버프는 아래 줄 · 디버프는 위 줄 (둘 다 오른쪽부터 · 맨 오른쪽 첫 칸은 불멸의 가호) */
     const drawB=(k,x,y)=>{ const D=BUFF_DEF[k], im2=iconImg(D.icon);
       g.save(); g.globalAlpha=D.bad?0.95:0.78; g.fillStyle=D.bad?'rgba(70,6,6,.7)':'rgba(10,8,6,.55)'; g.fillRect(x-1,y-1,sz+2,sz+2); if (D.bad){ g.strokeStyle='#ff3a2a'; g.lineWidth=2; g.strokeRect(x-1,y-1,sz+2,sz+2); g.fillStyle='#ff3a2a'; g.beginPath(); g.moveTo(x-1,y-1); g.lineTo(x+7,y-1); g.lineTo(x-1,y+7); g.closePath(); g.fill(); } else { g.strokeStyle=D.c; g.lineWidth=1; g.strokeRect(x-0.5,y-0.5,sz+1,sz+1); }
@@ -4479,6 +4480,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
 
 // ============================================================ 인벤토리 · 캐릭터 정보 (기획팀)
 const CXI = {};   // 장비 도감 아이콘 그림 (아래 장비 도감 블록에서 채움)
+CXI.night_moon = '<rect x="2" y="2" width="30" height="30" rx="5" fill="#121838"/><circle cx="8" cy="9" r="1.1" fill="#cfd8ff"/><circle cx="27" cy="26" r="1" fill="#cfd8ff"/><circle cx="25" cy="7.5" r=".8" fill="#cfd8ff"/><circle cx="9" cy="25" r=".7" fill="#cfd8ff"/><circle cx="16" cy="18" r="9.5" fill="#ffe6a0"/><circle cx="20.5" cy="14.5" r="8.5" fill="#121838"/>';   // 밤 디버프 아이콘 (초승달)
 // v186: 단일 강화 연출 — [강화]를 누르면 육각 진 안의 장비가 빛을 모으고, [결과 보기]를 누르면 성공(금빛 폭발·광선·번개)·실패(균열·파편·연기)·저주(보랏빛 소용돌이)
 const ENHFX = (() => {
   let raf = 0, S = null;
@@ -7723,9 +7725,9 @@ const NET = (() => {
     for (const p of [myPeer, ...othersInZone().map(o => o.peer)]) { const pt = ptOf(p), pos = posOf(p); if (!pt || !pts.has(pt) || !pos || Math.max(Math.abs(pos.x - f.x), Math.abs(pos.z - f.z)) > 15) continue; const b = supBank(p); if (b > 0) { add(p, b); useSup(p); } }
     lastRw = {}; const tot = [...C.values()].reduce((a, b) => a + b, 0) || 1, shares = new Map([...C].map(([p, v]) => [p, v / tot])), gold = ARENA() ? 0 : Math.round(rint(S.coin) * coinX()), petSum = pets.reduce((a, x) => a + x[1], 0);
     for (const [p, s] of shares) { const bn = partyBonus(p) ? 1.1 : 1, gd = Math.round(gold * s * bn);
-      if (p === myPeer) { for (const [w, v] of pets) { const pe = Math.round(S.exp * v / tot); if (pe > 0) PET.gainExp(w, pe); } const ex = gahoExp(Math.max(0, Math.round(S.exp * Math.max(0, s - petSum / tot) * bn * lowLvMul(S)))); if (ex > 0) gainExp(ex); if (window.SAVER) SAVER.kill(); coins += gd; if (OFFL_HOOK) { OFFL_HOOK.kill(f, s); OFFL_HOOK.gold(gd); }
+      if (p === myPeer) { for (const [w, v] of pets) { const pe = Math.round(S.exp * v / tot * nightR()); if (pe > 0) PET.gainExp(w, pe); } const ex = gahoExp(Math.max(0, Math.round(S.exp * Math.max(0, s - petSum / tot) * bn * lowLvMul(S) * nightR()))); if (ex > 0) gainExp(ex); if (window.SAVER) SAVER.kill(); coins += gd; if (OFFL_HOOK) { OFFL_HOOK.kill(f, s); OFFL_HOOK.gold(gd); }
         say(`보상 (공헌도 ${Math.round(s * 100)}%${bn > 1 ? ' · 파티 +10%' : ''}) — 경험치 +${ex}${ex > 0 ? lowLvTag(S) : ''} · 골드 +${gd}`, '#d8e8a8'); }
-      else { const L = rwOut[p] || (rwOut[p] = []), E = [++rwSeq, Math.round(S.exp * s * bn), gd, KINDS.indexOf(f.kind), Math.round(s * 100), bn > 1 ? 1 : 0, 0, 0]; L.push(E); lastRw[p] = E; trim(L, 8); } }
+      else { const L = rwOut[p] || (rwOut[p] = []), E = [++rwSeq, Math.round(S.exp * s * bn * nightR()), gd, KINDS.indexOf(f.kind), Math.round(s * 100), bn > 1 ? 1 : 0, 0, 0]; L.push(E); lastRw[p] = E; trim(L, 8); } }
     f.dmgBy = null; sendT = 0; return { shares }; }
   // v179: 보스 가호조각 — 기여도 1% 이상인 사람마다 1개씩 가방에 바로 (혼자 잡으면 나에게 1개)
   function gahoGive(f, D) { const id = 'gfrag_' + f.kind; if (!f || !GAHO_OF[f.kind] || !ITEMS[id]) return; const mine = () => { INV.add(id, 1, true); say(`[기여 보상] ${JOSA(ITEMS[id].name, '이', '가')} 가방에 1개 들어왔어요.`, '#ffd86a'); };
@@ -9859,7 +9861,7 @@ const MUI = (() => {
         if (BUFF[k] <= 10) { g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(r[0], r[1], bs, bs - 3); g.font = '900 11px ' + F; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(String(Math.ceil(BUFF[k])), r[0] + bs / 2, r[1] + bs / 2); g.textBaseline = 'alphabetic'; }
         BUFFRECT.push([...r, k]); };
       const BKS = Object.keys(BUFF_DEF).filter(k => BUFF[k] > 0 && BUFF_DEF[k].icon), BAD = BKS.filter(k => BUFF_DEF[k].bad), GOOD = BKS.filter(k => !BUFF_DEF[k].bad);
-      if (!wOn || BAD.length) { bx = sx; if (!wOn) { const r = add(iconImg('burnt_ward'), true); if (r) BUFFRECT.push([...r, '_noward']); bx += 4; } for (const k of BAD) buff(k); ry += bs + 5; }
+      const NGT = nightK() > 1; if (!wOn || BAD.length || NGT) { bx = sx; if (!wOn) { const r = add(iconImg('burnt_ward'), true); if (r) BUFFRECT.push([...r, '_noward']); bx += 4; } if (NGT) { const r = add(iconImg('night_moon'), true); if (r) BUFFRECT.push([...r, '_night']); } for (const k of BAD) buff(k); ry += bs + 5; }
       bx = sx; if (wOn) { const r = add(iconImg('immortal_ward'), false, false, true); if (r) { const n = INV.count('immortal_ward'); g.font = '900 9px ' + F; g.textAlign = 'right'; g.lineWidth = 2.5; g.strokeStyle = 'rgba(0,0,0,.95)'; g.strokeText(String(n), r[0] + bs - 1, r[1] + bs - 2); g.fillStyle = '#bff0ff'; g.fillText(String(n), r[0] + bs - 1, r[1] + bs - 2); BUFFRECT.push([...r, '_ward']); } bx += 4; }
       for (const pt of PET.list()) { const d = pt.d, r = add(iconImg(pt.sum ? 'sk_summon' : d.evo ? 'collar_evo' : 'collar'), false, pt.dead); if (!r) break; g.fillStyle = 'rgba(0,0,0,.65)'; g.fillRect(r[0], r[1] + bs - 3, bs, 3); g.fillStyle = d.hp / PET.mxh(d) < 0.35 ? '#e8503a' : '#5ad06a'; g.fillRect(r[0], r[1] + bs - 3, bs * Math.max(0, d.hp) / PET.mxh(d), 3); PETRECT.push([...r, pt]); }
       for (const k of GOOD) buff(k);

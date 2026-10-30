@@ -6,5 +6,5 @@ inj="window.__T={get DEFMODE_(){return typeof DEFMODE!=='undefined'?DEFMODE:null
 open('src/_kt2.js','w',encoding='utf8').write(s[:i]+inj+s[i:])
 h=open('index.html',encoding='utf8').read().replace('<script src="src/game.js"></script>','<script src="src/_kt2.js"></script>').replace('<script src="src/map_data.js"></script>','<script>window.DEMO_MODE=true;window.NO_AUTOGOD=true;</script>\n<script src="src/map_data.js"></script>',1)
 h=h.replace('<head>','<head><script>try{if(!/[?&]auto=1/.test(location.search))localStorage.removeItem("aden_auto")}catch(e){}</script>',1)  # 테스트: 자동 로그인 끔 (?auto=1이면 켬)
-k=open('src/_kt2.js',encoding='utf8').read(); j=k.rindex('})();'); open('src/_kt2.js','w',encoding='utf8').write(k[:j]+"Object.assign(window.__T,{get GLOG_(){return typeof GLOG!=='undefined'?GLOG:null},get ANN_(){return typeof announce!=='undefined'?announce:null}});\n"+k[j:])  # 게임 기록 테스트
+k=open('src/_kt2.js',encoding='utf8').read(); j=k.rindex('})();'); open('src/_kt2.js','w',encoding='utf8').write(k[:j]+"Object.assign(window.__T,{get GLOG_(){return typeof GLOG!=='undefined'?GLOG:null},get ANN_(){return typeof announce!=='undefined'?announce:null},get BUFFRECT_(){return typeof BUFFRECT!=='undefined'?BUFFRECT:null}});\n"+k[j:])  # 게임 기록 테스트
 open('_kt2.html','w',encoding='utf8').write(h); print('kt2 ok')
