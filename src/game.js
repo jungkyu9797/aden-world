@@ -2104,6 +2104,7 @@ function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && f.kind.startsWith('
     if (ART==='bombflower'){ g.globalAlpha=al; drawBombFlower(g,f); g.restore(); return; }
     if (ART==='dragonfly'){ g.globalAlpha=al; drawDragonfly(g,f); g.restore(); return; }
     if (ART==='fireegg'){ g.globalAlpha=al; drawFireEgg(g,f); g.restore(); return; }
+    if (ART==='ashtazio'){ g.globalAlpha=al; drawAshtazio(g,f); g.restore(); return; }
     if (ART==='spider'){ g.globalAlpha=al; drawSpider(g,0,0,f); g.restore(); return; }
     if (ART==='ant'){ g.globalAlpha=al; drawAnt(g,0,0,f); g.restore(); return; }
     if (ART==='scorpion'){ g.globalAlpha=al; drawScorpion(g,0,0,f); g.restore(); return; }
@@ -2679,7 +2680,7 @@ Object.assign(MOB, {
   fn_bomb:      { name: '폭탄꽃', lv: 53, hp: 800, dmg: [45, 70], mac: 4, hit: 0.9, mr: 10, exp: 4100, coin: [1000, 1650], walk: 0, run: 0, cd: 2.2, range: 5, fireball: true, still: true, aggr: 5, el: 'fire', art: 'bombflower', sc: 1.0, hw: 22, hh: 46, atkTxt: '불씨 포탄' },
   fn_salamander:{ name: '사라만다', lv: 55, hp: 2250, dmg: [90, 143], mac: 1, hit: 0.94, mr: 35, exp: 14150, coin: [3250, 5200], walk: 1.1, run: 3.0, cd: 1.42, aggr: 6, el: 'fire', dragon: true, skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 36, hh: 52, atkTxt: '물기' },
   fn_hcerberus: { name: '혼 켈베로스', lv: 56, hp: 1950, dmg: [83, 135], mac: 2, hit: 0.94, mr: 25, exp: 12600, coin: [3050, 4900], walk: 1.6, run: 4.2, cd: 1.17, aggr: 6, burn: true, el: 'fire', skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 32, hh: 48, atkTxt: '불 송곳니' },
-  fn_ashtazio:  { name: '아시타지오', lv: 57, hp: 3000, dmg: [90, 135], mac: 1, hit: 0.95, mr: 55, exp: 19500, coin: [4900, 8700], walk: 1.0, run: 2.6, cd: 2.0, range: 6, spell: 'fire', aggr: 7, el: 'fire', skills: true, resp: 240, flame: 2, art: 'vil', sc: 1.1, atkTxt: '파이어볼' },
+  fn_ashtazio:  { name: '아시타지오', lv: 57, hp: 3000, dmg: [90, 135], mac: 1, hit: 0.95, mr: 55, exp: 19500, coin: [4900, 8700], walk: 1.0, run: 2.6, cd: 2.0, range: 6, spell: 'fire', aggr: 7, el: 'fire', skills: true, resp: 240, art: 'ashtazio', sc: 0.9, hw: 30, hh: 90, atkTxt: '파이어볼' },
   fn_egg:       { name: '파이어에그', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
   phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
@@ -2757,7 +2758,7 @@ Object.assign(MS_ALIAS, {   // 화룡의 둥지 임시 그림 (오리지널 렌�
   fn_warrior: ['elmore_warrior', 1.0, 'grayscale(.7) brightness(.72) contrast(1.3) sepia(.35) hue-rotate(-12deg)', 'skin'], fn_archer: ['dark_elf', 1.0, 'grayscale(.7) brightness(.82) contrast(1.25) sepia(.35) hue-rotate(-12deg)', 'skin'],   // v190: 그을린 몸 + 빛나는 용암 균열
   fn_golem: ['dv_lizard', 0.95, 'grayscale(1) brightness(.85) contrast(1.25)', 'rock'],   // v190: 무기 없는 덩치(트롤 렌더)에 몸 전체 용암 바위 fn_fly: ['wyvern', 0.42, 'sepia(1) saturate(3.4) hue-rotate(-12deg) brightness(1.2) contrast(1.1)'],
   fn_salamander: ['basilisk', 1.15, 'sepia(1) saturate(3.2) hue-rotate(-30deg) brightness(.72) contrast(1.25)'], fn_hcerberus: ['cerberus', 1.12, 'sepia(1) saturate(3.4) hue-rotate(-16deg) brightness(.78) contrast(1.4)'],
-  fn_ashtazio: ['baphomet', 0.6, 'grayscale(.3) sepia(1) saturate(2.6) hue-rotate(-22deg) brightness(.62) contrast(1.35)'], phoenix: ['wyvern', 1.55, 'sepia(1) saturate(4.2) hue-rotate(-6deg) brightness(1.4) contrast(1.1)'] });
+  phoenix: ['wyvern', 1.55, 'sepia(1) saturate(4.2) hue-rotate(-6deg) brightness(1.4) contrast(1.1)'] });
 for (const k in MS_ALIAS) if (!MSHEET[k]) { const [src, sc, tint, lava] = MS_ALIAS[k], M = MSHEET[src]; MSHEET[k] = { ...M, s: M.s * sc, hh: Math.round(M.hh * sc), hw: Math.round(M.hw * sc), src, tint, lava }; }
 // 선공 몬스터(먼저 덤비는 몹, 보스 제외)는 1.3배 크게 그려 멀리서도 잘 보이게
 Object.assign(MOB, {   // v183: 수호탑 대전 — AI 봇(기사·요정·마법사)과 수호탑 (능력치는 판마다 TWM이 정함)
@@ -3236,6 +3237,104 @@ function drawFireEgg(g, f) { const S = MOB[f.kind], t = time + (f.hi || 0), wob 
   g.beginPath(); g.ellipse(0, -18, 12.5, 17, 0, 0, 7); g.fill(); g.strokeStyle = '#4a1a06'; g.lineWidth = 1; g.stroke();
   g.fillStyle = 'rgba(150,40,10,.6)'; for (const [x, y, r] of [[-5, -24, 2], [4, -14, 2.4], [-3, -9, 1.6], [6, -27, 1.3], [-8, -15, 1.5]]) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
   g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(255,200,80,${(0.55 + 0.4 * pu).toFixed(2)})`; g.lineWidth = 1.6; g.beginPath(); g.moveTo(-2, -34); g.lineTo(1, -27); g.lineTo(-3, -22); g.lineTo(2, -16); g.stroke(); mxG(g, '255,150,50', 0, -20, 22, 0.15 + 0.15 * pu, 1); g.restore(); }
+// 아시타지오: 키 큰 불의 악마 술사 (오리지널 코드 그림) — 그을린 검은 로브에 빛나는 용암 균열 · 뒤로 휜 큰 뿔 두 개(끝이 달아오름) · 두건 그림자 속 빛나는 두 눈
+//   어깨·머리 뒤로 일렁이는 불꽃 갈기 · 불덩이가 뜬 뒤틀린 지팡이 · 땅에서 살짝 떠서 발밑으로 불티가 떨어짐
+//   공격 = 쿨이 차면 지팡이를 들어 불덩이를 키움 → 앞으로 내질러 쏨 · 화염 기둥 시전 = 지팡이를 높이 들고 빈손에 불 · 발밑에 불의 고리 · 죽으면 불이 꺼지고 재로 무너져 흩어짐
+const ASHZ_R = [[8, -57], [15, -52], [12.5, -45], [10.5, -38], [10.5, -30], [12, -20], [15, -9], [18, 0]];   // 로브 오른쪽 윤곽 (왼쪽은 거울)
+const ASHZ_CR = [[[0.15, -2, 1.6], [0.3, -9, 1.3], [0.12, -16, 1.1], [0.28, -24, 0.9], [0.18, -31, 0.6]], [[0.3, -9, 1], [0.62, -13, 0.7], [0.75, -6, 0.5]], [[-0.55, -1, 1.4], [-0.4, -8, 1.1], [-0.6, -15, 0.8], [-0.45, -21, 0.5]], [[-0.4, -8, 0.9], [-0.15, -12, 0.6]],
+  [[0.05, -36, 1], [-0.25, -41, 0.8], [-0.1, -47, 0.5]], [[0.5, -40, 0.8], [0.7, -46, 0.5]]];   // 용암 균열 [가로 비율, 높이, 굵기]
+function ashzMix(a, b, k) { return `rgb(${Math.round(a[0] + (b[0] - a[0]) * k)},${Math.round(a[1] + (b[1] - a[1]) * k)},${Math.round(a[2] + (b[2] - a[2]) * k)})`; }
+function drawAshtazio(g, f) { const S = MOB[f.kind], A0 = g.globalAlpha, G = (c, x, y, r, a, sy) => { mxG(g, c, x, y, r, a * A0, sy); g.globalAlpha = A0; }, t = time + (f.hi || 0), d = DIRV[f.row] || [1, 0], dl = Math.hypot(d[0], d[1]) || 1, d0 = d[0] / dl, d1 = d[1] / dl;
+  const ux = (d0 - d1) / Math.SQRT2, uy = (d0 + d1) / Math.SQRT2, rx = -uy, rz = ux;   // 바라보는 쪽(화면 가로 ux · 앞뒤 uy: +면 보는 사람 쪽) · 몸 오른쪽(화면 가로 rx · 앞뒤 rz: +면 앞)
+  const dead = !!f.dead, dk = dead ? Math.min(1, (f.deadT || 0) / 1.25) : 0, fire = dead ? Math.max(0, 1 - dk * 2.2) : 1, moving = f.t < 1 && !dead, front = uy > -0.3;
+  const ap = f.atkT != null && !dead ? Math.min(1, f.atkT / ATK_T) : -1, C = !dead && f.casting && f.casting.k ? f.casting : null, cp = C ? Math.min(1, Math.max(0, 1 - C.t / (C.k.cast || 1))) : 0;
+  // 지팡이 들기(raise) · 불덩이 크기(grow) · 쏘는 순간(shot): 쿨이 거의 차면 미리 들어 키우고, 공격 시작에 내질러 쏨 (실제 불덩이는 공격 시작에 날아감)
+  let raise = 0, grow = 0, shot = 0;
+  if (C) { raise = Math.min(1, cp * 3); grow = 0.5 + cp * 1.3; }
+  else if (ap >= 0) { if (ap < 0.22) { shot = 1 - ap / 0.22; raise = 1; grow = -0.6 * (1 - shot); } else { const e = (ap - 0.22) / 0.78; raise = 1 - e * e; grow = -0.6 + e * 0.6; } }
+  else if (f.aggro && !moving && !dead && f.cool < 0.7) { const e = 1 - f.cool / 0.7; raise = e * e * (3 - 2 * e); grow = raise * 0.9; }
+  const br = Math.sin(t * 1.8), hv = (5 + Math.sin(t * 1.6) * 1.8) * (1 - dk), lean = (moving ? 2 : 0) + raise * 1.2 + shot * 2.5, sc = S.sc || 1;
+  g.save(); g.scale(sc, sc); g.lineCap = 'round'; g.lineJoin = 'round';
+  // 그림자 · 발밑 불빛 · 시전 중 불의 고리
+  g.fillStyle = `rgba(0,0,0,${(0.38 - hv * 0.015).toFixed(2)})`; g.beginPath(); g.ellipse(0, 1, 19 + dk * 6, 6.5 + dk * 2, 0, 0, 7); g.fill();
+  if (fire > 0) { g.globalCompositeOperation = 'lighter'; G('255,110,30', 0, 0, 22 + raise * 5, (0.16 + 0.05 * br + cp * 0.3) * fire, 0.4);
+    if (C) { const rr = 17 + cp * 11, fl = 0.6 + 0.4 * Math.sin(time * 22); g.strokeStyle = `rgba(255,${(120 + 80 * fl) | 0},40,${(0.35 + 0.5 * cp).toFixed(2)})`; g.lineWidth = 1.4 + cp * 1.2; g.beginPath(); g.ellipse(0, 0, rr, rr * 0.38, 0, 0, 7); g.stroke();
+      g.fillStyle = 'rgba(255,140,40,.7)'; for (let q = 0; q < 8; q++) { const a = q * 0.785 + time * 1.5, x = Math.cos(a) * rr, y = Math.sin(a) * rr * 0.38, h = (5 + 4 * Math.sin(time * 9 + q * 2)) * cp; g.beginPath(); g.moveTo(x - 2, y); g.quadraticCurveTo(x - 1.5, y - h * 0.6, x, y - h - 2); g.quadraticCurveTo(x + 1.5, y - h * 0.6, x + 2, y); g.fill(); } }
+    g.globalCompositeOperation = 'source-over'; }
+  if (dead) { g.fillStyle = ashzMix([40, 34, 30], [92, 86, 80], dk); g.beginPath(); g.ellipse(0, -1, 7 + dk * 13, 2 + dk * 4.5, 0, 0, 7); g.fill(); }   // 잿더미
+  if (f.flash > 0) g.filter = 'brightness(2.3) saturate(.3)';
+  g.translate(ux * lean, -hv + uy * lean * 0.5); if (dead) g.scale(1 + dk * 0.3, Math.max(0.04, 1 - dk * 0.96));
+  const robe = dead ? ashzMix([44, 32, 27], [96, 90, 84], dk) : '#2e211c', robe2 = dead ? ashzMix([70, 50, 38], [110, 104, 98], dk) : '#4c3427', bone = dead ? ashzMix([90, 70, 54], [104, 98, 92], dk) : '#7a5e48', boneD = dead ? robe : '#2a1c16';
+  const by = br * 0.8, hx = ux * 2, hy = -63 + br, ls = Math.abs(ux) > 0.2 ? Math.sign(ux) : 1;   // ls: 빛 받는 쪽 (바라보는 쪽)
+  // 불꽃 갈기: 어깨·머리 뒤로 일렁이며 뒤쪽으로 나부낌
+  const MN = [[-15, -49, 9], [-11, -54, 12], [-6, -58, 14], [-2, -60, 15], [2, -60, 15], [6, -58, 14], [11, -54, 12], [15, -49, 9]];
+  const mane = () => { if (fire <= 0) return; for (let pass = 0; pass < 2; pass++) { if (pass) g.globalCompositeOperation = 'lighter'; MN.forEach(([x0, y0, h0], q) => { const bx = x0 * (0.55 + 0.45 * Math.abs(uy)) * (front ? 1.12 : 1) - ux * 3 + hx * 0.5, b_ = y0 + by + uy * 2.5, h = (h0 + 3.5 * Math.sin(t * 7.3 + q * 1.9)) * fire * (1 + raise * 0.2) * (pass ? 0.62 : 1) * (front ? 1.55 : 1), w = (pass ? 1.8 : 3.4), ln = (-ux * 6 + Math.sin(t * 5 + q) * 2) * fire * (pass ? 0.7 : 1);
+      g.fillStyle = pass ? 'rgba(255,175,70,.7)' : 'rgba(205,45,12,.88)'; g.beginPath(); g.moveTo(bx - w, b_); g.quadraticCurveTo(bx - w * 0.9, b_ - h * 0.55, bx + ln, b_ - h); g.quadraticCurveTo(bx + w * 0.9, b_ - h * 0.55, bx + w, b_); g.closePath(); g.fill(); }); } g.globalCompositeOperation = 'source-over'; };
+  // 손: 오른손은 지팡이, 왼손은 비었다가 시전 때 불을 쥠
+  const hand = s => { const r = s > 0 ? raise : (C ? raise : raise * 0.4); return [rx * s * (15.5 - r * 2) + ux * (3 + r * 6 + (s > 0 ? shot * 5 : 0)), -29 + by + rz * s * 2 - r * (s > 0 ? 16 : 20) + uy * r * 2]; };
+  const arm = s => { const sx = rx * s * 12.5, sy = -50 + by + rz * s * 1.5, [x, y] = hand(s), mx = (sx + x) / 2 + rx * s * 3.5, my = (sy + y) / 2 + 3;
+    g.strokeStyle = robe; g.lineWidth = 7; g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(mx, my, x, y + 1); g.stroke();
+    g.strokeStyle = robe2; g.lineWidth = 2.2; g.beginPath(); g.moveTo(sx + rx * s * 1.5, sy); g.quadraticCurveTo(mx + rx * s * 1.5, my, x, y + 1); g.stroke();
+    { const k = 0.8, cx = (1 - k) * (1 - k) * sx + 2 * (1 - k) * k * mx + k * k * x, cy = (1 - k) * (1 - k) * sy + 2 * (1 - k) * k * my + k * k * (y + 1); g.fillStyle = robe; g.beginPath(); g.ellipse(cx, cy + 1, 5, 3.4, Math.atan2(y - sy, x - sx) + Math.PI / 2, 0, 7); g.fill(); g.strokeStyle = fire > 0 ? `rgba(255,110,40,${(0.4 * fire).toFixed(2)})` : robe2; g.lineWidth = 0.8; g.stroke(); }   // 넓은 소맷부리
+    g.fillStyle = boneD; g.beginPath(); g.arc(x, y, 2.8, 0, 7); g.fill(); g.strokeStyle = bone; g.lineWidth = 0.9; for (let q = -1; q <= 1; q++) { g.beginPath(); g.moveTo(x + q * 1.4, y + 1); g.lineTo(x + q * 1.8 + ux, y + 3.6); g.stroke(); }   // 그을린 손 · 갈고리 손톱
+    if (s < 0 && fire > 0 && (C || raise > 0.3)) { const k = C ? cp : raise; g.globalCompositeOperation = 'lighter'; G('255,130,40', x, y - 3, 7 + k * 5, 0.6 * fire * k, 1); g.fillStyle = `rgba(255,200,90,${(0.8 * k).toFixed(2)})`; g.beginPath(); g.moveTo(x - 2, y - 1); g.quadraticCurveTo(x - 1.5, y - 6 - k * 4, x + Math.sin(t * 9), y - 8 - k * 6); g.quadraticCurveTo(x + 1.5, y - 6 - k * 4, x + 2, y - 1); g.fill(); g.globalCompositeOperation = 'source-over'; } };
+  const staff = () => { const [x, y] = hand(1), tl = ux * (raise * 8 + shot * 7) * (C ? 0.25 : 1), top = [x + tl, y - 44 - raise * 2], bot = [x - tl * 0.5, y + 25 - raise * 8], P = k => [bot[0] + (top[0] - bot[0]) * k + Math.sin(k * 13) * 1.2, bot[1] + (top[1] - bot[1]) * k];
+    g.strokeStyle = dead ? robe2 : '#24140c'; g.lineWidth = 3; g.beginPath(); for (let i = 0; i <= 10; i++) { const q = P(i / 10); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
+    g.strokeStyle = dead ? robe : '#7a4a28'; g.lineWidth = 0.9; g.beginPath(); for (let i = 0; i <= 18; i++) { const k = 0.3 + i / 18 * 0.7, q = P(k), w = Math.sin(k * 46); i ? g.lineTo(q[0] + w * 1.3, q[1]) : g.moveTo(q[0] + w * 1.3, q[1]); } g.stroke();   // 휘감긴 나뭇결
+    g.strokeStyle = dead ? robe2 : '#24140c'; g.lineWidth = 1.6; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(top[0], top[1] + 4); g.quadraticCurveTo(top[0] + s * 6, top[1] - 1, top[0] + s * 2.2, top[1] - 8); g.stroke(); }   // 불덩이를 움켜쥔 갈고리 끝
+    if (fire > 0) { const pu = 0.5 + 0.5 * Math.sin(t * 6.3), rb = Math.max(0.6, (4 + pu * 0.7) * (1 + grow)) * fire, bx = top[0], by_ = top[1] - 4 - Math.max(0, grow) * 2.5;
+      g.globalCompositeOperation = 'lighter'; G('255,120,30', bx, by_, rb * 3.2 + 5, (0.5 + 0.15 * pu) * fire, 1);
+      g.fillStyle = 'rgba(230,70,20,.9)'; g.beginPath(); g.arc(bx, by_, rb, 0, 7); g.fill(); g.fillStyle = 'rgba(255,190,70,.9)'; g.beginPath(); g.arc(bx - rb * 0.12, by_ + rb * 0.1, rb * 0.64, 0, 7); g.fill(); g.fillStyle = '#fff4c8'; g.beginPath(); g.arc(bx - rb * 0.2, by_ + rb * 0.15, rb * 0.3, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,120,40,.6)'; for (let q = 0; q < 3; q++) { const a = t * 4 + q * 2.1, h = rb * (1.5 + 0.5 * Math.sin(t * 9 + q)), cx = bx + Math.cos(a) * rb * 0.55; g.beginPath(); g.moveTo(cx - 1.6, by_ - rb * 0.3); g.quadraticCurveTo(cx - ux * 1.5, by_ - h, cx + 1.6, by_ - rb * 0.3); g.fill(); }
+      if (shot > 0) { const k = 1 - shot, px = bx + ux * k * 34, py = by_ + uy * k * 17; G('255,215,130', bx, by_, 9 + shot * 11, shot * 0.9, 1); G('255,140,40', px, py, 8 * shot + 3, shot * 0.85, 1); }
+      g.globalCompositeOperation = 'source-over'; } };
+  // 로브 윤곽 (side: 0 전체 · ±1 반쪽)
+  const robePath = side => { const tr = (moving ? 3 : 1) * -ux, L = ASHZ_R.map(([x, y]) => [-x, y + (y < -44 ? by : 0)]), R = ASHZ_R.map(([x, y]) => [x, y + (y < -44 ? by : 0)]), hem = [];
+    for (let i = 0; i <= 10; i++) { const k = i / 10; hem.push([-18 + 36 * k + tr * (1 - Math.abs(k - 0.5) * 2), (i % 2 ? 3.6 : 0) + Math.sin(t * 3 + i * 1.7) * 1.1 * fire]); }
+    g.beginPath(); if (side <= 0) { g.moveTo(L[0][0], L[0][1]); for (const p of L) g.lineTo(p[0], p[1]); } else g.moveTo(ux * 4, -57 + by);
+    for (let i = side > 0 ? 5 : 0; i <= (side < 0 ? 5 : 10); i++) g.lineTo(hem[i][0], hem[i][1]);
+    if (side >= 0) for (let i = R.length - 1; i >= 0; i--) g.lineTo(R[i][0], R[i][1]); else g.lineTo(ux * 4, -57 + by); g.closePath(); return hem; };
+  if (front) mane();
+  if (-rz < -0.2) arm(-1);
+  if (rz < -0.2) { arm(1); staff(); }
+  const hem = robePath(0); g.fillStyle = robe; g.fill(); g.strokeStyle = fire > 0 ? `rgba(255,110,40,${(0.35 * fire).toFixed(2)})` : robe2; g.lineWidth = 1; g.stroke();
+  robePath(ls); g.fillStyle = robe2; g.globalAlpha = A0 * 0.55; g.fill(); g.globalAlpha = A0;   // 바라보는 쪽 절반은 불빛을 받아 조금 밝게
+  if (front && !dead) { const ox = ux * 4; g.fillStyle = '#3a1008'; g.beginPath(); g.moveTo(ox - 1.2, -34); g.lineTo(ox - 5 * uy - 1, hem[5][1] - 0.5); g.lineTo(ox + 5 * uy + 1, hem[5][1] - 0.5); g.lineTo(ox + 1.2, -34); g.closePath(); g.fill(); }   // 앞섶 틈 (안쪽이 달아오름)
+  g.fillStyle = boneD; g.fillRect(-10.5, -33, 21, 3.4); g.fillStyle = bone; g.fillRect(ux * 4 - 2, -33.6, 4, 4.6);   // 허리띠 · 뼈 버클
+  // 용암 균열: 숨 쉬듯 달아오름 (주홍 테두리 + 노란 심 · 아래로 갈수록 굵음)
+  if (fire > 0) { const pu = Math.min(1.2, 0.55 + 0.45 * Math.sin(t * 2.6) + raise * 0.25 + cp * 0.3), fs = front ? 1 : -1, hwf = y => y > -30 ? 10.5 + (y + 30) / 30 * 7.5 : 11; g.globalCompositeOperation = 'lighter';
+    for (const [m, col] of [[2, `rgba(255,80,20,${(0.5 * pu * fire).toFixed(2)})`], [0.8, `rgba(255,215,110,${(0.85 * pu * fire).toFixed(2)})`]]) { g.strokeStyle = col; for (const cr of ASHZ_CR) for (let i = 1; i < cr.length; i++) { const [u0, y0, w0] = cr[i - 1], [u1, y1] = cr[i]; g.lineWidth = w0 * m; g.beginPath(); g.moveTo(u0 * hwf(y0) * fs * 0.9 + ux * 3 * (1 - Math.abs(u0)), y0 + (y0 < -44 ? by : 0)); g.lineTo(u1 * hwf(y1) * fs * 0.9 + ux * 3 * (1 - Math.abs(u1)), y1 + (y1 < -44 ? by : 0)); g.stroke(); } }
+    if (front) G('255,100,30', ux * 4, -18, 8, 0.4 * pu * fire, 2.2);
+    g.globalCompositeOperation = 'source-over'; }
+  // 어깨 갑주: 그을린 뼈 판 · 가시 두 개씩
+  for (const s of [-1, 1]) { const px = s * 13 * (0.6 + 0.4 * Math.abs(uy)) + hx * 0.4, py = -52 + by; g.fillStyle = robe2; g.beginPath(); g.ellipse(px, py, 6.5, 4, s * 0.3, 0, 7); g.fill(); g.fillStyle = bone;
+    for (const [o, l] of [[-2, 7], [2.2, 5]]) { g.beginPath(); g.moveTo(px + o - 1.8, py - 1.5); g.lineTo(px + o + s * 3, py - 1.5 - l); g.lineTo(px + o + 1.8, py - 1); g.closePath(); g.fill(); } }
+  // 머리: 깊은 두건 · 그림자 속 빛나는 두 눈 · 뒤로 휜 큰 뿔
+  const hood = () => { g.fillStyle = robe; g.beginPath(); g.moveTo(hx - 7.5, hy + 7); g.quadraticCurveTo(hx - 9, hy - 6, hx - ux * 2.5, hy - 11); g.quadraticCurveTo(hx + 9, hy - 6, hx + 7.5, hy + 7); g.closePath(); g.fill();
+    g.strokeStyle = fire > 0 ? `rgba(255,120,50,${(0.4 * fire).toFixed(2)})` : robe2; g.lineWidth = 0.9; g.stroke();
+    if (front) { const fx = hx + ux * 2.4, fy = hy + 0.5; g.fillStyle = '#060303'; g.beginPath(); g.ellipse(fx, fy, 4.8 * Math.max(0.5, uy + 0.25), 5.4, 0, 0, 7); g.fill();
+      if (fire > 0) { const ew = Math.max(0.35, uy), bl = Math.sin(t * 0.7) > 0.97 ? 0.15 : 1; g.globalCompositeOperation = 'lighter'; for (const s of [-1, 1]) { const ex = fx + ux * 1.4 + s * 2.2 * ew, ey = fy - 1; G('255,140,40', ex, ey, 4.5, 0.65 * fire, 1); g.fillStyle = `rgba(255,236,150,${(fire * bl).toFixed(2)})`; g.beginPath(); g.ellipse(ex, ey, 1.4 * Math.max(0.55, ew), 0.75 * bl + 0.15, -s * 0.3, 0, 7); g.fill(); } g.globalCompositeOperation = 'source-over'; } } };
+  const horn = s => { const w = Math.max(0.4, Math.abs(uy)), b0 = [hx + s * w * 4.5 - ux * 1.2, hy - 6.5], back = [-ux, -uy * 0.5], c1 = [b0[0] + s * w * 3 + back[0] * 4, b0[1] - 13], tip = [b0[0] + s * w * 11 + back[0] * 15, b0[1] - 21 + back[1] * 8 + Math.abs(back[0]) * 6];
+    const pt = k => [(1 - k) * (1 - k) * b0[0] + 2 * (1 - k) * k * c1[0] + k * k * tip[0], (1 - k) * (1 - k) * b0[1] + 2 * (1 - k) * k * c1[1] + k * k * tip[1]];
+    const cols = dead ? null : ['#3a2a20', '#4a3628', '#5c4432', '#6e4a30', '#8a4a24', '#b8501c', '#e8742a', '#ffc070'];
+    for (let i = 0; i < 8; i++) { const a = pt(i / 8), b = pt((i + 1) / 8); g.strokeStyle = cols ? cols[i] : robe2; g.lineWidth = 6 - i * 0.68; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 0.6; for (const k of [0.15, 0.3, 0.45]) { const a = pt(k), b = pt(k + 0.04); g.beginPath(); g.moveTo(a[0] - 1.8, a[1] + 0.5); g.lineTo(b[0] + 1.8, b[1] - 0.5); g.stroke(); }   // 뿔 마디
+    if (fire > 0) { g.globalCompositeOperation = 'lighter'; G('255,120,40', tip[0], tip[1], 5.5 + 1.5 * Math.sin(t * 5 + s), 0.65 * fire, 1); g.globalCompositeOperation = 'source-over'; } };
+  const hb = (Math.abs(uy) < 0.3 ? -ls : -1);   // 옆모습이면 먼 쪽 뿔을 먼저
+  if (front) { horn(hb); horn(-hb); hood(); } else { mane(); hood(); horn(hb); horn(-hb); }
+  if (-rz >= -0.2) arm(-1);
+  if (rz >= -0.2) { arm(1); staff(); }
+  // 불티: 로브 밑단에서 떨어지고, 갈기에서 위로 날림
+  if (fire > 0) { g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 6; q++) { const ph = (t * 0.9 + q / 6) % 1, x = Math.sin(q * 2.3 + 1) * 13, y = 2 + ph * (hv + 3); g.fillStyle = `rgba(255,${(150 + q * 15) | 0},50,${((1 - ph) * 0.9 * fire).toFixed(2)})`; g.fillRect(x, y, 1.4, 1.4); }
+    for (let q = 0; q < 6; q++) { const ph = (t * 0.6 + q / 6) % 1, x = hx + Math.sin(q * 1.9) * 12 + Math.sin(t * 2 + q) * 2 - ux * ph * 8, y = hy - 10 - ph * 24; g.fillStyle = `rgba(255,${(170 + q * 10) | 0},70,${(Math.sin(ph * Math.PI) * 0.85 * fire).toFixed(2)})`; g.fillRect(x, y, 1.3, 1.3); }
+    g.globalCompositeOperation = 'source-over'; }
+  g.restore();
+  // 재로 무너짐: 잿가루가 흩날림
+  if (dead) { const k = Math.min(1, (f.deadT || 0) / 1.3), sd = (f.hi || 0) * 5.1; g.save(); g.scale(sc, sc);
+    for (let q = 0; q < 18; q++) { const a = q * 0.39 + sd, r = (6 + (q % 5) * 4) * k + 3, x = Math.cos(a) * r * 1.2, y = -4 - ((q * 7) % 60) * (1 - k) - Math.sin(k * Math.PI) * (6 + (q % 4) * 3);
+      g.globalAlpha = A0 * Math.max(0, 1 - k * 0.8); g.fillStyle = q % 3 ? '#5c5650' : q % 2 ? '#8a8078' : `rgba(255,140,50,${(1 - k).toFixed(2)})`; g.fillRect(x, y, 2, 2); }
+    g.restore(); }
+}
 // 피닉스: 쓰러지면 잿더미(4초 · 피해 안 받음)로 무너졌다가 HP 30%로 한 번 되살아남
 function phxAsh(f, S) { f.hp = 1; f.reborn = true; f.ashT = 4; f.casting = null; f.atkT = null; f.stunT = 0; f.bleed = null; const [x, y] = W2P(f.x, f.z); shake = Math.max(shake, 0.5);
   mxBurst(x, y - 30, 40, () => ({ k: 'dot', c: '90,84,80', s: mxR(2, 4), life: mxR(0.8, 1.4), dr: 1 }), 40, 140, 60); mxBurst(x, y - 30, 24, () => ({ k: 'flame', s: mxR(4, 8), life: mxR(0.4, 0.7), dr: 2 }), 60, 160, 80);
