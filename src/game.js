@@ -5294,6 +5294,7 @@ function cxOpt(txt) { const o = {}; if (!txt || txt === '—' || /롱소드/.tes
     else if ((m = p.match(/^받는 피해 -(\d+)$/))) o.dr = +m[1];
     else if ((m = p.match(/^피격 시 확률로 모든 피해 감소 (\d+)% 발동/))) o.trProc = +m[1];   /* v162: 반역자의 방패 — 피격 시 (2% + 강화 1당 1%) 확률로 받는 피해 −N% */
     else if ((m = p.match(/^화염 저항 \+(\d+)$/))) o.fireRes = (o.fireRes || 0) + +m[1];
+    else if ((m = p.match(/^강화 1당 화염 저항 \+(\d+)$/))) o.fireResEn = +m[1];   /* 화룡 갑옷 3종 — 강화 1당 화염 저항 */
     else if ((m = p.match(/^(물|바람|땅) 저항 \+(\d+)$/))) { const k = { 물: 'waterRes', 바람: 'windRes', 땅: 'earthRes' }[m[1]]; o[k] = (o[k] || 0) + +m[2]; }
     else if ((m = p.match(/^모든 속성 저항 \+(\d+)$/))) for (const k of ['fireRes', 'waterRes', 'windRes', 'earthRes']) o[k] = (o[k] || 0) + +m[1];
     else if ((m = p.match(/^MP 회복 \+(\d+)$/))) o.mpRegen = +m[1];
@@ -5312,7 +5313,7 @@ function cxOpt(txt) { const o = {}; if (!txt || txt === '—' || /롱소드/.tes
     else if ((m = p.match(/^사용 시 (\d+)초 투명 \(재사용 (\d+)분\)$/))) o.invis = { dur: +m[1], cd: m[2] * 60 };
     else console.warn('장비 도감: 해석하지 못한 옵션', p); }
   return o; }
-const mrEnOf = (d, en) => d && d.mrEn && en > 0 ? d.mrEn * en : 0;   // v189: 강화 1당 MR (거대 여왕 개미의 금빛 날개)
+const mrEnOf = (d, en) => d && d.mrEn && en > 0 ? d.mrEn * en : 0, fireEnOf = (d, en) => d && d.fireResEn && en > 0 ? d.fireResEn * en : 0;   // v189: 강화 1당 MR (거대 여왕 개미의 금빛 날개)
 const CX_METAL = /철|판금|사슬|강철|비늘|커츠|데스나이트|지휘관/;   // 기사 그림: 금속 방어구는 판금 그림(p), 나머지는 가죽 그림(l)
 const CX_PRICE = { long_sword: 3000, wood_shield: 300, leather_armor: 400, leather_boots: 150, plate_helm: 3000, plate_armor: 8000, plate_gloves: 2500, plate_boots: 3000, leather_helm: 250, leather_gloves: 200, cloak: 200, leather_belt: 150, silver_ring: 600, amulet: 800, cloth_shirt: 100 };
 let CX_MAKE = null;   // v139: 도감 장비 만들기 (나중에 붙이는 장비도 같은 규칙)
@@ -5617,9 +5618,9 @@ CX_ZONE[22] = [...CX_ZONE[16]]; CX_ZONE[23] = [...CX_ZONE[17]]; CX_ZONE_R[22] = 
   Object.assign(CX_SPEC, {   // 기본 그림 (아래에서 직접 그린 그림으로 바꿈)
     '화룡의 갑옷': ['armor', { s: 'scale', c1: '#ff7a3a', c2: '#4a0804' }], '화룡의 로브': ['armor', { s: 'robe', c1: '#c8401a', c2: '#3a0804', tr: '#ffc040' }], '화룡의 가죽갑옷': ['armor', { s: 'scale', c1: '#d8783a', c2: '#2a0a04' }] });
   const ROWS = [
-    ['갑옷', '영웅', '화룡의 갑옷', '기사', 55, '', 9, 0, 0, 10, '화염 저항 +50 · HP +30', 28, 2, SRC_F, 0],
-    ['갑옷', '영웅', '화룡의 로브', '마법사', 55, '', 6, 0, 0, 20, '화염 저항 +50 · MP +50 · 지능 +1 · MP 회복 +3', 6, 2, SRC_F, 0],
-    ['갑옷', '영웅', '화룡의 가죽갑옷', '요정', 55, '', 7, 0, 0, 10, '화염 저항 +50 · HP +30 · MP 회복 +2', 12, 2, SRC_F, 0] ];
+    ['갑옷', '영웅', '화룡의 갑옷', '기사', 55, '', 9, 0, 0, 10, '화염 저항 +50 · 강화 1당 화염 저항 +3 · HP +30', 28, 2, SRC_F, 0],
+    ['갑옷', '영웅', '화룡의 로브', '마법사', 55, '', 6, 0, 0, 20, '화염 저항 +50 · 강화 1당 화염 저항 +3 · MP +50 · 지능 +1 · MP 회복 +3', 6, 2, SRC_F, 0],
+    ['갑옷', '영웅', '화룡의 가죽갑옷', '요정', 55, '', 7, 0, 0, 10, '화염 저항 +50 · 강화 1당 화염 저항 +3 · HP +30 · MP 회복 +2', 12, 2, SRC_F, 0] ];
   const DESC = { fd_plate: '화룡의 비늘을 겹겹이 두르고 아시타지오의 재로 담금질한 기사의 판금 갑옷. 가슴에 박힌 이프리트의 심장과 어깨에 꽂은 피닉스의 깃털이 꺼지지 않아 용암의 열기도 견뎌요.',
     fd_robe: '아시타지오의 재를 먹인 천에 화룡의 비늘을 엮어 지은 법사의 로브. 가슴의 이프리트의 심장이 마력을 데우고, 피닉스의 깃털로 수놓은 자락은 불길 속에서도 타지 않아요.',
     fd_leather: '화룡의 비늘을 덧댄 가죽을 아시타지오의 재로 무두질한 요정의 가죽갑옷. 허리띠에 박힌 이프리트의 심장과 피닉스의 깃털 장식 덕에 가볍고 불길에도 끄떡없어요.' };
@@ -5939,7 +5940,7 @@ const INV = (() => {
     if (td.slot === 'weapon') { const b0 = enBonus(td, cur), b1 = enBonus(td, nxt), D = td.dmg || [1, 2]; S_ += row('공격', `${D[0] + b0}~${D[1] + b0}`, `${D[0] + b1}~${D[1] + b1}`) + row('강화 추가 피해', enFmt(b0), enFmt(b1)); }
     else if (bkAcc(td)) S_ += row(ACC_ST[accKey(td)] || '모든 능력치', enFmt(Math.max(0, cur)), enFmt(Math.max(0, nxt)));
     else if (bkHat(td)) { const H = HWC.mob.hw_pumpkin.hp, B = HWC.mob.hw_pumpkin_boss.hp, c0 = Math.max(0, cur), c1 = Math.max(0, Math.min(HWC.HAT_MAX, nxt)); S_ += row('호박괴물 타수', `${H - c0}대`, `${H - c1}대`) + row('호박대장 타수', `${B - c0}대`, `${B - c1}대`); }
-    else { const b0 = enBonus(td, cur), b1 = enBonus(td, nxt), a0 = td.ac || 0; S_ += row('방어 AC', '−' + (a0 + b0), '−' + (a0 + b1)); if (td.mrEn) S_ += row('MR', '+' + ((td.mr || 0) + mrEnOf(td, cur)), '+' + ((td.mr || 0) + mrEnOf(td, nxt))); }
+    else { const b0 = enBonus(td, cur), b1 = enBonus(td, nxt), a0 = td.ac || 0; S_ += row('방어 AC', '−' + (a0 + b0), '−' + (a0 + b1)); if (td.mrEn) S_ += row('MR', '+' + ((td.mr || 0) + mrEnOf(td, cur)), '+' + ((td.mr || 0) + mrEnOf(td, nxt))); if (td.fireResEn) S_ += row('화염 저항', '+' + ((td.fireRes || 0) + fireEnOf(td, cur)), '+' + ((td.fireRes || 0) + fireEnOf(td, nxt))); }
     $('en-stat').innerHTML = S_;
     $('en-mats').innerHTML = L.map(id => { const d = ITEMS[id], n = enCnt(id); return `<button type="button" data-es="${id}" class="${ENH.sid === id ? 'on' : ''}${d.bless ? ' bl' : d.curse ? ' cu' : ''}" title="${d.name}"${n > 0 ? '' : ' disabled'}><span class="ic">${ICON(d.icon)}</span><span class="t">${d.bless ? '축복' : d.curse ? '저주' : '일반'}</span><b>${enCntTxt(id)}</b></button>`; }).join('');
     let R = ''; if (!sd) R = `<span class="no">${bkHat(td) ? '호박 강화' : bkKind(td) + ' 마법'} 주문서가 없어요.</span>`; else if (O.max) R = `<span class="no">이미 최고 강화(+${enMaxOf(td)})예요.</span>`; else if (O.curse) R = O.low ? '<span class="no">더 낮출 수 없어요. (최저 −7)</span>' : '<span class="cu">저주: 강화 수치가 1 내려가요. (항상)</span>';
@@ -6075,7 +6076,7 @@ const INV = (() => {
     if (cur >= safe) askYesNo(`${nameOf(t)}을(를) 강화하시겠습니까?`, `${sd.name} 사용 · ${safe ? `안전 강화(+${safe})를 넘었습니다.` : '안전 강화가 없는 장비입니다. (안전 +0)'} 실패하면 장비가 증발할 수 있습니다. (성공 1/3)`, go); else go(); }
   // 계산 수치
   const dkSet = () => ['helm', 'armor', 'gloves', 'boots'].every(sl => eq[sl] && ITEMS[eq[sl].id].set === 'dk');
-  const sum = k => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id][k] || 0) + (k === 'mr' ? mrEnOf(ITEMS[e.id], e.en) : 0), 0) + (DK_SET_BONUS[k] && dkSet() ? DK_SET_BONUS[k] : 0);   // v189: 강화 1당 MR (mrEn)   // 데스나이트 세트 효과
+  const sum = k => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id][k] || 0) + (k === 'mr' ? mrEnOf(ITEMS[e.id], e.en) : k === 'fireRes' ? fireEnOf(ITEMS[e.id], e.en) : 0), 0) + (DK_SET_BONUS[k] && dkSet() ? DK_SET_BONUS[k] : 0);   // v189: 강화 1당 MR (mrEn)   // 데스나이트 세트 효과
   const enSum = () => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id].slot !== 'weapon' && !ACC_SL.has(ITEMS[e.id].slot) ? enBonus(ITEMS[e.id], e.en || 0) : 0), 0);   // 장신구 강화는 방어를 올리지 않음
   const blessAc = () => Object.values(eq).reduce((s, e) => s + (e.blessed && ITEMS[e.id].slot !== 'weapon' && !ACC_BL.has(ITEMS[e.id].slot) ? 1 : 0), 0);
   const blessAccHit = () => Object.values(eq).reduce((s, e) => s + (e && e.blessed && ACC_BL.has(ITEMS[e.id].slot) ? 1 : 0), 0);   // v172: 축복받은 장신구 = 명중 +1
@@ -6104,7 +6105,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     if (e.attr) L.push(`${ATTR_N[e.attr.el]} 속성 ${e.attr.lv}단 · 추가 피해 +${ATTR_DMG[e.attr.lv]} (${ATTR_N[ATTR_OPP[e.attr.el]]} 몬스터 2배 · ${ATTR_N[e.attr.el]} 몬스터 0)`);
     if (d.hp && !d.codex && !d.doll) L.push(`HP +${d.hp}`); if (d.mp && !d.codex && !d.doll) L.push(`MP +${d.mp}`); if (d.doll) L.push(`${d.tier}단계 마법인형 · 인형 칸에 착용`, ...d.dTxt.split(' · '));
     if (d.codex) { if (d.hit) L.push(`명중 +${d.hit}`); if (d.xdmg) L.push(`추가 피해 +${d.xdmg}`); if (d.mr || d.mrEn) L.push(`마법 방어 MR +${(d.mr || 0) + mrEnOf(d, en)}`);
-      for (const t of d.optTxt) { const k = Object.keys(cxOpt(t)).find(q => CX_LATER[q]); L.push(t + (k ? ` (${CX_LATER[k]})` : '')); }
+      for (const t of d.optTxt) { const k = Object.keys(cxOpt(t)).find(q => CX_LATER[q]); L.push((d.fireResEn && /^화염 저항 \+\d+$/.test(t) && fireEnOf(d, en) ? `화염 저항 +${(d.fireRes || 0) + fireEnOf(d, en)} (강화 +${fireEnOf(d, en)})` : t) + (k ? ` (${CX_LATER[k]})` : '')); }
       L.push(`얻는 곳: ${cxWhere(e.id)}`); }
     if (d.heal) L.push(`${d.use === 'mana' ? 'MP' : 'HP'} ${d.heal[0]}~${d.heal[1]} 회복`);
     if (d.use === 'learn') { const k = SK[d.learn]; L.push(`${k.kind === 'magic' ? k.circle + '서클 마법' : k.kind === 'spirit' ? '정령마법 · 요정 전용' : '기사 기술'} · Lv.${k.lv} 이상`, k.desc); if (k.kind === 'magic') L.push(`배울 수 있는 직업: ${['knight', 'elf', 'wizard'].filter(c => k.circle <= MAGIC_MAX[c]).map(c => CLASS_NAME[c]).join(' · ')}`); }
@@ -6230,7 +6231,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     w.style.left = L_ + 'px'; w.style.top = T_ + 'px'; w.style.right = 'auto'; showCompare(e, pvEn); }
   function hideDetail() { dwRef = null; pvEn = null; pvFor = null; const w = $('itemwin'); if (w) w.hidden = true; const c = $('cmpwin'); if (c) c.hidden = true; dwE = null; dwSk = null; }
   // 안 낀 장비를 꾹 누르면 옆에 지금 낀 장비와 비교 (초록=좋아짐, 빨강=나빠짐)
-  function statOf(e) { const d = ITEMS[e.id], en = e.en || 0, at = e.attr ? ATTR_DMG[e.attr.lv] : 0; const eb = enBonus(d, en); return { dmg: d.dmg ? [d.dmg[0] + eb + at, d.dmg[1] + eb + at] : null, ac: (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? eb + (e.blessed ? 1 : 0) : 0), hp: d.hp || 0, mp: d.mp || 0, hit: d.hit || 0, xdmg: d.xdmg || 0, mr: (d.mr || 0) + mrEnOf(d, en), wr: d.wr || 0, en, attr: e.attr ? e.attr.lv : 0, blessed: !!e.blessed, w: d.w || 0, x: Object.fromEntries(CMP_X.map(([k]) => [k, d[k] || 0])), fx: cmpFx(d, en) }; }
+  function statOf(e) { const d = ITEMS[e.id], en = e.en || 0, at = e.attr ? ATTR_DMG[e.attr.lv] : 0; const eb = enBonus(d, en); return { dmg: d.dmg ? [d.dmg[0] + eb + at, d.dmg[1] + eb + at] : null, ac: (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? eb + (e.blessed ? 1 : 0) : 0), hp: d.hp || 0, mp: d.mp || 0, hit: d.hit || 0, xdmg: d.xdmg || 0, mr: (d.mr || 0) + mrEnOf(d, en), wr: d.wr || 0, en, attr: e.attr ? e.attr.lv : 0, blessed: !!e.blessed, w: d.w || 0, x: Object.fromEntries(CMP_X.map(([k]) => [k, (d[k] || 0) + (k === 'fireRes' ? fireEnOf(d, en) : 0)])), fx: cmpFx(d, en) }; }
   // v116: 비교창 추가 옵션 — 능력치·SP·공속·이속·치명타·피해 감소·저항·MP 회복·특수 효과까지
   const CMP_X = [['str', '힘'], ['dex', '민첩'], ['con', '체력'], ['int', '지능'], ['wis', '지혜'], ['cha', '카리스마'], ['all', '모든 능력치'], ['sp', 'SP'], ['atkSpd', '공격 속도', '%'], ['moveSpd', '이동 속도', '%'], ['crit', '치명타 확률', '%'], ['dr', '받는 피해 감소'], ['drMelee', '받는 근접 피해 감소'], ['fireRes', '화염 저항'], ['waterRes', '물 저항'], ['windRes', '바람 저항'], ['earthRes', '땅 저항'], ['mpRegen', 'MP 회복'], ['sandDmg', '모래 지역 추가 피해'], ['undeadDmg', '언데드 추가 피해'], ['dragonDmg', '용족 추가 피해'], ['coldMagic', '냉기 마법 피해', '%'], ['magicSucc', '마법 성공률', '%']];
   function cmpFx(d, en) { const L = [], P = d.proc; if (P) { const pe = Math.round((P.p + (P.kind === 'lightning' ? 0.03 * Math.max(0, en - 6) : 0)) * 100); L.push(P.kind === 'lightning' ? `번개 ${pe}% (${P.dmg[0]}~${P.dmg[1]})` : P.kind === 'fire' ? `화염 ${pe}% (${P.dmg[0]}~${P.dmg[1]})` : P.kind === 'bleed' ? `출혈 ${pe}% (${P.dur}초)` : P.kind === 'hitdown' ? `상대 명중 -${P.v} ${pe}%` : '특수'); }
