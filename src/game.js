@@ -397,7 +397,7 @@ function mobHurt(f,d,color,src,crit){ if (!f||f.dead) return; if (f.ashT>0) retu
 // 가속: 1단(초록 물약) 1.2배, 2단(용기의 물약) 1.4배 — 이동·공격·마법 시전 속도 모두. 두 개 함께면 1.2×1.4배
 const GSPD = 0.7;   // 기본 속도 배율 (이동·공격 30% 느리게)
 const BUFF = { hwexp: 0, advsp: 0, abar: 0, mlock: 0, haste1: 0, haste2: 0, root: 0, slow: 0, poison: 0, reduction: 0, bounce: 0, solid: 0, counter: 0, shieldm: 0, light: 0, enchant: 0, mana: 0, rmagic: 0, relem: 0, cmind: 0, decwt: 0, medit: 0, counterm: 0, immune: 0, windshot: 0, stormshot: 0, esight: 0, poly: 0 };
-const BUFF_DEF = { hwexp: { name: '호박 사탕', get desc() { return `몬스터 경험치 +${HWC.CANDY_EXP}%`; }, icon: 'hw_candy', dur: 1800, c: '#ffa040' }, poly: { get name() { const p = POLY_ON && POLY[POLY_ON]; return p ? `변신 (${p.name})` : '변신'; }, get desc() { const p = POLY_ON && POLY[POLY_ON], b = p ? POLY_TIER[p.tier].bonus : 5; return `공격 속도 +${b}% · 이동 속도 +${b}%`; }, icon: 'scr_poly', dur: 1800, c: '#e0a8ff' },
+const BUFF_DEF = { hwexp: { name: '호박 사탕', get desc() { return `몬스터 경험치 +${HWC.CANDY_EXP}%`; }, icon: 'hw_candy', dur: 1800, c: '#ffa040' }, poly: { get name() { const p = POLY_ON && POLY[POLY_ON]; return p ? (p.card ? `변신 카드 (${p.name})` : `변신 (${p.name})`) : '변신'; }, get desc() { const p = POLY_ON && POLY[POLY_ON], b = p ? polyPct(POLY_ON) : 5; return `공격 속도 +${b}% · 이동 속도 +${b}%` + (p && p.card && p.card.opt.length ? ' · ' + p.card.opt.join(' · ') : ''); }, get inf() { const p = POLY_ON && POLY[POLY_ON]; return !!(p && p.card); }, icon: 'scr_poly', dur: 1800, c: '#e0a8ff' },
   haste1: { name: '1단 가속 (초록 물약)', desc: '이동·공격·마법 시전 속도 1.2배', icon: 'pot_gr', dur: 1800, c: '#a8f08a' },
                    haste2: { name: '2단 가속 (용기의 물약)', desc: '이동·공격·마법 시전 속도 1.4배', icon: 'pot_br', dur: 1800, c: '#f2c060' },
                    mana: { name: '마나 회복 (마나 회복 물약)', desc: 'MP 자연 회복 초당 +0.5', icon: 'pot_bl', dur: 1800, c: '#8ab8ff' },
@@ -433,7 +433,7 @@ let BIND_IMM = 0;   // 어스 바인드가 풀린 뒤 6초는 다시 안 걸림
 let STUN_IMM = 0; const STUN_IMM_SEC = 3;   // 대인전 스턴: 기절 중엔 안 겹치고 풀린 뒤 3초는 면역 (유저·수호탑 봇 · 몬스터가 거는 스턴은 그대로)
 const heroSpd = () => (BUFF.haste1 > 0 ? 1.2 : 1) * (BUFF.haste2 > 0 ? 1.4 : 1) * (BUFF.slow > 0 ? 0.6 : 1);
 function buffMsg(key, nm, from){ const D = BUFF_DEF[key]; if (!D) return; const t = BUFF[key] > 0 ? BUFF[key] : D.dur, tt = t >= 60 ? `${Math.round(t / 60)}분` : `${Math.round(t)}초`; say(`${from ? from + '님의 ' : ''}${nm || D.name}${from ? '' : '!'} (${tt} · ${D.desc})`, '#cfe4ff'); }   /* v124: 버프 효과 설명 */
-function buffTick(dt){ if (BUFF.abar > 0) { BUFF.stun = 0; BUFF.root = 0; BUFF.slow = 0; BUFF.poison = 0; } for (const k in BUFF) if (BUFF[k] > 0){ BUFF[k] -= dt; if (BUFF[k] <= 0 && k === 'advsp') setTimeout(() => { try { INV.render(); } catch (e) {} }, 0); if (BUFF[k] <= 0 && !BUFF_DEF[k].bad && !k.startsWith('haste')){ BUFF[k] = 0; say(`${BUFF_DEF[k].name} 효과가 끝났습니다.`, '#9c9682'); continue; } if (BUFF[k] <= 0 && !BUFF_DEF[k].bad){ BUFF[k] = 0; say(k === 'haste1' ? '1단 가속(초록 물약) 효과가 끝났습니다.' : '2단 가속(용기의 물약) 효과가 끝났습니다.', '#9c9682'); } } }
+function buffTick(dt){ if (BUFF.abar > 0) { BUFF.stun = 0; BUFF.root = 0; BUFF.slow = 0; BUFF.poison = 0; } for (const k in BUFF) if (BUFF[k] > 0){ if (k === 'poly' && polyCard()) { BUFF.poly = PC_INF; continue; }   /* 변신 카드: 시간 제한 없음 */ BUFF[k] -= dt; if (BUFF[k] <= 0 && k === 'advsp') setTimeout(() => { try { INV.render(); } catch (e) {} }, 0); if (BUFF[k] <= 0 && !BUFF_DEF[k].bad && !k.startsWith('haste')){ BUFF[k] = 0; say(`${BUFF_DEF[k].name} 효과가 끝났습니다.`, '#9c9682'); continue; } if (BUFF[k] <= 0 && !BUFF_DEF[k].bad){ BUFF[k] = 0; say(k === 'haste1' ? '1단 가속(초록 물약) 효과가 끝났습니다.' : '2단 가속(용기의 물약) 효과가 끝났습니다.', '#9c9682'); } } }
 // 가방 무게: 80% 이상이면 이동 20% 느림, 100% 이상이면 절반 — 넘을 때 경고, 내려가면 알림
 let heavyLv = -1;
 const heavyK = () => heavyLv === 2 ? 0.5 : heavyLv === 1 ? 0.8 : 1;
@@ -2609,7 +2609,7 @@ function drawUI(g, vw, vh){
     if (ptip){ const d=ptip.pt.d, lines=ptip.pt.sum?['소환수 · '+d.name, `${ptip.pt.dead?'쓰러짐':'HP '+Math.ceil(d.hp)+'/'+PET.mxh(d)}`, '서먼 몬스터를 다시 쓰면 돌려보낼 수 있어요']:[d.name, `Lv.${d.lv} ${PET_KIND[d.kind].name} · ${ptip.pt.dead?'쓰러짐':'HP '+Math.ceil(d.hp)+'/'+PET.mxh(d)}`, '클릭: 펫 창 열기'];
       g.font='600 11px '+F; const w=Math.max(...lines.map(l=>g.measureText(l).width))+16, h=lines.length*15+10, tx=Math.min(vw-w-4,Math.max(4,ptip.x+13-w/2)), ty=ptip.y-h-6; g.fillStyle='rgba(16,13,10,.94)'; g.fillRect(tx,ty,w,h); g.strokeStyle='#8a7348'; g.strokeRect(tx+0.5,ty+0.5,w-1,h-1);
       lines.forEach((l,n)=>{ g.textAlign='left'; g.fillStyle=n===0?'#9fe0ff':n===2?'#9c937c':'#e9e2cf'; g.font=(n===0?'800 ':'500 ')+'11px '+F; g.fillText(l,tx+8,ty+17+n*15); }); }
-    if (tip){ const W=tip.k[0]==='_', D=W?{c:tip.k==='_ward'?'#9fe0ff':'#ff8a7a'}:BUFF_DEF[tip.k], t=BUFF[tip.k], lines=W?WARD_TIP(tip.k):[(D.bad?'[디버프] ':'')+D.name, D.desc, D.bad?`남은 시간 ${t.toFixed(1)}초`:`남은 시간 ${Math.floor(t/60)}분 ${String(Math.floor(t%60)).padStart(2,'0')}초`];
+    if (tip){ const W=tip.k[0]==='_', D=W?{c:tip.k==='_ward'?'#9fe0ff':'#ff8a7a'}:BUFF_DEF[tip.k], t=BUFF[tip.k], lines=W?WARD_TIP(tip.k):[(D.bad?'[디버프] ':'')+D.name, D.desc, D.inf?'시간 제한 없음 (직접 풀거나 쓰러질 때까지)':D.bad?`남은 시간 ${t.toFixed(1)}초`:`남은 시간 ${Math.floor(t/60)}분 ${String(Math.floor(t%60)).padStart(2,'0')}초`];
       g.font='600 11px '+F; const w=Math.max(...lines.map(l=>g.measureText(l).width))+16, h=lines.length*15+10, tx=Math.min(vw-w-4,Math.max(4,tip.x+13-w/2)), ty=tip.y-h-6;
       g.fillStyle='rgba(16,13,10,.94)'; g.fillRect(tx,ty,w,h); g.strokeStyle='#8a7348'; g.strokeRect(tx+0.5,ty+0.5,w-1,h-1);
       lines.forEach((l,n)=>{ g.textAlign='left'; g.textBaseline='alphabetic'; g.fillStyle=n===0?D.c:n===2?'#f2eedf':'#cfc6ae'; g.font=(n===0?'800 ':'500 ')+'11px '+F; g.fillText(l,tx+8,ty+17+n*15); }); }
@@ -2865,7 +2865,7 @@ function deathUI() { let b = document.getElementById('deathban'); if (!DEATH) { 
   b.style.top = BOSSBAR_B ? (BOSSBAR_B + 6) + 'px' : ''; const L = deathLeft(), sec = Math.ceil(L); if (b.dataset.s === String(sec) && !b.hidden) return; b.dataset.s = sec; tx.innerHTML = DEATH.tw ? `<b>💀 쓰러졌습니다</b><span>수호탑 대전 — 사망 손실 없음 · ${sec}초 뒤 부활장소에서 부활 (HP·MP 50%)</span><small>부활장소의 빛나는 발판을 밟으면 우리 기지로 · 채팅은 할 수 있어요</small>` : DEATH.duel ? '<b>💀 쓰러졌습니다</b><span>결투장 — 사망 손실 없음</span><small>[제자리 부활]을 누르면 그 자리에서 HP·MP 100%로 일어나요 · 나가려면 부활한 뒤 귀환 부적</small>' : DEATH.arena ? '<b>💀 쓰러졌습니다</b><span>콜로세움 — 사망 손실 없음 · 라운드가 끝나면 그 자리에서 부활</span><small>동료가 부활 주문서를 쓰면 바로 부활해요 · 모두 쓰러지면 실패 · 채팅은 할 수 있어요</small>' : DEATH.ward ? `<b>💀 사망했습니다</b><span>${mmss(L)} 뒤 마을에서 자동 부활 · 불멸의 가호가 타서 손실 없음</span><small>타버린 불멸의 가호가 쓰러진 자리에 떨어졌어요 · 주워서 상점에 되팔면 2만 5천 골드</small>` : `<b>💀 사망했습니다</b><span>${mmss(L)} 뒤 마을에서 자동 부활 · 경험치 5% · 골드 10% 손실</span><small>근처 사람이 부활 주문서를 쓰면 그 자리에서 부활해요 (HP·MP 50% · 골드 5%만 손실) · 채팅은 할 수 있어요</small>`; b.hidden = false; }
 function heroDie(src, kind, d) { if (DEATH) return; if (window.SAVER) SAVER.death(); try { PET.sumClear('death'); } catch (e) {} TELE.ev('death', { by: src && src.kind || kind || '?', z: zoneTitle(), lv: hero.lv, d }); DEATH = { at: Date.now() }; if (ARENA()) DEATH.arena = true; if (DUEL()) DEATH.duel = true; if (TW()) { DEATH.tw = true; TWM.heroDown(src); }
   if (!DEATH.arena && !DEATH.duel && !DEATH.tw && INV.count('immortal_ward') > 0) { INV.take('immortal_ward', 1); DEATH.ward = true; if (SCENE !== 'town') { try { NET.wardDrop(hero.i, hero.j); } catch (e) {} } INV.render(); }   // v146: 불멸의 가호
-  hero.hp = 0; hero.target = null; hero.atk = null; moveGoal = null; holding = false; for (const f of foxes) if (!f.tgt) f.aggro = false; if (OFFL_HOOK) OFFL_HOOK.died();
+  hero.hp = 0; hero.target = null; hero.atk = null; moveGoal = null; holding = false; for (const f of foxes) if (!f.tgt) f.aggro = false; if (OFFL_HOOK) OFFL_HOOK.died(); if (!DEATH.arena && !DEATH.duel && !DEATH.tw) try { PCG.onDeath(); } catch (e) {}   /* 변신 카드: 쓰러지면 풀림 */
   say(DEATH.tw ? '수호탑 대전에서 쓰러졌습니다. (손실 없음) 7초 뒤 부활장소에서 부활해요.' : DEATH.duel ? `결투장에서 쓰러졌습니다${src && src.isRemote ? ' (' + NET.nameOf(src.peer) + ')' : ''}. (손실 없음) [제자리 부활]을 누르면 HP·MP 100%로 일어나요.` : DEATH.arena ? '콜로세움에서 쓰러졌습니다! (손실 없음) 라운드가 끝나면 그 자리에서 부활하고, 동료가 부활 주문서로 살릴 수도 있어요.' : DEATH.ward ? '당신은 쓰러졌습니다... 불멸의 가호가 대신 타 버려서 사망 손실이 없어요. (타버린 불멸의 가호가 그 자리에 떨어졌어요 · 주워서 상점에 2만 5천에 되팔 수 있어요) 2분 뒤 마을에서 부활해요.' : '당신은 쓰러졌습니다... 2분 뒤 마을에서 부활해요. (경험치 5% · 골드 10% 손실) 근처 사람이 부활 주문서를 쓰면 그 자리에서 부활할 수 있어요.', '#f08a7a'); deathUI(); try { SAVE.now(false, true); } catch (e) {} }
 function reviveTown() { if (!DEATH) return; const ar = !!(DEATH.arena || DEATH.tw), wd = !!DEATH.ward, P = ar || wd ? { ex: 0, g: 0 } : deathPenalty(false); DEATH = null; hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); deathUI(); TOWN.goTown();
   say(ar ? '콜로세움을 포기하고 마을에서 부활했습니다. (손실 없음)' : wd ? '마을에서 부활했습니다. (불멸의 가호 덕분에 손실 없음)' : `마을에서 부활했습니다. (경험치 −${P.ex.toLocaleString()} · 골드 −${P.g.toLocaleString()})`, '#f2e6a8'); AUTO.died(); INV.render(); try { SAVE.now(false, true); } catch (e) {} }
@@ -3080,8 +3080,23 @@ Object.assign(POLY, { pm_dknight: { name: '다크나이트', sheet: 'pm_dknight'
   pm_sknight: { name: '실버나이트', sheet: 'pm_sknight', s: 1, cls: 'knight', tier: 'silver', fx: '140,200,255' }, pm_smage: { name: '실버메이지', sheet: 'pm_smage', s: 1, cls: 'wizard', tier: 'silver', fx: '140,200,255' }, pm_sranger: { name: '실버레인저', sheet: 'pm_sranger', s: 1, cls: 'elf', tier: 'silver', fx: '140,200,255' } });
 const POLY_TIER = { dark: { lv: 50, bonus: 5, nm: '다크' }, silver: { lv: 55, bonus: 8, nm: '실버' } }, POLY_FORM = { knight: { dark: 'pm_dknight', silver: 'pm_sknight' }, wizard: { dark: 'pm_dmage', silver: 'pm_smage' }, elf: { dark: 'pm_dranger', silver: 'pm_sranger' } };
 const POLY_SHOP = true;   /* v165: 변신 그림 6종 완성 → 잡화상점 판매 */
+/* 변신 카드 (변신 뽑기 1단계 · 10/30 프로듀서 결정): 뽑은 카드는 계정에 영구 등록 → 변신 창에서 1만 골드를 내고 언제든 변신 (시간 제한 없음 · 직접 풀거나 다른 변신으로 바꾸거나 쓰러질 때까지)
+   등급(공격·이동 속도): 일반 +1% · 고급 +3% · 희귀 +5% · 영웅 +8% · 전설 +15% · 희귀 1개 · 영웅 1개 · 전설 2개 개성 옵션(인형 능력치 키 · INV sum에서 변신 중일 때만) · 그림 = 우리 몬스터 렌더(MSHEET) 그대로
+   확률(1장마다) 60 / 30 / 8 / 1.8 / 0.2% (같은 등급 안에서는 같은 확률) · 사용 레벨 1 / 10 / 20 / 30 / 45 · 전설은 직업마다 하나씩 어울리게 (기사 데스나이트 · 요정 와이번 · 마법사 카스파 — 계정 공유라 모든 직업이 뽑고 쓸 수 있음) */
+const PC_GRADE = { 일반: { pct: 1, lv: 1, p: 60 }, 고급: { pct: 3, lv: 10, p: 30 }, 희귀: { pct: 5, lv: 20, p: 8 }, 영웅: { pct: 8, lv: 30, p: 1.8 }, 전설: { pct: 15, lv: 45, p: 0.2 } }, PC_GO = ['일반', '고급', '희귀', '영웅', '전설'], PC_INF = 999999;   /* PC_INF: 카드 변신 중의 BUFF.poly (줄지 않음) */
+const PC_STAT_TXT = { mpRegen: n => `MP 회복 +${n}`, hitR: n => `원거리 명중 +${n}`, hitM: n => `근거리 명중 +${n}`, wPct: n => `최대 무게 +${n}%`, xdmgM: n => `근거리 추가 피해 +${n}`, xdmgR: n => `원거리 추가 피해 +${n}`, sp: n => `SP +${n}`, dr: n => `받는 피해 -${n}` };
+const PCARD = [['goblin', '일반'], ['orc', '일반'], ['dwarf', '일반'], ['orc_archer', '일반'], ['hobgoblin', '일반'], ['orc_warrior', '일반'],
+  ['werewolf', '고급'], ['lizardman', '고급'], ['scorpion', '고급'], ['roba_orc', '고급'],
+  ['dark_elf', '희귀', { mpRegen: 1 }], ['skeleton_archer', '희귀', { hitR: 1 }], ['bugbear', '희귀', { wPct: 5 }], ['cerberus', '희귀', { hitM: 1 }],
+  ['king_bugbear', '영웅', { xdmgM: 1 }], ['necromancer', '영웅', { sp: 1 }], ['spartoi', '영웅', { dr: 1 }],
+  ['deathknight', '전설', { xdmgM: 1, dr: 1 }, 'knight'], ['wyvern', '전설', { xdmgR: 1, hitR: 1 }, 'elf'], ['kaspar', '전설', { sp: 1, mpRegen: 2 }, 'wizard']
+].map(([id, g, st, fit]) => { const M = MSHEET[id], hh = (M && M.hh) || 80, f = Math.max(60, Math.min(104, hh)) / hh * ({ king_bugbear: 0.85 }[id] || 1);   /* 화면 키를 60~104px로 (캐릭터 약 81 · 너무 작거나 큰 몹은 맞춤 · 킹 버그베어는 몸이 넓어 조금 더 작게) */
+  const c = { id, g, st: st || null, fit: fit || null, name: (MOB[id] || {}).name || id, lv: PC_GRADE[g].lv, pct: PC_GRADE[g].pct, key: 'pc_' + id, opt: st ? Object.entries(st).map(([k, n]) => PC_STAT_TXT[k](n)) : [] };
+  POLY[c.key] = { name: c.name, sheet: id, s: M ? M.s * f : 0.5, card: c }; return c; });
+const PC_BY = Object.fromEntries(PCARD.map(c => [c.id, c]));
 const PMSHEET = { pm_dknight: { W: 255, H: 251, ax: 111, ay: 207, s: 0.5, af: 8 }, pm_sknight: { W: 255, H: 251, ax: 111, ay: 207, s: 0.5, af: 8 }, pm_dmage: { W: 363, H: 305, ax: 144, ay: 244, s: 0.5, af: 8, cast: true }, pm_smage: { W: 363, H: 305, ax: 144, ay: 244, s: 0.5, af: 8, cast: true }, pm_dranger: { W: 240, H: 207, ax: 93, ay: 171, s: 0.5, af: 8 }, pm_sranger: { W: 240, H: 207, ax: 93, ay: 171, s: 0.5, af: 8 } }, PMIMG = {};   /* 절반 크기 렌더 (s 1 = 캐릭터와 같은 크기) */   /* 변신 그림 (렌더가 들어오면 채움) — 처음 그릴 때 불러옴 */
-let POLY_ON = null; const selfPoly = () => (POLY_ON && BUFF.poly > 0 && POLY[POLY_ON]) ? POLY_ON : null, polyBonus = k => { const p = selfPoly(); return p && (k === 'atkSpd' || k === 'moveSpd') ? POLY_TIER[POLY[p].tier].bonus : 0; };
+let POLY_ON = null; const selfPoly = () => (POLY_ON && BUFF.poly > 0 && POLY[POLY_ON]) ? POLY_ON : null, polyPct = pk => { const P = POLY[pk]; return !P ? 0 : P.card ? P.card.pct : P.tier ? POLY_TIER[P.tier].bonus : 0; }, polyBonus = k => { const p = selfPoly(); return p && (k === 'atkSpd' || k === 'moveSpd') ? polyPct(p) : 0; };
+const polyCard = () => { const p = selfPoly(); return (p && POLY[p].card) || null; }, pcStat = k => { const c = polyCard(); return (c && c.st && c.st[k]) || 0; };   /* 변신 카드: 지금 변신 중인 카드 · 그 카드의 개성 옵션 (INV sum) */
 function pmImg(sheet, a) { const M = PMSHEET[sheet]; if (!M) return null; const I = PMIMG[sheet] || (PMIMG[sheet] = {}); if (!I[a] && (a !== 'cast' || M.cast)) { const im = new Image(); im.src = `assets/classic/pm_${sheet.slice(3)}_${a}.webp`; I[a] = im; } return I[a] || null; }
 function polyOf(eqf) { if (!eqf) return null; for (const k in POLY) { const st = POLY[k].set; if (!st) continue; if (Object.keys(st).every(sl => eqf(sl) === st[sl])) return k; } return null; }
 /* v166: 다크·실버 나이트 부위별 장비 빛 — 부위만 따로 렌더한 판(가려진 곳은 빠짐)을 RGB 칸에 3개씩 담은 그림(pm_<x>_glow_<동작>.webp · 절반 크기 · 3쪽을 세로로)
@@ -3107,10 +3122,14 @@ function drawPolyGlow(g, P, a, M2, k, row, x, y, gl) { const G = PMGLOW[P.sheet]
   (G.parts || PMGLOW_PARTS).forEach((sl, i) => { const t0 = gl(sl) || 0; if (!t0) return; const t = Math.min(9, t0), key = 'pmg:' + P.sheet + ':' + a + ':' + sl + '|' + k + '|' + row + '|' + t + '|' + M2.s,
     c = glowMaskFrame(img, M2, G.W2, G.H2, k, row, ai * G.pg + ((i / 3) | 0), i % 3, M2.s, t, key); if (c && !c.empty) layerGlow(g, img, M2, k, row, X, Y, M2.s, t, key, sl === 'weapon' ? G.mw : G.ma, false, c); }); }
 function drawPoly(g, pk, anim, fr, row, x, y, hf, gl) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
-  if (!img || !img.complete || !img.naturalWidth) return false; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s }; drawSheet(g, img, M2, Math.min(7, fr), row, x, y, 1, hf); g.restore();
-  if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, Math.min(7, fr), row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
-  else if (gl && pmS) { const wt = gl('weapon') || 0, at = Math.max(0, ...EN_ARMOR.map(sl => gl(sl) || 0)), t = Math.max(wt, at); if (t) layerGlow(g, img, M2, Math.min(7, fr), row, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s), M2.s, t, 'poly:' + P.sheet + ':' + a, 1.35, true); }   /* v165: 변신 중에도 강화·등급 장비 빛 (평소보다 조금 진하게) */
-  if ((EQFX || !P.set) && Math.random() < (P.fx ? 0.1 : 0.18)) mxP(x + mxR(-14, 14), y - mxR(0, 50), { k: 'ember', c: P.fx || '255,110,50', s: 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
+  if (!img || !img.complete || !img.naturalWidth) return false; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s };
+  const af = !pmS && a === 'attack' ? (M.af || 8) : 8, k = af !== 8 ? Math.min(af - 1, Math.floor(Math.min(7, fr) * af / 8)) : Math.min(7, fr);   /* 변신 카드: 공격 그림 장수가 다른 몹(바실리스크 6장 등)은 8장 동작에 맞춰 늘이거나 줄임 */
+  if (!pmS && M.tint && !hf) { const c = tintFrame('pc:' + pk, a, img, { ...M2, tint: M.tint }, k, row); g.drawImage(c, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s)); }   /* 몬스터 그림의 물들임(카스파·네크로맨서·와이번 등)도 그대로 */
+  else drawSheet(g, img, M2, k, row, x, y, 1, hf || (!pmS && M.tint) || null); g.restore();
+  if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, k, row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
+  else if (gl && pmS) { const wt = gl('weapon') || 0, at = Math.max(0, ...EN_ARMOR.map(sl => gl(sl) || 0)), t = Math.max(wt, at); if (t) layerGlow(g, img, M2, k, row, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s), M2.s, t, 'poly:' + P.sheet + ':' + a, 1.35, true); }   /* v165: 변신 중에도 강화·등급 장비 빛 (평소보다 조금 진하게) */
+  const C = P.card, pr = C ? (C.g === '전설' ? 0.12 : C.g === '영웅' ? 0.05 : 0) : P.fx ? 0.1 : 0.18;   /* 변신 카드: 영웅(보라)·전설(금빛)만 불티 */
+  if ((EQFX || !P.set) && Math.random() < pr) mxP(x + mxR(-14, 14), y - mxR(0, 50), { k: 'ember', c: C ? (C.g === '전설' ? '255,190,80' : '200,130,255') : P.fx || '255,110,50', s: 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
   return true; }
 // 데스나이트 세트 효과 (네 부위 모두): AC -3 · 추가 피해 +2 · 불 저항 +20
 const DK_SET_BONUS = { ac: 3, xdmg: 2, fireRes: 20 };
@@ -5535,7 +5554,7 @@ function cxProcs(f) { const [fx, fy] = W2P(f.x, f.z), top = fy - headY(f);
     else if (P_.kind === 'hitdown') { f.hitDn = P_.dur; f.hitDnV = P_.v; floatText(fx + 12, top - 18, '명중 -' + P_.v, { color: '#c9a0ff', size: 11 }); } } }
 
 // 희귀도 색 (바닥 드랍·아이템 정보)
-const RARITY_C = { 일반: '#f2f2f2', 고급: '#5ee05e', 희귀: '#3f9bff', 영웅: '#c77dff' };   // 일반 흰색 · 고급 초록 · 희귀 하늘 · 영웅 보라
+const RARITY_C = { 일반: '#f2f2f2', 고급: '#5ee05e', 희귀: '#3f9bff', 영웅: '#c77dff', 전설: '#ffa630' };   // 일반 흰색 · 고급 초록 · 희귀 하늘 · 영웅 보라 · 전설 주황·금 (변신 카드 · 아직 전설 아이템은 없음)
 // 모든 아이템에 희귀도 (정해 둔 것 + 종류별 기본값, 나머지는 일반)
 (() => { const R = { long_sword: '고급', leather_helm: '고급', leather_armor: '고급', leather_boots: '고급', leather_gloves: '고급', silver_ring: '고급', amulet: '고급', scroll_weapon: '고급', scroll_armor: '고급', cscroll_weapon: '고급', cscroll_armor: '고급',
     plate_helm: '희귀', plate_armor: '희귀', plate_gloves: '희귀', plate_boots: '희귀', scale_armor: '희귀', scimitar: '희귀', scroll_earth: '희귀', bscroll_weapon: '희귀', bscroll_armor: '희귀',
@@ -5667,7 +5686,7 @@ const INV = (() => {
     if (d.use === 'candle') { take(e.id); cd = 0.5; BUFF.light = d.ldur || BUFF_DEF.light.dur; spellFx('light', hero, '#fff2a0'); say(`${JOSA(d.name, '을', '를')} 켰습니다. ${Math.round((d.ldur || BUFF_DEF.light.dur) / 60)}분 동안 밤 시야가 넓어져요.`, '#fff2a0'); return; }
     if (d.use === 'counterm') { if (BUFF.counterm > 0) { say('이미 카운터 매직이 걸려 있습니다. (마법 공격을 한 번 막으면 풀려요)', '#9c9682'); return; } if (cmcd > 0) return; take(e.id); cd = 0.5; cmcd = CM_CD; BUFF.counterm = BUFF_DEF.counterm.dur; mxSelf('counterm', hero); spellSfx('counterm'); say('카운터 매직: 다음에 받는 마법 공격 1번을 막아 줍니다. (10분)', '#d8a8ff'); return; }
     if (d.use === 'mana') { take(e.id); cd = 0.5; drinkFx(e.id); BUFF.mana = BUFF_DEF.mana.dur; spellFx('enok', hero, '#8ab8ff'); if (AC) tone(AC.currentTime, 'sine', 440, 760, 0.2, 0.1); buffMsg('mana'); return; }
-    if (d.use === 'poly') { const T = POLY_TIER[d.tier], f = POLY_FORM[CLASS] && POLY_FORM[CLASS][d.tier]; if (!T || !f) return; if (hero.lv < T.lv && !GOD) { say(`${d.name}: Lv.${T.lv} 이상부터 읽을 수 있습니다. (현재 Lv.${hero.lv})`, '#ff5a4a'); return; } take(e.id); const same = POLY_ON === f && BUFF.poly > 0; POLY_ON = f; BUFF.poly = 1800; spellFx('poly', hero, d.tier); spellSfx('poly'); NET.mx('pot:poly_' + d.tier, hero); say(same ? `${POLY[f].name} 변신 시간이 다시 30분이 되었습니다.` : `${POLY[f].name}(으)로 변신했습니다! 30분 동안 공격 속도 +${T.bonus}% · 이동 속도 +${T.bonus}%`, '#e0a8ff'); render(); return; }   /* v164: 변신 주문서 */
+    if (d.use === 'poly') { const T = POLY_TIER[d.tier], f = POLY_FORM[CLASS] && POLY_FORM[CLASS][d.tier]; if (!T || !f) return; if (hero.lv < T.lv && !GOD) { say(`${d.name}: Lv.${T.lv} 이상부터 읽을 수 있습니다. (현재 Lv.${hero.lv})`, '#ff5a4a'); return; } take(e.id); const same = POLY_ON === f && BUFF.poly > 0, wasC = polyCard(); POLY_ON = f; BUFF.poly = 1800; spellFx('poly', hero, d.tier); spellSfx('poly'); NET.mx('pot:poly_' + d.tier, hero); say(same ? `${POLY[f].name} 변신 시간이 다시 30분이 되었습니다.` : `${wasC ? `변신 카드(${wasC.name}) 변신이 풀리고 ` : ''}${POLY[f].name}(으)로 변신했습니다! 30분 동안 공격 속도 +${T.bonus}% · 이동 속도 +${T.bonus}%`, '#e0a8ff'); render(); return; }   /* v164: 변신 주문서 */
     if (d.use === 'haste') { const k = 'haste' + d.haste; take(e.id); BUFF[k] = d.dur; drinkFx(e.id); if (AC) tone(AC.currentTime, 'triangle', 440, 990, 0.25, 0.1); buffMsg(k); return; }
     if (d.use === 'enchant' || d.use === 'attr' || d.use === 'blessit' || d.use === 'accchg') { const ok = bag.some(x => canScroll(d, ITEMS[x.id]));
       if (!ok) { say(d.use === 'attr' ? '속성을 부여할 무기가 없습니다.' : d.use === 'accchg' ? '바꿀 장신구가 없습니다. (힘·민첩·지식의 반지·목걸이)' : d.ench === 'hwhat' ? '강화할 할로윈 모자가 없습니다.' : d.ench === 'acc' ? '강화할 장신구가 없습니다. (힘·민첩·지능·모든 능력치가 붙은 반지·목걸이)' : d.ench === 'weapon' ? '강화할 무기가 없습니다.' : '강화할 방어구가 없습니다.', '#9c9682'); return; }
@@ -5913,7 +5932,7 @@ const INV = (() => {
     if (cur >= safe) askYesNo(`${nameOf(t)}을(를) 강화하시겠습니까?`, `${sd.name} 사용 · ${safe ? `안전 강화(+${safe})를 넘었습니다.` : '안전 강화가 없는 장비입니다. (안전 +0)'} 실패하면 장비가 증발할 수 있습니다. (성공 1/3)`, go); else go(); }
   // 계산 수치
   const dkSet = () => ['helm', 'armor', 'gloves', 'boots'].every(sl => eq[sl] && ITEMS[eq[sl].id].set === 'dk');
-  const sum = k => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id][k] || 0) + (k === 'mr' ? mrEnOf(ITEMS[e.id], e.en) : 0), 0) + (DK_SET_BONUS[k] && dkSet() ? DK_SET_BONUS[k] : 0);   // v189: 강화 1당 MR (mrEn)   // 데스나이트 세트 효과
+  const sum = k => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id][k] || 0) + (k === 'mr' ? mrEnOf(ITEMS[e.id], e.en) : 0), 0) + (DK_SET_BONUS[k] && dkSet() ? DK_SET_BONUS[k] : 0) + pcStat(k);   // v189: 강화 1당 MR (mrEn)   // 데스나이트 세트 효과   // 변신 카드 개성 옵션 (변신 중일 때만)
   const enSum = () => Object.values(eq).reduce((s, e) => s + (ITEMS[e.id].slot !== 'weapon' && !ACC_SL.has(ITEMS[e.id].slot) ? enBonus(ITEMS[e.id], e.en || 0) : 0), 0);   // 장신구 강화는 방어를 올리지 않음
   const blessAc = () => Object.values(eq).reduce((s, e) => s + (e.blessed && ITEMS[e.id].slot !== 'weapon' && !ACC_BL.has(ITEMS[e.id].slot) ? 1 : 0), 0);
   const blessAccHit = () => Object.values(eq).reduce((s, e) => s + (e && e.blessed && ACC_BL.has(ITEMS[e.id].slot) ? 1 : 0), 0);   // v172: 축복받은 장신구 = 명중 +1
@@ -6114,7 +6133,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       for (let k = 0; k < N; k++) { const e = FL[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
         c.ondragover = ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('dropk'); } }; c.ondragleave = () => c.classList.remove('dropk');
         c.ondrop = ev => { c.classList.remove('dropk'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); if (invTab !== 'all') { const to = e ? bag.indexOf(e) : -1; if (to >= 0) moveBag(+a, to); else render(); return; } moveBag(+a, k); };   // 칸끼리 끌어서 자리 바꾸기
-        if (e) { c.draggable = true; c.ondragstart = ev => { bagDrag = true; ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.setData('text/x-bag', String(bag.indexOf(e))); }; c.innerHTML = ICON(eIcon(e), e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.on ? '<i class="on">ON</i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (ITEMS[e.id].stack ? `<b>${GOD_INF(e.id) ? '∞' : e.n}</b>` : '') + wearTag(ITEMS[e.id]) + invAbbr(e.id); c.dataset.itip = tip(e) + (e.locked ? '\n잠김 — 강화·판매 불가' : ''); c.dataset.ic = rarC(e.id); { const rr = ITEMS[e.id].rar || '일반'; c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); c.classList.add('rar', 'r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } if (e.blessed) c.classList.add('blessed'); { const t_ = enTierOf(e.id, e.en); if (t_) c.classList.add('eg' + t_); } if (e.locked) c.insertAdjacentHTML('beforeend', '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>');
+        if (e) { c.draggable = true; c.ondragstart = ev => { bagDrag = true; ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.setData('text/x-bag', String(bag.indexOf(e))); }; c.innerHTML = ICON(eIcon(e), e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.on ? '<i class="on">ON</i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (ITEMS[e.id].stack ? `<b>${GOD_INF(e.id) ? '∞' : e.n}</b>` : '') + wearTag(ITEMS[e.id]) + invAbbr(e.id); c.dataset.itip = tip(e) + (e.locked ? '\n잠김 — 강화·판매 불가' : ''); c.dataset.ic = rarC(e.id); { const rr = ITEMS[e.id].rar || '일반'; c.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); c.classList.add('rar', 'r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3, '전설': 4 }[rr] || 0)); } if (e.blessed) c.classList.add('blessed'); { const t_ = enTierOf(e.id, e.en); if (t_) c.classList.add('eg' + t_); } if (e.locked) c.insertAdjacentHTML('beforeend', '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>');
           c.onpointerdown = ev => holdStart(ev, e); c.onclick = () => { if (tgtScroll) { lastApplyT = performance.now(); applyScroll(e); } else if ($('bulkwin') && !$('bulkwin').hidden) { lastApplyT = performance.now(); bulkToggle(e); } else if (typeof CRAFT !== 'undefined' && CRAFT.dollOpen() && ITEMS[e.id].doll) { lastApplyT = performance.now(); CRAFT.dollToggle(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } else if (MOBILE) { const r_ = c.getBoundingClientRect(); showDetail(e, r_.right, r_.top + 10); mobPlace(c); } }; if (typeof CRAFT !== 'undefined' && CRAFT.dollOpen() && CRAFT.dollHas(e)) c.classList.add('al-on'); if ((ENH.tab === 'one' ? ENH.one === e : BK.list.includes(e)) && document.getElementById('bulkwin') && !document.getElementById('bulkwin').hidden) c.classList.add('bk-on'); if (window.ALCH && ALCH.open() && ALCH.has(e)) c.classList.add('al-on'); c.ondblclick = () => { if (MOBILE && $('storewin') && !$('storewin').hidden) { STORE.depositAsk(e); return; } if (!recentApply()) use(e); }; c.oncontextmenu = ev => { ev.preventDefault(); if ($('storewin') && !$('storewin').hidden) { lastApplyT = performance.now(); STORE.depositAsk(e); } else if (typeof CRAFT !== 'undefined' && CRAFT.dollOpen() && ITEMS[e.id].doll) { lastApplyT = performance.now(); CRAFT.dollToggle(e); } else if (window.ALCH && ALCH.open() && ITEMS[e.id].slot) { lastApplyT = performance.now(); ALCH.toggle(e); } else use(e); }; }   // 창고가 열려 있으면 우클릭 = 창고로
         else { c.classList.add('empty'); c.tabIndex = -1; c.setAttribute('aria-disabled', 'true'); }
         grid.appendChild(c); }
@@ -6130,7 +6149,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       for (const k in BASE) { const el = $('cw-' + k); if (el) { const h = `${STAT[k]}${BONUS[k] ? ` <small>(+${BONUS[k]})</small>` : ''}${hero.bonusPts > 0 ? ` <button type="button" class="sp" data-st="${k}" aria-label="${NAMES_ST[k]} 올리기">+</button>` : ''}`; if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; } } }
       s('cw-bp', hero.bonusPts); const cw = $('charwin'); if (!cw.dataset.sp) { cw.dataset.sp = 1; cw.addEventListener('click', ev => { const b = ev.target.closest('button.sp'); if (b) askYesNo(`${NAMES_ST[b.dataset.st]}을(를) 올리시겠습니까?`, `보너스 포인트 1개를 사용합니다. (남은 포인트 ${hero.bonusPts})`, () => addStat(b.dataset.st)); }); } s('cw-er', Math.min(30, Math.floor(STAT.dex / 3)) + '%'); s('cw-mb', intMB(STAT.int)); s('cw-ml', magicLv()); s('cw-sp', heroSP()); s('cw-mm', '×' + spellMul().toFixed(2)); s('cw-mc', Math.round(spellCritP({ lv: hero.lv }) * 100) + '%'); s('cw-mr', sum('mr') + (BUFF.rmagic > 0 ? 10 : 0)); s('cw-res', `${sum('earthRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('waterRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('fireRes') + (BUFF.relem > 0 ? 10 : 0)} / ${sum('windRes') + (BUFF.relem > 0 ? 10 : 0)}`);
       if (window.LOOKPV) LOOKPV.kick();
-      SLOTS.forEach(([k]) => { const el = $('eq-' + k); if (!el) return; const e = eq[k]; el.innerHTML = e ? ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (e.locked ? '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>' : '') : ''; { const rr = e ? ITEMS[e.id].rar || '일반' : null; el.classList.toggle('rar', !!e); el.classList.remove('r-0', 'r-1', 'r-2', 'r-3'); if (e) { el.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); el.classList.add('r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0)); } } el.dataset.itip = e ? tip(e) : el.dataset.label; el.dataset.ic = e ? rarC(e.id) : '#d9cfb5'; el.removeAttribute('title'); el.classList.toggle('has', !!e); { const t_ = e ? enTierOf(e.id, e.en) : 0; for (let q = 1; q <= 4; q++) el.classList.toggle('eg' + q, t_ === q); } el.ondblclick = () => e && !recentApply() && unequip(e);
+      SLOTS.forEach(([k]) => { const el = $('eq-' + k); if (!el) return; const e = eq[k]; el.innerHTML = e ? ICON(ITEMS[e.id].icon, e.blessed) + (e.blessed ? '<i class="bl-spark"></i>' : '') + (e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : '') + (e.locked ? '<i class="lk" title="잠김"><svg viewBox="0 0 10 12" aria-hidden="true"><rect x="1" y="5" width="8" height="6.5" rx="1.2" fill="#f2d98a" stroke="#3a2810" stroke-width=".6"/><path d="M3 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="#f2d98a" stroke-width="1.4"/></svg></i>' : '') : ''; { const rr = e ? ITEMS[e.id].rar || '일반' : null; el.classList.toggle('rar', !!e); el.classList.remove('r-0', 'r-1', 'r-2', 'r-3'); if (e) { el.style.setProperty('--rar', rr === '일반' ? '#b9b4a8' : RARITY_C[rr]); el.classList.add('r-' + ({ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3, '전설': 4 }[rr] || 0)); } } el.dataset.itip = e ? tip(e) : el.dataset.label; el.dataset.ic = e ? rarC(e.id) : '#d9cfb5'; el.removeAttribute('title'); el.classList.toggle('has', !!e); { const t_ = e ? enTierOf(e.id, e.en) : 0; for (let q = 1; q <= 4; q++) el.classList.toggle('eg' + q, t_ === q); } el.ondblclick = () => e && !recentApply() && unequip(e);
         el.onclick = () => { if (tgtScroll && e) { lastApplyT = performance.now(); applyScroll(e); } }; el.onpointerdown = ev => e && holdStart(ev, e); });
     }
   }
@@ -6147,7 +6166,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   // 정렬: 착용 장비 → 안 낀 장비 → 소모품 → 기타 (같은 묶음 안에서는 부위 순·이름 순)
   function sortBag() { const so = id => { const d = ITEMS[id], k = SLOTS.findIndex(([s]) => s === d.slot || (d.slot === 'ring' && s.startsWith('ring'))); return k < 0 ? 99 : k; };
     /* v160: 정렬 순서 — 착용 중 장비 → 장비(높은 등급 먼저 · 같은 등급은 강화 높은 것 먼저) → 그 밖의 아이템(높은 등급 먼저 · 같은 등급은 물약 → 주문서 → 잡템) */
-    const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : 2; }, RK = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 }, rk = id => RK[ITEMS[id].rar] || 0, CK = { pot: 0, scr: 1, etc: 2 };
+    const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : 2; }, RK = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 }, rk = id => RK[ITEMS[id].rar] || 0, CK = { pot: 0, scr: 1, etc: 2 };
     bag.sort((a, b) => grp(a) - grp(b) || rk(b.id) - rk(a.id) || (grp(a) <= 1 ? (b.en || 0) - (a.en || 0) : 0) ||   /* v181: 착용 장비도 높은 등급 먼저 */ (grp(a) === 2 ? (CK[invCat(ITEMS[a.id])] || 0) - (CK[invCat(ITEMS[b.id])] || 0) : 0) || so(a.id) - so(b.id) || ITEMS[a.id].name.localeCompare(ITEMS[b.id].name, 'ko'));
     render(); say('인벤토리를 정렬했습니다.', '#9c9682'); }
   // 스킬창: 1서클·2서클 마법(각 3칸) + 기사 기술 5칸. 안 배운 건 흐리게
@@ -6287,7 +6306,7 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
     3: [['전체', null], ['목걸이', d => d.slot === 'amulet'], ['반지', d => d.slot === 'ring'], ['벨트', d => d.slot === 'belt']],
     4: [['전체', null], ['1단계 · 고급', d => d.tier === 1], ['2단계 · 희귀', d => d.tier === 2], ['3단계 · 영웅', d => d.tier === 3]] };   /* v169: 마법인형 단계별 */
   const TABS = [['전체', () => true], ['무기', d => d.slot === 'weapon'], ['방어구', d => ARMOR_SLOTS.has(d.slot)], ['장신구', d => ['ring', 'amulet', 'belt'].includes(d.slot)], ['마법인형', d => d.slot === 'doll'],
-    ['물약·소모품', d => !d.slot && !isScroll(d) && !!d.use && !['learn', 'pet', 'petevo', 'pouch', 'bpouch', 'dollbox'].includes(d.use)], ['주문서', d => !d.slot && isScroll(d)], ['펫·주머니·기타', d => !d.slot && !isScroll(d) && (!d.use || ['learn', 'pet', 'petevo', 'pouch', 'bpouch', 'dollbox'].includes(d.use))]];
+    ['물약·소모품', d => !d.slot && !isScroll(d) && !!d.use && !['learn', 'pet', 'petevo', 'pouch', 'bpouch', 'dollbox'].includes(d.use)], ['주문서', d => !d.slot && isScroll(d)], ['펫·주머니·기타', d => !d.slot && !isScroll(d) && (!d.use || ['learn', 'pet', 'petevo', 'pouch', 'bpouch', 'dollbox'].includes(d.use))], ['변신 카드', () => false]];   /* 변신 카드는 아이템이 아니라 PCG.codexHTML로 그림 */
   const isScroll = d => /주문서/.test(d.name || '') || /^scr_/.test(d.icon || '');
   const pct = p => (p >= 0.1 ? Math.round(p * 100) : p >= 0.01 ? (p * 100).toFixed(1) : (p * 100).toFixed(2)) + '%';
   let DN = {};
@@ -6311,14 +6330,15 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
       const where = d.codex ? (lines.find(t => /^얻는 곳: /.test(t)) || '').replace(/^얻는 곳: /, '') : ''; const st = lines.filter(t => !/^얻는 곳: |^착용 가능: |단계 마법인형 · 인형 칸에 착용$/.test(t) && t !== d.desc);
       const own = S[id] || [], cxw = d.codex ? where.split(' · ').map(t => t.trim()).filter(t => t && !(DN[id] && DN[id].has(t)) && !(/^(장비상점|잡화상점|특별상점)/.test(t) && own.some(o => o.startsWith(t.split(' ')[0])))).join(' · ') : '';
       L.push({ id, d, rar: d.rar || '일반', st, where: d.codex ? [cxw, ...own].filter(Boolean) : src, txt: (d.name + ' ' + st.join(' ') + ' ' + (d.desc || '') + ' ' + (src || [where]).join(' ')).toLowerCase() }); }
-    const RO = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 }, SO = ['weapon', 'helm', 'armor', 'shirt', 'cloak', 'gloves', 'boots', 'shield', 'belt', 'amulet', 'ring'];
+    const RO = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 }, SO = ['weapon', 'helm', 'armor', 'shirt', 'cloak', 'gloves', 'boots', 'shield', 'belt', 'amulet', 'ring'];
     L.sort((a, b) => (SO.indexOf(a.d.slot) + 1 || 99) - (SO.indexOf(b.d.slot) + 1 || 99) || (a.d.wtype || '').localeCompare(b.d.wtype || '') || RO[a.rar] - RO[b.rar] || (a.d.lv || 0) - (b.d.lv || 0) || a.d.name.localeCompare(b.d.name, 'ko'));
     return L; }
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   function render() { const w = $('codexwin'); if (!w || w.hidden) return; built = built || build();
-    $('cdx-tabs').innerHTML = TABS.map(([n, f], k) => `<button type="button" role="tab" class="cdx-tab" aria-selected="${k === tab}" data-k="${k}">${n} <small>${built.filter(x => f(x.d)).length}</small></button>`).join('');
+    $('cdx-tabs').innerHTML = TABS.map(([n, f], k) => `<button type="button" role="tab" class="cdx-tab" aria-selected="${k === tab}" data-k="${k}">${n} <small>${n === '변신 카드' ? PCARD.length : built.filter(x => f(x.d)).length}</small></button>`).join('');
     const q = ($('cdx-q').value || '').trim().toLowerCase(), rar = $('cdx-rar').value, mine = $('cdx-mine').checked, f = TABS[tab][1], SL = SUB[tab], sf = SL && SL[sub] && SL[sub][1];
     { const sb = $('cdx-sub'); if (sb) { sb.hidden = !SL; sb.innerHTML = SL ? SL.map(([n, g_], k) => `<button type="button" class="cdx-subt" aria-selected="${k === sub}" data-s="${k}">${n} <small>${built.filter(x => f(x.d) && (!g_ || g_(x.d))).length}</small></button>`).join('') : ''; } }
+    if (TABS[tab][0] === '변신 카드') { const cb = $('cdx-cls'); if (cb) cb.hidden = true; const h = PCG.codexHTML(q, rar); $('cdx-list').innerHTML = h.html; $('cdx-n').textContent = `${h.n}종`; PCG.fillArt($('cdx-list')); return; }   /* 변신 카드 탭 */
     const dollT = TABS[tab][0] === '마법인형', cf = dollT ? null : CLS_F[cls][1]; { const cb = $('cdx-cls'); if (cb) cb.hidden = dollT; if (cb) cb.innerHTML = '<span class="cdx-clt">직업</span>' + CLS_F.map(([n, g_], k) => `<button type="button" class="cdx-subt cdx-clb" aria-selected="${k === cls}" data-c="${k}">${n} <small>${built.filter(x => f(x.d) && (!sf || sf(x.d)) && (!g_ || g_(x.d))).length}</small></button>`).join(''); }
     const L = built.filter(x => f(x.d) && (!sf || sf(x.d)) && (!cf || cf(x.d)) && (!rar || x.rar === rar) && (!mine || !x.d.cls || x.d.cls.includes(CLASS)) && (!q || q.split(/\s+/).every(t => x.txt.includes(t))));
     $('cdx-n').textContent = `${L.length}개`;
@@ -6391,7 +6411,7 @@ const TOWN = (() => {
       get tabs() { return [['무기', [['한손검', 800, '공용 · 공격 1~8 · 처음 쓰기 좋은 검'], ...CX_SHOP.weapon.map(cxRow)]], ['방어구', CX_SHOP.armor.map(cxRow)], ['장신구', CX_SHOP.general.map(cxRow)]]; } },   /* v126: 장신구는 장비상점에서 */
     { id: 'magic', name: '특별상점', npc: '특별상인 엘리스', icon: 'gem', i: 11, j: 2, w: 6, d: 6, h: 3.5, door: 'j', roof: [96, 52, 120], npcType: 'f',   /* v126: 마법상점 → 특별상점 (마나 회복 물약은 잡화상점에서) */
       hello: '귀한 물건만 다뤄요. 장신구 강화·변경 주문서, 능력치 초기화, 남는 주문서 교환은 여기서 하세요.',
-      tabs: [['특별 물품', [['장신구 마법 주문서', 10000, '힘·민첩·지능·모든 능력치가 붙은 반지·목걸이 강화 +1 (최대 +8 · +1부터 실패하면 증발)', 'scroll_acc'], ['장신구 변경 주문서', 100000, '다른 직업의 힘·민첩·지식 반지·목걸이를 같은 부위의 내 직업 것으로 (강화 유지)', 'acc_change'], ['능력치 초기화 주문서', 5000, '보너스 능력치를 다시 나눠요'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 물약과 재사용 대기 공유']]], ['주문서 교환', 'exch']] },   /* v118: 마법서·기술서·정령수정은 레벨이 되면 자동 습득이라 팔지 않음 */
+      tabs: [['특별 물품', [['장신구 마법 주문서', 10000, '힘·민첩·지능·모든 능력치가 붙은 반지·목걸이 강화 +1 (최대 +8 · +1부터 실패하면 증발)', 'scroll_acc'], ['장신구 변경 주문서', 100000, '다른 직업의 힘·민첩·지식 반지·목걸이를 같은 부위의 내 직업 것으로 (강화 유지)', 'acc_change'], ['능력치 초기화 주문서', 5000, '보너스 능력치를 다시 나눠요'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 물약과 재사용 대기 공유']]], ['주문서 교환', 'exch'], ['변신 카드', 'pcard']] },   /* 변신 뽑기 (PCG) */   /* v118: 마법서·기술서·정령수정은 레벨이 되면 자동 습득이라 팔지 않음 */
     { id: 'pet', name: '펫상점', npc: '펫상인 루피', icon: 'paw', i: 19, j: 2, w: 6, d: 6, h: 3.5, door: 'j', roof: [63, 106, 58], npcType: 'f',
       hello: '든든한 동료가 필요하신가요? 도베르만이 아주 영리하답니다. 보관소의 펫도 여기서 찾고 맡길 수 있어요.',
       tabs: [['펫 구매', [['펫 목걸이(Lv.1 도베르만)', 100, '도베르만 · Lv.1 · 배고픔 없음 · 사서 \'펫을 찾는다\'로 소환'], ['펫 진화의 열매', 500000, '50레벨 이상 펫을 진화 · 펫 창에서 사용하거나 더블클릭', 'pet_fruit'], ...(window.DEMO_MODE ? [['펫 목걸이(Lv.50 도베르만 · 테스트)', 100, '테스트 모드 전용 · 50레벨 펫 · 진화 시험용', 'pet_collar50']] : [])]], ['펫을 찾는다', 'find'], ['펫을 맡긴다', 'store']] },
@@ -6406,7 +6426,7 @@ const TOWN = (() => {
   const STORE_NPC = { i: 16, j: 13 }, STORE_PROPS = { x: 18, z: 13 };
   // 테스트 상점 (우물 옆): 지금 게임에 있는 모든 장비를 0골드에 — ITEMS에서 매번 새로 목록을 만들어 새 장비도 자동 포함
   const TEST_NPC = { i: 13, j: 15 }, SELL_NPC = { i: 19, j: 14 };   // 아덴상단: 창고 옆
-  const RAR_ORD = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 };
+  const RAR_ORD = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3, '전설': 4 };
   const TEST_GROUPS = [['무기', ['weapon']], ['갑옷·방패', ['armor', 'shield', 'shirt']], ['투구·장갑·부츠', ['helm', 'gloves', 'boots']], ['망토·벨트', ['cloak', 'belt']], ['장신구', ['ring', 'amulet']]];
   const testInfo = d => [d.rar || '일반', d.dmg ? `공격 ${d.dmg[0]}~${d.dmg[1]}` : '', d.ac ? `방어 +${d.ac}` : '', d.lv ? `Lv.${d.lv}` : '', d.codex ? cxClsName(d) : ''].filter(Boolean).join(' · ');
   const TESTSHOP = { id: 'test', name: '테스트 상점', npc: '테스트 상인 (개발용)', icon: 'chest', npcType: 'f',
@@ -6755,7 +6775,7 @@ const TOWN = (() => {
     const upd = () => { list.querySelectorAll('.item').forEach(r => r._calc && r._calc(true)); foot(); }; SHOP_REFRESH = b.market ? () => { if (!p.hidden) upd(); } : null;
     const shopIcon = n => SHOP2ITEM[n] && ITEMS[SHOP2ITEM[n]] ? ITEMS[SHOP2ITEM[n]].icon : /마법서/.test(n) ? 'book' : /먹이/.test(n) ? 'food' : /목걸이/.test(n) ? 'amulet' : /강아지|늑대/.test(n) ? 'paw' : /물약/.test(n) ? 'pot_bl' : 'scroll';
     const tb = $('shop-tabs'); tb.hidden = !b.tabs; tb.innerHTML = '';
-    const rowsFor = items => { list.innerHTML = ''; if (items === 'exch') { exchPanel(list, foot); foot(); return; } if (typeof items === 'string') { PET.shopPanel(items, list); foot(); return; } items.forEach(addRow); foot(); };
+    const rowsFor = items => { list.innerHTML = ''; if (PCG.stopShop) PCG.stopShop(); if (items === 'exch') { exchPanel(list, foot); foot(); return; } if (items === 'pcard') { PCG.shopPanel(list, foot); return; } if (typeof items === 'string') { PET.shopPanel(items, list); foot(); return; } items.forEach(addRow); foot(); };
     if (b.tabs) { b.tab = b.tab || 0; b.tabs.forEach(([nm], k) => { const t = document.createElement('button'); t.type = 'button'; t.className = 'shop-tab'; t.setAttribute('role', 'tab'); t.textContent = nm; t.setAttribute('aria-selected', k === b.tab);
         t.onclick = () => { b.tab = k; tb.querySelectorAll('.shop-tab').forEach((x, q) => x.setAttribute('aria-selected', q === k)); rowsFor(b.tabs[k][1]); }; tb.appendChild(t); }); }
     const FIXK = 'aden_shopfix:' + PNAME(); let FIX = {}; try { FIX = JSON.parse(localStorage.getItem(FIXK) || '{}') || {}; } catch (e) { FIX = {}; } const fixSave = () => { try { localStorage.setItem(FIXK, JSON.stringify(FIX)); } catch (e) {} };   /* v125: 상점 수량 [고정] — 캐릭터마다 기억 */
@@ -6870,7 +6890,7 @@ const TOWN = (() => {
   function askTown() { if (SCENE === 'town') { closeAll(); return; } if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
   // ESC: 열린 창을 마지막에 연 것부터 하나씩 닫음 → 다 닫혀 있으면 게임 메뉴
-  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin'], popStack = [];
+  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'polywin'], popStack = [];
   POPS.forEach(id => { const el = $(id); if (!el) return; new MutationObserver(() => { const k = popStack.indexOf(id); if (k >= 0) popStack.splice(k, 1); if (!el.hidden) popStack.push(id); }).observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
   function closePop(id) { if (id === 'shop' || id === 'wmap') closeAll(); else if (id === 'itemwin') INV.hideDetail(); else if (id === 'bulkwin') INV.bulkClose(); else $(id).hidden = true; }
   // 다른 지역으로 가면(텔레포트·월드맵·귀환·수호탑 등) 마을 NPC 창(상점·판매·창고·제작·콜로세움)은 닫음
@@ -7082,7 +7102,7 @@ const SELL = (() => {
 
 // ============================================================ 창고: 인벤토리와 같이 열림 · 끌어다 놓아 맡기기 / 더블클릭·끌어서 찾기
 const STORE = (() => {
-  const $ = id => document.getElementById(id), CAP = 80, box = [], RO = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }, GMAX = 2e9; let gold = 0;   // v127: 창고 골드 (계정 공유)
+  const $ = id => document.getElementById(id), CAP = 80, box = [], RO = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3, '전설': 4 }, GMAX = 2e9; let gold = 0;   // v127: 창고 골드 (계정 공유)
   function goldMove(dir) { const inp = $('st-gin'); let q = Math.floor(+(inp && inp.value) || 0); const have = dir > 0 ? Math.floor(coins) : gold; if (q <= 0) q = have; q = Math.min(q, have); if (dir > 0) q = Math.min(q, GMAX - gold);
     if (q <= 0) { say(dir > 0 ? (have > 0 ? '창고 골드가 가득 찼습니다.' : '맡길 골드가 없습니다.') : '창고에 맡긴 골드가 없습니다.', '#f08a7a'); return; }
     if (dir > 0) { coins -= q; gold += q; } else { coins += q; gold -= q; } if (inp) inp.value = ''; say(`창고${dir > 0 ? '에 맡김' : '에서 찾음'}: 골드 ${q.toLocaleString()} (창고 ${gold.toLocaleString()})`, '#f2d060'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }
@@ -7236,7 +7256,7 @@ const CFGSYNC = (() => { const get = k => { try { return localStorage.getItem(k)
     WHEEL_LOCK = get('aden_wlock') === '1'; { const a = get('mm_on'); if (a != null) MM.setOn(a === '1'); const b = parseFloat(get('mm_op')); if (isFinite(b)) MM.setOp(b); } }
   return { dump, load }; })();
 const SAVE = (() => {
-  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0, offUT = null, nowUT = null, startP = null;   /* v120: offUT = 불러온 캐릭터 저장의 서버 수정 시각(=지난 종료) · nowUT = 이번 접속 기록의 서버 시각 */   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
+  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', lastP = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0, offUT = null, nowUT = null, startP = null;   /* v120: offUT = 불러온 캐릭터 저장의 서버 수정 시각(=지난 종료) · nowUT = 이번 접속 기록의 서버 시각 */   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
   const hex = s => [...new TextEncoder().encode(String(s).toLowerCase())].map(b => b.toString(16).padStart(2, '0')).join('');
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
@@ -7246,17 +7266,17 @@ const SAVE = (() => {
       pos: SCENE === 'town' ? { t: 1, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : ISLE ? { z: ISLE.id, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : null }; }   /* v137: 설정 · 마지막 위치 */
   function apply(s) { if (!s || s.cls !== CLASS) return false;
     hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1; if (CLASS === 'knight' && (s.ver || 0) < 162 && hero.lv > 1) hero.baseMP = Math.max(hero.baseMP, CLS_DEF.knight.mp + hero.lv - 1);   /* v162: 기사 레벨업 MP 1 고정 소급 */   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0); HWM.load(s.hw);
-    LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0; POLY_ON = s.pf && POLY[s.pf] && POLY[s.pf].cls === CLASS ? s.pf : null; if (!POLY_ON) BUFF.poly = 0; setTimeout(() => wizAutoLearn(), 1200);
+    LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0; POLY_ON = s.pf && POLY[s.pf] && (POLY[s.pf].card ? PCG.canKeep(POLY[s.pf].card) : POLY[s.pf].cls === CLASS) ? s.pf : null; if (!POLY_ON) BUFF.poly = 0; else if (POLY[POLY_ON].card) BUFF.poly = PC_INF;   /* 변신 카드: 계정에 등록된 카드 · 레벨이 되면 유지 */ setTimeout(() => wizAutoLearn(), 1200);
     INV.load(s.inv); CODES.load(s.cu); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); if (s.cfg) CFGSYNC.load(s.cfg); if (s.sm) try { PET.sumIn(s.sm); } catch (e) {} if (s.bk) try { ISLAND.mergeKills(s.bk, true); } catch (e) {} if (OFFL_HOOK) OFFL_HOOK.load(s.ofl); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); DEATH = null; deathUI();
     if (s.dd) { const P = deathPenalty(false); hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); setTimeout(() => say(`쓰러진 채로 접속을 끊어서 마을에서 부활했어요. (경험치 −${P.ex.toLocaleString()} · 골드 −${P.g.toLocaleString()})`, '#f2e6a8'), 1500); }
     INV.render(); return true; }
   const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
-  const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c;
+  const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c, skey = () => 'aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), pkey = () => 'aden_pcard_' + String(ACCOUNT.acc() || '').toLowerCase();   /* pkey: 변신 카드 (계정 공유 · 이 기기 저장일 때) */
   async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); ut.c = d ? d.__ut || null : null; offUT = ut.c; return d && d.data ? JSON.parse(d.data) : null; }
       const a = await adb(); if (a) { try { const sn = await a.doc(`saves/${hex(ACCOUNT.acc())}_${c}`).get(); if (sn.exists) return JSON.parse(sn.data().data); } catch (e) {} } const v = ls.get(lkey(c)); return v ? JSON.parse(v) : null; }
     catch (e) { console.warn('load', e); return undefined; } }   // undefined = 서버 오류 (null = 저장 없음)
-  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; return d && d.store ? JSON.parse(d.store) : null; } const v = ls.get('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase()); return v ? JSON.parse(v) : null; } catch (e) { console.warn('loadStore', e); return undefined; } }   // undefined = 불러오기 실패
-  function start(c, store) { cls = c; on = true; t = 0; lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); }
+  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; PCG.load(d ? d.polyCards : null); return d && d.store ? JSON.parse(d.store) : null; } PCG.load(ls.get(pkey())); const v = ls.get(skey()); return v ? JSON.parse(v) : null; } catch (e) { console.warn('loadStore', e); return undefined; } }   // undefined = 불러오기 실패
+  function start(c, store) { cls = c; on = true; t = 0; lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); lastP = PCG.raw(); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); }
     SESS.begin(); if (cloud()) sessP = CLOUD.set(`users/${CLOUD.uid()}`, { sess: SESS.id, sessAt: String(Date.now()) }, true).then(r => { if (typeof r === 'string') { ut.u = r; nowUT = r; } }).catch(() => {}); startP = sessP; }   // v117: 이 접속을 계정의 '현재 접속'으로 표시 → 먼저 있던 접속은 다음 저장 때 끊김
   // v120: 오프라인 정산용 시각 — 계정 서버면 서버가 기록한 시각만 씀 (PC 시계를 바꿔도 소용없음)
   async function times(o) { if (cloud()) { if (startP) { try { await startP; } catch (e) {} } const a = Date.parse(offUT || ''), b = Date.parse(nowUT || ''); return isFinite(a) && isFinite(b) ? { off: a, now: b, key: String(offUT) } : null; }
@@ -7269,13 +7289,14 @@ const SAVE = (() => {
       if (force || j !== lastC) { if (cloud()) { const doc = { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()), sd: SESS.id }, P = `users/${CLOUD.uid()}/chars/${cls}`; let r; try { r = await CLOUD.set(P, doc, false, ut.c || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if ((await sessOk(true)) !== true) { busy = false; pend = null; return false; } let cur = null; try { cur = await CLOUD.get(P); } catch (e2) { busy = false; pend = null; return false; } if (cur && cur.sd && cur.sd !== SESS.id) { SESS.kick('server'); busy = false; pend = null; return false; } r = await CLOUD.set(P, doc, false, (cur && cur.__ut) || undefined); }   /* v159: 다른 접속이 더 나중에 저장했으면 절대 덮어쓰지 않음 (그 접속이 이어서 함) */ if (typeof r === 'string') ut.c = r; }
         else { const a = await adb(); let done = false; if (a) { try { await a.doc(`saves/${hex(ACCOUNT.acc())}_${cls}`).set({ data: j, at: Date.now() }); done = true; } catch (e) {} } if (!done) ls.set(lkey(cls), j); }
         lastC = j; }
-      if (force || st !== lastS) { if (cloud()) { const P = `users/${CLOUD.uid()}`; let r; try { r = await CLOUD.set(P, { store: st }, true, ut.u || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if ((await sessOk(true)) !== true) { busy = false; pend = null; return false; } r = await CLOUD.set(P, { store: st }, true); } if (typeof r === 'string') ut.u = r; } else ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), st); lastS = st; }
+      { const pc = PCG.raw(), o = {}; if (force || st !== lastS) o.store = st; if (pc != null && (force || pc !== lastP)) o.polyCards = pc;   /* 변신 카드: 계정 문서 users/{uid}.polyCards (불러오기에 실패했으면 pc = null → 덮어쓰지 않음) */
+        if (o.store != null || o.polyCards != null) { if (cloud()) { const P = `users/${CLOUD.uid()}`; let r; try { r = await CLOUD.set(P, o, true, ut.u || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if ((await sessOk(true)) !== true) { busy = false; pend = null; return false; } r = await CLOUD.set(P, o, true); } if (typeof r === 'string') ut.u = r; } else { if (o.store != null) ls.set(skey(), st); if (o.polyCards != null) ls.set(pkey(), pc); } if (o.store != null) lastS = st; if (o.polyCards != null) lastP = pc; } }
       if (!quiet) say('저장했습니다.' + (cloud() ? ' (계정 서버)' : ' (이 기기)'), '#9fd08a'); }
     catch (e) { ok = false; console.warn('save', e); if (!quiet) say('저장하지 못했어요. 인터넷 연결을 확인해 주세요. (잠시 뒤 자동으로 다시 시도)', '#f08a7a'); }
     busy = false; pend = null; return ok; }
   function tick(dt) { if (!on) return; t += dt; chkT += dt; if (t >= 20) { t = 0; chkT = 0; now(false, true); } else if (chkT >= 60) { chkT = 0; sessOk(); } }   // 바뀐 게 없어도 1분마다 현재 접속 확인
   // 창 닫기 직전: 기다릴 수 없으니 keepalive로 마지막 저장
-  function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }, false, ut.c || undefined); const st = JSON.stringify(STORE.list()); if (st !== lastS) CLOUD.beacon(`users/${CLOUD.uid()}`, { store: st }, true, ut.u || undefined); } else { ls.set(lkey(cls), j); ls.set('aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), JSON.stringify(STORE.list())); } } catch (e) {} }
+  function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }, false, ut.c || undefined); const st = JSON.stringify(STORE.list()), pc = PCG.raw(), o = {}; if (st !== lastS) o.store = st; if (pc != null && pc !== lastP) o.polyCards = pc; if (o.store != null || o.polyCards != null) CLOUD.beacon(`users/${CLOUD.uid()}`, o, true, ut.u || undefined); } else { ls.set(lkey(cls), j); ls.set(skey(), JSON.stringify(STORE.list())); const pc = PCG.raw(); if (pc != null) ls.set(pkey(), pc); } } catch (e) {} }
   addEventListener('beforeunload', flush); addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => { if (!on) return; if (document.hidden) now(false, true); else sessOk(); });   // v168: 다른 앱으로 가거나 화면을 끄면 바로 저장 (폰 → PC로 옮겨도 이어짐) · 돌아오면 바로 현재 접속인지 확인 (다른 기기가 이어 하고 있으면 바로 접속 종료)
   if (window.native && window.native.onClosing) window.native.onClosing(async () => { try { await Promise.race([now(false, true), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} window.native.closeNow && window.native.closeNow(); });   // PC: 창 닫을 때 저장 끝나고 닫힘
@@ -7669,7 +7690,7 @@ const NET = (() => {
   // ----- 파티 창 (화면 왼쪽): 파티원 HP·MP
   const myBuffs = () => { const o = {}; let n = 0; for (const k in BUFF) if (BUFF[k] > 0 && BUFF_DEF[k]) { o[k] = Math.ceil(BUFF[k]); n++; } return n ? o : null; };
   const icoC = {}, ico = k => icoC[k] || (icoC[k] = ICON(k));
-  const tleft = s => s >= 60 ? Math.ceil(s / 60) + '분' : Math.ceil(s) + '초';
+  const tleft = s => s >= PC_INF - 9 ? '∞' : s >= 60 ? Math.ceil(s / 60) + '분' : Math.ceil(s) + '초';
   const DEBUFF = new Set(['root', 'slow']);
   const bfRow = bf => { const ks = Object.keys(bf || {}).filter(k => BUFF_DEF[k] && bf[k] > 0); if (!ks.length) return '';
     return '<div class="pb-bf">' + ks.map(k => `<span class="pb-b${DEBUFF.has(k) ? ' bad' : ''}${bf[k] <= 10 ? ' cd' : ''}" title="${esc_(BUFF_DEF[k].name)} · ${tleft(bf[k])} 남음">${ico(BUFF_DEF[k].icon)}${bf[k] <= 10 ? `<i>${Math.ceil(bf[k])}</i>` : `<em>${tleft(bf[k])}</em>`}</span>`).join('') + '</div>'; };
@@ -9056,7 +9077,7 @@ const ACCOUNT = (() => {
     // 서버가 생기기 전에 만든 계정(이 기기/아티팩트 DB)이면 같은 비밀번호로 서버에 옮김 — 캐릭터 이름·이 기기 저장도 함께
     const r = await load(a); if (!r) return { ok: false, msg: '없는 계정이거나 비밀번호가 맞지 않습니다.' }; if ((await hashPw(pw, r.salt)) !== r.hash) return { ok: false, msg: '비밀번호가 맞지 않습니다.' };
     try { await CLOUD.signUp(a, pw); } catch (e) { return { ok: false, msg: e.code === 'EMAIL_EXISTS' ? '비밀번호가 맞지 않습니다.' : '계정을 서버로 옮기지 못했어요. (' + e.message + ')' }; }
-    const ch = r.chars || {}, low = a.toLowerCase(); await CLOUD.set(`users/${CLOUD.uid()}`, { acc: a, chars: JSON.stringify(ch), store: store.get('aden_store_' + low) || '[]', at: String(Date.now()) });
+    const ch = r.chars || {}, low = a.toLowerCase(), pcl = store.get('aden_pcard_' + low); await CLOUD.set(`users/${CLOUD.uid()}`, { acc: a, chars: JSON.stringify(ch), store: store.get('aden_store_' + low) || '[]', ...(pcl ? { polyCards: pcl } : {}), at: String(Date.now()) });   /* 이 기기에 저장된 변신 카드도 함께 옮김 */
     for (const c in ch) { try { await CLOUD.create('names/' + hex(ch[c]), { uid: CLOUD.uid(), name: ch[c], cls: c, at: String(Date.now()) }); const v = store.get('aden_save_' + low + '_' + c); if (v) await CLOUD.set(`users/${CLOUD.uid()}/chars/${c}`, { name: ch[c], data: v, ver: String(GAME_VER), at: String(Date.now()) }); } catch (e) {} }
     return { ok: true, chars: ch, moved: true }; }
   async function loginLegacy(a, pw) { const r = await load(a); if (!r) return { ok: false, msg: '없는 계정입니다. 아래 \'새 계정 만들기\'로 먼저 만들어 주세요.' }; if ((await hashPw(pw, r.salt)) !== r.hash) return { ok: false, msg: '비밀번호가 맞지 않습니다.' }; return { ok: true, chars: r.chars || {} }; }
@@ -9142,7 +9163,7 @@ const AUTO = (() => {
   function lmFix(fromOld) { for (const t of LM_T) { const row = C.lootM[t] = C.lootM[t] && typeof C.lootM[t] === 'object' ? C.lootM[t] : {}; for (const r of LM_R) row[r] = fromOld || !(r in row) ? !!(C.lootT[t] && C.lootR[r]) : !!row[r]; }
     for (const r of LM_R) C.lootR[r] = LM_T.some(t => C.lootM[t][r]); for (const t of LM_T) C.lootT[t] = LM_R.some(r => C.lootM[t][r]); }
   lmFix(true);
-  const wantLoot = id => { const d = ITEMS[id]; if (!d) return false; const row = C.lootM[typeOf(d)]; return !!(row && row[d.rar || '일반']); };
+  const wantLoot = id => { const d = ITEMS[id]; if (!d) return false; const row = C.lootM[typeOf(d)]; return !!(row && row[d.rar === '전설' ? '영웅' : (d.rar || '일반')]); };   /* 전설 아이템이 생기면 영웅 칸을 따름 */
   function lootTarget(maxD = 10) { if (!C.loot) return null; let b = null, bd = 1e9; for (const d of GROUND.here()) { if ((d._try || 0) >= 3 || GROUND.blocked(d) || !wantLoot(d.id)) continue; const dd = cheb(d.i, d.j, hero.i, hero.j); if (dd > maxD || dd >= bd) continue; bd = dd; b = d; } return b; }
   // 켜면 배경음악·효과음을 끄고, 끄면 원래대로
   let snd = null;
@@ -9384,7 +9405,7 @@ const OFFL = (() => {
     await SAVE.now(true, true); show(res, mins, o.i); }
   function show(res, mins, iid) { const old = document.getElementById('oflres'); if (old) old.remove();
     const zn = (iid != null && (ISLAND.def(iid) || {}).name) || '사냥터', nm = id => (ITEMS[id] && ITEMS[id].name) || id;
-    const rk = id => ({ 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 })[(ITEMS[id] && ITEMS[id].rar) || '일반'] || 0;
+    const rk = id => ({ 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 })[(ITEMS[id] && ITEMS[id].rar) || '일반'] || 0;
     const items = Object.entries(res.got).sort((a, b) => rk(b[0]) - rk(a[0]) || b[1] - a[1]), cnt = items.reduce((a, x) => a + x[1], 0);
     const useTxt = Object.entries(res.use).filter(([, n]) => n > 0).map(([id, n]) => `${nm(id)} ${n.toLocaleString()}개` + (res.buy[id] ? ` (자동 구매 ${res.buy[id].toLocaleString()}개)` : '')).join(' · ');
     const notes = [];
@@ -9420,6 +9441,146 @@ let last=performance.now(), invT=0;
 // ============================================================ v164: 절전 모드 (리니지M 절전 모드처럼) — 화면 그리기를 멈추고 검은 화면에 사냥 요약만 · 밀어서 해제
 //  들어가기: 위 메뉴 [절전] · 자동사냥 중 입력이 없으면 자동 (자동사냥 설정 '자동 절전') / 절전 귀환: 다른 유저에게 맞으면 마을로
 // v166: 마법인형 — 주인 뒤쪽 비스듬히 둥실 떠서 따라다님 · 다른 유저에게도 보임(접속 정보 dl) · 그림: 몬스터 모델을 머리 크게(인형 비율) 렌더 → 단계별 1장 (doll_t1~3.webp · 인형마다 8장 × 8방향 · 칸 CW×CH)
+// ============================================================ 변신 카드 (변신 뽑기 1단계 · 10/30 프로듀서 결정) — 계정 공유 카드 목록 users/{uid}.polyCards = { cards: {몬스터: 장수}, mile, freeAt, draws }
+// 뽑기: 특별상점(엘리스) [변신 카드] 탭 — 1회 2만 · 11회 20만(11장 중 1장은 희귀 이상 확정) · 2시간마다 무료 1회(쌓이지 않음 · 계정 단위) · 마일리지: 뽑은 카드 1장 = 1점(무료 포함), 300점 → 원하는 전설 1장
+// 변신: [변신] 창(위 버튼 · 캐릭터 창 · 모바일 메뉴)에서 등록한 카드를 골라 1만 골드 → 시간 제한 없음 (직접 풀기 · 다른 변신으로 바꾸기 · 쓰러지면 풀림) · 같은 카드는 여분으로 쌓임 (2단계 합성 재료)
+window.PCG = (() => { const $ = id => document.getElementById(id);
+  const COST1 = 20000, COST11 = 200000, MORPH = 10000, FREE_MS = 2 * 3600e3, MILE = 300, ROW = 1;
+  const POOL = {}; for (const c of PCARD) (POOL[c.g] = POOL[c.g] || []).push(c);
+  let D = { cards: {}, mile: 0, freeAt: 0, draws: 0 }, bad = false, busy = false;
+  const fmt = n => Math.floor(n).toLocaleString(), esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]), GC = g => RARITY_C[g] || '#f2f2f2';
+  const effTxt = c => `공격·이동 속도 +${c.pct}%` + (c.opt.length ? ' · ' + c.opt.join(' · ') : '');
+  // ----- 저장 데이터 (SAVE.loadStore가 계정 문서를 읽을 때 load · SAVE.now가 raw를 계정 문서에 병합 저장)
+  function load(raw) { bad = false; D = { cards: {}, mile: 0, freeAt: 0, draws: 0 }; if (raw == null || raw === '') return;
+    try { const o = typeof raw === 'string' ? JSON.parse(raw) : raw; if (!o || typeof o !== 'object') throw new Error('bad polyCards'); const cs = o.cards && typeof o.cards === 'object' ? o.cards : {};
+      for (const k in cs) { const n = Math.floor(+cs[k]) || 0; if (n > 0) D.cards[k] = n; }   // 모르는 카드(새 버전에서 생긴 것)도 그대로 둠
+      D.mile = Math.max(0, Math.floor(+o.mile || 0)); D.freeAt = Math.max(0, +o.freeAt || 0); D.draws = Math.max(0, Math.floor(+o.draws || 0)); }
+    catch (e) { bad = true; console.warn('polyCards', e); setTimeout(() => say('[변신 카드] 계정의 카드 정보를 읽지 못했어요. 덮어쓰지 않도록 이번 접속에서는 뽑기·변신을 멈춰요. (다시 접속해 보세요)', '#f08a7a'), 2000); } }
+  const raw = () => bad ? null : JSON.stringify(D);   // null = 저장하지 않음
+  const has = id => (D.cards[id] || 0) > 0, spare = id => Math.max(0, (D.cards[id] || 0) - 1), lvOk = c => hero.lv >= c.lv || GOD, canKeep = c => !!c && !bad && has(c.id) && lvOk(c), owned = () => PCARD.filter(c => has(c.id)).length;
+  function freeLeft() { const now = Date.now(); if (D.freeAt > now) D.freeAt = now; return Math.max(0, D.freeAt + FREE_MS - now); }   // PC 시계를 뒤로 돌렸으면 지금 뽑은 것으로 봄
+  const tl = ms => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return h ? `${h}시간 ${m}분` : m ? `${m}분 ${ss}초` : `${ss}초`; };
+  const saveNow = () => { try { SAVE.now(false, true); } catch (e) {} };
+  // ----- 뽑기 (같은 등급 안에서는 같은 확률)
+  function rollGrade(min) { const L = PC_GO.slice(PC_GO.indexOf(min || '일반')), tot = L.reduce((a, g) => a + PC_GRADE[g].p, 0); let r = Math.random() * tot; for (const g of L) { r -= PC_GRADE[g].p; if (r < 0) return g; } return L[L.length - 1]; }
+  const rollCard = min => { const L = POOL[rollGrade(min)]; return L[Math.floor(Math.random() * L.length)]; };
+  function roll(n) { const out = []; for (let i = 0; i < n; i++) out.push({ c: rollCard() }); if (n >= 11) out[Math.floor(Math.random() * n)] = { c: rollCard('희귀'), sure: true }; return out; }   // 11회: 10장은 보통 확률 + 1장(자리 무작위)은 희귀 이상
+  function sim(n, k) { const o = { 일반: 0, 고급: 0, 희귀: 0, 영웅: 0, 전설: 0 }, per = {}, bad11 = [0]; for (let i = 0; i < n; i++) { const R = roll(k || 1); if (k >= 11 && !R.some(r => PC_GO.indexOf(r.c.g) >= 2)) bad11[0]++; for (const r of R) { o[r.c.g]++; per[r.c.id] = (per[r.c.id] || 0) + 1; } } return { g: o, per, no11: bad11[0] }; }   // 테스트용
+  function draw(kind) { if (busy) return null; const n = kind === 11 ? 11 : 1, cost = kind === 'free' ? 0 : kind === 11 ? COST11 : COST1;
+    if (bad) { say('변신 카드 정보를 읽지 못해서 지금은 뽑을 수 없어요. 다시 접속해 주세요.', '#f08a7a'); return null; }
+    if (DEATH) { say('쓰러진 상태에서는 뽑을 수 없어요.', '#f08a7a'); return null; }
+    if (kind === 'free') { const L = freeLeft(); if (L > 0) { say(`무료 뽑기는 ${tl(L)} 뒤에 다시 할 수 있어요. (2시간마다 1회 · 쌓이지 않음)`, '#f0c080'); return null; } }
+    else if (coins < cost) { say(`골드가 부족합니다. (변신 카드 ${n}회 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
+    coins -= cost; if (kind === 'free') D.freeAt = Date.now();
+    const res = roll(n); for (const r of res) { r.isNew = !has(r.c.id); D.cards[r.c.id] = (D.cards[r.c.id] || 0) + 1; } D.mile += n; D.draws += n;
+    try { TELE.ev('pcg', { k: String(kind), g: cost, got: res.map(r => r.c.id).join(',') }); } catch (e) {}
+    saveNow(); try { INV.render(); } catch (e) {} refresh(); show(res, kind === 'free' ? '무료 뽑기' : `${n}회 뽑기`); return res; }
+  function milePick(id) { const c = PC_BY[id]; if (!c || c.g !== '전설' || busy) return; if (bad) { say('변신 카드 정보를 읽지 못해서 지금은 받을 수 없어요.', '#f08a7a'); return; }
+    if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 카드 1장 = 1점)`, '#f08a7a'); return; }
+    INV.askYesNo(`마일리지 ${MILE}점으로 [전설] ${c.name} 카드를 받을까요?`, `${effTxt(c)} · 남은 마일리지 ${D.mile - MILE}점${has(id) ? ' · 이미 있는 카드라 여분으로 쌓여요' : ''}`, () => {
+      if (D.mile < MILE || busy || bad) return; D.mile -= MILE; const r = { c, isNew: !has(id), mile: true }; D.cards[id] = (D.cards[id] || 0) + 1; try { TELE.ev('pcmile', { id }); } catch (e) {} saveNow(); refresh(); show([r], '마일리지 교환'); }); }
+  // ----- 변신 · 풀기
+  function morph(id) { const c = PC_BY[id]; if (!c) return; if (bad) { say('변신 카드 정보를 읽지 못해서 지금은 변신할 수 없어요.', '#f08a7a'); return; }
+    if (!has(id)) { say(`아직 없는 카드예요. [${c.name}] — 마을 특별상점(엘리스)의 [변신 카드]에서 뽑을 수 있어요.`, '#f0c080'); return; }
+    if (!lvOk(c)) { say(`[${c.name}] 카드는 Lv.${c.lv}부터 쓸 수 있어요. (현재 Lv.${hero.lv})`, '#ff5a4a'); return; }
+    if (DEATH) { say('쓰러진 상태에서는 변신할 수 없어요.', '#f08a7a'); return; } if (HW()) { say('이벤트 지역 안에서는 변신할 수 없어요.', '#f08a7a'); return; }
+    if (selfPoly() === c.key) { say(`이미 [${c.name}] 모습이에요.`, '#f0c080'); return; }
+    if (coins < MORPH) { say(`골드가 부족합니다. (변신 ${fmt(MORPH)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return; }
+    const cur = selfPoly(), P0 = cur && POLY[cur];
+    INV.askYesNo(`${fmt(MORPH)} 골드를 내고 [${c.name}](으)로 변신할까요?`, `${c.g} · ${effTxt(c)} · 시간 제한 없음 (직접 풀거나 쓰러지면 풀려요)${P0 ? ` · 지금 변신(${P0.name}${P0.card ? '' : ` · 남은 ${Math.ceil(BUFF.poly / 60)}분`})은 풀려요` : ''}`, () => doMorph(c)); }
+  function doMorph(c) { if (bad || !has(c.id) || !lvOk(c) || DEATH || HW() || coins < MORPH || selfPoly() === c.key) return morph(c.id);
+    const was = selfPoly(), scr = was && !POLY[was].card; coins -= MORPH; POLY_ON = c.key; BUFF.poly = PC_INF; const tier = c.g === '전설' ? 'silver' : 'dark';
+    try { spellFx('poly', hero, tier); spellSfx('poly'); NET.mx('pot:poly_' + tier, hero); TELE.ev('pcmorph', { id: c.id }); } catch (e) {}
+    say(`[${c.name}](으)로 변신했습니다! ${effTxt(c)} · 시간 제한 없음 (-${fmt(MORPH)} 골드)${scr ? ' · 변신 주문서 변신은 풀렸어요' : ''}`, '#e0a8ff'); saveNow(); try { INV.render(); } catch (e) {} refresh(); }
+  function unmorph() { const p = selfPoly(); if (!p) { say('지금은 변신 중이 아니에요.', '#9c9682'); return; } const P = POLY[p];
+    INV.askYesNo(`${P.name} 변신을 풀까요?`, P.card ? `다시 변신하려면 ${fmt(MORPH)} 골드가 들어요.` : `변신 주문서 남은 시간 ${Math.ceil(BUFF.poly / 60)}분이 사라져요.`, () => { if (selfPoly() !== p) return; POLY_ON = null; BUFF.poly = 0; say(`변신을 풀었습니다. (${P.name})`, '#9c9682'); saveNow(); try { INV.render(); } catch (e) {} refresh(); }); }
+  function onDeath() { const c = polyCard(); if (!c) return; POLY_ON = null; BUFF.poly = 0; say(`쓰러져서 [${c.name}] 변신이 풀렸어요. (변신 창에서 다시 변신할 수 있어요)`, '#f0c080'); refresh(); }
+  // ----- 카드 앞면 그림: 우리 몬스터 렌더(대기 동작 첫 장 · 앞쪽 방향)를 잘라 dataURL (그림이 아직 안 불러와졌으면 나중에 다시)
+  const ART = {};
+  function art(id) { if (ART[id]) return ART[id]; const M = MSHEET[id], I = MIMG[id] && MIMG[id].idle; if (!M || !I || !I.complete || !I.naturalWidth) return null;
+    try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(I, 0, ROW * H, W, H, 0, 0, W, H);
+      const d = g.getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = -1, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 30) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 < 0) return null; const S = 168, w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min((S - 14) / w, (S - 14) / h), o = document.createElement('canvas'); o.width = o.height = S; const og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high';
+      og.drawImage(t, x0, y0, w, h, Math.round((S - w * sc) / 2), Math.round(S - 7 - h * sc), w * sc, h * sc); return (ART[id] = o.toDataURL('image/png')); } catch (e) { return null; } }
+  function fillArt(root, n) { if (!root) return; let miss = 0; root.querySelectorAll('img[data-pc]').forEach(im => { if (im.getAttribute('src')) return; const u = art(im.dataset.pc); if (u) im.src = u; else miss++; }); if (miss && (n || 0) < 40) setTimeout(() => fillArt(root, (n || 0) + 1), 400); }
+  // ----- 효과음
+  function snd(k) { try { if (typeof AC === 'undefined' || !AC || !SFX_ON) return; const t = AC.currentTime;
+    if (k === 'deal') { for (let i = 0; i < 4; i++) nz(t + i * 0.07, 0.07, 2500, 5000, 0.05); }
+    else if (k === 'flip') { nz(t, 0.06, 3000, 6000, 0.06); tone(t, 'triangle', 700, 1000, 0.08, 0.04); }
+    else if (k === 'rare') { nz(t, 0.08, 3000, 6000, 0.07); [784, 988, 1319].forEach((f, i) => tone(t + 0.03 + i * 0.06, 'triangle', f, f, 0.3, 0.07)); }
+    else if (k === 'hero') { nz(t, 0.4, 8000, 2500, 0.16); tone(t, 'sine', 110, 45, 0.6, 0.22); [659, 784, 988, 1319, 1568].forEach((f, i) => tone(t + 0.05 + i * 0.07, 'triangle', f, f, 0.55, 0.08)); }
+    else if (k === 'legend') { nz(t, 0.6, 9000, 2500, 0.24); tone(t, 'sine', 80, 32, 1.0, 0.32); [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => tone(t + 0.05 + i * 0.065, 'triangle', f, f, 0.7, 0.09)); [1047, 1568, 2093].forEach(f => tone(t + 0.6, 'sine', f, f * 1.004, 1.6, 0.05)); nz(t + 0.45, 1.4, 8000, 12000, 0.05); } } catch (e) {} }
+  // ----- 결과 연출: 카드 뒷면이 깔리고(11회는 6+5) 뒷면 테두리가 등급 색으로 빛남 → 누르면 뒤집힘 · 영웅·전설은 번쩍 + 빛줄기
+  let ov = null, ovKey = null;
+  const cardHTML = (r, i) => { const c = r.c, gi = PC_GO.indexOf(c.g); return `<div class="pcg-c g${gi}" data-i="${i}" style="--gc:${GC(c.g)};--d:${(i * 0.06).toFixed(2)}s" role="button" tabindex="0" aria-label="카드 ${i + 1} 뒤집기"><div class="pcg-in"><div class="pcg-bk"><i></i></div><div class="pcg-fr"><span class="pcg-gr">${c.g}</span>${r.isNew ? '<em class="pcg-new">NEW</em>' : '<em class="pcg-dup">여분 +1</em>'}<span class="pcg-art"><img data-pc="${c.id}" alt=""></span><b>${esc(c.name)}</b><small>Lv.${c.lv} · 속도 +${c.pct}%</small>${c.opt.length ? `<small class="pcg-op">${c.opt.map(esc).join('<br>')}</small>` : ''}</div></div></div>`; };
+  function show(res, ttl) { busy = true; if (!ov) { ov = document.createElement('div'); ov.className = 'pcg-ovl'; ov.id = 'pcg-ovl'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', '변신 카드 뽑기 결과'); document.body.appendChild(ov); }
+    const rows = res.length > 6 ? [res.slice(0, 6), res.slice(6)] : [res];
+    ov.innerHTML = `<div class="pcg-flash"></div><div class="pcg-box ${res.length > 1 ? 'n11' : 'n1'}"><div class="pcg-ttl">변신 카드 · ${esc(ttl)}</div>${rows.map((L, q) => `<div class="pcg-row">${L.map((r, k) => cardHTML(r, q * 6 + k)).join('')}</div>`).join('')}<p class="pcg-sum" id="pcg-sum"></p><div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort">모두 뒤집기</button><button type="button" id="pcg-ok" class="sl-go">확인</button></div></div>`;
+    ov.hidden = false; fillArt(ov); ov._S = { res, open: new Set(), ann: new Set() };
+    ov.querySelectorAll('.pcg-c').forEach(el => { el.onclick = () => flip(+el.dataset.i); });
+    $('pcg-all').onclick = flipAll; $('pcg-ok').onclick = close; sumUpd(); snd('deal');
+    if (ovKey) removeEventListener('keydown', ovKey, true); ovKey = ev => { if (!ov || ov.hidden) return; if (ev.key === 'Escape' || ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopImmediatePropagation(); const S = ov._S; if (S && S.open.size < S.res.length && ev.key !== 'Escape') flipAll(); else close(); } }; addEventListener('keydown', ovKey, true);
+    setTimeout(() => { const b = $('pcg-all'); if (b) b.focus(); }, 30); }
+  function flash(gi) { const f = ov && ov.querySelector('.pcg-flash'); if (!f) return; f.style.setProperty('--fc', gi >= 4 ? 'rgba(255,190,90,.75)' : 'rgba(200,140,255,.6)'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); const bx = ov.querySelector('.pcg-box'); if (bx && gi >= 4) { bx.classList.remove('shake'); void bx.offsetWidth; bx.classList.add('shake'); } }
+  function flip(i, quiet) { const S = ov && ov._S; if (!S || S.open.has(i)) return; S.open.add(i); const r = S.res[i], gi = PC_GO.indexOf(r.c.g), el = ov.querySelector(`.pcg-c[data-i="${i}"]`); if (el) el.classList.add('open');
+    if (gi >= 3) { if (el) el.classList.add('burst'); setTimeout(() => flash(gi), 180); } if (!quiet || gi >= 2) snd(gi >= 4 ? 'legend' : gi >= 3 ? 'hero' : gi >= 2 ? 'rare' : 'flip');
+    if (gi >= 4 && !r.mile && !S.ann.has(i)) { S.ann.add(i); const m = `${PNAME()}님이 변신 카드 뽑기에서 [전설] ${r.c.name} 카드를 얻었습니다!`; setTimeout(() => { try { announce(m, GC('전설')); NET.announceAll(m); } catch (e) {} }, 500); }
+    sumUpd(); }
+  function flipAll() { const S = ov && ov._S; if (!S) return; let k = 0; S.res.forEach((r, i) => { if (S.open.has(i)) return; const q = k++; setTimeout(() => flip(i, q > 0), q * 90); }); }
+  function sumUpd() { const S = ov && ov._S, el = $('pcg-sum'); if (!S || !el) return; const n = S.res.length, op = S.open.size;
+    if (op < n) { el.innerHTML = `카드를 눌러 뒤집어 보세요 <small>(${op} / ${n})</small>`; return; } const nw = S.res.filter(r => r.isNew).length;
+    el.innerHTML = `새 카드 <b>${nw}장</b> · 여분 <b>${n - nw}장</b> · 마일리지 <b>${D.mile} / ${MILE}</b>${D.mile >= MILE ? ' <span class="pcg-mok">(전설 고르기 가능!)</span>' : ''}`; const a = $('pcg-all'); if (a) a.hidden = true; const b = $('pcg-ok'); if (b) b.focus(); }
+  function close() { const S = ov && ov._S; if (!S) return; S.res.forEach((r, i) => { if (!S.open.has(i)) flip(i, true); }); ov.hidden = true; ov._S = null; busy = false; if (ovKey) { removeEventListener('keydown', ovKey, true); ovKey = null; }
+    say(`[변신 카드] ` + S.res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + ` — 마일리지 ${D.mile} / ${MILE}`, '#e0c8ff'); refresh(); }
+  // ----- 특별상점 [변신 카드] 탭
+  let shopEl = null, shopFoot = null, shopT = 0, pickOn = false;
+  const rateRows = () => PC_GO.map(g => `<tr style="--gc:${GC(g)}"><td><b>${g}</b></td><td>${PC_GRADE[g].p}%</td><td>${POOL[g].map(c => esc(c.name)).join(' · ')}</td><td>+${PC_GRADE[g].pct}%</td><td>Lv.${PC_GRADE[g].lv}</td></tr>`).join('');
+  function footFix() { const s = $('shop-sum'), bb = $('shop-buyall'); if (s) s.innerHTML = `<span class="muted">뽑은 카드는 계정의 모든 캐릭터가 함께 써요 · 변신은 [변신] 창에서 (${fmt(MORPH)} 골드)</span>`; if (bb) bb.hidden = true; }   // 이 탭엔 일괄 구매가 없음
+  function shopPanel(list, foot) { shopEl = list; shopFoot = () => { try { foot(); } catch (e) {} footFix(); }; pickOn = false; renderShop(); shopFoot(); clearInterval(shopT); shopT = setInterval(() => { if (!shopEl || !shopEl.querySelector('.pcg-shop') || $('shop').hidden) { stopShop(); return; } const f = $('pcg-free'), b = shopEl.querySelector('.pcg-b.free'); if (!f || !b) return; const L = freeLeft(); f.textContent = L > 0 ? tl(L) + ' 뒤' : '지금 뽑을 수 있어요!'; b.classList.toggle('rdy', !L); }, 1000); }
+  function stopShop() { clearInterval(shopT); shopT = 0; }
+  function renderShop() { const list = shopEl; if (!list || !list.isConnected) return; const L = freeLeft(), mp = Math.min(100, D.mile / MILE * 100), legs = POOL['전설'];
+    list.innerHTML = `<div class="pcg-shop"><p class="pcg-lead">몬스터 <b>변신 카드</b>를 뽑아요. 뽑은 카드는 <b>계정의 모든 캐릭터</b>가 함께 쓰고, [변신] 창에서 <b>${fmt(MORPH)} 골드</b>를 내면 그 몬스터로 변신해요. 시간 제한 없음 · 직접 풀거나 쓰러지면 풀려요.</p>
+      <div class="pcg-bts"><button type="button" class="pcg-b free${L ? '' : ' rdy'}" data-k="free"><b>무료 1회</b><small id="pcg-free">${L ? tl(L) + ' 뒤' : '지금 뽑을 수 있어요!'}</small></button><button type="button" class="pcg-b${coins < COST1 ? ' short' : ''}" data-k="1"><b>1회</b><small>${fmt(COST1)} 골드</small></button><button type="button" class="pcg-b big${coins < COST11 ? ' short' : ''}" data-k="11"><b>11회</b><small>${fmt(COST11)} 골드 · 희귀 이상 1장 확정</small></button></div>
+      <div class="pcg-mile"><span>마일리지</span><div class="pcg-bar"><i style="width:${mp.toFixed(1)}%"></i></div><b>${D.mile} / ${MILE}</b><button type="button" class="pcg-mb${D.mile >= MILE ? ' rdy' : ''}">전설 고르기</button></div>
+      <div class="pcg-pick"${pickOn ? '' : ' hidden'}>${legs.map(c => `<button type="button" data-id="${c.id}" style="--gc:${GC(c.g)}"><span class="pcg-art"><img data-pc="${c.id}" alt=""></span><b>${esc(c.name)}</b><small>${c.opt.map(esc).join(' · ')}${c.fit ? ` · 추천 ${CLASS_NAME[c.fit]}` : ''}</small>${has(c.id) ? `<em>보유${spare(c.id) ? ' +' + spare(c.id) : ''}</em>` : ''}</button>`).join('')}</div>
+      <table class="pcg-rate"><thead><tr><th>등급</th><th>확률</th><th>카드 (같은 등급 안에서 같은 확률)</th><th>공속·이속</th><th>레벨</th></tr></thead><tbody>${rateRows()}</tbody></table>
+      <p class="pcg-note">희귀 이상은 개성 옵션 (희귀·영웅 1개 · 전설 2개) · 11회 뽑기는 11장 중 1장이 희귀 이상 (그 칸: 희귀 80% · 영웅 18% · 전설 2%) · 뽑은 카드 1장 = 마일리지 1점 (무료 포함) · 300점이면 원하는 전설 카드 1장 · 같은 카드는 여분으로 쌓여요 (합성은 다음 업데이트)</p>
+      <div class="pcg-own"><span>내 카드 <b>${owned()} / ${PCARD.length}종</b> · 지금 골드 <b>${fmt(coins)}</b></span><button type="button" class="sl-go pcg-open">내 변신 카드 · 변신하기</button></div></div>`;
+    list.querySelectorAll('.pcg-b').forEach(b => b.onclick = () => { const k = b.dataset.k; draw(k === 'free' ? 'free' : +k); });
+    list.querySelector('.pcg-mb').onclick = () => { if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 카드 1장 = 1점)`, '#f0c080'); return; } pickOn = !pickOn; renderShop(); };
+    list.querySelectorAll('.pcg-pick [data-id]').forEach(b => b.onclick = () => milePick(b.dataset.id)); list.querySelector('.pcg-open').onclick = () => openWin(true); fillArt(list); }
+  // ----- [변신] 창: 내 카드 (등급별 줄 · 등급 색 · 몬스터 그림 · 여분) · 고른 카드 미리보기 · 변신하기(1만 골드) · 변신 풀기
+  let sel = null, raf = 0, prow = 1;
+  function openWin(keep) { const w = $('polywin'); if (!w) return; if (!w.hidden && !keep) { w.hidden = true; return; } w.hidden = false; const pc = polyCard(); if (pc) sel = pc.id; if (!sel || !PC_BY[sel]) sel = (PCARD.slice().reverse().find(c => has(c.id)) || PCARD[0]).id; renderWin(); loop(); }
+  function renderWin() { const w = $('polywin'); if (!w || w.hidden) return; const cur = selfPoly(), P = cur && POLY[cur], c = PC_BY[sel];
+    $('pw-now').innerHTML = P ? `지금 <b style="color:${P.card ? GC(P.card.g) : '#e0a8ff'}">${esc(P.name)}</b> 변신 중 · ${P.card ? effTxt(P.card) + ' · 시간 제한 없음' : `공격·이동 속도 +${polyPct(cur)}% · 변신 주문서 남은 ${Math.ceil(BUFF.poly / 60)}분`}` : '지금은 변신하지 않은 모습이에요.';
+    $('pw-off').disabled = !P;
+    $('pw-sel').innerHTML = `<div class="pw-nm"><span style="color:${GC(c.g)}">[${c.g}]</span> <b>${esc(c.name)}</b></div><div class="pw-lv">Lv.${c.lv}부터${!lvOk(c) ? ` <span class="pw-bad">(지금 Lv.${hero.lv})</span>` : ''} · 모든 직업${c.fit ? ` · 추천 ${CLASS_NAME[c.fit]}` : ''}</div><div class="pw-eff">${c.opt.length ? ['공격·이동 속도 +' + c.pct + '%', ...c.opt].map(esc).join('<br>') : '공격·이동 속도 +' + c.pct + '%'}</div><div class="pw-own">${has(c.id) ? `보유 · 여분 <b>${spare(c.id)}장</b>` : '<span class="pw-bad">아직 없는 카드</span> · 특별상점(엘리스) [변신 카드]에서 뽑기'}</div>`;
+    const go = $('pw-go'); go.textContent = cur === c.key ? '변신 중' : `변신하기 (${fmt(MORPH)} 골드)`; go.disabled = !has(c.id) || cur === c.key;
+    $('pw-grid').innerHTML = PC_GO.map(g => `<div class="pw-row"><span class="pw-rg" style="color:${GC(g)}">${g}<small>+${PC_GRADE[g].pct}% · Lv.${PC_GRADE[g].lv}</small></span><div class="pw-cs">${POOL[g].map(c2 => `<button type="button" class="pw-c${has(c2.id) ? '' : ' no'}${c2.id === sel ? ' on' : ''}${cur === c2.key ? ' cur' : ''}${has(c2.id) && !lvOk(c2) ? ' lk' : ''}" data-id="${c2.id}" style="--gc:${GC(g)}" title="${esc(c2.name)} · ${esc(effTxt(c2))}"><span class="pcg-art"><img data-pc="${c2.id}" alt=""></span><span class="pw-cn">${esc(c2.name)}</span>${spare(c2.id) ? `<em>+${spare(c2.id)}</em>` : ''}${cur === c2.key ? '<i>변신 중</i>' : ''}</button>`).join('')}</div></div>`).join('');
+    fillArt(w); w.querySelectorAll('.pw-c').forEach(b => { b.onclick = () => { sel = b.dataset.id; renderWin(); }; b.ondblclick = () => { sel = b.dataset.id; morph(sel); }; });
+    footUpd(); }
+  function footUpd() { const f = $('pw-foot'); if (!f) return; const L = freeLeft(); f.innerHTML = `내 카드 <b>${owned()} / ${PCARD.length}종</b> · 마일리지 <b>${D.mile} / ${MILE}</b> · 무료 뽑기 ${L ? tl(L) + ' 뒤' : '<b class="pw-ok">지금 가능</b>'} · 뽑기는 마을 특별상점(엘리스) [변신 카드] 탭 · 카드를 두 번 누르면 바로 변신`; }
+  function loop() { cancelAnimationFrame(raf); const cv2 = $('pw-look'); if (!cv2) return;
+    const step = ts => { const w = $('polywin'); if (!w || w.hidden) { raf = 0; return; } const g = cv2.getContext('2d'), c = PC_BY[sel], M = MSHEET[c.id], I = MIMG[c.id], P = POLY[c.key], W = cv2.width, H = cv2.height, cx = W / 2, cy = H - 26;
+      g.clearRect(0, 0, W, H); const gr = g.createRadialGradient(cx, cy - 30, 4, cx, cy - 30, 90); gr.addColorStop(0, GC(c.g) + '40'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(cx, cy, 34, 10, 0, 0, 7); g.fill();
+      const a = Math.floor(ts / 2400) % 3 === 2 ? 'attack' : 'idle', fr = Math.floor(ts / 1000 * 8) % 8, img = I && I[a];
+      if (M && img && img.complete && img.naturalWidth) { const af = a === 'attack' ? (M.af || 8) : 8, k = af !== 8 ? Math.min(af - 1, Math.floor(fr * af / 8)) : fr, hh = M.hh * P.s / M.s, sc = Math.min(1.45, 118 / Math.max(40, hh));
+        g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; drawSheet(g, img, { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: P.s * sc }, k, prow, cx, cy, has(c.id) ? 1 : 0.45, M.tint || null); g.restore(); }
+      raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step); }
+  function refresh() { try { if (shopEl && shopEl.querySelector('.pcg-shop') && !$('shop').hidden) { renderShop(); if (shopFoot) shopFoot(); } } catch (e) {} try { renderWin(); } catch (e) {} try { const cw = $('codexwin'); if (cw && !cw.hidden && window.CODEX) CODEX.render(); } catch (e) {} }
+  // ----- 아이템 도감 [변신 카드] 탭 (20종 · 확률 · 얻는 곳 · 보유)
+  function codexHTML(q, rar) { const pc = p => (p >= 1 ? String(+p.toFixed(1)) : p >= 0.1 ? String(+p.toFixed(2)) : String(+p.toFixed(3))) + '%', SURE = { 희귀: 80, 영웅: 18, 전설: 2 };
+    const L = PCARD.filter(c => (!rar || c.g === rar) && (!q || q.split(/\s+/).every(t => (c.name + ' ' + c.g + ' 변신 카드 ' + effTxt(c)).toLowerCase().includes(t))));
+    const guide = `<div class="cdx-guide"><b>변신 카드</b> 마을 특별상점(엘리스) [변신 카드] 탭에서 뽑기 — 1회 ${fmt(COST1)} · 11회 ${fmt(COST11)} 골드 (11장 중 1장은 희귀 이상) · 2시간마다 무료 1회 · 뽑은 카드는 <b>계정의 모든 캐릭터</b>가 함께 써요<br><b>변신</b> 위 [변신] 버튼(또는 캐릭터 창)에서 카드를 골라 ${fmt(MORPH)} 골드 · 시간 제한 없음 (직접 풀거나 쓰러지면 풀림) · 마일리지: 뽑은 카드 1장 = 1점, ${MILE}점이면 원하는 전설 카드 1장 · 같은 카드는 여분으로 쌓여요 (합성은 다음 업데이트) · 지금 ${owned()} / ${PCARD.length}종 보유</div>`;
+    return { n: L.length, html: guide + L.map(c => { const p = PC_GRADE[c.g].p / POOL[c.g].length, s = SURE[c.g] ? SURE[c.g] / POOL[c.g].length : 0;
+      return `<div class="cdx-card" style="--rc:${GC(c.g)}"><span class="cdx-ic pcg-ic"><img data-pc="${c.id}" alt=""></span><div><div class="cdx-nm" style="color:${GC(c.g)}">${esc(c.name)} 변신 카드</div><div class="cdx-meta">${c.g} · Lv.${c.lv}+ · 모든 직업${c.fit ? ` (추천 ${CLASS_NAME[c.fit]})` : ''}</div></div><div class="cdx-st">${['공격 속도 +' + c.pct + '%', '이동 속도 +' + c.pct + '%', ...c.opt].map(esc).join('<br>')}</div><div class="cdx-src"><b>얻는 곳</b> 특별상점 [변신 카드] 뽑기 ${pc(p)}${s ? ` · 11회 확정 칸 ${pc(s)}` : ''}${c.g === '전설' ? ` · 마일리지 ${MILE}점` : ''}<br><b>보유</b> ${has(c.id) ? `<span class="pcg-yes">있음</span> · 여분 ${spare(c.id)}장` : '<span class="pcg-no">없음</span>'}</div></div>`; }).join('') }; }
+  { const b = $('btn-poly'); if (b) b.onclick = () => openWin(); const c2 = $('cw-poly'); if (c2) c2.onclick = () => openWin();
+    const go = $('pw-go'); if (go) go.onclick = () => morph(sel); const off = $('pw-off'); if (off) off.onclick = unmorph; const lk = $('pw-look'); if (lk) lk.onclick = () => { prow = (prow + 1) % 8; }; }
+  setInterval(() => { const w = $('polywin'); if (w && !w.hidden) footUpd(); }, 1000);   // 무료 뽑기 남은 시간
+  return { load, raw, canKeep, has, spare, owned, state: () => D, bad: () => bad, freeLeft, draw, milePick, morph, doMorph: id => doMorph(PC_BY[id]), unmorph, onDeath, shopPanel, stopShop, openWin, renderWin, codexHTML, fillArt, art, sim, close, flipAll, busy: () => busy, COST1, COST11, MORPH, FREE_MS, MILE };
+})();
 window.DOLL = (() => {
   const CW = 144, CH = 120, M = /*DOLLMETA*/{ werewolf: { i: 0, ax: 72.0, ay: 117, bb: [27, 13, 90, 90] }, lizard: { i: 1, ax: 72.0, ay: 117, bb: [49, 7, 46, 102] }, dwarf: { i: 2, ax: 72.0, ay: 117, bb: [37, 12, 71, 95] }, orcwiz: { i: 3, ax: 72.0, ay: 117, bb: [39, 16, 63, 100] }, bugbear: { i: 4, ax: 72.0, ay: 117, bb: [42, 40, 60, 71] }, ogre: { i: 5, ax: 72.0, ay: 117, bb: [42, 10, 60, 104] }, basilisk: { i: 0, ax: 72.0, ay: 117, bb: [3, 47, 138, 51] }, orcwar: { i: 1, ax: 72.0, ay: 117, bb: [41, 25, 62, 81] }, drow: { i: 2, ax: 72.0, ay: 117, bb: [50, 8, 45, 108] }, necro: { i: 3, ax: 72.0, ay: 117, bb: [48, 23, 46, 92] }, cerberus: { i: 4, ax: 72.0, ay: 117, bb: [49, 21, 47, 85] }, fireant: { i: 5, ax: 72.0, ay: 117, bb: [40, 35, 64, 73] }, drake: { i: 0, ax: 72.0, ay: 117, bb: [36, 58, 72, 57] }, kbugbear: { i: 1, ax: 72.0, ay: 117, bb: [43, 39, 58, 72] }, troll: { i: 2, ax: 72.0, ay: 117, bb: [21, 15, 102, 86] }, wyvern: { i: 3, ax: 72.0, ay: 117, bb: [30, 48, 84, 69] }, shelob: { i: 4, ax: 72.0, ay: 117, bb: [19, 29, 106, 86] }, spartoi: { i: 5, ax: 72.0, ay: 117, bb: [42, 3, 68, 112] } }/*END*/, IMG = {}, ST = new Map();
   const TS = { 1: 0.9, 2: 0.98, 3: 1.08 }, TC = { 1: '120,200,255', 2: '255,210,90', 3: '200,130,255' };
@@ -9500,7 +9661,7 @@ window.SAVER = (() => {
     { const B = [...S.buys], tg = B.reduce((a, [, v]) => a + v.g, 0); $('sv-bh').textContent = tg ? `상점 구매 (−${tg.toLocaleString()} 골드)` : '상점 구매'; $('sv-buys').innerHTML = B.length ? B.map(([id, v]) => { const it = ITEMS[id]; return `<li><span class="ic">${it ? ICON(it.icon) : ''}</span>${esc_(it ? it.name : id)} <b>×${v.n.toLocaleString()}</b><small class="sv-bg">−${v.g.toLocaleString()}</small></li>`; }).join('') : '<li class="none">아직 없음</li>'; }
     $('sv-notes').innerHTML = S.notes.map(x => `<li style="color:${x.c}">${esc_(x.t)}</li>`).join('');
     { const nv = (typeof UPD !== 'undefined' && UPD.newVer) ? UPD.newVer() : 0, u = $('sv-upd'); if (nv > GAME_VER) { if (u.hidden) note(`새 업데이트 v${nv}이(가) 나왔어요.`, '#ffd86a'); u.hidden = false; $('sv-updv').textContent = 'v' + nv; } else u.hidden = true; } }   /* v167: 업데이트가 있으면 절전 화면 맨 위에 크게 */
-  const RO_ = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3 };
+  const RO_ = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 };
   let lowT = 0;
   function tick(dt) { if (!on) { const m = +((AUTOH_CFG() || {}).saverMin || 0); if (m > 0 && huntOn() && performance.now() - lastIn > m * 60000 && !(typeof DEATH !== 'undefined' && DEATH)) enter(true); return; }
     acc += dt; lowT = Math.max(0, lowT - dt);
@@ -9634,7 +9795,7 @@ const MUI = (() => {
       for (const pt of PET.list()) { const d = pt.d, r = add(iconImg(pt.sum ? 'sk_summon' : d.evo ? 'collar_evo' : 'collar'), false, pt.dead); if (!r) break; g.fillStyle = 'rgba(0,0,0,.65)'; g.fillRect(r[0], r[1] + bs - 3, bs, 3); g.fillStyle = d.hp / PET.mxh(d) < 0.35 ? '#e8503a' : '#5ad06a'; g.fillRect(r[0], r[1] + bs - 3, bs * Math.max(0, d.hp) / PET.mxh(d), 3); PETRECT.push([...r, pt]); }
       for (const k of GOOD) buff(k);
       if (bx > sx) ry += bs + 6; y = ry;
-      if (tipK && performance.now() < tipUntil && (tipK[0] === '_' || (BUFF[tipK] > 0 && BUFF_DEF[tipK]))) { const W = tipK[0] === '_', D = W ? null : BUFF_DEF[tipK], t = BUFF[tipK], WL = W ? WARD_TIP(tipK) : null, tx = W ? `${WL[0]} — ${WL[1]} · ${WL[2]}` : `${D.bad ? '[디버프] ' : ''}${D.name} · ${D.bad ? t.toFixed(1) + '초' : Math.floor(t / 60) + '분 ' + String(Math.floor(t % 60)).padStart(2, '0') + '초'} — ${D.desc}`;
+      if (tipK && performance.now() < tipUntil && (tipK[0] === '_' || (BUFF[tipK] > 0 && BUFF_DEF[tipK]))) { const W = tipK[0] === '_', D = W ? null : BUFF_DEF[tipK], t = BUFF[tipK], WL = W ? WARD_TIP(tipK) : null, tx = W ? `${WL[0]} — ${WL[1]} · ${WL[2]}` : `${D.bad ? '[디버프] ' : ''}${D.name} · ${D.inf ? '시간 제한 없음' : D.bad ? t.toFixed(1) + '초' : Math.floor(t / 60) + '분 ' + String(Math.floor(t % 60)).padStart(2, '0') + '초'} — ${D.desc}`;
         g.font = '600 10px ' + F; let s2 = tx; const mw = Math.min(vw * 0.62, 420); while (s2.length > 4 && g.measureText(s2).width > mw - 14) s2 = s2.slice(0, -2); if (s2 !== tx) s2 += '…'; const w = g.measureText(s2).width + 14;
         g.fillStyle = 'rgba(16,13,10,.94)'; rr(g, sx, y - 2, w, 18, 4); g.fill(); g.strokeStyle = '#8a7348'; g.stroke(); g.textAlign = 'left'; g.fillStyle = W ? (tipK === '_ward' ? '#bff0ff' : '#ff9a8a') : D.bad ? '#ff9a8a' : '#f2eedf'; g.fillText(s2, sx + 7, y + 10.5); y += 22; } }
     // ── 오른쪽 아래: 공격 · 자동사냥 · 설정 · 줍기 · 자동 물약 · 단축칸 1~12
@@ -9741,7 +9902,7 @@ const MUI = (() => {
     const on = (id, f) => { const b = $m(id); if (b) b.addEventListener('click', ev => { ev.stopPropagation(); f(); }); };
     on('mob-chat-b', () => { menu(false); openChat(); }); on('mob-bag-b', () => { menu(false); INV.toggleWin('invwin'); }); on('mob-char-b', () => { menu(false); INV.toggleWin('charwin'); }); on('mob-map-b', () => { menu(false); $m('btn-map').click(); }); on('mob-menu-b', () => menu());
     const mm = (id, f, keep) => on(id, () => { f(); if (!keep) menu(false); else syncMenu(); });
-    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
+    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-poly', () => $m('btn-poly').click()); mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
     mm('mm-saver', () => $m('btn-saver').click()); mm('mm-bgm', () => { $m('btn-bgm').click(); try { SND.set({ bgmOn: $m('btn-bgm').getAttribute('aria-pressed') === 'true' }); } catch (e) {} }, true);
     mm('mm-zoom', () => { const i = ZS.indexOf(MOB_ZS); MOB_ZS = ZS[(i + 1) % ZS.length]; try { localStorage.setItem('aden_mz', String(MOB_ZS)); } catch (e) {} zoomT = zoom = mobZ(); pixel = Number.isInteger(zoomT); say(`화면 크기: ${ZL[MOB_ZS]}`, '#9c9682'); }, true);
     mm('mm-q', () => { MOB_LOWQ = !MOB_LOWQ; try { localStorage.setItem('aden_lowq', MOB_LOWQ ? '1' : '0'); } catch (e) {} resize(); say(`화질: ${MOB_LOWQ ? '절약 (배터리·발열 줄임)' : '선명'}`, '#9c9682'); }, true);
@@ -9769,7 +9930,7 @@ const MUI = (() => {
     const end = () => { if (st && st.moved && remember && st.last) save(id, st.last); st = null; el.classList.remove('dragging'); }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
     if (hd) hd.style.cursor = 'move'; }
   const $ = id => document.getElementById(id);
-  for (const id of ['charwin', 'invwin', 'autowin', 'huntwin', 'petwin', 'godpanel', 'bulkwin', 'sellwin', 'storewin', 'colowin', 'craftwin']) setup($(id), id, 'fixed', null, true);
+  for (const id of ['charwin', 'invwin', 'autowin', 'huntwin', 'petwin', 'godpanel', 'bulkwin', 'sellwin', 'storewin', 'colowin', 'craftwin', 'polywin']) setup($(id), id, 'fixed', null, true);
   setup($('itemwin'), 'itemwin', 'fixed', null, false);
   setup(document.querySelector('#shop .pn'), 'shop', 'off', 'h2', true);
   setup(document.querySelector('#wmap .pn'), 'wmap', 'off', '.wm-side h2', true);
