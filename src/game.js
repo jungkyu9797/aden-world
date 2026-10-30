@@ -761,7 +761,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 189;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 190;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4489,7 +4489,7 @@ const ITEMS = {
   cscroll_armor: { name: '저주받은 갑옷 마법 주문서', icon: 'scr_curse', use: 'enchant', ench: 'armor', curse: true, w: 0.6, stack: true, rar: '희귀', desc: '방어구의 강화 수치를 -1 낮춥니다. (성공률 100% · 최저 -7)' },
   tw_box_w: { name: '수호탑 승리 상자', icon: 'twbox_w', use: 'twbox', box: 'w', w: 0.5, stack: true, rar: '희귀', desc: '수호탑 대전에서 이기면 받는 상자 (5개 · 킬 1등·파괴 1등·수호탑 막타는 2개씩 더). 열면 하나가 나옵니다 — 골드 8천~2만 · 갑옷·무기 마법 주문서 · 축복 부여 주문서 · 장신구 주문서 · 축복받은 주문서 · 아르카의 마법주머니 · 희귀 장비 · 낮은 확률로 영웅 장비. (내용물은 임시안)' },
   tw_box_l: { name: '수호탑 패배 상자', icon: 'twbox_l', use: 'twbox', box: 'l', w: 0.5, stack: true, rar: '고급', desc: '수호탑 대전에서 지면 받는 상자 (5개 · 킬 1등·파괴 1등은 2개씩 더). 열면 하나가 나옵니다 — 골드 3천~8천 · 갑옷·무기 마법 주문서 · 맑은 물약 · 낮은 확률로 축복 부여 주문서·아르카의 마법주머니·희귀 장비. (내용물은 임시안)' },
-  arka_pouch: { name: '아르카의 마법주머니', icon: 'pouch_arka', use: 'pouch', w: 0.5, stack: true, rar: '희귀', desc: '대마법사 아르카가 온갖 보물을 담아 봉인한 주머니. 열면 하나가 나옵니다 — 갑옷·무기 마법 주문서 51% · 축복 부여 주문서 9% · 축복받은 갑옷/무기 마법 주문서 7% · 모든 직업의 희귀 장비 30% · 영웅 장비 3%. (잡화상점 10,000골드)' },
+  arka_pouch: { name: '아르카의 마법주머니', icon: 'pouch_arka', use: 'pouch', sellFix: 3000, w: 0.5, stack: true, rar: '희귀', desc: '대마법사 아르카가 온갖 보물을 담아 봉인한 주머니. 열면 하나가 나옵니다 — 갑옷·무기 마법 주문서 51% · 축복 부여 주문서 9% · 축복받은 갑옷/무기 마법 주문서 7% · 모든 직업의 희귀 장비 30% · 영웅 장비 3%. (잡화상점 10,000골드)' },
   bless_scroll: { name: '축복 부여 주문서', icon: 'scr_bless', use: 'blessit', w: 0.6, stack: true, rar: '희귀', desc: '장비를 20% 확률로 축복받은 장비로 만듭니다. 검·활: 추가 타격 · 지팡이: SP(마법 공격력) +1~2 · 방어구: 방어 +1 · 장신구(반지·목걸이·벨트): 명중 +1. 실패해도 장비는 그대로입니다.' },
   scale_armor: { name: '비늘 갑옷', slot: 'armor', icon: 'armor', ac: 4, w: 18, rar: '희귀', desc: '사막 도마뱀 비늘로 엮은 갑옷.' },
   scimitar: { name: '사막의 곡도', slot: 'weapon', wtype: 'sword', icon: 'sword', dmg: [2, 12], w: 7, rar: '희귀', desc: '사막 전사들이 쓰는 휘어진 칼.' },
@@ -6005,15 +6005,40 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
     if (!NEXT[rarOf(e)]) return '영웅 등급은 더 올릴 수 없어요.'; const g = S.find(x => x && x !== e); if (g && rarOf(g) !== rarOf(e)) return `같은 등급끼리만 조합할 수 있어요. (지금 올린 등급: ${rarOf(g)})`; return ''; }
   const plain = e => !((e.en || 0) > 0 || e.blessed || e.attr);
   const cands = g => INV.bag().filter(e => valid(e) && rarOf(e) === g && plain(e) && (!($('al-oth') && $('al-oth').checked) || otherCls(ITEMS[e.id]))).sort((a, b) => (ITEMS[a.id].price || 0) - (ITEMS[b.id].price || 0));
-  function fill(g) { if (busy) return; S.fill(null); const L = cands(g).slice(0, 3); L.forEach((e, k) => { S[k] = e; }); if (L.length < 3) say(L.length ? `${g} 장비가 ${L.length}개뿐이에요. (강화·축복·속성이 붙은 장비는 일괄 등록에서 빠져요 · 직접 올릴 수 있어요)` : `일괄 등록할 ${g} 장비가 없어요. (착용 중·잠긴·강화·축복·속성 장비는 빠져요)`, '#f0c080'); render(); INV.render(); }
-  function put(k, e) { clean(); if (!e || !INV.bag().includes(e)) return; const w = why(e); if (w) { say(w, '#f08a7a'); return; } const i = S.indexOf(e); if (i >= 0) S[i] = null; if (k == null || S[k]) k = S.indexOf(null); if (k < 0) { say('칸이 가득 찼어요. 올린 장비를 눌러 빼 주세요.', '#f08a7a'); return; } S[k] = e; render(); INV.render(); }
-  function toggle(e) { clean(); const i = S.indexOf(e); if (i >= 0) { S[i] = null; render(); INV.render(); } else put(null, e); }
+  // v190: 자동 진행 — 지금 조건(등급 · 타클래스만 · 촉매 장수)으로 재료가 떨어질 때까지 3개씩 계속 조합 · [중지]로 멈춤 · '성공하면 멈춤' 선택
+  let lastG = null; const AU = { on: false, stop: false, n: 0, ok: [], cat: 0, g: null, cn: 0 };
+  function quietFill(g) { S.fill(null); cands(g).slice(0, 3).forEach((e, k) => { S[k] = e; }); return S.every(Boolean); }
+  function autoBtn() { const b = $('al-auto'); if (!b) return; b.textContent = AU.on ? `중지 (${AU.n}번째 · 성공 ${AU.ok.length})` : '자동 진행'; b.classList.toggle('on', AU.on); b.disabled = !AU.on && busy; }
+  function autoStart() { if (AU.on) { AU.stop = true; autoBtn(); return; } clean(); if (busy) return;
+    const s0 = S.find(Boolean), g = s0 ? rarOf(s0) : lastG; if (!g || !NEXT[g]) { say('먼저 [일괄 등록]에서 등급을 고르거나 장비를 올려 주세요.', '#f08a7a'); return; }
+    const nx = NEXT[g]; if (!pool(nx).length) { say(`${CLASS_NAME[CLASS]}가 얻을 수 있는 ${nx} 장비가 없어요.`, '#f08a7a'); return; }
+    const N = cands(g).length, rounds = Math.floor(N / 3), cn = catN(g), oth = !!($('al-oth') && $('al-oth').checked), stopOk = !!($('al-austop') && $('al-austop').checked);
+    if (rounds < 1) { say(`자동 조합할 ${g} 장비가 3개보다 적어요. (착용 중·잠긴·강화·축복·속성 장비는 빠져요)`, '#f08a7a'); return; }
+    INV.askYesNo(`${g} 장비 자동 조합을 시작할까요?`, `가방의 ${g} 장비${oth ? '(타클래스만)' : ''} ${N}개를 3개씩 최대 ${rounds}번 조합해요. 한 번에 촉매 ${cn}장 · 성공 확률 ${Math.round(rateOf(g) * 100)}%${stopOk ? ' · 성공하면 멈춤' : ''} · 실패하면 재료${cn ? '와 촉매' : ''}가 사라져요. 강화·축복·속성이 붙은 장비와 착용·잠긴 장비는 쓰지 않아요. [중지]로 언제든 멈춰요.`, () => {
+      if (AU.on || busy) return; AU.on = true; AU.stop = false; AU.n = 0; AU.ok = []; AU.cat = 0; AU.g = g; AU.cn = cn; autoBtn(); autoStep(); }); }
+  function autoEnd(why) { AU.on = false; AU.stop = false; S.fill(null); render(); INV.render(); autoBtn(); if (!AU.n) { say(`자동 조합을 멈췄어요. (${why})`, '#c9b98a'); return; }
+    const L = AU.ok.map(id => ITEMS[id].name); say(`자동 조합 끝 (${why}) — ${AU.n}번 조합 · 성공 ${AU.ok.length}번${L.length ? ': ' + L.join(', ') : ''} · 재료 ${AU.n * 3}개${AU.cat ? ` · 촉매 ${AU.cat}장` : ''} 사용`, AU.ok.length ? RARITY_C[NEXT[AU.g]] : '#c9b98a'); }
+  function autoStep() { if (!AU.on) return; if (AU.stop) return autoEnd('중지'); if (!isOpen()) return autoEnd('창을 닫음'); if (DEATH) return autoEnd('사망');
+    const g = AU.g, nx = NEXT[g], P = pool(nx), cn = CAT[g] ? Math.min(AU.cn, catCap(g)) : 0;
+    if (!quietFill(g)) return autoEnd('재료가 다 떨어짐'); if (cn && catHave() < cn) return autoEnd('촉매가 모자람');
+    const mats = S.slice(); for (const e of mats) if (!INV.removeEntry(e)) return autoEnd('재료가 바뀜'); const used = cn ? catTake(cn) : 0; AU.cat += used; AU.n++;
+    S.fill(null); busy = true; render(); INV.render(); autoBtn(); const o = $('al-out'); o.classList.remove('ok', 'fail'); o.textContent = '…'; o.classList.add('spin');
+    if (AC && SFX_ON) { const t0 = AC.currentTime; for (let q = 0; q < 3; q++) tone(t0 + q * 0.1, 'triangle', 520 + q * 110, 560 + q * 110, 0.1, 0.04); }
+    setTimeout(() => { busy = false; const ok = Math.random() < (RATE[g] + (CAT[g] ? Math.min(CAT[g].max, Math.floor(used / CAT[g].per)) / 100 : 0));
+      if (ok) { const id = P[Math.floor(Math.random() * P.length)], it = ITEMS[id]; INV.add(id, 1, true); TELE.ev('alch', { g, ok: 1, id, auto: 1 }); showOut(id, true); spellFx('enbless', hero, RARITY_C[nx]); AU.ok.push(id);
+        say(`연금술 성공! [${nx}] ${JOSA(it.name, '을', '를')} 얻었습니다!`, RARITY_C[nx]); const msg = `${PNAME()}님이 연금술로 [${nx}] ${JOSA(it.name, '을', '를')} 만들어 냈습니다!`; announce(msg, RARITY_C[nx]); NET.announceAll(msg);
+        if (AC && SFX_ON) [784, 988, 1175, 1568].forEach((f, k) => tone(AC.currentTime + k * 0.09, 'triangle', f, f, 0.35, 0.12)); if ($('al-austop') && $('al-austop').checked) AU.stop = true; }
+      else { TELE.ev('alch', { g, ok: 0, auto: 1 }); showOut(null, false); }
+      render(); INV.render(); autoBtn(); setTimeout(autoStep, 250); }, 650); }
+  function fill(g) { if (busy || AU.on) return; lastG = g; S.fill(null); const L = cands(g).slice(0, 3); L.forEach((e, k) => { S[k] = e; }); if (L.length < 3) say(L.length ? `${g} 장비가 ${L.length}개뿐이에요. (강화·축복·속성이 붙은 장비는 일괄 등록에서 빠져요 · 직접 올릴 수 있어요)` : `일괄 등록할 ${g} 장비가 없어요. (착용 중·잠긴·강화·축복·속성 장비는 빠져요)`, '#f0c080'); render(); INV.render(); }
+  function put(k, e) { if (AU.on) { say('자동 진행 중이에요. [중지]를 누른 뒤 올려 주세요.', '#f08a7a'); return; } clean(); if (!e || !INV.bag().includes(e)) return; const w = why(e); if (w) { say(w, '#f08a7a'); return; } const i = S.indexOf(e); if (i >= 0) S[i] = null; if (k == null || S[k]) k = S.indexOf(null); if (k < 0) { say('칸이 가득 찼어요. 올린 장비를 눌러 빼 주세요.', '#f08a7a'); return; } S[k] = e; render(); INV.render(); }
+  function toggle(e) { if (AU.on) return; clean(); const i = S.indexOf(e); if (i >= 0) { S[i] = null; render(); INV.render(); } else put(null, e); }
   function render() { if (!isOpen()) return; clean(); const el = [...document.querySelectorAll('#alchwin .al-slot')];
     el.forEach((c, k) => { const e = S[k]; c.innerHTML = e ? ICON(ITEMS[e.id].icon, e.blessed) + (e.en ? `<b>${e.en > 0 ? '+' : ''}${e.en}</b>` : '') : ''; c.dataset.itip = e ? INV.tipOf(e) : '빈 칸 — 가방에서 장비를 클릭하거나 끌어다 놓으세요'; c.style.borderColor = e ? RARITY_C[rarOf(e)] : ''; });
     const n = S.filter(Boolean).length, g = S.find(x => x) ? rarOf(S.find(x => x)) : null, nx = g && NEXT[g];
     { const ci = $('al-cat'), cg = g || '희귀'; if (CAT[cg]) cat = Math.max(0, Math.min(cat, catCap(cg), catHave())); if (ci && document.activeElement !== ci) ci.value = cat;   /* v142: 촉매 장수는 등급 최대·보유 수까지만 */ const inf = $('al-cat-info'); if (inf) inf.innerHTML = !g ? `데이·젤 보유 ${GOD_INF('scroll_weapon') ? '∞' : catHave()}장` : CAT[g] ? `${catN(g)}장 사용 → <b>+${Math.round(catBonus(g) * 100)}%p</b> (${CAT[g].per}장당 +1%p · 최대 +${CAT[g].max}%p) · 보유 ${GOD_INF('scroll_weapon') ? '∞' : catHave()}장` : '<span class="muted">일반 → 고급은 촉매가 없어요</span>'; }
-    $('al-info').innerHTML = !g ? '가방에서 <b>같은 등급</b>의 장비 3개를 골라 주세요.' : `<span style="color:${RARITY_C[g]}">${g}</span> 장비 ${n}/3 → 성공하면 <span style="color:${RARITY_C[nx]}">${nx}</span> 등급 ${CLASS_NAME[CLASS]} 장비 · 성공 확률 <b>${Math.round(rateOf(g) * 100)}%</b>${catBonus(g) ? ` <small>(기본 ${Math.round(RATE[g] * 100)}% + 촉매 ${Math.round(catBonus(g) * 100)}%p)</small>` : ''}` + (S.some(x => x && ((x.en || 0) > 0 || x.blessed || x.attr)) ? '<br><span style="color:#f0a080">강화·축복·속성이 붙은 장비가 있어요. 실패하면 함께 사라져요.</span>' : '');
-    $('al-go').disabled = busy || n < 3; document.querySelectorAll('#alchwin [data-alg]').forEach(b => { const c = cands(b.dataset.alg).length; b.querySelector('b').textContent = c; b.disabled = busy || c === 0; }); }
+    $('al-info').innerHTML = AU.on ? `<b>자동 진행 중</b> · <span style="color:${RARITY_C[AU.g]}">${AU.g}</span> → <span style="color:${RARITY_C[NEXT[AU.g]]}">${NEXT[AU.g]}</span> · ${AU.n}번째 · 성공 ${AU.ok.length}번 · 남은 재료 ${cands(AU.g).length}개` : !g ? '가방에서 <b>같은 등급</b>의 장비 3개를 골라 주세요.' : `<span style="color:${RARITY_C[g]}">${g}</span> 장비 ${n}/3 → 성공하면 <span style="color:${RARITY_C[nx]}">${nx}</span> 등급 ${CLASS_NAME[CLASS]} 장비 · 성공 확률 <b>${Math.round(rateOf(g) * 100)}%</b>${catBonus(g) ? ` <small>(기본 ${Math.round(RATE[g] * 100)}% + 촉매 ${Math.round(catBonus(g) * 100)}%p)</small>` : ''}` + (S.some(x => x && ((x.en || 0) > 0 || x.blessed || x.attr)) ? '<br><span style="color:#f0a080">강화·축복·속성이 붙은 장비가 있어요. 실패하면 함께 사라져요.</span>' : '');
+    $('al-go').disabled = busy || AU.on || n < 3; document.querySelectorAll('#alchwin [data-alg]').forEach(b => { const c = cands(b.dataset.alg).length; b.querySelector('b').textContent = c; b.disabled = busy || AU.on || c === 0; }); if ($('al-clear')) $('al-clear').disabled = AU.on; autoBtn(); }
   function showOut(id, ok) { const o = $('al-out'); clearTimeout(outT); o.classList.remove('ok', 'fail', 'spin'); void o.offsetWidth; if (id) { o.innerHTML = ICON(ITEMS[id].icon); o.style.borderColor = RARITY_C[ITEMS[id].rar || '일반']; o.dataset.itip = INV.tipOf({ id, n: 1, on: false }); } else { o.textContent = ok === false ? '✕' : '?'; o.style.borderColor = ''; delete o.dataset.itip; }
     if (ok === true) o.classList.add('ok'); else if (ok === false) o.classList.add('fail'); if (ok != null) outT = setTimeout(() => showOut(null), 6000); }
   function go() { clean(); if (busy || S.some(x => !x)) return; const g = rarOf(S[0]); if (S.some(x => rarOf(x) !== g) || !NEXT[g]) return; const nx = NEXT[g], P = pool(nx); if (!P.length) { say(`${CLASS_NAME[CLASS]}가 얻을 수 있는 ${nx} 장비가 없어요.`, '#f08a7a'); return; }
@@ -6030,14 +6055,14 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
         else { TELE.ev('alch', { g, ok: 0 }); showOut(null, false); spellFx('puff', hero, '#8a7a6a'); say('연금술에 실패했습니다... 재료가 모두 사라졌습니다.', '#c9b98a'); if (AC && SFX_ON) { tone(AC.currentTime, 'sawtooth', 300, 110, 0.4, 0.07); nz(AC.currentTime, 0.3, 900, 200, 0.12); } }
         render(); INV.render(); }, 1300); }); }
   function open() { const w = $('alchwin'); if (!w) return; if (!w.hidden) { w.hidden = true; return; } w.hidden = false; if ($('invwin').hidden) { $('invwin').hidden = false; INV.render(); } render(); }
-  { const b = $('btn-alch'); if (b) b.onclick = open; const go_ = $('al-go'); if (go_) go_.onclick = go; const cl = $('al-clear'); if (cl) cl.onclick = () => { S.fill(null); render(); INV.render(); }; document.querySelectorAll('#alchwin [data-alg]').forEach(b => b.onclick = () => fill(b.dataset.alg)); const oth = $('al-oth'); if (oth) oth.onchange = () => render();
+  { const b = $('btn-alch'); if (b) b.onclick = open; const go_ = $('al-go'); if (go_) go_.onclick = go; const au = $('al-auto'); if (au) au.onclick = autoStart; const cl = $('al-clear'); if (cl) cl.onclick = () => { S.fill(null); render(); INV.render(); }; document.querySelectorAll('#alchwin [data-alg]').forEach(b => b.onclick = () => fill(b.dataset.alg)); const oth = $('al-oth'); if (oth) oth.onchange = () => render();
     { const ci = $('al-cat'); const setCat = v => { const s0 = S.find(x => x), g0 = s0 ? rarOf(s0) : '희귀'; cat = Math.max(0, Math.min(CAT[g0] ? catCap(g0) : catCap('희귀'), catHave(), Math.floor(+v || 0))); render(); }; if (ci) { ci.oninput = () => setCat(ci.value); ci.onblur = () => { ci.value = cat; }; ci.onkeydown = ev => ev.stopPropagation(); }
       document.querySelectorAll('#alchwin [data-cd]').forEach(b => b.onclick = () => { const g = S.find(x => x) ? rarOf(S.find(x => x)) : '희귀'; const d = b.dataset.cd; setCat(d === 'max' ? Math.min(catCap(g) || catCap('희귀'), catHave()) : d === '0' ? 0 : cat + +d); }); }
     document.querySelectorAll('#alchwin .al-slot').forEach(c => { const k = +c.dataset.k; c.onclick = () => { if (S[k]) { S[k] = null; render(); INV.render(); } };
       c.addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('over'); } }); c.addEventListener('dragleave', () => c.classList.remove('over'));
       c.addEventListener('drop', ev => { c.classList.remove('over'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); put(k, INV.bag()[+a]); }); });
     const w = $('alchwin'); if (w) new MutationObserver(() => { if (w.hidden) INV.render(); else render(); }).observe(w, { attributes: true, attributeFilter: ['hidden'] }); }
-  return { open: isOpen, toggle, put, fill, has: e => S.includes(e), render, rates: () => Object.assign({}, RATE) }; })();
+  return { open: isOpen, toggle, put, fill, has: e => S.includes(e), render, rates: () => Object.assign({}, RATE), auto: () => AU.on }; })();
 
 // ============================================================ v126: 아이템 도감 — 게임 데이터(ITEMS·상점·드랍표·주머니)에서 바로 만들어서 아이템이 바뀌면 자동으로 맞춰짐
 window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0, sub = 0, built = null, cls = 0;
@@ -6145,7 +6170,7 @@ const TOWN = (() => {
   const SHOPS = [
     { id: 'general', name: '잡화상점', npc: '잡화상인 판도라', icon: 'potion', i: 3, j: 13, w: 6, d: 6, h: 3.5, door: 'i', roof: [122, 58, 40], npcType: 'f',
       hello: '어서 오세요! 사냥 전에 물약은 넉넉히 챙기셨나요?',
-      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 80, 'HP를 많이 회복'], ['맑은 물약', 200, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 30분'], ['용기의 물약', 500, '2단 가속 1.4배 · 30분'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 10분 (체력 물약과 재사용 1.5초 공유)', 'scroll_counterm'], ...(POLY_SHOP ? [['다크 변신 주문서', 5000, 'Lv50 이상 · 30분 동안 내 직업의 다크 모습으로 변신 · 공격·이동 속도 +5%', 'poly_dark'], ['실버 변신 주문서', 5000, 'Lv55 이상 · 30분 동안 내 직업의 실버 모습으로 변신 · 공격·이동 속도 +8%', 'poly_silver']] : []), ['불멸의 가호', 50000, '가방에 지니고 있으면 사망 손실 없음 · 쓰러지면 1개가 타서 그 자리에 떨어짐 (주워서 되팔면 2만 5천)', 'immortal_ward'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 10000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch'], ['마법인형 주머니', 100000, '열면 1단계 마법인형 6종 중 하나 · 같은 단계 4개를 제작 장인에게 가져가면 다음 단계로 합성 (40% · 30%)', 'doll_pouch']]]] },
+      tabs: [['물약·주문서', [['빨간 물약', 25, 'HP를 조금 회복'], ['주홍 물약', 80, 'HP를 많이 회복'], ['맑은 물약', 200, 'HP를 크게 회복'], ['초록 물약', 200, '1단 가속 1.2배 · 30분'], ['용기의 물약', 500, '2단 가속 1.4배 · 30분'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 10분 (체력 물약과 재사용 1.5초 공유)', 'scroll_counterm'], ...(POLY_SHOP ? [['다크 변신 주문서', 5000, 'Lv50 이상 · 30분 동안 내 직업의 다크 모습으로 변신 · 공격·이동 속도 +5%', 'poly_dark'], ['실버 변신 주문서', 5000, 'Lv55 이상 · 30분 동안 내 직업의 실버 모습으로 변신 · 공격·이동 속도 +8%', 'poly_silver']] : []), ['불멸의 가호', 50000, '가방에 지니고 있으면 사망 손실 없음 · 쓰러지면 1개가 타서 그 자리에 떨어짐 (주워서 되팔면 2만 5천)', 'immortal_ward'], ['순간이동 주문서', 60, '같은 지역 임의 이동'], ['양초', 30, '10분 동안 밤 시야가 넓어짐', 'candle'], ['해독제', 60, '독을 바로 치료', 'antidote'], ['부활 주문서', 300, '쓰러진 펫·동료 부활']]], ['특별', [['아르카의 마법주머니', 100000, '열면 강화·축복 주문서 또는 모든 직업의 희귀~영웅 장비 중 하나가 무작위로 나옴 (확률은 아이템 상세 정보)', 'arka_pouch'], ['마법인형 주머니', 100000, '열면 1단계 마법인형 6종 중 하나 · 같은 단계 4개를 제작 장인에게 가져가면 다음 단계로 합성 (40% · 30%)', 'doll_pouch']]]] },
     { id: 'equip', name: '장비상점', npc: '장비상인 발신', icon: 'sword', i: 3, j: 4, w: 6, d: 6, h: 3.5, door: 'i', roof: [74, 79, 92], npcType: 'm',
       hello: '좋은 무기가 좋은 기사를 만들지. 천천히 둘러보게.',
       get tabs() { return [['무기', [['한손검', 800, '공용 · 공격 1~8 · 처음 쓰기 좋은 검'], ...CX_SHOP.weapon.map(cxRow)]], ['방어구', CX_SHOP.armor.map(cxRow)], ['장신구', CX_SHOP.general.map(cxRow)]]; } },   /* v126: 장신구는 장비상점에서 */
@@ -6924,6 +6949,7 @@ const CHAT = (() => {
     const L = r.left + (x + 6) * z, T = r.top + (y + h - ih - 5) * z, W = (w - 14) * z, H = ih * z;
     if (e._k !== L + '|' + T + '|' + W) { e._k = L + '|' + T + '|' + W; Object.assign(e.style, { left: L + 'px', top: T + 'px', width: W + 'px', height: H + 'px', fontSize: Math.round(12 * z) + 'px' }); } }
   function send() { const e = el(), t = e.value.trim(); e.value = ''; if (!t) return;
+    if (/^\/운영자\s*(등록)?$/.test(t)) { ADMIN.devRequest(); return; }   // v190: 운영자 기기 등록 요청 (채팅으로 안 보냄)
     const all = t[0] === '!' && t.length > 1, tt = all ? t.slice(1).trim() : t; if (!tt) return; say(`${all ? '[전체] ' : ''}${PNAME()}: ${tt}`, all ? '#ffd28a' : '#ffffff', 1); hero.chat = { t: tt, until: time + 5 }; NET.chat(t); if (logScroll) logScroll = 0; }
   function bubble(g, h) { const [hx, hy] = W2P(h.x, h.z); g.save(); g.font = '700 11px "Noto Sans KR",sans-serif'; const maxW = 170, words = [...h.chat.t], lines = []; let cur = '';
     for (const ch of words) { if (g.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch; if (lines.length === 2) break; } else cur += ch; } if (lines.length < 2 && cur) lines.push(cur); else if (cur && lines.length === 2) lines[1] = lines[1].slice(0, -1) + '…';
@@ -7134,6 +7160,11 @@ const CODES = (() => { let used = [];
     w.hidden = false; setTimeout(() => { const i = w.querySelector('#code-in'); if (i) i.focus(); }, 50); }
   return { redeem, open, dump: () => used.slice(), load(a) { used = Array.isArray(a) ? a.slice(-200).map(String) : []; } };
 })();
+// v190: 운영자 기기 인증서 — 원래 컴퓨터의 운영자 키가 다른 기기의 공개 키에 서명한 것 {p: 기기 공개 키(JWK JSON), a: 계정, e: 만료(ms), s: 서명}. 받는 쪽은 인증서를 게임 속 공개 키로 확인한 뒤 그 기기 키로 명령을 확인
+const admCertOK = new Map();
+function admCertKey(c) { if (!c || typeof c.p !== 'string' || !c.s || !(+c.e > Date.now())) return Promise.resolve(null); const k = c.p + '|' + c.a + '|' + c.e + '|' + c.s; let v = admCertOK.get(k);
+  if (!v) { v = (async () => { if (!(await admVerify(`admcert|${c.a}|${c.p}|${c.e}`, c.s))) return null; const j = JSON.parse(c.p); return crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: j.x, y: j.y }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']); })().catch(() => null); admCertOK.set(k, v); } return v; }
+async function admVerifyC(msg, sig, c) { if (!c) return admVerify(msg, sig); try { const key = await admCertKey(c); if (!key || !sig) return false; return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, ub64u(sig), new TextEncoder().encode(msg)); } catch (e) { return false; } }
 async function admVerify(msg, sig) { try { if (!(window.crypto && crypto.subtle) || !sig) return false; return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, await admPub(), ub64u(sig), new TextEncoder().encode(msg)); } catch (e) { return false; } }
 const NET = (() => {
   const KINDS = Object.keys(MOB), RCOL = '#a8d8ff', PCOL = '#8fe08a', TE = new TextEncoder();
@@ -7304,11 +7335,11 @@ const NET = (() => {
   const admOK = new Map(), admPend = new Map(), admSeen = new Map(), arSeen = new Set(); let ADMS = [], arOut = [], admTok = null, admBusy = false;
   function admFilter() { ADMS = []; OTH = OTH.filter(o => { const a = o.pr.adm; if (!a || !a.s) return true;
       if (a.s === 'p') { const t0 = admPend.get(o.peer) || (admPend.set(o.peer, Date.now()), Date.now()); return Date.now() - t0 > 15000; }
-      const k = o.peer + '|' + a.t; let v = admOK.get(k); if (v === undefined) { admOK.set(k, 'wait'); admVerify(`adm|${o.peer}|${a.t}`, a.s).then(ok => admOK.set(k, !!ok)); v = 'wait'; }
+      const k = o.peer + '|' + a.t; let v = admOK.get(k); if (v === undefined) { admOK.set(k, 'wait'); admVerifyC(`adm|${o.peer}|${a.t}`, a.s, a.c).then(ok => admOK.set(k, !!ok)); v = 'wait'; }
       if (v === false) return true; if (v === true) ADMS.push(o); return false; });
     for (const o of ADMS) admCmds(o); if (ADMIN.on()) admResps(); }
   function admCmds(o) { const L = Array.isArray(o.pr.ac) ? o.pr.ac : [], mx = L.length ? Math.max(...L.map(x => +x[0] || 0)) : 0; if (!admSeen.has(o.peer)) { admSeen.set(o.peer, mx); return; } const last = admSeen.get(o.peer); if (mx <= last) return; admSeen.set(o.peer, mx);
-    for (const x of L) { if (!Array.isArray(x)) continue; const [sq, t, to, cmd, a, sig] = x; if (!(sq > last) || (to !== myPeer && to !== '*')) continue; admVerify(`${sq}|${t}|${to}|${cmd}|${a}|${o.peer}`, sig).then(ok => { if (ok) ADMIN.apply(cmd, a, o.peer, sq); }); } }
+    for (const x of L) { if (!Array.isArray(x)) continue; const [sq, t, to, cmd, a, sig] = x; if (!(sq > last) || (to !== myPeer && to !== '*')) continue; admVerifyC(`${sq}|${t}|${to}|${cmd}|${a}|${o.peer}`, sig, (o.pr.adm || {}).c).then(ok => { if (ok) ADMIN.apply(cmd, a, o.peer, sq); }); } }
   function admResps() { for (const o of OTH) { const L = o.pr.ar; if (!Array.isArray(L)) continue; for (const x of L) { if (!Array.isArray(x) || x[1] !== myPeer) continue; const k = o.peer + '|' + x[0] + '|' + x[2]; if (arSeen.has(k)) continue; arSeen.add(k); let d = null; try { d = JSON.parse(x[3]); } catch (e) {} ADMIN.onResp(o.peer, x[2], d, nmOf(o.pr)); } } }
   function admRespond(to, sq, cmd, data) { arOut.push([sq, to, cmd, JSON.stringify(data || {}), Date.now()]); if (arOut.length > 3) arOut.shift(); sendT = 0; }
   // ----- v131 부활 주문서: 요청(rv) → 상대가 '부활하시겠습니까?'에서 네/아니오(ra) → 네면 주문서 사용
@@ -7329,7 +7360,7 @@ const NET = (() => {
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
       e: eqIds(), eg: glowOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
-    if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
+    if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; if (ADMIN.cert()) P.adm.c = ADMIN.cert(); P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
@@ -7470,11 +7501,48 @@ const ADMIN = (() => {
   const K = () => window.ADEN_ADMIN;
   const mine = () => { const k = K(); try { return !!(k && k.acc && k.jwk && String(ACCOUNT.acc() || '').toLowerCase() === String(k.acc).toLowerCase()); } catch (e) { return false; } };
   async function sign(msg) { return b64u(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, priv, enc.encode(msg))); }
-  async function tryOn() { if (on || !mine() || !(window.crypto && crypto.subtle)) return false;
+  // v190: 운영자 기기 등록 — 키 파일이 없는 기기에서 운영자 계정으로 접속해 채팅에 /운영자등록 → 원래 컴퓨터(운영자 키)로 접속하면 [허락] 창 → 허락하면 그 기기의 공개 키에 운영자 키로 서명한 인증서를
+  //        그 계정 저장소(users/{uid}/chars/_admcert · 그 계정 로그인으로만 열림)에 둠 → 그 기기는 다음 접속부터 운영자. 기기의 비밀 키는 그 기기 안(IndexedDB, 꺼낼 수 없게)에만 있고, 운영자 키는 원래 컴퓨터 밖으로 안 나감.
+  //        인증서는 30일 · 원래 컴퓨터로 접속할 때마다 자동 연장 · 운영자 창 [운영자 기기]에서 삭제하면 그 기기는 다음 접속부터 꺼짐
+  let cert = null; const CERT_DAYS = 30, DAY = 864e5;
+  const idb = (op, key, val) => new Promise(res => { try { const rq = indexedDB.open('aden_adm', 1); rq.onupgradeneeded = () => rq.result.createObjectStore('k'); rq.onerror = () => res(null);
+      rq.onsuccess = () => { try { const tx = rq.result.transaction('k', op === 'get' ? 'readonly' : 'readwrite'), st = tx.objectStore('k'), r = op === 'get' ? st.get(key) : st.put(val, key); r.onsuccess = () => res(op === 'get' ? (r.result || null) : true); r.onerror = () => res(null); } catch (e) { res(null); } }; } catch (e) { res(null); } });
+  const accNow = () => String(ACCOUNT.acc() || '').toLowerCase(), docP = n => `users/${CLOUD.uid()}/chars/${n}`;
+  const jlist = async n => { try { const d = await CLOUD.get(docP(n)); const L = d && d.list ? JSON.parse(d.list) : []; return Array.isArray(L) ? L.filter(x => x && typeof x.p === 'string') : []; } catch (e) { return []; } };
+  const putList = (n, L) => CLOUD.set(docP(n), { list: JSON.stringify(L), at: new Date().toISOString() });
+  const cloudOK = () => { try { return !!(CLOUD.on() && CLOUD.uid() && window.crypto && crypto.subtle && window.indexedDB); } catch (e) { return false; } };
+  const devName = () => { const u = navigator.userAgent || ''; return (/Android|iPhone|iPad|Mobile/i.test(u) ? '모바일' : /Electron/i.test(u) ? 'PC 실행 파일' : 'PC 브라우저') + ' · ' + new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+  async function devKey(make) { const acc = accNow(); if (!acc) return null; let k = await idb('get', 'dev:' + acc);
+    if (!k && make) { const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign', 'verify']), j = await crypto.subtle.exportKey('jwk', kp.publicKey);
+      k = { priv: kp.privateKey, pub: JSON.stringify({ kty: 'EC', crv: 'P-256', x: j.x, y: j.y }) }; if (!(await idb('put', 'dev:' + acc, k))) return null; }
+    return k && k.priv && k.pub ? k : null; }
+  async function devOn() { if (!cloudOK()) return false; const acc = accNow(), k = await devKey(false); if (!k) return false;
+    const c = (await jlist('_admcert')).find(x => x.p === k.pub && String(x.a).toLowerCase() === acc && +x.e > Date.now()); if (!c) return false;
+    priv = k.priv; cert = { p: c.p, a: c.a, e: +c.e, s: c.s }; try { if (!(await admVerifyC('adm-test', await sign('adm-test'), cert))) throw 0; } catch (e) { priv = null; cert = null; return false; } return true; }
+  async function devRequest() { if (on) { say('이미 운영자 모드예요.', ADMC); return; } if (mine()) { say('이 컴퓨터에는 운영자 키가 있어요. 운영자 계정으로 접속하면 바로 켜져요.', ADMC); return; }
+    if (!cloudOK()) { say('계정 서버에 로그인한 상태에서만 운영자 기기 등록을 요청할 수 있어요.', '#f08a7a'); return; }
+    if (await devOn()) { on = true; afterOn(); return; }
+    const k = await devKey(true); if (!k) { say('이 기기에서는 기기 키를 만들 수 없어요.', '#f08a7a'); return; }
+    const L = await jlist('_admreq'); if (!L.some(x => x.p === k.pub)) { L.push({ p: k.pub, n: devName(), at: new Date().toISOString() }); while (L.length > 5) L.shift(); try { await putList('_admreq', L); } catch (e) { say('요청을 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', '#f08a7a'); return; } }
+    say('운영자 기기 등록을 요청했어요. 원래 컴퓨터(운영자 키가 있는 PC)에서 이 계정으로 접속하면 [허락] 창이 떠요. 허락한 뒤 이 기기에서 다시 접속하면 운영자 모드가 켜져요.', ADMC); }
+  async function masterSync() { if (cert || !on || !cloudOK()) return; try { const acc = accNow(), now = Date.now(); let certs = (await jlist('_admcert')).filter(c => +c.e > now - 7 * DAY), changed = false;
+      for (const c of certs) if (+c.e - now < 20 * DAY) { c.e = now + CERT_DAYS * DAY; c.a = acc; c.s = await sign(`admcert|${c.a}|${c.p}|${c.e}`); changed = true; }   // 자동 연장
+      if (changed) await putList('_admcert', certs);
+      const reqs = (await jlist('_admreq')).filter(r => !certs.some(c => c.p === r.p)); if (!reqs.length) return;
+      const next = () => { const r = reqs.shift(); if (!r) { putList('_admreq', []).catch(() => {}); drawDevs(); return; }
+        INV.askYesNo('운영자 기기 등록 요청이 왔어요', `${r.n || '새 기기'} — 이 기기도 운영자로 허락할까요? (${CERT_DAYS}일 · 이 PC로 접속할 때마다 자동 연장 · 운영자 창에서 언제든 삭제)`,
+          async () => { try { const e = Date.now() + CERT_DAYS * DAY, c = { p: r.p, a: acc, e, n: String(r.n || '').slice(0, 40), s: await sign(`admcert|${acc}|${r.p}|${e}`) }; certs = certs.filter(x => x.p !== r.p).concat([c]); await putList('_admcert', certs); say(`[운영자] ${c.n || '새 기기'}을(를) 운영자 기기로 허락했어요.`, ADMC); } catch (er) { say('허락을 저장하지 못했어요.', '#f08a7a'); } next(); },
+          () => { say(`[운영자] ${r.n || '새 기기'} 요청을 거절했어요.`, ADMC); next(); }); };
+      next(); } catch (e) {} }
+  async function drawDevs() { const el = $('adm-devs'); if (!el) return; if (cert) { el.innerHTML = `<span class="muted">이 기기는 등록된 운영자 기기예요 (${new Date(cert.e).toLocaleDateString('ko-KR')}까지 · 원래 컴퓨터로 접속하면 자동 연장).</span>`; return; }
+    if (!cloudOK()) { el.innerHTML = '<span class="muted">계정 서버에 연결된 상태에서만 보여요.</span>'; return; }
+    const L = await jlist('_admcert'); el.innerHTML = L.length ? L.map((c, i) => `<div class="row"><span>${String(c.n || '기기').replace(/[<>&]/g, '')}</span><span class="muted">· ${new Date(+c.e).toLocaleDateString('ko-KR')}까지</span><button type="button" data-devdel="${i}">삭제</button></div>`).join('') : '<span class="muted">등록된 기기 없음 · 다른 기기에서 이 계정으로 접속해 채팅에 /운영자등록</span>';
+    el.querySelectorAll('[data-devdel]').forEach(b => b.onclick = async () => { const L2 = await jlist('_admcert'), c = L2[+b.dataset.devdel]; if (!c) return; try { await putList('_admcert', L2.filter(x => x !== c)); say(`[운영자] ${c.n || '기기'} 삭제 — 그 기기는 다음 접속부터 운영자 모드가 꺼져요.`, ADMC); } catch (e) { say('삭제하지 못했어요.', '#f08a7a'); } drawDevs(); }); }
+  function afterOn() { BUFF.invis = Math.max(BUFF.invis || 0, 5); build(); say(`***** 운영자 모드가 켜졌습니다${cert ? ' (등록된 운영자 기기)' : ''}. 다른 유저와 몬스터에게 보이지 않아요. (상단 [운영자] 버튼) *****`, ADMC); try { GOD_BTN && GOD_BTN(); } catch (e) {} }
+  async function tryOn() { if (on || !(window.crypto && crypto.subtle)) return false; if (!mine()) { if (await devOn()) { on = true; afterOn(); return true; } return false; }
     try { priv = await crypto.subtle.importKey('jwk', K().jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']); if (!(await admVerify('adm-test', await sign('adm-test')))) throw new Error('key'); }
     catch (e) { priv = null; say('운영자 키가 이 게임 버전과 맞지 않아요. (운영자 모드 꺼짐)', '#f08a7a'); return false; }
-    on = true; BUFF.invis = Math.max(BUFF.invis || 0, 5); build(); say('***** 운영자 모드가 켜졌습니다. 다른 유저와 몬스터에게 보이지 않아요. (상단 [운영자] 버튼) *****', ADMC);
-    try { GOD_BTN && GOD_BTN(); } catch (e) {} return true; }
+    on = true; afterOn(); masterSync(); return true; }
   async function send(to, cmd, args) { if (!on) return false; const me = NET.me(); if (!me) { say('아직 월드에 연결되지 않았어요.', '#f08a7a'); return false; }
     seq = Math.max(seq + 1, Date.now()); const sq = seq, t = Date.now(), a = JSON.stringify(args || {}); const sig = await sign(`${sq}|${t}|${to}|${cmd}|${a}|${me}`);
     out.push([sq, t, to, cmd, a, sig]); if (out.length > 6) out.shift(); NET.poke(); return true; }
@@ -7515,7 +7583,7 @@ const ADMIN = (() => {
   const CLS_N = { knight: '기사', elf: '요정', wizard: '마법사' };
   const zoneName = z => { try { return zoneTitle(z); } catch (e) { return z || '-'; } };
   const nmOf = id => ITEMS[id] ? ITEMS[id].name : id;
-  function build() { if ($('admwin')) return; const tb = document.querySelector('.topbar'); if (tb) { const b = document.createElement('button'); b.type = 'button'; b.id = 'btn-adm'; b.textContent = '운영자'; b.style.cssText = 'color:#ffb8ee;border-color:#a0507f'; b.onclick = () => { const w = $('admwin'); w.hidden = !w.hidden; drawList(); drawDet(); }; tb.appendChild(b); }
+  function build() { if ($('admwin')) return; const tb = document.querySelector('.topbar'); if (tb) { const b = document.createElement('button'); b.type = 'button'; b.id = 'btn-adm'; b.textContent = '운영자'; b.style.cssText = 'color:#ffb8ee;border-color:#a0507f'; b.onclick = () => { const w = $('admwin'); w.hidden = !w.hidden; drawList(); drawDet(); if (!w.hidden) drawDevs(); }; tb.appendChild(b); }
     const st = document.createElement('style'); st.textContent = `#admwin{position:fixed;z-index:40;right:calc(16px + 1vw);top:calc(64px + env(safe-area-inset-top,0px));width:580px;max-width:calc(100vw - 24px);max-height:calc(100vh - 90px);overflow:auto;padding:10px 12px 12px;background:rgba(20,13,18,.97);border:1px solid #a0507f;border-radius:4px;color:#eadcc8;font:12px "Noto Sans KR",sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 #admwin h4{margin:10px 0 4px;color:#ffb8ee;font-size:12px} #admwin .row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin:3px 0} #admwin input{background:#140d10;border:1px solid #6a3a58;color:#f2e6d8;height:22px;padding:0 5px;font:inherit;min-width:0}
 #admwin button{background:#3a1f30;border:1px solid #8a4a70;color:#f6dcea;font:inherit;padding:2px 7px;border-radius:2px;cursor:pointer} #admwin button:hover{background:#55304a} #admwin table{width:100%;border-collapse:collapse} #admwin td{padding:3px 4px;border-bottom:1px solid #3a2632;vertical-align:middle}
@@ -7526,7 +7594,7 @@ const ADMIN = (() => {
       <h4>전체 공지</h4><div class="row"><input id="adm-nt" style="flex:1" maxlength="80" placeholder="모든 접속자 화면에 공지"><button type="button" id="adm-nts">보내기</button></div>
       <h4>내 캐릭터 (운영자)</h4><div class="row">아이템 <input id="adm-sit" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-sin" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-sie" type="number" value="0" style="width:44px"> <label><input id="adm-sib" type="checkbox"> 축복</label> <button type="button" id="adm-sgive">만들기</button></div>
       <div class="row">골드 <input id="adm-sg" type="number" style="width:120px" placeholder="금액"> <button type="button" id="adm-sgadd">만들기</button> &nbsp; 레벨 <input id="adm-sl" type="number" style="width:50px" min="1" max="99"> <button type="button" id="adm-slv">설정</button> <span class="muted">· 이동 5배 · 무적 · 몬스터 공격 안 함</span></div>
-      <h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><datalist id="adm-items"></datalist>`;
+      <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><datalist id="adm-items"></datalist>`;
     document.body.appendChild(w);
     $('adm-x').onclick = () => { w.hidden = true; }; w.addEventListener('keydown', ev => ev.stopPropagation());
     const selfIdOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === String(nm || '').trim() && !ITEMS[k].hidden);
@@ -7565,7 +7633,7 @@ const ADMIN = (() => {
       else if (c === 'kick') INV.askYesNo(`${o.pr.n}님을 추방할까요?`, '진행 상황을 저장한 뒤 접속을 끊어요.', () => send(sel, 'kick'));
       else send(sel, c); }); }
   function tick(dt) { if (!on) return; BUFF.invis = Math.max(BUFF.invis || 0, 5); GOD_INV = true; if (BUFF.stun > 0) BUFF.stun = 0; if (BUFF.slow > 0) BUFF.slow = 0; if (hero.target && foxes.includes(hero.target)) hero.target = null; if ((uiT -= dt) <= 0) { uiT = 1; drawList(); } }
-  return { on: () => on, pending: () => !on && mine(), tryOn, sign, out: () => out, apply, onResp, tick, send };
+  return { on: () => on, pending: () => !on && mine(), tryOn, sign, out: () => out, apply, onResp, tick, send, cert: () => cert, devRequest };
 })();
 // ============================================================ 교환 (마을에서 다른 유저 클릭 → 교환 신청 → 수락하면 양쪽에 교환창)
 // 각자 아이템·골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?" 한 번 더 → 둘 다 '예'면 서로 주고받음
@@ -8510,6 +8578,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 190, items: ["연금술에 [자동 진행] 버튼이 생겼어요. [일괄 등록]에서 등급을 고르고 누르면 지금 조건(타클래스만·촉매 장수) 그대로 재료가 떨어질 때까지 3개씩 계속 조합해요. [중지]로 언제든 멈추고, '성공하면 멈추기'를 켜면 성공한 순간 멈춰요. (강화·축복·속성이 붙은 장비와 착용·잠긴 장비는 쓰지 않아요)", "아르카의 마법주머니 가격이 10만 골드로 바뀌었어요."] },
     { v: 189, items: ["🎃 할로윈 이벤트가 열렸어요! 마을의 [할로윈 허수아비 잭]에게 할로윈 모자(100골드)를 사면 으스스한 [할로윈 호박밭]에 들어갈 수 있어요. (하루 2시간 · 새벽 5시 초기화 · 안에서는 화면 위에 남은 시간 표시)", "호박밭에 들어가면 누구나 호박 머리 허수아비로 변신해 근거리로 싸워요. 내 능력치·장비 효과는 무시되고 초록 물약·용기의 물약 효과만 적용돼요. 마법·서먼·펫·변신 주문서는 쓸 수 없고, 다른 소모품(물약·주문서·호박 주머니·귀환 부적 등)은 모두 쓸 수 있어요.", "몬스터에게 주는 피해는 1, 받는 피해도 1로 고정이에요. 할로윈 모자를 강화하면 강화 1당 몬스터를 쓰러뜨리는 데 필요한 타수가 1대씩 줄어요 (+0 호박괴물 15대 · +9 6대 · 가방의 모자 중 가장 높은 강화로 계산).", "할로윈 호박괴물(HP 15)과 1.5배 크기의 호박대장(HP 25)이 나와요. 호박씨·호박 강화 주문서·축복받은 호박 강화 주문서(대장)를 떨어뜨려요.", "호박씨 100개를 잭에게 가져가면 [할로윈 호박 주머니]로 바꿔 줘요. 주머니를 열면 고급 마법인형(80%) 또는 [희귀 호박 주머니](20%)가 나오고, 희귀 주머니에서는 희귀 마법인형(84%) 또는 [영웅 호박 주머니](16%), 영웅 주머니에서는 영웅 장비 또는 영웅 마법인형(각 50%)이 나와요. 호박 강화 주문서는 사용한 뒤 강화할 할로윈 모자를 골라 클릭해요. (안전 +4 · 최대 +9)", "장비 강화 창의 [단일 강화]·[다중 강화]에서도 할로윈 모자를 호박 강화 주문서로 강화할 수 있어요. (다중 강화는 모자끼리만 · 최대 +9)", "할로윈 호박밭에서도 자동사냥을 쓸 수 있어요.", "호박괴물·호박대장이 새 아이템을 떨어뜨려요: [호박 사탕](30분 동안 몬스터 경험치 +20%) · [잭오랜턴](1시간 동안 밤 시야가 넓어짐) · 호박대장은 아주 낮은 확률로 [할로윈 망토](희귀 · AC -3 · MR +10 · 최대 HP +20 · 얻으면 전체 공지).", "자동사냥 [설정] 아이템 줍기가 종류 × 등급 표로 바뀌었어요. 예를 들어 고급 장비는 줍지 않고 고급 재료는 줍도록 종류마다 따로 고를 수 있어요. (기존 설정은 그대로 옮겨져요)", "[거대 여왕 개미의 금빛 날개]에 강화 1당 MR +1 옵션이 생겼어요."] },
     { v: 188, items: ['[♪ 강화 BGM]은 처음엔 꺼져 있어요. 한 번 켜면 다음에도 켜진 채로 유지돼요.', '[밀어서 결과 보기]로 결과가 열릴 때, 빨라졌던 강화 음악은 바로 원래 속도로 돌아오며 꺼지고 "빵빵" 효과음은 원래 속도로 나와요.'] },
     { v: 187, items: ['강화 연출의 [밀어서 결과 보기] 아래에 [♪ 강화 BGM ON/OFF] 버튼이 생겼어요. 끄면 강화 배경음만 꺼져요. 옵션의 효과음 켜기/끄기와는 따로 움직이고, 고른 설정은 다음에도 그대로예요.', '아이템 상세 정보 창에서 [강화 미리보기]로 수치를 바꾼 뒤 창을 닫고 다시 열면, 미리보기가 풀리고 원래 강화 수치로 보여요.'] },

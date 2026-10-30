@@ -26,7 +26,7 @@
 - 작업판(진행 상황): https://claude.ai/artifact/XemyTMkY4DDuWZsAUJ3pQX
 
 ## 작업판 운영 (모든 방 공통)
-- 흐름(10/29 프로듀서 결정): **메인방**(배포 담당 방 = https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D)에서 프로듀서가 자유롭게 말함 → 메인방이 분류해서 작업마다 카드 + 작업방 → 작업방이 끝내면 **승인 대기**(먼저 끝난 순서) → 프로듀서가 작업판에서 [승인] → **업데이트 대기** → 메인방에 "업데이트" → 한 번에 배포 → **업데이트 기록**. 메모함은 프로듀서가 자리 비울 때 쓰는 우체통(메인방이 말을 걸 때마다 확인).
+- 흐름(10/29 프로듀서 결정): **메인방**(배포 담당 방 — 주소는 작업판 db `meta/main`의 `url`. 대화가 길어지면 교대하고, 새 메인방이 그 값을 자기 주소로 바꾼다 · 인수인계 `dev/rooms/main.md`)에서 프로듀서가 자유롭게 말함 → 메인방이 분류해서 작업마다 카드 + 작업방 → 작업방이 끝내면 **승인 대기**(먼저 끝난 순서) → 프로듀서가 작업판에서 [승인] → **업데이트 대기** → 메인방에 "업데이트" → 한 번에 배포 → **업데이트 기록**. 메모함은 프로듀서가 자리 비울 때 쓰는 우체통(메인방이 말을 걸 때마다 확인).
 - 이미 열린 방에는 자동으로 말을 보낼 수 없다(다른 세션에 메시지·예약 작업 즉시 실행이 막힘). 그래서 새 작업은 메인방이 `create_trigger`로 **작업마다 새 방**을 연다(갈래 `work/<카드 id>`, 방 메모 `dev/rooms/<카드 id>.md`). 한두 줄 고치는 작은 일은 메인방이 직접 한다.
 - 작업판: https://claude.ai/artifact/XemyTMkY4DDuWZsAUJ3pQX · 데이터는 ArtifactData로 `tasks/<id>` 문서.
 - 프로듀서가 새로 말한 일은 내용을 보고 직접 분류해서 카드로 만든다(묻지 않음). `cat`:
@@ -52,16 +52,17 @@
 4. 수정은 `dev/rep.py`의 `apply(path, [(old, new)])`(정확히 한 번 일치해야 바꿈)로 하고, 매번 `node --check src/game.js`.
 5. 테스트: `python3 dev/mkkt.py` → `bash dev/runkt.sh <테스트.js>` (로그인은 `dev/tq.js`, 예시 `dev/tests/`). 스크린샷은 `dev/out/`. 빠른 시뮬은 `python3 dev/mksim.py` 뒤 `_sim2.html`.
 6. 테스트 페이지는 **메인 테스트 페이지 하나만** 쓴다 (프로듀서 계정·캐릭터가 그 페이지에만 저장돼 있음). 메인 테스트 페이지에는 항상 **승인 대기 전부**가 들어간 판을 올린다(아래 7).
-7. 끝나면: `origin/main`을 자기 갈래에 merge해서 충돌 정리·재테스트 → push → 작업판 카드 status `ready` + `readyAt`(지금 ISO) + `notes`(소식안 문장들, 잠수패치면 `silent: true`) + `phase` "승인 대기" → **승인 대기 묶음 판 올리기**: 작업판에서 status `ready`·`test`인 카드의 `branch`를 모두 모아 `python3 dev/stage_test.py <갈래들>` → 메인 테스트 아티팩트를 한 번 `read`한 뒤 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files={}`, 새 에셋이 있으면 그 경로만) → 테스트 아티팩트 db `tbuild/cur` = `dev/out/build.json`의 `{id, at, n}` (열려 있는 테스트 페이지가 10초 뒤 새로고침) → 작업판 db `meta/test` = 같은 값 + `branches` → 프로듀서에게 "승인 대기에 올렸어요 · 테스트 페이지에서 확인해 주세요" 한 줄. 충돌로 빠진 갈래가 있으면 그 방에 알리거나 직접 합쳐서 정리.
+7. 끝나면: `origin/main`을 자기 갈래에 merge해서 충돌 정리·재테스트 → push → 작업판 카드 status `ready` + `readyAt`(지금 ISO) + `notes`(소식안 문장들, 잠수패치면 `silent: true`) + `phase` "승인 대기" → `next`에 "메인방이 묶음 테스트 판을 올려요" → 프로듀서에게 "승인 대기에 올렸어요 · 메인방에 말하면 테스트 페이지에 올라가요" 한 줄. (작업방은 메인 테스트 페이지를 올릴 수 없음 — 다른 방이 올린 1.9MB 페이지를 먼저 읽어야 해서 막힘)
+   - **묶음 테스트 판(메인방)**: 작업판에서 status `ready`·`test`·`queued`인 카드의 `branch`를 모두 모아 `python3 dev/stage_test.py <갈래들>` → 메인 테스트 아티팩트 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files={}`, 새 에셋이 있으면 그 경로만) → 테스트 아티팩트 db `tbuild/cur` = `dev/out/build.json`의 `{id, at, n}` (열려 있는 테스트 페이지가 10초 뒤 새로고침) → 작업판 db `meta/test` = 같은 값 + `branches`. 충돌로 빠진 갈래가 있으면 직접 합쳐서 정리.
 8. 작업판은 진행할 때마다 갱신: ArtifactData로 `tasks/<id>` 문서 update (`status` doing·wait·test·ready·hold·done, `next`, `note`, `room`, `branch`, `test`(https 주소), `updated`(ISO 시각)). 새 작업이면 새 문서.
 
 ## 배포 담당 방 규칙
 - 배포 시점: 프로듀서가 메인방에 "업데이트"라고 할 때. 급한 버그는 프로듀서에게 묻고 바로.
 - 순서: `git fetch` → main에 **업데이트 대기(status `queued`) 카드의 갈래만** merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 그 카드들의 `notes` 반영(`silent`·첫 줄이 `# 잠수패치`인 `dev/notes` 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → (프로듀서의 "업데이트" 한마디가 승인) `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 status `done` + `ver`, `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기 → 채팅에 최종 소식안·배포 결과 → 남은 승인 대기로 테스트 판 다시 올리기(위 작업방 규칙 7과 같은 방법).
-- 메인방은 프로듀서가 말을 걸 때마다: 메모함(`ideas` status `new`)·`rework`가 있는 카드·`room_url` 없는 카드를 확인해서 분류·새 방 열기·전달.
+- 메인방은 프로듀서가 말을 걸 때마다: 메모함(`ideas` status `new`)·`rework`가 있는 카드·`room_url` 없는 카드를 확인해서 분류·새 방 열기·전달, 그리고 `meta/test`에 없는 승인 대기 갈래가 있으면 묶음 테스트 판을 다시 올린다.
 
 ## 테스트 아티팩트
-- 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에).
+- 메인: https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6 (배포 담당 방). 올리기: `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` (새 에셋이 있으면 그 경로만 files에). 아티팩트 한 판에 파일은 511개까지라 거의 찼다(10/30 509개) — 몬스터 효과음(`assets/sound/sfx/*.mp3`)은 `dev/build_test.py`가 페이지 안에 넣으므로 files에 넣지 않는다. 새 그림이 많으면 같은 방식으로 페이지에 넣거나 안 쓰는 파일을 `null`로 뺀다.
 - 메인 테스트 페이지에는 언제나 origin/main + 승인 대기 갈래 전부를 합친 판(`dev/stage_test.py`)을 올린다 — 마지막으로 끝낸 방이 올리고, 배포 뒤에는 메인방이 다시 올린다. 프로듀서 계정은 메인 테스트 페이지에만 있다.
 - (예전 방식 · 쓰지 않음) 작업방 전용 새로 만들기: `python3 dev/build_test.py` → 새 아티팩트 publish(`file_path=dev/out/publish.html`, `root=<저장소>`, `files=`첫 묶음 `python3 dev/asset_map.py 1` 출력) → 같은 url로 `files=`두 번째 묶음(`... 2`) → 그 뒤로는 `files={}`로 갱신.
 

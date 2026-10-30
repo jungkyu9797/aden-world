@@ -1,0 +1,408 @@
+<title>아덴 작업판</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 머리(메인방 열기) → 내 답변 필요 → 진행 중 → 승인 대기 → 업데이트 대기 → 업데이트 기록 → 메모함 */
+:root {
+  --bg: #eef0f3; --surface: #ffffff; --sunk: #e4e7ec; --ink: #1a1e26; --muted: #5d6676; --line: #d8dde5; --accent: #a3561a;
+  --doing: #2f6fd0; --wait: #c47d0e; --test: #7a4fd0; --ready: #1f8a52; --hold: #7d8594;
+  --c-new: #b8581b; --c-balance: #2f6fd0; --c-fix: #16806f; --c-bot: #7a4fd0;
+  --display: "Gowun Batang", "Noto Serif KR", serif; --body: "IBM Plex Sans KR", "Noto Sans KR", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11141a; --surface: #1a1f28; --sunk: #151920; --ink: #e6e9ef; --muted: #98a1b0; --line: #2b3240; --accent: #e09a4a;
+  --doing: #6aa2ff; --wait: #f0b24a; --test: #b394ff; --ready: #4fcf8a; --hold: #9aa2b0;
+  --c-new: #f0a060; --c-balance: #7fb0ff; --c-fix: #5fd0bc; --c-bot: #b8a0ff; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11141a; --surface: #1a1f28; --sunk: #151920; --ink: #e6e9ef; --muted: #98a1b0; --line: #2b3240; --accent: #e09a4a;
+  --doing: #6aa2ff; --wait: #f0b24a; --test: #b394ff; --ready: #4fcf8a; --hold: #9aa2b0;
+  --c-new: #f0a060; --c-balance: #7fb0ff; --c-fix: #5fd0bc; --c-bot: #b8a0ff; color-scheme: dark }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+@media (max-width: 520px) { .sh h2 { flex-wrap: wrap } .sh h2 small { flex-basis: 100% } }
+body { background: var(--bg); color: var(--ink); font: 14px/1.55 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 72px; margin: 0 }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px }
+h1 { font: 700 30px/1.15 var(--display); margin: 0; letter-spacing: -0.5px }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 60ch }
+.hbtns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-variant-numeric: tabular-nums; max-width: 100%; overflow-wrap: anywhere }
+.live { color: var(--accent) }
+a.big, button.big { display: inline-flex; align-items: center; gap: 6px; font: 700 14px var(--body); color: #fff !important; background: var(--accent); border: 0; border-radius: 9px; padding: 9px 14px; text-decoration: none !important; cursor: pointer }
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px }
+@media (max-width: 640px) { .flow { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.flow a { display: grid; gap: 1px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--tc); border-radius: 10px; text-decoration: none; color: var(--ink) }
+.flow b { font: 700 26px/1.1 var(--body); color: var(--tc); font-variant-numeric: tabular-nums }
+.flow span { font-size: 12.5px; color: var(--muted) }
+section.stage { display: grid; gap: 10px; min-width: 0 }
+.sh { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px }
+.sh h2 { margin: 0; font-size: 17px; font-weight: 700; display: flex; align-items: baseline; gap: 8px }
+.sh h2 small { color: var(--muted); font-weight: 500; font-size: 12.5px }
+.cnt { font: 700 13px var(--mono); color: var(--tc, var(--muted)); background: color-mix(in srgb, var(--tc, var(--muted)) 13%, transparent); border-radius: 999px; padding: 1px 9px }
+.filters { display: flex; flex-wrap: wrap; gap: 6px }
+.fbtn { font: 600 12.5px var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; cursor: pointer }
+.fbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; align-items: start }
+.empty { color: var(--muted); font-size: 13px; padding: 10px 12px; background: var(--sunk); border-radius: 8px; margin: 0 }
+.card { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--tc, var(--line)); border-radius: 8px; padding: 10px 11px; display: grid; gap: 6px; min-width: 0 }
+.card h3 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; align-items: center }
+.tag { font-size: 11.5px; font-weight: 700; color: var(--cc); border: 1px solid color-mix(in srgb, var(--cc) 45%, transparent); border-radius: 5px; padding: 0 6px }
+.st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--tc); background: color-mix(in srgb, var(--tc) 12%, transparent); padding: 2px 9px; border-radius: 999px }
+.st i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block }
+.st.me { animation: pulse 2s ease-in-out infinite }
+@keyframes pulse { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tc) 22%, transparent) } }
+@media (prefers-reduced-motion: reduce) { .st.me { animation: none } }
+.next { font-size: 13px; overflow-wrap: anywhere }
+.next b { font-weight: 700; margin-right: 4px }
+.note { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap }
+.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--muted) }
+.foot a { color: var(--accent); font-weight: 600; text-decoration: none }
+.foot a:hover { text-decoration: underline }
+.room-btn { display: inline-flex; align-items: center; gap: 4px; font: 700 12.5px var(--body); color: #fff !important; background: var(--accent); border-radius: 7px; padding: 5px 10px; text-decoration: none !important }
+.pnote { width: 100%; min-height: 34px; resize: vertical; font: 13px/1.45 var(--body); color: var(--ink); background: var(--bg); border: 1px dashed var(--line); border-radius: 6px; padding: 6px 8px }
+.asks .card { border-left-width: 4px }
+/* 승인 대기 · 업데이트 대기: 번호 붙은 줄 → 누르면 펼침 */
+.rows { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none }
+.row { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; min-width: 0 }
+.row > button.rh { width: 100%; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; background: transparent; color: var(--ink); border: 0; padding: 10px 12px; cursor: pointer; font: inherit; border-radius: 9px }
+.row > button.rh:hover { background: color-mix(in srgb, var(--accent) 6%, transparent) }
+.num { font: 700 14px var(--mono); color: var(--tc); text-align: center; background: color-mix(in srgb, var(--tc) 12%, transparent); border-radius: 6px; padding: 2px 0 }
+.rt { min-width: 0 }
+.rt b { display: block; font-size: 14.5px; overflow-wrap: anywhere }
+.rt small { color: var(--muted); font-size: 12px }
+.chev { color: var(--muted); font-size: 13px }
+.rd { padding: 0 12px 12px 52px; display: grid; gap: 8px }
+@media (max-width: 520px) { .rd { padding-left: 12px } }
+.notes { margin: 0; padding-left: 18px; font-size: 13px; display: grid; gap: 3px }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+button.ok { background: var(--ready) }
+button.ghost, .ghost { background: transparent; color: var(--ink); border: 1px solid var(--line) }
+.rework { display: grid; gap: 6px }
+.rework textarea { width: 100%; min-height: 64px; font: 13px/1.45 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; resize: vertical }
+.hint { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere }
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--sunk); border-radius: 9px }
+.bar p { margin: 0; font-size: 13px; overflow-wrap: anywhere }
+details.more summary { cursor: pointer; color: var(--muted); font-size: 13px }
+.rel { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none }
+.rel details { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px }
+.rel summary { cursor: pointer; display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 10px; align-items: baseline }
+.rel .v { font: 700 14px var(--mono); color: var(--accent) }
+.rel .d { font-size: 12px; color: var(--muted) }
+.rel ul { margin: 8px 0 0; padding-left: 64px; font-size: 13px; display: grid; gap: 2px }
+@media (max-width: 520px) { .rel ul { padding-left: 18px } }
+button { font: 600 13px var(--body); color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer }
+button:disabled { opacity: .5; cursor: default }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.state { font-size: 12px; color: var(--muted) }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 30; background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 9px; font-weight: 600; max-width: calc(100% - 32px); box-shadow: 0 6px 18px rgba(0,0,0,.25) }
+/* 메모함 */
+.memo { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; min-width: 0 }
+@media (max-width: 860px) { .memo { grid-template-columns: minmax(0, 1fr) } }
+.memo h2 { margin: 0; font-size: 15px; font-weight: 700 }
+.ed { display: grid; gap: 10px; min-width: 0; align-content: start }
+.edhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px }
+input[type=text] { flex: 1; min-width: 0; font: 14px var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px }
+#m-title { width: 100%; font: 600 15px var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px }
+#m-text { width: 100%; min-height: 200px; resize: vertical; font: 14.5px/1.65 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-wrap: anywhere }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.sw { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); padding: 0; cursor: pointer }
+.sw[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface) inset }
+.tbtn { font: 600 12.5px var(--body); color: var(--ink); background: var(--sunk); border: 1px solid var(--line); border-radius: 7px; padding: 5px 10px; cursor: pointer }
+.tbtn[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent) }
+.tools input[type=range] { width: 90px }
+.canvas-wrap { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fbfaf7; touch-action: none }
+#m-cv { display: block; width: 100%; aspect-ratio: 5 / 3; cursor: crosshair; touch-action: none }
+.edfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px }
+.side { display: grid; gap: 14px; align-content: start; min-width: 0 }
+.side h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: .3px }
+.mlist { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none }
+.mitem { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 9px; align-items: center; padding: 7px; background: var(--sunk); border-radius: 8px; border: 1px solid transparent; cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100% }
+.mitem:hover, .mitem.on { border-color: var(--accent) }
+.mitem .th { width: 48px; height: 30px; border-radius: 4px; background: #fbfaf7 center/cover no-repeat; border: 1px solid var(--line) }
+.mitem .tx { min-width: 0 }
+.mitem b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.mitem small { color: var(--muted); font-size: 11.5px }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; margin-left: 4px }
+.view { display: grid; gap: 8px; padding: 10px; background: var(--sunk); border-radius: 8px }
+.view img { border-radius: 6px; border: 1px solid var(--line); background: #fbfaf7; max-width: 100% }
+.view p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere }
+.atts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none }
+.att { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 8px; background: var(--sunk); border: 1px solid var(--line); border-radius: 7px; font-size: 12.5px }
+.att img { width: 34px; height: 24px; object-fit: cover; border-radius: 3px }
+.att span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px }
+.att button { background: transparent; color: var(--muted); padding: 0 2px; font-size: 15px; line-height: 1 }
+.att .open { color: var(--accent); font-weight: 700; font-size: 12px }
+.memo.drag { outline: 2px dashed var(--accent); outline-offset: 4px }
+.view audio, .view video { width: 100% }
+.fab { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20; border-radius: 999px; padding: 11px 18px; box-shadow: 0 6px 18px rgba(0,0,0,.25); font-size: 14px }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>아덴 작업판</h1>
+      <p class="sub">메인방에서 말하면 Claude가 분류해서 방마다 동시에 작업해요. 끝난 건 승인 대기 → 승인하면 업데이트 대기 → 메인방에서 "업데이트" 한마디로 한 번에 배포.</p>
+    </div>
+    <div class="hbtns"><span id="live"></span><a class="big" id="main-room" data-main href="https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D" target="_blank" rel="noopener">메인방 열기 →</a></div>
+  </header>
+
+  <nav class="flow" id="flow" aria-label="단계별 개수"></nav>
+
+  <section class="stage asks" id="s-ask" hidden aria-label="내 답변 필요">
+    <div class="sh"><h2>내 답변 필요 <span class="cnt" style="--tc:var(--wait)" id="n-ask">0</span></h2><small class="state">그 방이 내 답을 기다려요 · 카드에 적거나 대화방에서 답해 주세요</small></div>
+    <div class="cards" id="ask"></div>
+  </section>
+
+  <section class="stage" id="s-doing" aria-label="진행 중">
+    <div class="sh"><h2>진행 중 <span class="cnt" style="--tc:var(--doing)" id="n-doing">0</span></h2><div class="filters" id="filters" role="group" aria-label="분류"></div></div>
+    <div class="cards" id="doing"></div>
+    <div id="hold"></div>
+  </section>
+
+  <section class="stage" id="s-ready" aria-label="승인 대기">
+    <div class="sh"><h2>승인 대기 <span class="cnt" style="--tc:var(--ready)" id="n-ready">0</span> <small>먼저 끝난 순서</small></h2><a class="big" id="test-btn" href="https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6" target="_blank" rel="noopener">테스트 페이지 열기 →</a></div>
+    <p class="hint" id="test-info"></p>
+    <ol class="rows" id="ready"></ol>
+  </section>
+
+  <section class="stage" id="s-queued" aria-label="업데이트 대기">
+    <div class="sh"><h2>업데이트 대기 <span class="cnt" style="--tc:var(--accent)" id="n-queued">0</span> <small>승인한 것 · 다음 업데이트에 같이 나가요</small></h2></div>
+    <ol class="rows" id="queued"></ol>
+    <div class="bar" id="go-bar"><p><b>최종 업데이트</b> — 메인방에 <b>"업데이트"</b>라고 쓰면 여기 있는 것 전부를 소식안과 함께 한 번에 배포해요.</p><a class="big" data-main href="https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D" target="_blank" rel="noopener">메인방에서 업데이트 →</a></div>
+  </section>
+
+  <section class="stage" aria-label="업데이트 기록">
+    <div class="sh"><h2>업데이트 기록</h2></div>
+    <ul class="rel" id="rel"><li class="empty">배포 기록이 아직 없어요.</li></ul>
+  </section>
+
+  <section class="memo" id="memo" aria-label="아이디어 메모장">
+    <div class="ed">
+      <div class="edhead"><h2>메모함 <small style="font-weight:500;color:var(--muted);font-size:12.5px">자리 비울 때 적어 두세요 — 메인방에 말을 걸면 Claude가 읽고 분류해서 작업으로 옮겨요</small></h2><button type="button" class="tbtn" id="m-new">새 메모</button></div>
+      <label for="m-title" hidden>제목</label>
+      <input type="text" id="m-title" placeholder="제목 (안 적어도 돼요)" maxlength="120" autocomplete="off">
+      <label for="m-text" hidden>내용</label>
+      <textarea id="m-text" placeholder="생각나는 대로 길게 적어 두세요. 스크린샷은 여기에 바로 붙여넣기(Ctrl+V)해도 돼요. 적는 동안 자동으로 임시저장돼요."></textarea>
+      <div class="tools" role="toolbar" aria-label="그림 도구">
+        <button type="button" class="tbtn" id="m-draw" aria-pressed="false">그림판 열기</button>
+        <label class="tbtn" for="m-file" style="cursor:pointer">파일 첨부</label><input type="file" id="m-file" multiple hidden>
+        <span id="m-tools" class="tools" hidden>
+          <button type="button" class="sw" data-c="#1b1f27" style="background:#1b1f27" aria-label="검정" aria-pressed="true"></button>
+          <button type="button" class="sw" data-c="#d23b2f" style="background:#d23b2f" aria-label="빨강" aria-pressed="false"></button>
+          <button type="button" class="sw" data-c="#e3921b" style="background:#e3921b" aria-label="주황" aria-pressed="false"></button>
+          <button type="button" class="sw" data-c="#2c8a4b" style="background:#2c8a4b" aria-label="초록" aria-pressed="false"></button>
+          <button type="button" class="sw" data-c="#2f63c9" style="background:#2f63c9" aria-label="파랑" aria-pressed="false"></button>
+          <button type="button" class="sw" data-c="#7b45c4" style="background:#7b45c4" aria-label="보라" aria-pressed="false"></button>
+          <label for="m-size" style="font-size:12px;color:var(--muted)">굵기</label><input type="range" id="m-size" min="1" max="24" value="4">
+          <button type="button" class="tbtn" id="m-eraser" aria-pressed="false">지우개</button>
+          <button type="button" class="tbtn" id="m-undo">되돌리기</button>
+          <button type="button" class="tbtn" id="m-clear">그림 모두 지우기</button>
+        </span>
+      </div>
+      <ul class="atts" id="m-atts"></ul>
+      <div class="canvas-wrap" id="m-cvw" hidden><canvas id="m-cv" width="1000" height="600" aria-label="그림판"></canvas></div>
+      <div class="edfoot"><span class="state" id="m-state">새 메모</span>
+        <span style="display:flex;gap:8px"><button type="button" class="ghost" id="m-del">이 메모 지우기</button><button type="button" id="m-send">완료 · 전달하기</button></span></div>
+    </div>
+    <div class="side">
+      <div><h3>임시저장된 메모</h3><ul class="mlist" id="m-drafts"><li class="state">아직 없어요.</li></ul></div>
+      <div><h3>전달한 메모</h3><ul class="mlist" id="ideas"><li class="state">아직 없어요.</li></ul><div id="m-view"></div></div>
+      <p class="state" id="state"></p>
+    </div>
+  </section>
+</div>
+<button type="button" class="fab" id="fab">✎ 메모</button>
+
+<script>
+const CAT = { new: ['신규 컨텐츠', 'var(--c-new)'], balance: ['밸런스', 'var(--c-balance)'], fix: ['오류·수정', 'var(--c-fix)'], bot: ['AI 봇', 'var(--c-bot)'] };
+const MAIN_ROOM = 'https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const ago = iso => { const t = Date.parse(iso); if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); if (m < 1) return '방금'; if (m < 60) return m + '분 전'; const h = Math.round(m / 60); if (h < 24) return h + '시간 전'; return Math.round(h / 24) + '일 전'; };
+const when = iso => { const t = Date.parse(iso); return t ? new Date(t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; };
+const safeUrl = u => /^https:\/\//.test(String(u || '')) ? String(u) : '';
+const nowIso = () => new Date().toISOString();
+let db = null, tasks = [], releases = [], live = null, testMeta = null, canWrite = false;
+const UI = { filter: 'all', open: null, rework: null };
+const stage = t => t.status === 'wait' ? 'ask' : (t.status === 'ready' || t.status === 'test') ? 'ready' : t.status === 'queued' ? 'queued' : t.status === 'done' ? 'done' : t.status === 'hold' ? 'hold' : 'doing';
+const catTag = t => { const c = CAT[t.cat] || CAT.fix; return `<span class="tag" style="--cc:${c[1]}">${c[0]}</span>`; };
+const silentTag = t => t.silent ? '<span class="tag" style="--cc:var(--muted)">잠수패치</span>' : '';
+const notesOf = t => Array.isArray(t.notes) ? t.notes : t.notes ? String(t.notes).split('\n').filter(Boolean) : [];
+function toast(msg) { let el = document.querySelector('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); } el.textContent = msg; clearTimeout(toast.t); toast.t = setTimeout(() => el.remove(), 3200); }
+
+let pendR = false;
+function render() { const ae = document.activeElement; if (ae && ae.matches('textarea[data-pn], textarea[data-rw]')) { pendR = true; return; } pendR = false;
+  const by = k => tasks.filter(t => stage(t) === k);
+  const ask = by('ask'), doing = by('doing'), hold = by('hold'), ready = by('ready'), queued = by('queued');
+  ready.sort((a, b) => String(a.readyAt || a.updated || '').localeCompare(String(b.readyAt || b.updated || '')));
+  queued.sort((a, b) => String(a.approvedAt || a.updated || '').localeCompare(String(b.approvedAt || b.updated || '')));
+  doing.sort((a, b) => String(b.updated || '').localeCompare(String(a.updated || '')));
+  $('live').innerHTML = live ? `<span class="chip live">지금 배포 v${esc(live.ver)}</span>` : '';
+  $('flow').innerHTML = [['s-ask', ask.length, '내 답변 필요', 'var(--wait)'], ['s-doing', doing.length, '진행 중', 'var(--doing)'], ['s-ready', ready.length, '승인 대기', 'var(--ready)'], ['s-queued', queued.length, '업데이트 대기', 'var(--accent)']]
+    .map(([id, n, l, c]) => `<a href="#${id}" style="--tc:${c}"><b>${n}</b><span>${l}</span></a>`).join('');
+  // 내 답변 필요
+  $('s-ask').hidden = !ask.length; $('n-ask').textContent = ask.length; $('ask').innerHTML = ask.map(t => card(t, true)).join('');
+  // 진행 중
+  const cnt = k => doing.filter(t => (t.cat || 'fix') === k).length;
+  $('filters').innerHTML = [['all', '전체', doing.length], ...Object.keys(CAT).map(k => [k, CAT[k][0], cnt(k)])].map(([k, l, n]) => `<button type="button" class="fbtn" data-f="${k}" aria-pressed="${UI.filter === k}">${l} ${n}</button>`).join('');
+  const D = UI.filter === 'all' ? doing : doing.filter(t => (t.cat || 'fix') === UI.filter);
+  $('n-doing').textContent = doing.length; $('doing').innerHTML = D.length ? D.map(t => card(t, false)).join('') : '<p class="empty">지금 진행 중인 작업 없음 · 메인방에 말하면 바로 시작해요</p>';
+  $('hold').innerHTML = hold.length ? `<details class="more"><summary>보류 ${hold.length}건</summary><div class="cards" style="margin-top:8px">${hold.map(t => card(t, false)).join('')}</div></details>` : '';
+  // 승인 대기
+  $('n-ready').textContent = ready.length; $('test-btn').hidden = !ready.length;
+  $('test-info').textContent = ready.length ? (testMeta && testMeta.at ? `테스트 페이지에는 승인 대기 ${ready.length}건이 모두 들어가요 · 마지막으로 올린 판: ${when(testMeta.at)}${testMeta.n != null ? ` (${testMeta.n}건 포함)` : ''} · 새 항목이 들어오면 열려 있는 테스트 페이지가 알아서 새로고침돼요` : `테스트 페이지에는 승인 대기 ${ready.length}건이 모두 들어가요 · 새 항목이 들어오면 열려 있는 테스트 페이지가 알아서 새로고침돼요`) : '';
+  $('ready').innerHTML = ready.length ? ready.map((t, i) => row(t, i + 1, 'ready')).join('') : '<li class="empty">승인할 게 없어요.</li>';
+  // 업데이트 대기
+  $('n-queued').textContent = queued.length; $('go-bar').hidden = !queued.length;
+  $('queued').innerHTML = queued.length ? queued.map((t, i) => row(t, i + 1, 'queued')).join('') : '<li class="empty">승인 대기에서 [승인]을 누르면 여기로 와요.</li>';
+  // 업데이트 기록
+  const done = tasks.filter(t => t.status === 'done');
+  $('rel').innerHTML = releases.length ? releases.map((r, i) => { const L = done.filter(t => +t.ver === +r.ver);
+    return `<li><details${i === 0 ? ' open' : ''}><summary><span class="v">v${esc(r.ver)}</span><span>${esc(r.title)}</span><span class="d">${esc(r.date || '')}</span></summary>${L.length ? `<ul>${L.map(t => `<li>${catTag(t)} ${esc(t.title)}${t.silent ? ' <small class="state">(잠수패치)</small>' : ''}</li>`).join('')}</ul>` : ''}</details></li>`; }).join('')
+    + (done.filter(t => !t.ver).length ? `<li><details><summary><span class="v">—</span><span>예전에 끝난 작업 ${done.filter(t => !t.ver).length}건</span><span></span></summary><ul>${done.filter(t => !t.ver).map(t => `<li>${catTag(t)} ${esc(t.title)}</li>`).join('')}</ul></details></li>` : '')
+    : '<li class="empty">배포 기록이 아직 없어요.</li>';
+  bind();
+}
+function card(t, ask) {
+  const s = stage(t), room = safeUrl(t.room_url), url = safeUrl(t.test);
+  const st = s === 'ask' ? ['내 답변 필요', 'var(--wait)', true] : s === 'hold' ? ['보류', 'var(--hold)', false] : [t.rework ? '수정 요청 받음' : (t.phase || '작업 중'), 'var(--doing)', false];
+  return `<article class="card" style="--tc:${st[1]}">
+    <div class="tags"><span class="st${st[2] ? ' me' : ''}" style="--tc:${st[1]}"><i></i>${esc(st[0])}</span>${catTag(t)}${silentTag(t)}</div>
+    <h3>${esc(t.title)}</h3>
+    ${t.next ? `<div class="next"><b>${ask ? '내가 할 일' : '다음'}</b>${esc(t.next)}</div>` : ''}
+    ${t.rework ? `<div class="note"><b>내 수정 요청:</b> ${esc(t.rework.text || '')}</div>` : ''}
+    ${t.note ? `<div class="note">${esc(t.note)}</div>` : ''}
+    ${canWrite && (ask || t.pnote) ? `<label><span hidden>내 메모</span><textarea class="pnote" data-pn="${esc(t.id)}" placeholder="여기에 답을 적으면 그 방이 읽어요 (바로 반영하려면 대화방에서 말해 주세요)">${esc(t.pnote || '')}</textarea></label>` : ''}
+    <div class="foot">${room ? `<a class="room-btn" href="${esc(room)}" target="_blank" rel="noopener">대화방 열기 →</a>` : '<span>대화방 준비 중</span>'}${t.room ? `<span>${esc(t.room)}</span>` : ''}${url && s !== 'doing' ? `<a href="${esc(url)}" target="_blank" rel="noopener">테스트</a>` : ''}<span>${esc(ago(t.updated))}</span></div>
+  </article>`;
+}
+function row(t, n, kind) {
+  const open = UI.open === t.id, room = safeUrl(t.room_url), N = notesOf(t), tc = kind === 'ready' ? 'var(--ready)' : 'var(--accent)';
+  const sub = kind === 'ready' ? `끝남 ${when(t.readyAt || t.updated)}` : `승인 ${when(t.approvedAt || t.updated)}`;
+  const rw = UI.rework === t.id;
+  return `<li class="row" style="--tc:${tc}"><button type="button" class="rh" data-open="${esc(t.id)}" aria-expanded="${open}"><span class="num">${n}</span><span class="rt"><b>${esc(t.title)}</b><small>${catTag(t)} ${silentTag(t)} ${esc(sub)}${t.room ? ' · ' + esc(t.room) : ''}</small></span><span class="chev">${open ? '접기 ▲' : '보기 ▼'}</span></button>
+    ${open ? `<div class="rd">
+      ${t.note ? `<div class="note">${esc(t.note)}</div>` : ''}
+      ${N.length ? `<div><b style="font-size:13px">업데이트 소식안</b><ul class="notes">${N.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : t.silent ? '<div class="hint">잠수패치라 업데이트 소식에는 안 나와요.</div>' : ''}
+      ${t.next && kind === 'ready' ? `<div class="next"><b>확인할 것</b>${esc(t.next)}</div>` : ''}
+      ${rw ? `<div class="rework"><label class="hint" for="rw-${esc(t.id)}">무엇을 고칠지 적어 주세요</label><textarea id="rw-${esc(t.id)}" data-rw="${esc(t.id)}"></textarea><div class="acts"><button type="button" data-rwsend="${esc(t.id)}">수정 요청 보내기</button><button type="button" class="ghost" data-rwcancel="1">취소</button></div><p class="hint">보낸 요청은 메인방에 말을 걸 때 그 방으로 전달돼요. 바로 고치려면 대화방에서 직접 말해도 돼요.</p></div>`
+        : `<div class="acts">${kind === 'ready' ? `${canWrite ? `<button type="button" class="ok" data-ok="${esc(t.id)}">승인</button><button type="button" class="ghost" data-rwopen="${esc(t.id)}">수정 요청</button>` : ''}<a class="room-btn" href="https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6" target="_blank" rel="noopener">테스트 페이지 →</a>` : canWrite ? `<button type="button" class="ghost" data-undo="${esc(t.id)}">승인 취소 (승인 대기로)</button>` : ''}${room ? `<a href="${esc(room)}" target="_blank" rel="noopener" class="hint">대화방 열기 →</a>` : ''}</div>`}
+    </div>` : ''}</li>`;
+}
+async function upd(id, data, okMsg) { if (!db) return; try { await db.doc('tasks/' + id).update(Object.assign({ updated: nowIso() }, data)); if (okMsg) toast(okMsg); } catch (e) { toast('저장하지 못했어요. 잠시 뒤 다시 해 주세요.'); } }
+function bind() {
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { UI.filter = b.dataset.f; render(); });
+  document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { UI.open = UI.open === b.dataset.open ? null : b.dataset.open; UI.rework = null; render(); });
+  document.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => { const id = b.dataset.ok; UI.open = null; upd(id, { status: 'queued', approvedAt: nowIso(), phase: '승인됨 · 업데이트 대기' }, '승인했어요 → 업데이트 대기'); });
+  document.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => { const id = b.dataset.undo; UI.open = null; upd(id, { status: 'ready', approvedAt: null, phase: '승인 대기' }, '승인 대기로 되돌렸어요'); });
+  document.querySelectorAll('[data-rwopen]').forEach(b => b.onclick = () => { UI.rework = b.dataset.rwopen; render(); setTimeout(() => { const t = document.querySelector('textarea[data-rw]'); if (t) t.focus(); }, 30); });
+  document.querySelectorAll('[data-rwcancel]').forEach(b => b.onclick = () => { UI.rework = null; render(); });
+  document.querySelectorAll('[data-rwsend]').forEach(b => b.onclick = () => { const id = b.dataset.rwsend, ta = document.querySelector(`textarea[data-rw="${CSS.escape(id)}"]`), text = (ta && ta.value || '').trim().slice(0, 2000); if (!text) { toast('고칠 내용을 적어 주세요'); return; }
+    UI.rework = null; UI.open = null; if (ta) ta.blur(); upd(id, { status: 'doing', phase: '수정 요청 받음', rework: { text, at: nowIso() }, pnote: text, pnoteAt: nowIso() }, '수정 요청을 남겼어요 → 진행 중'); });
+  document.querySelectorAll('textarea[data-pn]').forEach(t => { t.onchange = () => upd(t.dataset.pn, { pnote: t.value.slice(0, 2000), pnoteAt: nowIso() }, '메모를 남겼어요'); t.onblur = () => setTimeout(() => { if (pendR) render(); }, 50); });
+  document.querySelectorAll('textarea[data-rw]').forEach(t => { t.onblur = () => setTimeout(() => { if (pendR && document.activeElement !== t) render(); }, 200); });
+}
+async function start() {
+  try { db = await claude.use('db'); } catch (e) { db = null; }
+  if (!db) { $('flow').innerHTML = '<p class="empty">작업판 데이터를 열 수 없어요 (로그인한 상태에서 열어 주세요)</p>'; return; }
+  try { const u = await claude.use('user'); canWrite = u ? (u.can('data.write') !== false) : true; } catch (e) { canWrite = true; }
+  db.collection('tasks').onSnapshot(snap => { tasks = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); render(); }, () => toast('작업 목록 연결이 끊겼어요. 페이지를 새로 열어 주세요.'));
+  db.doc('meta/live').onSnapshot(d => { live = d.exists ? d.data() : null; render(); }, () => {});
+  db.doc('meta/test').onSnapshot(d => { testMeta = d.exists ? d.data() : null; render(); }, () => {});
+  db.doc('meta/main').onSnapshot(d => { const u = d.exists ? d.data().url : null; if (u && /^https:\/\/claude\.ai\//.test(u)) document.querySelectorAll('a[data-main]').forEach(el => { el.href = u; }); }, () => {});   // 메인방이 바뀌면(교대) 버튼 주소도 따라감
+  db.collection('releases').orderBy('at', 'desc').limit(12).onSnapshot(snap => { releases = snap.docs.map(d => d.data()); render(); }, () => {});
+  memoStart();
+}
+
+// ---------- 아이디어 메모장: 글 + 그림, 적는 동안 임시저장(내 계정에만), 완료하면 전달(공유 목록 ideas) ----------
+const M = { uid: null, col: null, id: null, drawn: false, dirty: false, saving: false, again: false, t: 0, undo: [], color: '#1b1f27', erase: false, open: false, drafts: [], viewId: null };
+const PAPER = '#fbfaf7', cv = $('m-cv'), g = cv.getContext('2d');
+function paper() { g.save(); g.globalCompositeOperation = 'source-over'; g.fillStyle = PAPER; g.fillRect(0, 0, cv.width, cv.height); g.restore(); }
+paper();
+const LS = 'aden_memo_draft';
+function lsSave() { try { localStorage.setItem(LS, JSON.stringify(snapshot())); } catch (e) {} }
+function lsLoad() { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { return null; } }
+function imgOut() { if (!M.drawn) return ''; let q = 0.82, out = cv.toDataURL('image/webp', q); while (out.length > 190000 && q > 0.3) { q -= 0.12; out = cv.toDataURL('image/webp', q); } if (out.length > 190000) { const c2 = document.createElement('canvas'); c2.width = 600; c2.height = 360; c2.getContext('2d').drawImage(cv, 0, 0, 600, 360); out = c2.toDataURL('image/webp', 0.7); } return out; }
+function snapshot() { return { id: M.id, atts: M.atts.slice(0, 20), title: $('m-title').value.slice(0, 120), text: $('m-text').value.slice(0, 40000), img: imgOut(), updated: new Date().toISOString() }; }
+function setState(t) { $('m-state').textContent = t; }
+function grow() { const t = $('m-text'); t.style.height = 'auto'; t.style.height = Math.max(200, t.scrollHeight + 4) + 'px'; }
+function hasContent() { return $('m-title').value.trim() || $('m-text').value.trim() || M.drawn || M.atts.length; }
+function touch() { M.dirty = true; setState('적는 중…'); clearTimeout(M.t); M.t = setTimeout(save, 1200); lsSave(); }
+async function save() { if (!M.dirty || !hasContent()) return; if (M.saving) { M.again = true; return; } if (!db || !M.col) { setState('이 기기에만 임시저장됨'); return; }
+  M.saving = true; M.dirty = false; if (!M.id) M.id = 'm' + Date.now().toString(36);
+  const d = snapshot(); d.kind = 'memo';
+  try { await M.col.doc(M.id).set(d); setState('임시저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })); } catch (e) { M.dirty = true; setState('임시저장 실패 — 이 기기에는 남아 있어요'); }
+  M.saving = false; if (M.again) { M.again = false; save(); } }
+function openDraw(on) { M.open = on; $('m-cvw').hidden = !on; $('m-tools').hidden = !on; $('m-draw').setAttribute('aria-pressed', on); $('m-draw').textContent = on ? '그림판 닫기' : '그림판 열기'; }
+function loadImg(src) { paper(); M.drawn = false; M.undo = []; if (!src) return; const im = new Image(); im.onload = () => { g.drawImage(im, 0, 0, cv.width, cv.height); M.drawn = true; }; im.src = src; openDraw(true); }
+function fill(d) { M.id = d && d.id || null; M.atts = (d && Array.isArray(d.atts)) ? d.atts.slice() : []; renderAtts(); $('m-title').value = d && d.title || ''; $('m-text').value = d && d.text || ''; grow(); loadImg(d && d.img); if (!(d && d.img)) openDraw(false); M.dirty = false; setState(M.id ? '임시저장된 메모를 열었어요' : '새 메모'); renderDrafts(); }
+async function newMemo() { if (M.dirty) await save(); fill(null); lsSave(); $('m-text').focus(); }
+// 그림
+let drawing = null;
+function pos(ev) { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * cv.width / r.width, (ev.clientY - r.top) * cv.height / r.height]; }
+cv.addEventListener('pointerdown', ev => { ev.preventDefault(); try { cv.setPointerCapture(ev.pointerId); } catch (e) {} if (M.undo.length > 14) M.undo.shift(); M.undo.push(cv.toDataURL('image/png')); drawing = pos(ev); g.lineCap = g.lineJoin = 'round'; g.strokeStyle = M.erase ? PAPER : M.color; g.lineWidth = (+$('m-size').value) * (M.erase ? 3 : 1); g.beginPath(); g.moveTo(drawing[0], drawing[1]); g.lineTo(drawing[0] + 0.01, drawing[1]); g.stroke(); });
+cv.addEventListener('pointermove', ev => { if (!drawing) return; const p = pos(ev); g.beginPath(); g.moveTo(drawing[0], drawing[1]); g.lineTo(p[0], p[1]); g.stroke(); drawing = p; });
+const endStroke = () => { if (!drawing) return; drawing = null; M.drawn = true; touch(); };
+cv.addEventListener('pointerup', endStroke); cv.addEventListener('pointercancel', endStroke);
+document.querySelectorAll('.sw').forEach(b => b.addEventListener('click', () => { M.color = b.dataset.c; M.erase = false; $('m-eraser').setAttribute('aria-pressed', 'false'); document.querySelectorAll('.sw').forEach(x => x.setAttribute('aria-pressed', x === b)); }));
+$('m-eraser').addEventListener('click', () => { M.erase = !M.erase; $('m-eraser').setAttribute('aria-pressed', M.erase); });
+$('m-undo').addEventListener('click', () => { const u = M.undo.pop(); if (!u) return; const im = new Image(); im.onload = () => { paper(); g.drawImage(im, 0, 0); touch(); }; im.src = u; });
+$('m-clear').addEventListener('click', () => { M.undo.push(cv.toDataURL('image/png')); paper(); M.drawn = false; touch(); });
+$('m-draw').addEventListener('click', () => openDraw(!M.open));
+$('m-title').addEventListener('input', touch); $('m-text').addEventListener('input', () => { grow(); touch(); });
+$('m-new').addEventListener('click', newMemo);
+$('fab').addEventListener('click', () => { $('memo').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); setTimeout(() => $('m-text').focus(), 350); });
+$('m-del').addEventListener('click', async () => { const id = M.id, gone = M.atts.slice(); fill(null); for (const a of gone) attDel(a.id); try { localStorage.removeItem(LS); } catch (e) {} if (id && M.col) { try { await M.col.doc(id).delete(); } catch (e) { $('state').textContent = '지우지 못했어요.'; } } });
+$('m-send').addEventListener('click', async () => { if (!hasContent()) { setState('적은 내용이 없어요'); return; } if (!db) { setState('지금은 전달할 수 없어요 (작업판 데이터 연결 안 됨)'); return; }
+  clearTimeout(M.t); const d = snapshot(), id = M.id; $('m-send').disabled = true; setState('전달하는 중…');
+  try { await db.collection('ideas').add({ title: d.title, text: d.text, img: d.img, atts: d.atts || [], at: new Date().toISOString(), status: 'new' }); if (id && M.col) { try { await M.col.doc(id).delete(); } catch (e) {} } fill(null); try { localStorage.removeItem(LS); } catch (e) {} setState('전달했어요. 메인방에 말을 걸면 Claude가 확인해서 작업으로 옮겨요.'); }
+  catch (e) { setState('전달하지 못했어요. 내용은 임시저장돼 있으니 잠시 뒤 다시 눌러 주세요.'); M.dirty = true; save(); }
+  $('m-send').disabled = false; });
+function thumb(img) { return img ? `style="background-image:url('${String(img).replace(/'/g, '%27')}')"` : ''; }
+function renderDrafts() { const L = M.drafts; $('m-drafts').innerHTML = L.length ? L.map(d => `<li><button type="button" class="mitem${d.id === M.id ? ' on' : ''}" data-open="${esc(d.id)}"><span class="th" ${thumb(d.img)}></span><span class="tx"><b>${esc(d.title || (d.text || '').split('\n')[0] || '(그림 메모)')}</b><small>${esc(when(d.updated))}</small></span></button></li>`).join('') : '<li class="state">아직 없어요.</li>';
+  document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', async () => { if (M.dirty) await save(); const d = M.drafts.find(x => x.id === b.dataset.open); if (d) fill(d); })); }
+const IST = { new: ['확인 전 · Claude가 아직 안 읽음', 'var(--wait)'], taken: ['읽음 · 작업판 카드로 옮김', 'var(--doing)'], done: ['반영 완료', 'var(--ready)'] };
+let IDEAS = [];
+function renderIdeas() { $('ideas').innerHTML = IDEAS.length ? IDEAS.map(d => { const st = IST[d.status] || IST.new; return `<li><button type="button" class="mitem${d.id === M.viewId ? ' on' : ''}" data-view="${esc(d.id)}"><span class="th" ${thumb(d.img)}></span><span class="tx"><b>${esc(d.title || (d.text || '').split('\n')[0] || '(그림 메모)')}</b><small>${esc(when(d.at))}<span class="pill" style="color:${st[1]}">${st[0]}</span></small></span></button></li>`; }).join('') : '<li class="state">아직 없어요.</li>';
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { M.viewId = M.viewId === b.dataset.view ? null : b.dataset.view; renderIdeas(); }));
+  const v = IDEAS.find(x => x.id === M.viewId); $('m-view').innerHTML = v ? `<div class="view">${v.title ? `<b>${esc(v.title)}</b>` : ''}${v.text ? `<p>${esc(v.text)}</p>` : ''}${v.img ? `<img src="${esc(v.img)}" alt="메모 그림">` : ''}${(v.atts || []).length ? `<ul class="atts">${v.atts.map(attChip(false)).join('')}</ul><div id="att-show"></div>` : ''}${v.task ? `<small style="color:var(--muted)">옮긴 카드: ${esc((tasks.find(t => t.id === v.task) || {}).title || v.task)}</small>` : ''}</div>` : ''; bindAttOpen(); }
+
+// ---------- 첨부 파일: 작업판 데이터에 조각으로 저장 (att/<id> 정보 + attc/<id>_<n> 조각) · 이미지는 미리보기 · 소리·영상은 눌러서 재생 ----------
+M.atts = [];
+const CH = 180000, MAXF = 10 * 1024 * 1024;
+const kb = n => n > 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB';
+const attChip = editable => a => `<li class="att">${a.thumb ? `<img src="${esc(a.thumb)}" alt="">` : ''}<span title="${esc(a.name)}">${esc(a.name)}</span><small>${kb(a.size || 0)}</small>${editable ? `<button type="button" data-rm="${esc(a.id)}" aria-label="첨부 빼기">×</button>` : `<button type="button" class="open" data-op="${esc(a.id)}">열기</button>`}</li>`;
+function renderAtts() { const el = $('m-atts'); if (!el) return; el.innerHTML = (M.atts || []).map(attChip(true)).join(''); el.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.rm; M.atts = M.atts.filter(a => a.id !== id); renderAtts(); attDel(id); touch(); })); }
+function thumbOf(file) { return new Promise(res => { if (!/^image\//.test(file.type)) return res(''); const u = URL.createObjectURL(file), im = new Image(); im.onload = () => { const k = Math.min(1, 320 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL('image/webp', 0.7)); }; im.onerror = () => res(''); im.src = u; }); }
+const b64 = file => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(file); });
+async function attAdd(files) { if (!db) { setState('지금은 파일을 올릴 수 없어요 (작업판 데이터 연결 안 됨)'); return; }
+  for (const f of files) { if (f.size > MAXF) { setState(`${f.name}: 10MB까지만 올릴 수 있어요`); continue; }
+    const id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name = f.name || ('붙여넣은 그림.' + ((f.type.split('/')[1]) || 'png'));
+    try { setState(`${name} 올리는 중…`); const data = await b64(f), n = Math.ceil(data.length / CH), thumb = await thumbOf(f);
+      await db.doc('att/' + id).set({ name, type: f.type || 'application/octet-stream', size: f.size, n, at: new Date().toISOString() });
+      for (let i = 0; i < n; i++) { await db.doc('attc/' + id + '_' + i).set({ d: data.slice(i * CH, (i + 1) * CH) }); if (n > 3) setState(`${name} 올리는 중… ${Math.round((i + 1) / n * 100)}%`); }
+      M.atts.push({ id, name, type: f.type || '', size: f.size, thumb }); renderAtts(); touch(); setState(`${name} 첨부했어요`); }
+    catch (e) { setState(`${name}: 올리지 못했어요. 잠시 뒤 다시 해 주세요.`); } } }
+async function attDel(id) { if (!db || !id) return; try { const m = await db.doc('att/' + id).get(); const n = m.exists ? (m.data().n || 0) : 0; for (let i = 0; i < n; i++) await db.doc('attc/' + id + '_' + i).delete(); await db.doc('att/' + id).delete(); } catch (e) {} }
+async function attBlob(id) { const m = await db.doc('att/' + id).get(); if (!m.exists) throw 0; const { n, type } = m.data(); let s = ''; for (let i = 0; i < n; i++) { const c = await db.doc('attc/' + id + '_' + i).get(); s += c.exists ? c.data().d : ''; }
+  const bin = atob(s), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Blob([u8], { type: type || 'application/octet-stream' }); }
+function bindAttOpen() { document.querySelectorAll('[data-op]').forEach(b => b.addEventListener('click', async () => { const box = $('att-show'); if (!box) return; box.textContent = '불러오는 중…';
+  try { const bl = await attBlob(b.dataset.op), u = URL.createObjectURL(bl), t = bl.type;
+    box.innerHTML = /^image\//.test(t) ? `<img src="${u}" alt="첨부 그림">` : /^audio\//.test(t) ? `<audio controls src="${u}"></audio>` : /^video\//.test(t) ? `<video controls src="${u}"></video>` : /^text\//.test(t) ? `<p>${esc((await bl.text()).slice(0, 20000))}</p>` : '<small>이 파일은 여기서 미리 볼 수 없어요. Claude는 그대로 받아서 써요.</small>'; }
+  catch (e) { box.textContent = '파일을 불러오지 못했어요.'; } })); }
+$('m-file').addEventListener('change', ev => { const fs = [...ev.target.files]; ev.target.value = ''; attAdd(fs); });
+$('m-text').addEventListener('paste', ev => { const fs = [...(ev.clipboardData && ev.clipboardData.files || [])]; if (fs.length) { ev.preventDefault(); attAdd(fs); } });
+$('memo').addEventListener('dragover', ev => { ev.preventDefault(); $('memo').classList.add('drag'); });
+$('memo').addEventListener('dragleave', () => $('memo').classList.remove('drag'));
+$('memo').addEventListener('drop', ev => { ev.preventDefault(); $('memo').classList.remove('drag'); const fs = [...(ev.dataTransfer && ev.dataTransfer.files || [])]; if (fs.length) attAdd(fs); });
+async function memoStart() {
+  const local = lsLoad(); if (local && (local.title || local.text || local.img)) { fill(local); M.dirty = true; } else fill(null);
+  try { const u = await claude.use('user'); if (u) { M.uid = await u.id(); M.col = db.collection('data/users/' + M.uid); } } catch (e) { M.col = null; }
+  if (M.col) M.col.onSnapshot(snap => { M.drafts = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(d => d.kind === 'memo').sort((a, b) => String(b.updated).localeCompare(String(a.updated))); renderDrafts(); }, () => {});
+  if (M.dirty) save();
+  db.collection('ideas').orderBy('at', 'desc').limit(40).onSnapshot(snap => { IDEAS = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); renderIdeas(); }, () => {});
+}
+start();
+</script>
