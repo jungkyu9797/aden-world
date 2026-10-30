@@ -2146,7 +2146,20 @@ function desertFx(g, vw, vh) { if (!ISLE || !ISLE.def.sand) return; const dk = D
   if (dk > 0.05) { g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgba(110,140,210,${Math.min(1, dk) * 0.55})`; g.fillRect(0, 0, vw, vh); }
   g.restore(); }
 // v144: 몬스터 한 마리 그리기 (필드 몬스터 · 소환수 · 다른 사람 화면의 소환수 공용)
-function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && f.kind.startsWith('tw_'))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
+// 10/30 프로듀서: 내가 고른 대상(몹·AI 봇)은 생김새를 따라 빨간 테두리 — 몸을 작은 캔버스에 한 번 그려서 빨간 실루엣을 사방으로 조금씩 밀어 깐 뒤 몸을 위에 얹음
+const TGO = { c: null, c2: null, k: 0, f: '' };   // f: 그림자처럼 반투명한 부분은 테두리에서 빼는 SVG 필터(알파 문턱)
+function tgoFilter() { if (TGO.f) return TGO.f; try { const ns = 'http://www.w3.org/2000/svg', s = document.createElementNS(ns, 'svg'); s.setAttribute('width', '0'); s.setAttribute('height', '0'); s.style.position = 'absolute'; s.setAttribute('aria-hidden', 'true'); s.innerHTML = '<filter id="tgoA" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncA type="linear" slope="5" intercept="-2.6"/></feComponentTransfer></filter>'; document.body.appendChild(s); TGO.f = 'url(#tgoA)'; } catch (e) { TGO.f = 'none'; } return TGO.f; }
+function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] || {}, big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = Math.round(260 * Math.min(2.4, big)), H = Math.round(300 * Math.min(2.4, big)), ox = W / 2, oy = H * 0.78, k = Math.min(2, Math.max(1, curZ || 1));
+  let c = TGO.c, c2 = TGO.c2; if (!c) { c = TGO.c = document.createElement('canvas'); c2 = TGO.c2 = document.createElement('canvas'); }
+  const cw = Math.ceil(W * k), ch = Math.ceil(H * k); if (c.width !== cw || c.height !== ch) { c.width = c2.width = cw; c.height = c2.height = ch; }
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
+  drawMobBody(x, f); x.setTransform(1, 0, 0, 1, 0, 0);
+  const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
+  const d = 4 / (curZ || 1), L = px - ox, T = py - oy; /* 10/30 프로듀서: 테두리 2배 두껍게 (2px → 4px) */ g.save(); g.globalAlpha = 0.8 + 0.2 * Math.sin(time * 6);
+  for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; g.drawImage(c2, L + Math.cos(a) * d, T + Math.sin(a) * d, W, H); } g.drawImage(c2, L + d * 0.5, T, W, H); g.drawImage(c2, L - d * 0.5, T, W, H);   /* 두꺼워져도 둥글게: 12방향 + 안쪽 2번 */
+  g.restore(); g.drawImage(c, L, T, W, H); }
+function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO.busy = true; try { drawTgtOutline(g, f); } finally { TGO.busy = false; } return; }   /* 고른 대상은 빨간 테두리 (안에서 다시 이 함수를 부름) */
+  if (f.bot || f.twr || (f.kind && f.kind.startsWith('tw_'))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
     const sheetAtk = S.art==='sheet' && !f.dead && f.atkT!=null; mobPose(f, sheetAtk?0.5:1);
     const al=f.dead?Math.max(0,1-f.deadT/1.4):1, fl=f.flash>0?'brightness(2.6) saturate(0)':MP.red?'sepia(.55) saturate(2.4) hue-rotate(-38deg) brightness(1.08)':null;
     g.save(); g.translate(Math.round(x+MP.lx), Math.round(y+MP.ly)); if (MP.rot) g.rotate(MP.rot); if (MP.sx!==1||MP.sy!==1) g.scale(MP.sx,MP.sy);
