@@ -21,12 +21,13 @@
   - 소리: `dev/sfx/fn_sfx.py`처럼 numpy로 합성 → `assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3` → `MSFX`의 `has` 목록에 몹 이름 추가(보스 스킬음이 있으면 `K2`에도).
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
-## 지금 상태 (10/30 10:40 KST)
-- **10/30 작업 방식 바뀜(프로듀서 결정): 방 하나.** 새 작업방(create_trigger)을 열지 않고 메인방 안에서 보조 작업자(Agent)로 동시에 작업. 작업판은 현황판(대화방 열기 버튼 뺌, 작업판 v10). 자세한 건 CLAUDE.md '작업판 운영'.
-- 마지막 배포 **v190**.
-- **승인 대기**: `firenest` 화룡의 둥지. 10/30 메인방이 work/firenest에 최신 main(v190)을 합쳤음(충돌 없음 · GAME_VER 190 · 테스트 통과) → 배포 때 그대로 합치면 됨. 묶음 테스트 판 6249eab0f0fd. 화둥 작업방(https://claude.ai/code/session_01PSbXoBvKAHzsPfe3GYuL7F)은 프로듀서가 아직 쓰는 중(몬스터 이름 바꿈 등) — 그 방 push가 오면 묶음 판 다시 올리기.
-- **내 답변 필요**: `aibot` (① 수호탑 봇 다듬기 ② 필드 봇 1단계(추천, 8번 지역) ③ PvP 규칙) · `polymon` 몬스터 변신 20종 — 그림이 따로 있는 35종 중 고르기. 정해지면 메인방에서 보조 작업자로 진행.
-- 정리: 예전 메인방 예약 알림(trig_01Tc8yQBN8ZhUFwrByCxWq2t) 끔. 끝난 갈래(work/admany·aibot·alchauto·arkaprice·fix·halloween·summon, release/v189)는 지우려 했으나 이 환경에서 원격 갈래 삭제가 막힘(403) — 프로듀서가 GitHub에서 지우거나 그대로 둬도 무방.
+## 지금 상태 (10/30 15:30 KST)
+- 작업 방식: 방 하나(메인방 + 보조 작업자 Agent, 동시 작업은 `isolation: worktree` + 서로 다른 `KT_PORT`). 끝나면 `git worktree remove --force` (그래야 main 폴더에서 그 갈래를 checkout 가능).
+- 마지막 배포 **v191** (바닥 아이템 10분·50개 · 장비 이펙트 켬/끔 · 접속자 정보 창). 원래 컴퓨터 게임 폴더에는 아직 못 넣음(이 방은 클라우드 — 컴퓨터 연결 없음).
+- **승인 대기 6개**: firenest(화룡의 둥지 + 40마리 + 이프리트 + 피닉스의 가호) · firecraft(화룡 장비 7종, 심장 포함 — firenest 위에 있음, 같이 배포) · crafttip · pvphit · aibot(혈맹 + 필드 봇 1단계) · polymon(`work/polygacha`, 변신 카드 1단계).
+  - 서로 충돌하는 곳이 있어 테스트 판은 다 합친 `work/stage-all`로 올림(`stage_test.py work/stage-all`). 배포 때 겹치는 곳: crafttip↔firecraft(CRAFT.render 가호 행 — 피닉스 가호 gonoff 행에 pvA/tipA 붙이기), aibot↔firenest(killCheck 맨 앞 FBOT + 피닉스 phxAsh 줄, 몹 공격 LT.fb → FBOT.mobHit + lavaSlow 줄). `git config rerere.enabled true`로 해결 기록해 둠.
+  - firenest 배포 때 `dev/notes/firenest.md`의 "(나중에 제작 재료)" → "(화룡 장비 제작 재료)"로 고칠 것(작업판 카드 notes는 고쳐 둠).
+- 다음 할 일 후보: 변신 카드 2단계(합성·도감 보너스·봉투), 필드 봇 2단계(30 vs 30 필드전·무인 지역 결과), 라인 봇 가호 하루 상한 여부, 화둥 무기 3종 원래 리니지 이름 무기(진명황의 집행검 등) 오리지널 그림 제안함(답 없음).
 
 ## 메인방 도구·요령
 - 묶음 테스트 판: 작업판에서 ready·test·queued 카드의 branch → `python3 dev/stage_test.py <갈래들>` → 테스트 아티팩트(https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6) publish `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` → 테스트 db `tbuild/cur` = build.json의 {id, at, n} → 작업판 db `meta/test` = 같은 값 + branches. (다른 대화에서 처음 올릴 때는 먼저 Artifact read 한 번 — 페이지가 4.5MB라 읽기가 막히면 publish를 바로 해 보고, 거절되면 돌려준 판 위에 다시 올린다.)
