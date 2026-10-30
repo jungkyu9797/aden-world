@@ -16,7 +16,7 @@ async function relog(p, acc, cls, name, mp) { await p.goto(URL + (mp ? '?mp=bc' 
   { const r = await p.evaluate(() => { const a = PCG.sim(200000), b = PCG.sim(20000, 11); return { a: a.g, per: a.per, no11: b.no11, b: b.g }; }), N = 200000, E = { 일반: 60, 고급: 30, 희귀: 8, 영웅: 1.8, 전설: 0.2 };
     const pc = k => r.a[k] / N * 100; console.log('rates', JSON.stringify(Object.fromEntries(Object.keys(E).map(k => [k, +pc(k).toFixed(3)]))));
     ok(Object.keys(E).every(k => Math.abs(pc(k) - E[k]) < Math.max(0.6, E[k] * 0.08)), '③ 등급 확률이 표(60/30/8/1.8/0.2)와 비슷');
-    ok(Math.abs(r.per.goblin / N * 100 - 10) < 0.5 && Math.abs((r.per.kaspar || 0) / N * 100 - 0.0667) < 0.04, '③ 같은 등급 안에서 같은 확률 (고블린 ' + (r.per.goblin / N * 100).toFixed(2) + '% · 카스파 ' + ((r.per.kaspar || 0) / N * 100).toFixed(3) + '%)');
+    ok(Math.abs(r.per.goblin / N * 100 - 10) < 0.5 && Math.abs((r.per.kaspar || 0) / N * 100 - 0.0333) < 0.025, '③ 같은 등급 안에서 같은 확률 (고블린 ' + (r.per.goblin / N * 100).toFixed(2) + '% · 카스파 ' + ((r.per.kaspar || 0) / N * 100).toFixed(3) + '%)');
     ok(r.no11 === 0, '② 11회 2만 번 모두 희귀 이상 1장 이상 (없음 ' + r.no11 + '번)');
     const t11 = Object.values(r.b).reduce((x, y) => x + y, 0); console.log('11회 등급', JSON.stringify(Object.fromEntries(Object.entries(r.b).map(([k, v]) => [k, +(v / t11 * 100).toFixed(2)])))); }
   // 특별상점 [변신 카드] 탭
@@ -82,7 +82,7 @@ async function relog(p, acc, cls, name, mp) { await p.goto(URL + (mp ? '?mp=bc' 
   // 도감 [변신 카드] 탭
   { await p.evaluate(() => { document.getElementById('shop').hidden = true; document.getElementById('btn-codex').click(); }); await p.waitForTimeout(300);
     await p.evaluate(() => [...document.querySelectorAll('#cdx-tabs .cdx-tab')].find(t => /변신 카드/.test(t.textContent)).click()); await p.waitForTimeout(900);
-    ok(await p.evaluate(() => document.querySelectorAll('#cdx-list .cdx-card').length) === 20, '도감 [변신 카드] 20종'); await p.screenshot({ path: 'dev/out/pg_codex.png' });
+    ok(await p.evaluate(() => document.querySelectorAll('#cdx-list .cdx-card').length) === 26, '도감 [변신 카드] 26종 (몬스터 20 + 소드·아크 6)'); await p.screenshot({ path: 'dev/out/pg_codex.png' });
     await p.evaluate(() => document.getElementById('codexwin').hidden = true); }
   // 다른 사람 화면: 같은 브라우저의 두 번째 창 (?mp=bc)
   { const q = await ctx.newPage(); q.on('pageerror', e => errs.push('B: ' + e.message)); await login(q, { cls: 'elf', name: 'pgB' + Date.now() % 1e4, mp: true });
