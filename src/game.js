@@ -293,7 +293,7 @@ function mobStatus(f){ const S=MOB[f.kind], L=[];
   if (f.slowT>0) L.push({ k:'slow', n:'슬로우 — 이동·공격 1.3배 느림', t:f.slowT, ty:'de', ic:'sk_slow' });
   if (f.galeUntil>time) L.push({ k:'gale', n:'스트라이커 게일 — 이 대상에게 쏘는 활 명중 +50%', t:f.galeUntil-time, ty:'de', ic:'sk_striker_gale' });
   if (f.pollUntil>time) L.push({ k:'poll', n:'폴루트 워터 — 받는 회복 50% 감소', t:f.pollUntil-time, ty:'de', ic:'sk_pollute_water' });
-  if (f.bleed) L.push({ k:'bleed', n:`출혈 — 초당 ${f.bleed.dps} 피해`, t:f.bleed.t, ty:'de' });
+  if (f.bleed) L.push({ k:'bleed', psn:f.bleed.psn, n:`${f.bleed.psn ? '독' : '출혈'} — 초당 ${f.bleed.dps} 피해`, t:f.bleed.t, ty:'de' });
   if (f.hitDn>0) L.push({ k:'hitdn', n:`명중 저하 −${f.hitDnV||0}`, t:f.hitDn, ty:'de' });
   if (f.regenOn) L.push({ k:'regen', n:'체력 회복 중 — 2분 동안 아무도 때리지 않음', ty:'buf' });
   if (nightUp(S)) L.push({ k:'night', n:'밤의 힘 — 공격력 1.5배 · 명중 +10%', ty:'buf' });
@@ -301,7 +301,7 @@ function mobStatus(f){ const S=MOB[f.kind], L=[];
 function stGlyph(g, q, x, y){ g.save(); g.translate(x,y); g.textAlign='center'; g.textBaseline='middle';
   if (q.k==='el'){ g.fillStyle=ATTR_C[q.el]; g.beginPath(); g.moveTo(0,-4.6); g.lineTo(4.6,0); g.lineTo(0,4.6); g.lineTo(-4.6,0); g.closePath(); g.fill(); g.fillStyle='#120e08'; g.font='900 5.5px "Noto Sans KR",sans-serif'; g.fillText(ATTR_N[q.el][0],0,0.4); }
   else if (q.k==='undead'){ g.fillStyle='#ece6d6'; g.beginPath(); g.arc(0,-1,3.6,0,7); g.fill(); g.fillRect(-2.3,1.4,4.6,2.7); g.fillStyle='#120e08'; g.fillRect(-2.1,-1.8,1.6,1.7); g.fillRect(0.5,-1.8,1.6,1.7); g.fillRect(-0.4,2.1,0.8,1.8); }
-  else if (q.k==='bleed'){ g.fillStyle='#ff4a4a'; g.beginPath(); g.moveTo(0,-4.6); g.bezierCurveTo(3.6,-0.4,3.6,4.2,0,4.2); g.bezierCurveTo(-3.6,4.2,-3.6,-0.4,0,-4.6); g.fill(); }
+  else if (q.k==='bleed'){ g.fillStyle=q.psn?'#7ad84a':'#ff4a4a'; g.beginPath(); g.moveTo(0,-4.6); g.bezierCurveTo(3.6,-0.4,3.6,4.2,0,4.2); g.bezierCurveTo(-3.6,4.2,-3.6,-0.4,0,-4.6); g.fill(); }
   else if (q.k==='hitdn'){ g.strokeStyle='#c9a0ff'; g.lineWidth=1.1; g.beginPath(); g.arc(0,-1.2,2.8,0,7); g.stroke(); g.fillStyle='#c9a0ff'; g.fillRect(-0.6,-1.8,1.2,1.2); g.beginPath(); g.moveTo(-2.6,2.2); g.lineTo(2.6,2.2); g.lineTo(0,4.8); g.closePath(); g.fill(); }
   else if (q.k==='regen'){ g.fillStyle='#6ae06a'; g.fillRect(-1.2,-4,2.4,8); g.fillRect(-4,-1.2,8,2.4); }
   else if (q.k==='night'){ g.fillStyle='#b8ccff'; g.beginPath(); g.arc(0,0,4,0,7); g.fill(); g.fillStyle='#0a0806'; g.beginPath(); g.arc(1.9,-1.3,3.3,0,7); g.fill(); }
@@ -559,7 +559,7 @@ function updateFox(f,dt){
       if (!f.regenOn) { f.regenOn = true; if (foxes.includes(f)) say(`${JOSA(S.name, '이', '가')} 상처를 회복하기 시작합니다!`, '#ff9a7a'); }
       if (f.hp >= f.max) { f.hp = f.max; f.dmgBy = null; f.regenOn = false; f.regenAt = 0; } } }
   if (f.hitDn>0) f.hitDn-=dt;   // 혼돈의 활: 명중 저하 시간
-  if (f.bleed && !(f.bindUntil>time)){ const B=f.bleed; B.t-=dt; B.acc+=dt; if (B.acc>=1){ B.acc-=1; addDmg(f,hero,Math.min(B.dps,Math.max(0,f.hp))); f.hp-=B.dps; f.flash=0.06; f.aggro=true; const [bx,by]=W2P(f.x,f.z); floatText(bx+8,by-headY(f)-4,String(B.dps),{color:'#ff5a5a',size:11}); killCheck(f); if (f.dead) return; } if (B.t<=0) f.bleed=null; }   // 출혈 (초당 피해)
+  if (f.bleed && !(f.bindUntil>time)){ const B=f.bleed; B.t-=dt; B.acc+=dt; if (B.acc>=1){ B.acc-=1; addDmg(f,hero,Math.min(B.dps,Math.max(0,f.hp))); f.hp-=B.dps; f.flash=0.06; f.aggro=true; const [bx,by]=W2P(f.x,f.z); floatText(bx+8,by-headY(f)-4,String(B.dps),{color:B.psn?'#9fe070':'#ff5a5a',size:11}); killCheck(f); if (f.dead) return; } if (B.t<=0) f.bleed=null; }   // 출혈 (초당 피해)
   if (f.slowT>0) f.slowT-=dt;
   if (f.stunT>0){ f.stunT-=dt; f.flash=Math.max(0,f.flash-dt); f.lunge=0; f.atkT=null; f.dingT=(f.dingT||0)-dt; if (f.dingT<=0&&f.stunT>0.05){ f.dingT=0.45; stunDing(f); } return; }
   f.flash=Math.max(0,f.flash-dt); f.cool=Math.max(0,f.cool-dt*(f.slowT>0?1/1.3:1)); if (f.atkT!=null){ f.atkT+=dt; if (f.atkT>=ATK_T) f.atkT=null; }
@@ -4324,10 +4324,11 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   const bossNear = () => foxes.some(f => !f.dead && !f.gone && f.aggro && !f.bot && MOB[f.kind] && MOB[f.kind].boss && cheb(f.i, f.j, hero.i, hero.j) <= 20);
   const sumMp = () => bossNear() ? SUMB.bossMp : SK.summon.mp;
   const sumLocked = () => { if (SUMLOCK && sumLive() === 0) SUMLOCK = false; return SUMLOCK; };
-  const SUM_TIER = [[52, 'dv_lizard'], [48, 'ettin'], [42, 'ice_golem'], [36, 'king_bugbear'], [30, 'cerberus'], [24, 'bugbear']];
+  const SUM_TIER = [[56, 'wyvern'], [52, 'dv_lizard'], [48, 'ettin'], [42, 'ice_golem'], [36, 'king_bugbear'], [30, 'cerberus'], [24, 'bugbear']];
   const sumKind = () => (SUM_TIER.find(t => hero.lv >= t[0]) || SUM_TIER[SUM_TIER.length - 1])[1];
   const sumCap = () => Math.max(1, Math.min(3, Math.floor(((INV.stat() || {}).cha || 0) / 4))), sumLive = () => L.filter(p => p.sum && !p.dead).length;
-  function sumDef(mk) { const id = 'sum_' + mk; if (!PET_KIND[id]) { const S = MOB[mk]; PET_KIND[id] = { name: S.name, hp: S.hp, hpLv: 0, dmg: [Math.max(1, Math.round(S.dmg[0] * 0.8)), Math.max(2, Math.round(S.dmg[1] * 0.8))], dmgLv: 0, hit: S.hit || 0.8, ac: S.mac ?? 5, spd: Math.max(3.4, S.run || 3), mob: mk, sum: true, lv: S.lv, cd: S.cd || 1.6 }; } return id; }
+  const SUM_X = { wyvern: { hp: 900, psn: 0.25, psnT: 5, psnK: 0.12 } };   // 10/30: Lv56 와이번 — 체력 보정 + 독 꼬리 (때릴 때 25% · 5초 동안 초당 평균 피해의 12%)
+  function sumDef(mk) { const id = 'sum_' + mk; if (!PET_KIND[id]) { const S = MOB[mk]; PET_KIND[id] = { name: S.name, hp: (SUM_X[mk] && SUM_X[mk].hp) || S.hp, hpLv: 0, dmg: [Math.max(1, Math.round(S.dmg[0] * 0.8)), Math.max(2, Math.round(S.dmg[1] * 0.8))], dmgLv: 0, hit: S.hit || 0.8, ac: S.mac ?? 5, spd: Math.max(3.4, S.run || 3), mob: mk, sum: true, lv: S.lv, cd: S.cd || 1.6 }; } return id; }
   function sumSpawn(mk, hpK) { if (!MOB[mk]) return null; const id = sumDef(mk), K = PET_KIND[id], d = { kind: id, name: K.name, lv: K.lv, exp: 0, hp: K.hp, maxhp: K.hp, inv: [null, null, null, null], state: 'out', mode: 'attack', haste: 0, hasteLv: 0 };
     { const tr = SUM_TIER.find(t => t[1] === mk), lk = 1 + SUMB.lv * Math.max(0, hero.lv - (tr ? tr[0] : hero.lv)); d.sh = lk * SUMB.hp; d.sd = lk * SUMB.dmg; d.maxhp = Math.round(K.hp * d.sh); if (SUMB.heroLv) d.lv = Math.max(d.lv, hero.lv); }
     d.hp = Math.max(1, Math.round(MXH(d) * (hpK == null ? 1 : Math.max(0.05, Math.min(1, hpK)))));
@@ -4409,7 +4410,8 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (!p.sum) petUse(p); stepMove(p, dt, K_(p).spd * GSPD * hm); if (p.atkT != null) { p.atkT += dt; if (p.atkT > (p.sum ? ATK_T : 0.5)) p.atkT = null; }
       if (p.lunge > 0) { const was = p.lunge; p.lunge -= dt; const T = p.target; if (was > 0.15 && p.lunge <= 0.15 && T && !T.dead && cheb(p.i, p.j, T.i, T.j) === 1) { const S = MOB[T.kind];
           if (Math.random() < petHit(d, S)) { const dm = S.boss ? Math.max(1, Math.round(petDmg(d) * (p.sum ? SUMB.bossK : 0.5))) : petDmg(d); sfxBite();   // v155: 펫·소환수가 보스에게 주는 피해 −50% (일반 몬스터는 그대로)
-            mobHurt(T, dm, '#ffd27a', p); if (!T.dead && (p.sum && SUMB.tank && S.boss ? !(T.tgt && T.tgt.sum && !T.tgt.dead) : Math.random() < 0.35)) T.tgt = p; }
+            mobHurt(T, dm, '#ffd27a', p); { const X = p.sum && SUM_X[p.kind]; if (X && X.psn && !T.dead && !T.bleed && Math.random() < X.psn) { const [a_, b_] = petRange(d); T.bleed = { t: X.psnT, dps: Math.max(1, Math.round((a_ + b_) / 2 * X.psnK)), acc: 0, psn: 1 }; const [fx, fy] = W2P(T.x, T.z); floatText(fx + 12, fy - headY(T) - 18, '독', { color: '#9fe070', size: 11 }); } }   // 와이번 소환수: 독 꼬리
+            if (!T.dead && (p.sum && SUMB.tank && S.boss ? !(T.tgt && T.tgt.sum && !T.tgt.dead) : Math.random() < 0.35)) T.tgt = p; }
           else { if (p.sum && SUMB.tank && S.boss && !T.dead && !(T.tgt && T.tgt.sum && !T.tgt.dead)) T.tgt = p; const [fx, fy] = W2P(T.x, T.z); floatText(fx, fy - headY(T) - 4, 'MISS', { color: '#c8d0d8', size: 10 }); } } }
       if (p.t < 1) continue;
       if (cheb(p.i, p.j, hero.i, hero.j) > 16 && d.mode !== 'rest') { place(p); continue; }
@@ -5436,7 +5438,7 @@ for (const [b, nm, st, txt] of GAHO_DEF) {
   const fill = () => { let all = true; for (const [b, , , , own] of GAHO_DEF) { if (got[b] || own) continue;   /* own: 직접 그린 아이콘 (피닉스) */ const u = face(b); put(b, u); if (u) got[b] = 1; else all = false; } return all; };
   if (!fill()) { const iv = setInterval(() => { if (fill()) clearInterval(iv); }, 1200); } }
 // v144: 서먼 몬스터 — 마법사 6서클 (Lv24 자동 습득 · 마법서 아이템 없음)
-SK.summon = { name: '서먼 몬스터', kind: 'magic', circle: 6, lv: CIRCLE_LV(6), mp: 30, cd: 3, desc: '몬스터를 불러내 함께 싸웁니다. 카리스마 4마다 1마리 (최대 3) · 레벨이 오를수록 강한 몬스터 (Lv24 버그베어 · 30 켈베로스 · 36 킹 버그베어 · 42 아이스 골렘 · 48 에틴 · 52 트롤) · 귀환·텔레포트해도 따라오고 시간 제한 없음 · 내가 쓰러지거나 소환수가 쓰러지면 사라짐 · 다 나와 있을 때 다시 쓰면 돌려보내기 · 소환수가 잡은 경험치·골드·드랍은 모두 나에게', book: '마법서: 서먼 몬스터', ready: true, cls: ['wizard'] };
+SK.summon = { name: '서먼 몬스터', kind: 'magic', circle: 6, lv: CIRCLE_LV(6), mp: 30, cd: 3, desc: '몬스터를 불러내 함께 싸웁니다. 카리스마 4마다 1마리 (최대 3) · 레벨이 오를수록 강한 몬스터 (Lv24 버그베어 · 30 켈베로스 · 36 킹 버그베어 · 42 아이스 골렘 · 48 에틴 · 52 트롤 · 56 와이번(독 꼬리)) · 귀환·텔레포트해도 따라오고 시간 제한 없음 · 내가 쓰러지거나 소환수가 쓰러지면 사라짐 · 다 나와 있을 때 다시 쓰면 돌려보내기 · 소환수가 잡은 경험치·골드·드랍은 모두 나에게', book: '마법서: 서먼 몬스터', ready: true, cls: ['wizard'] };
 wizCd('summon');   // 마법사 +1초
 CXI.sk_summon = '<defs><radialGradient id="g_sum" cx=".5" cy=".35" r=".85"><stop offset="0" stop-color="#e8c8ff"/><stop offset="1" stop-color="#2a0e4a"/></radialGradient></defs><rect x="2" y="2" width="30" height="30" rx="5" fill="url(#g_sum)" stroke="#120624" stroke-width="1"/><ellipse cx="17" cy="26" rx="11" ry="3.6" fill="none" stroke="#c890ff" stroke-width="1.4"/><path d="M9 26 L11 18 L14 21 L17 12 L20 21 L23 18 L25 26" fill="#3a1a5a" stroke="#e8d0ff" stroke-width="1"/><circle cx="14.6" cy="19.5" r="1.1" fill="#ff5a5a"/><circle cx="19.4" cy="19.5" r="1.1" fill="#ff5a5a"/><path d="M17 4 L18 8 L22 9 L18 10 L17 14 L16 10 L12 9 L16 8 Z" fill="#fff4c0" opacity=".9"/>';
 // v139: 마법사·요정 장비 — 기사 전용 장비가 있는 부위·등급에 법사·요정 장비 채움 (리니지 클래식 이름 우선 · AC 법사 ≈65% · 요정 ≈85% · 대신 MP·MR·지능 / 명중·민첩·바람 저항)
@@ -7808,7 +7810,7 @@ const NET = (() => {
       seenDmg.set(o.peer, mx); } }
   function follow(f, dt) { if (f.dead) { f.deadT += dt; return; }
     if (f.stunT > 0) { f.stunT -= dt; if (!(f.bindUntil > time)) { f.dingT = (f.dingT || 0) - dt; if (f.dingT <= 0 && f.stunT > 0.05) { f.dingT = 0.45; stunDing(f); } } } if (f.slowT > 0) f.slowT -= dt; if (f.hitDn > 0) f.hitDn -= dt;   // v139: 게스트 화면 상태 시간
-    if (f.bleed) { const B = f.bleed; B.t -= dt; B.acc = (B.acc || 0) + dt; if (B.acc >= 1) { B.acc -= 1; dmgMob(f, B.dps); const [bx, by] = W2P(f.x, f.z); floatText(bx + 8, by - headY(f) - 4, String(B.dps), { color: '#ff5a5a', size: 11 }); } if (B.t <= 0) f.bleed = null; }
+    if (f.bleed) { const B = f.bleed; B.t -= dt; B.acc = (B.acc || 0) + dt; if (B.acc >= 1) { B.acc -= 1; dmgMob(f, B.dps); const [bx, by] = W2P(f.x, f.z); floatText(bx + 8, by - headY(f) - 4, String(B.dps), { color: B.psn ? '#9fe070' : '#ff5a5a', size: 11 }); } if (B.t <= 0) f.bleed = null; }
     if (f.nx == null) return; const dx = f.nx - f.x, dz = f.nz - f.z, d = Math.hypot(dx, dz);
     if (d > 3) { f.x = f.nx; f.z = f.nz; } else if (d > 0.01) { const st = Math.min(d, dt * 4.2); f.x += dx / d * st; f.z += dz / d * st; f.dist = (f.dist || 0) + st; }
     f.i = f.fi = Math.floor(f.x); f.j = f.fj = Math.floor(f.z); f.t = d > 0.06 || f.netMove ? 0.5 : 1; f.flash = Math.max(0, f.flash - dt); if (f.atkT != null) { f.atkT += dt; if (f.atkT >= ATK_T) f.atkT = null; } }
