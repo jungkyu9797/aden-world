@@ -128,8 +128,8 @@ const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, e
     apply(o) { if (!o) return; set(o); SFX_ON = s.sfxOn; applySfxVol(); if (typeof TOWN !== 'undefined' && TOWN.setBgm) TOWN.setBgm(s.bgmOn); } }; })();
 SFX_ON = SND.get().sfxOn;
 function applySfxVol() { if (master) master.gain.value = SFX_ON ? 0.4 * SND.sfxK() : 0; }
-const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf','skeleton_archer','zombie','bugbear','cerberus','king_bugbear','baphomet','deathknight']), K2 = new Set(['deathknight']);   /* v179: 데스나이트 전용 합성음 (공격·스킬·피격·사망) */   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
-  const AL = { elmore_soldier: 'atuba_orc', elmore_warrior: 'orc_warrior', elmore_mage: 'orc_wizard', ettin: 'ogre', ice_golem: 'ogre', sabertooth: 'cerberus', ice_queen: 'orc_wizard', dg_kbugbear: 'king_bugbear', dg_cerberus: 'cerberus', ghoul: 'zombie', ungoliant: 'shelob', spartoi: 'skeleton_archer', necromancer: 'orc_wizard', kaspar: 'orc_wizard', merkyor: 'orc_wizard', balthazar: 'orc_wizard', sema: 'orc_wizard', dv_skel: 'skeleton_archer', dv_archer: 'skeleton_archer', dv_lizard: 'lizardman', wyvern: 'basilisk', drake: 'basilisk', lesser_dragon: 'baphomet', drake_king: 'baphomet', fn_warrior: 'orc_warrior', fn_archer: 'skeleton_archer', fn_golem: 'ogre', fn_fly: 'basilisk', fn_bomb: 'fire_ant', fn_salamander: 'basilisk', fn_hcerberus: 'cerberus', fn_ashtazio: 'baphomet', fn_egg: 'fire_ant', phoenix: 'baphomet' };
+const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf','skeleton_archer','zombie','bugbear','cerberus','king_bugbear','baphomet','deathknight','fn_warrior','fn_archer','fn_golem','fn_bomb','fn_egg','fn_fly','fn_ashtazio','phoenix']), K2 = new Set(['deathknight','fn_ashtazio','phoenix']);   /* v179: 데스나이트 전용 합성음 (공격·스킬·피격·사망) */   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
+  const AL = { elmore_soldier: 'atuba_orc', elmore_warrior: 'orc_warrior', elmore_mage: 'orc_wizard', ettin: 'ogre', ice_golem: 'ogre', sabertooth: 'cerberus', ice_queen: 'orc_wizard', dg_kbugbear: 'king_bugbear', dg_cerberus: 'cerberus', ghoul: 'zombie', ungoliant: 'shelob', spartoi: 'skeleton_archer', necromancer: 'orc_wizard', kaspar: 'orc_wizard', merkyor: 'orc_wizard', balthazar: 'orc_wizard', sema: 'orc_wizard', dv_skel: 'skeleton_archer', dv_archer: 'skeleton_archer', dv_lizard: 'lizardman', wyvern: 'basilisk', drake: 'basilisk', lesser_dragon: 'baphomet', drake_king: 'baphomet', fn_salamander: 'basilisk', fn_hcerberus: 'cerberus' };   /* v190: 화룡의 둥지 몹 소리는 dev/sfx/fn_sfx.py로 만든 전용 합성음 */
   const buf = {}, pend = {};   /* v124: 한 번만 받아서 해독해 두고 WebAudio로 재생 (재생할 때마다 Audio를 복제·해독하면 끊김) — 못 받으면 예전 방식 */
   function load(k) { if (pend[k]) return; pend[k] = fetch('assets/sound/sfx/' + k + '.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(a => new Promise((res, rej) => AC.decodeAudioData(a, res, rej))).then(b => { buf[k] = b; }).catch(() => { buf[k] = null; }); }
   return (kind, type, vol = 0.55) => { kind = AL[kind] || kind; if (type === 'skill') type = K2.has(kind) ? 'attack2' : 'attack'; if (!has.has(kind) || !AC) return false; if (!SFX_ON) return true; const k = kind + '_' + type, b = buf[k];
@@ -527,7 +527,7 @@ function updateFox(f,dt){
   if (S.boss) bossTalkTick(f, S, dt);
   if ((S.boss || S.skills) && bossSkills(f,S,dt)) return;
   if (f.t<1) return;
-  if (S.passive){ f.aggro=false; f.tgt=null; return; }   // 불새 알: 움직이지도 때리지도 않음
+  if (S.passive){ f.aggro=false; f.tgt=null; return; }   // 파이어 에그: 움직이지도 때리지도 않음
   const dh=cheb(f.i,f.j,hero.i,hero.j), dt_=cheb(f.i,f.j,TG.i,TG.j);
   if ((BUFF.invis>0 || DEATH) && f.aggro && !f.tgt) f.aggro=false;   // 투명: 나를 노리던 몬스터가 놓침
   if (!f.aggro && S.aggr && !(BUFF.invis>0) && dh>S.aggr){ const rp=NET.nearRemote(f, S.aggr); if (rp){ f.aggro=true; f.tgt=rp; } }
@@ -1875,31 +1875,56 @@ function prescaled(img, sc) { const W0 = img && (img.naturalWidth || img.width);
 // 임시로 물들인 몬스터(오크숲): 그릴 크기로 줄인 프레임을 한 번 물들여 저장 (매 프레임 filter는 아주 느림)
 const TFR = new Map();
 // 화룡의 둥지: 용암 피부 — 우리 스프라이트 위에 코드로 만든 용암 무늬(검붉은 바위 · 갈라진 틈이 빛남)를 입힘. 그림 원본 복사·트레이싱 없음 (무늬는 무작위 점으로 만든 보로노이 균열)
-//   mode 'rock' = 몸 전체가 용암 바위 (용암 골렘) · 'skin' = 그을린 몸에 빛나는 용암 균열만 (불꽃 전사·궁수)
+//   mode 'rock' = 몸 전체가 용암 바위 (용암 골렘) · 'skin' = 그을린 몸에 빛나는 용암 균열 (불꽃 전사·궁수)
+//   v2(10/30 다듬기): 2배로 그려 무늬를 만든 뒤 줄여 저장(가는 금까지 매끈) · 굵기가 바뀌는 큰 균열 + 가는 잔금 · 균열 주위 빛 번짐 · 원래 그림의 명암 유지(그늘진 쪽은 어둡게)
+//                     · 발밑 용암에 비친 테두리 빛 · 바위 판마다 식은 정도가 다름 · 무늬는 몸에 고정되고 밝기만 숨 쉬듯 일렁임
 let LAVA_TEX = null;
-function lavaTex() { if (LAVA_TEX) return LAVA_TEX; const N = 256, R = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(9091), P = [], H = [];
-  for (let i = 0; i < 520; i++) { P.push([R() * N, R() * N]); H.push(R()); }   // 작은 덩어리 520개 (덩어리마다 열기가 다름)
-  const rock = document.createElement('canvas'), crack = document.createElement('canvas'); rock.width = crack.width = N; rock.height = crack.height = N;
-  const gr = rock.getContext('2d'), gc = crack.getContext('2d'), A = gr.createImageData(N, N), B = gc.createImageData(N, N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { let d1 = 1e9, d2 = 1e9, id = 0;
-    for (let k = 0; k < P.length; k++) { let dx = Math.abs(x - P[k][0]); if (dx > 20 && dx < N - 20) continue; let dy = Math.abs(y - P[k][1]); if (dy > 20 && dy < N - 20) continue; if (dx > N / 2) dx = N - dx; if (dy > N / 2) dy = N - dy; const d = dx * dx + dy * dy; if (d < d1) { d2 = d1; d1 = d; id = k; } else if (d < d2) d2 = d; }
-    const e = Math.sqrt(d2) - Math.sqrt(d1), cr = Math.max(0, 1 - e / 2.2), hv = H[id], core = Math.max(0, 1 - Math.sqrt(d1) / 6) * (hv > .55 ? hv : hv * .35);
-    const heat = Math.min(1, Math.max(cr * .95, .12 + hv * .38 + core * .7)), i4 = (y * N + x) * 4;
-    A.data[i4] = 46 + 209 * Math.min(1, heat * 1.5); A.data[i4 + 1] = 10 + 200 * Math.pow(heat, 1.9); A.data[i4 + 2] = 5 + 70 * Math.pow(heat, 3.2); A.data[i4 + 3] = 255;
-    const hot = Math.min(1, Math.max(cr, core * .85)); B.data[i4] = 255; B.data[i4 + 1] = 70 + 170 * hot; B.data[i4 + 2] = 12 + 90 * Math.pow(hot, 3); B.data[i4 + 3] = Math.round(Math.pow(hot, 1.25) * 255); }
-  gr.putImageData(A, 0, 0); gc.putImageData(B, 0, 0); return (LAVA_TEX = { rock, crack, N }); }
-function lavaSkin(c, mode, fr, row) { const w = c.width, h = c.height, T = lavaTex(), g = c.getContext('2d'), tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; const t = tmp.getContext('2d');
-  const ox = -((fr * 4 + row * 37) % T.N), oy = -((fr * 3 + row * 53) % T.N);   // 동작 프레임마다 무늬가 조금씩 흘러 일렁임
-  let S = null; try { S = g.getImageData(0, 0, w, h).data; } catch (e) {}
-  const layer = src => { const L = document.createElement('canvas'); L.width = w; L.height = h; const q = L.getContext('2d'); for (let y = oy; y < h; y += T.N) for (let x = ox; x < w; x += T.N) q.drawImage(src, x, y);
-    if (S) { const D = q.getImageData(0, 0, w, h); for (let i = 3; i < S.length; i += 4) D.data[i] = D.data[i] * Math.max(0, Math.min(1, (S[i] - 150) / 80)); q.putImageData(D, 0, 0); } else { q.globalCompositeOperation = 'destination-in'; q.drawImage(c, 0, 0); } return L; };   // 몸(불투명한 곳)에만 · 바닥 그림자는 빼고
-  const rockL = layer(T.rock), crackL = mode === 'rock' ? null : layer(T.crack); t.drawImage(rockL, 0, 0);
-  g.save();
-  if (mode === 'rock') { const base = document.createElement('canvas'); base.width = w; base.height = h; const bg = base.getContext('2d'); bg.filter = 'grayscale(1) brightness(1.7) contrast(1.1)'; bg.drawImage(c, 0, 0); g.globalCompositeOperation = 'source-atop'; g.drawImage(tmp, 0, 0); g.globalCompositeOperation = 'multiply'; g.globalAlpha = .55; g.drawImage(base, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = .35; g.drawImage(tmp, 0, 0); }
-  else { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = .38; g.drawImage(rockL, 0, 0); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .9; g.drawImage(crackL, 0, 0); }
-  g.restore(); }
+function lavaTex() { if (LAVA_TEX) return LAVA_TEX; const N = 384, R = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(9091);
+  const vnoise = G => { const v = new Float32Array(G * G); for (let i = 0; i < v.length; i++) v[i] = R(); const at = (i, j) => v[((j % G + G) % G) * G + ((i % G + G) % G)];   // 이음매 없이 이어지는 부드러운 노이즈
+    return (x, y) => { const fx = x / N * G, fy = y / N * G, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+      return (at(x0, y0) * (1 - sx) + at(x0 + 1, y0) * sx) * (1 - sy) + (at(x0, y0 + 1) * (1 - sx) + at(x0 + 1, y0 + 1) * sx) * sy; }; };
+  const worley = G => { const px = new Float32Array(G * G), py = new Float32Array(G * G), hv = new Float32Array(G * G), cs = N / G, o = { d1: 0, e: 0, h: 0 };   // 격자 칸마다 점 하나 (덩어리마다 열기가 다름)
+    for (let i = 0; i < G * G; i++) { px[i] = .08 + R() * .84; py[i] = .08 + R() * .84; hv[i] = R(); }
+    return (x, y) => { const gx = Math.floor(x / cs), gy = Math.floor(y / cs); let d1 = 1e9, d2 = 1e9, id = 0;
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const cx = gx + i, cy = gy + j, k = ((cy % G + G) % G) * G + ((cx % G + G) % G), dx = x - (cx + px[k]) * cs, dy = y - (cy + py[k]) * cs, d = dx * dx + dy * dy;
+        if (d < d1) { d2 = d1; d1 = d; id = k; } else if (d < d2) d2 = d; }
+      o.d1 = Math.sqrt(d1) / cs; o.e = Math.sqrt(d2) - Math.sqrt(d1); o.h = hv[id]; return o; }; };
+  const big = worley(16), small = worley(40), nW = vnoise(7), nH = vnoise(5), nC = vnoise(4), nG = vnoise(48), nG2 = vnoise(112);
+  const I = new Float32Array(N * N), HR = new Float32Array(N * N), HOT = new Float32Array(N * N), GR = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const k = y * N + x, m = big(x, y), mh = m.h, md = m.d1, me = m.e;
+    const wd = 1.6 + 3.4 * Math.pow(nW(x, y), 1.4), t = Math.max(0, 1 - me / wd), seam = t * t * (3 - 2 * t), halo = Math.pow(Math.max(0, 1 - me / (wd * 4.5)), 2);   // 큰 균열: 굵기가 곳곳에서 바뀜
+    const s = small(x, y), hm = Math.min(1, Math.max(0, (nH(x, y) - .34) / .2)), th = Math.max(0, 1 - s.e / (1 + .8 * nW(x + 191, y + 77))), hair = Math.pow(th, 1.5) * hm * (1 - seam) * .78;   // 가는 잔금은 군데군데만
+    const hf = nC(x, y), hp = Math.min(1, Math.max(0, (mh * .7 + hf * .6 - .2) / .6)), core = Math.pow(Math.max(0, 1 - md / .62), 1.5) * hp;   // 뜨거운 판은 가운데가 달아오름
+    I[k] = Math.min(1, seam * (.8 + .2 * hf) + halo * .25 + core * .5); HR[k] = hair; HOT[k] = Math.min(1, hp * .85 + halo * .35 + core * .6);
+    GR[k] = .8 + .28 * (nG(x, y) - .5) + .16 * (nG2(x, y) - .5) + .06 * (R() - .5); }
+  const ramp = (stops, n) => { const L = new Uint8ClampedArray(n * 3); for (let i = 0; i < n; i++) { const v = i / (n - 1); let j = 1; while (j < stops.length - 1 && stops[j][0] < v) j++; const [a, ...c0] = stops[j - 1], [b, ...c1] = stops[j], f = Math.min(1, Math.max(0, (v - a) / (b - a)));
+    for (let q = 0; q < 3; q++) L[i * 3 + q] = c0[q] + (c1[q] - c0[q]) * f; } return L; };
+  const GLOW = ramp([[0, 80, 8, 0], [.25, 185, 32, 0], [.5, 250, 100, 8], [.75, 255, 160, 36], [.92, 255, 204, 92], [1, 255, 228, 150]], 256);   // 빛: 검붉음 → 주황 → 노랑 → 흰빛
+  const CRUST = ramp([[0, 66, 30, 20], [.3, 110, 34, 12], [.55, 170, 50, 9], [.8, 218, 86, 12], [1, 242, 122, 24]], 256);   // 바위 판: 식은 현무암 → 달아오른 바위 → 녹은 용암
+  return (LAVA_TEX = { N, I, HR, HOT, GR, GLOW, CRUST }); }
+function lavaSkin(c, mode, fr, row, q) { const w = c.width, h = c.height, g = c.getContext('2d'), st = 2 / q; let SD; try { SD = g.getImageData(0, 0, w, h); } catch (e) { return; }
+  const T = lavaTex(), N = T.N, S = SD.data, n = w * h, M = new Float32Array(n), Lm = new Float32Array(n);
+  let sum = 0, cnt = 0; for (let i = 0; i < n; i++) { const a = S[i * 4 + 3]; M[i] = Math.max(0, Math.min(1, (a - 150) / 80)); Lm[i] = (S[i * 4] * .3 + S[i * 4 + 1] * .59 + S[i * 4 + 2] * .11) / 255; if (M[i] > .5) { sum += Lm[i]; cnt++; } }   // 몸(불투명한 곳)만 · 바닥 그림자는 빼고
+  if (!cnt) return; const mean = Math.max(.04, sum / cnt), rock = mode === 'rock', ox = (row * 137 + 61) % N, oy = (row * 211 + 29) % N, pulse = .9 + .1 * Math.sin(fr * Math.PI / 4 + row * 1.3);
+  const E = g.createImageData(w, h), ED = E.data, MK = g.createImageData(w, h), MD = MK.data, d = Math.max(1, Math.round(1.5 * q)), mk = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? 0 : M[y * w + x];
+  for (let y = 0; y < h; y++) { const ty = ((Math.floor(y * st) + oy) % N) * N, low = Math.max(0, Math.min(1, (y / h - .3) / .55));
+    for (let x = 0; x < w; x++) { const i = y * w + x, m = M[i]; if (!m) continue; const p = i * 4, ti = ty + (Math.floor(x * st) + ox) % N, shade = Math.min(1.15, Math.max(.12, Lm[i] / mean * .6));
+      const edge = 1 - Math.min(mk(x - d, y), mk(x + d, y), mk(x, y - d), mk(x, y + d)), below = 1 - mk(x, y + d + q), rim = edge * (.25 + .45 * low + .3 * below) * .82;   // 테두리: 아래쪽일수록 발밑 용암 빛이 비침
+      let r = S[p], gg = S[p + 1], b = S[p + 2], e;
+      if (rock) { const hot = T.HOT[ti], ci = Math.round(Math.min(1, hot) * 255) * 3, lit = (.45 + .7 * Math.min(1.1, shade)) * (1 - hot * .38) + hot * .42, gr = T.GR[ti] * 1.22;   // 바위 판 색 × 원래 그림 명암 (뜨거운 판은 스스로 빛나서 덜 어두워짐)
+        r = T.CRUST[ci] * lit * gr; gg = T.CRUST[ci + 1] * lit * gr; b = T.CRUST[ci + 2] * lit * gr; e = Math.max(Math.min(1, T.I[ti] + T.HR[ti] * .55) * pulse * (.5 + .5 * Math.min(1, shade)), rim * .8); }
+      else { const gr = T.GR[ti]; r *= gr * .78; gg *= gr * .58; b *= gr * .5; const sh = .7 + .3 * Math.min(1, shade); e = Math.max(Math.min(1, T.I[ti] * 1.12 + T.HR[ti] * .3) * pulse * sh, T.HOT[ti] * T.HOT[ti] * .5 * sh * pulse, rim); }   // 그을린 몸 결 + 균열
+      MD[p + 3] = m * 255; e *= m; const gi = Math.round(Math.min(1, e) * 255) * 3, k1 = 1 - e * .55;
+      S[p] = r * k1 + T.GLOW[gi] * e * 1.08; S[p + 1] = gg * k1 + T.GLOW[gi + 1] * e * 1.08; S[p + 2] = b * k1 + T.GLOW[gi + 2] * e * 1.08;
+      if (e > .22) { const q = Math.pow((e - .22) / .78, 1.3) * m; ED[p] = T.GLOW[gi]; ED[p + 1] = T.GLOW[gi + 1]; ED[p + 2] = T.GLOW[gi + 2]; ED[p + 3] = q * 255; } } }
+  g.putImageData(SD, 0, 0); const cv = () => { const k = document.createElement('canvas'); k.width = w; k.height = h; return k; }, B = cv(), K = cv(), L = cv(), lg = L.getContext('2d'); B.getContext('2d').putImageData(E, 0, 0); K.getContext('2d').putImageData(MK, 0, 0);
+  lg.globalCompositeOperation = 'lighter'; lg.filter = `blur(${1.5 * q}px)`; lg.globalAlpha = rock ? .5 : .42; lg.drawImage(B, 0, 0); lg.filter = `blur(${4.5 * q}px)`; lg.globalAlpha = rock ? .3 : .18; lg.drawImage(B, 0, 0);
+  lg.filter = 'none'; lg.globalAlpha = 1; lg.globalCompositeOperation = 'destination-in'; lg.drawImage(K, 0, 0); g.globalCompositeOperation = 'lighter'; g.drawImage(L, 0, 0); g.globalCompositeOperation = 'source-over'; }   // 빛 번짐 (가까이·넓게 두 겹) — 몸 안에만 (밖으로 번지면 흐릿해 보임)
 function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) return c; if (TFR.size > 900) TFR.clear();
-  const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; if (M.lava) lavaSkin(c, M.lava, fr, row); TFR.set(key, c); return c; }
+  const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  if (M.lava) { const q = MOBILE ? 1 : 2, c2 = document.createElement('canvas'); c2.width = w * q; c2.height = h * q; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.imageSmoothingEnabled = true; g2.imageSmoothingQuality = 'high'; g2.filter = M.tint; g2.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w * q, h * q); g2.filter = 'none'; lavaSkin(c2, M.lava, fr, row, q); g.drawImage(c2, 0, 0, w, h); }   // 용암 몹: 2배로 그려 무늬를 만든 뒤 줄여서 (가는 금까지 매끈)
+  else { g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; }
+  TFR.set(key, c); return c; }
 function drawSheet(g, img, meta, frame, row, x, y, alpha=1, filter=null){
   if (!img.complete) return; g.save(); g.globalAlpha=alpha; const flash=filter&&filter.startsWith('brightness(2.6)'); if (filter&&!flash) g.filter=filter;
   const sc=meta.s||1; if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; }
@@ -2077,6 +2102,7 @@ function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && f.kind.startsWith('
     if (ART==='pumpkin'){ g.globalAlpha=al; drawPumpkin(g,f); g.restore(); return; }
     if (f.ashT>0&&!f.dead){ drawAsh(g,f); g.restore(); return; }   /* 피닉스 잿더미 */
     if (ART==='bombflower'){ g.globalAlpha=al; drawBombFlower(g,f); g.restore(); return; }
+    if (ART==='dragonfly'){ g.globalAlpha=al; drawDragonfly(g,f); g.restore(); return; }
     if (ART==='fireegg'){ g.globalAlpha=al; drawFireEgg(g,f); g.restore(); return; }
     if (ART==='spider'){ g.globalAlpha=al; drawSpider(g,0,0,f); g.restore(); return; }
     if (ART==='ant'){ g.globalAlpha=al; drawAnt(g,0,0,f); g.restore(); return; }
@@ -2643,18 +2669,18 @@ Object.assign(MOB, {
 });
 // 화룡의 둥지 (Lv 53~57 · 보스 60 — 레벨 차이로 명중이 크게 달라져서 용계보다 조금만 높게) — 용의 계곡 2구역 몬스터 대비 HP ×3 · 공격 ×1.5 · 공격 속도 +20% (2구역 기준, 1구역은 조금 낮게) · 개체 수 약 40% · 마리당 경험치·골드 ×2.7 (최종 수치)
 //   (10/29 프로듀서 결정: 개체 수 용계의 약 50% · 모든 몬스터 선공)
-//   1구역: 불꽃 전사(화상) · 불꽃 궁수(원거리) · 용암 골렘(느리고 단단 · 맞으면 느려짐) · 화염 잠자리(빠름 · 3마리 무리) · 폭탄꽃(제자리 · 불씨 원거리 · 약함)
-//   2구역: 살라만더(불 숨결) · 뿔 케르베로스(물기 + 불덩이) · 아시타지오(불 마법 · 화염 기둥 · 드묾) · 불새 알(제자리 · 아주 약함 · 복권) / 보스 피닉스(3~4명 · 한 번 되살아남)
+//   1구역: 불꽃 전사(화상) · 불꽃 궁수(원거리) · 용암 골렘(느리고 단단 · 맞으면 느려짐) · 드래곤플라이(빠름 · 3마리 무리) · 폭탄꽃(제자리 · 불씨 원거리 · 약함)
+//   2구역: 살라만더(불 숨결) · 뿔 케르베로스(물기 + 불덩이) · 아시타지오(불 마법 · 화염 기둥 · 드묾) · 파이어 에그(제자리 · 아주 약함 · 복권) / 보스 피닉스(3~4명 · 한 번 되살아남)
 Object.assign(MOB, {
   fn_warrior:   { name: '불꽃 전사', lv: 54, hp: 1800, dmg: [74, 120], mac: 2, hit: 0.93, mr: 20, exp: 9350, coin: [2200, 3650], walk: 1.4, run: 3.8, cd: 1.25, aggr: 6, burn: true, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불꽃 대검' },
   fn_archer:    { name: '불꽃 궁수', lv: 54, hp: 1550, dmg: [68, 108], mac: 3, hit: 0.93, mr: 20, exp: 8500, coin: [2000, 3350], walk: 1.1, run: 3.0, cd: 1.55, range: 6, aggr: 6, el: 'fire', flame: 1, art: 'vil', sc: 1.0, atkTxt: '불화살' },
   fn_golem:     { name: '용암 골렘', lv: 55, hp: 2800, dmg: [85, 130], mac: -1, hit: 0.9, mr: 30, exp: 12600, coin: [2800, 4900], walk: 0.7, run: 1.9, cd: 1.9, lavaSlow: 0.25, aggr: 5, el: 'fire', flame: 2, art: 'vil', sc: 1.3, atkTxt: '용암 주먹' },
-  fn_fly:       { name: '화염 잠자리', lv: 53, hp: 1000, dmg: [55, 88], mac: 3, hit: 0.94, mr: 15, exp: 5100, coin: [1150, 2000], walk: 1.9, run: 4.8, cd: 1.0, aggr: 6, el: 'fire', flame: 1, art: 'fox', sc: 1.0, hw: 26, hh: 40, atkTxt: '불꽃 날개' },
-  fn_bomb:      { name: '폭탄꽃', lv: 53, hp: 800, dmg: [45, 70], mac: 4, hit: 0.9, mr: 10, exp: 4100, coin: [1000, 1650], walk: 0, run: 0, cd: 2.2, range: 5, fireball: true, still: true, aggr: 5, el: 'fire', art: 'bombflower', sc: 1.0, hw: 22, hh: 46, atkTxt: '불씨 터뜨리기' },
+  fn_fly:       { name: '드래곤플라이', lv: 53, hp: 1000, dmg: [55, 88], mac: 3, hit: 0.94, mr: 15, exp: 5100, coin: [1150, 2000], walk: 1.9, run: 4.8, cd: 1.0, aggr: 6, el: 'fire', flame: 1, art: 'dragonfly', sc: 1.25, hw: 30, hh: 50, atkTxt: '불꽃 꼬리침' },
+  fn_bomb:      { name: '폭탄꽃', lv: 53, hp: 800, dmg: [45, 70], mac: 4, hit: 0.9, mr: 10, exp: 4100, coin: [1000, 1650], walk: 0, run: 0, cd: 2.2, range: 5, fireball: true, still: true, aggr: 5, el: 'fire', art: 'bombflower', sc: 1.0, hw: 22, hh: 46, atkTxt: '불씨 포탄' },
   fn_salamander:{ name: '살라만더', lv: 55, hp: 2250, dmg: [90, 143], mac: 1, hit: 0.94, mr: 35, exp: 14150, coin: [3250, 5200], walk: 1.1, run: 3.0, cd: 1.42, aggr: 6, el: 'fire', dragon: true, skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 36, hh: 52, atkTxt: '물기' },
   fn_hcerberus: { name: '뿔 케르베로스', lv: 56, hp: 1950, dmg: [83, 135], mac: 2, hit: 0.94, mr: 25, exp: 12600, coin: [3050, 4900], walk: 1.6, run: 4.2, cd: 1.17, aggr: 6, burn: true, el: 'fire', skills: true, flame: 1, art: 'fox', sc: 1.6, hw: 32, hh: 48, atkTxt: '불 송곳니' },
   fn_ashtazio:  { name: '아시타지오', lv: 57, hp: 3000, dmg: [90, 135], mac: 1, hit: 0.95, mr: 55, exp: 19500, coin: [4900, 8700], walk: 1.0, run: 2.6, cd: 2.0, range: 6, spell: 'fire', aggr: 7, el: 'fire', skills: true, resp: 240, flame: 2, art: 'vil', sc: 1.1, atkTxt: '파이어볼' },
-  fn_egg:       { name: '불새 알', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
+  fn_egg:       { name: '파이어 에그', lv: 55, hp: 400, dmg: [30, 45], mac: 6, hit: 0.85, mr: 10, exp: 4400, coin: [1150, 2200], walk: 0, run: 0, cd: 2.6, range: 3, fireball: true, still: true, aggr: 4, resp: 120, el: 'fire', art: 'fireegg', sc: 1.0, hw: 20, hh: 40, atkTxt: '불씨 튀기기' },
   phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
 // 렌더링된 몬스터 스프라이트 (그래픽팀) — 있는 몬스터는 정식 그림, 없으면 임시 그림
@@ -2728,7 +2754,7 @@ Object.assign(MSHEET, {   // v159: 용의 계곡 정식 렌더 (PC 블렌더 · 
   wyvern: { W: 227, H: 138, ax: 108, ay: 84, s: 1.0, af: 8, hh: 54, hw: 64, tint: 'brightness(1.3) sepia(.35) saturate(1.4) hue-rotate(-12deg) contrast(1.05)' },   // 와이번: 붉은 갈색 날개로 밝게
   drake: { W: 268, H: 239, ax: 108, ay: 194, s: 1.0, af: 8, hh: 149, hw: 85, tint: 'brightness(1.35) sepia(.45) saturate(1.3) hue-rotate(-8deg) contrast(1.05)' } });   // 드레이크: 공중에 떠서 날갯짓 (그림자는 땅) · 황갈색
 Object.assign(MS_ALIAS, {   // 화룡의 둥지 임시 그림 (오리지널 렌더를 불빛으로 물들임 · 몸 둘레 불꽃은 코드로) — 정식 렌더가 들어오면 MSHEET가 대신함
-  fn_warrior: ['elmore_warrior', 1.0, 'grayscale(.7) brightness(.68) contrast(1.3) sepia(.35) hue-rotate(-12deg)', 'skin'], fn_archer: ['dark_elf', 1.0, 'grayscale(.7) brightness(.72) contrast(1.25) sepia(.35) hue-rotate(-12deg)', 'skin'],   // v190: 그을린 몸 + 빛나는 용암 균열
+  fn_warrior: ['elmore_warrior', 1.0, 'grayscale(.7) brightness(.72) contrast(1.3) sepia(.35) hue-rotate(-12deg)', 'skin'], fn_archer: ['dark_elf', 1.0, 'grayscale(.7) brightness(.82) contrast(1.25) sepia(.35) hue-rotate(-12deg)', 'skin'],   // v190: 그을린 몸 + 빛나는 용암 균열
   fn_golem: ['dv_lizard', 0.95, 'grayscale(1) brightness(.85) contrast(1.25)', 'rock'],   // v190: 무기 없는 덩치(트롤 렌더)에 몸 전체 용암 바위 fn_fly: ['wyvern', 0.42, 'sepia(1) saturate(3.4) hue-rotate(-12deg) brightness(1.2) contrast(1.1)'],
   fn_salamander: ['basilisk', 1.15, 'sepia(1) saturate(3.2) hue-rotate(-30deg) brightness(.72) contrast(1.25)'], fn_hcerberus: ['cerberus', 1.12, 'sepia(1) saturate(3.4) hue-rotate(-16deg) brightness(.78) contrast(1.4)'],
   fn_ashtazio: ['baphomet', 0.6, 'grayscale(.3) sepia(1) saturate(2.6) hue-rotate(-22deg) brightness(.62) contrast(1.35)'], phoenix: ['wyvern', 1.55, 'sepia(1) saturate(4.2) hue-rotate(-6deg) brightness(1.4) contrast(1.1)'] });
@@ -3121,15 +3147,88 @@ function fnFlame(g, f, S) { const h = (S.hh || 60), k = S.flame, t = time * 6 + 
   for (let q = 0; q < 2 + k * 2; q++) { const ph = (time * (1.4 + q * 0.17) + q * 0.29 + (f.hi || 0) * 0.1) % 1, a = q * 2.4 + (f.hi || 0), r = (S.hw || 30) * 0.6; g.globalAlpha = Math.sin(ph * Math.PI) * 0.75; g.fillStyle = ph < 0.5 ? '#ffd070' : '#ff6a20';
     g.beginPath(); g.arc(Math.cos(a) * r * (1 - ph * 0.3), -h * (0.15 + 0.7 * ((q * 0.31) % 1)) - ph * 18, (2 + k) * (1 - ph * 0.6), 0, 7); g.fill(); }
   g.restore(); }
-// 폭탄꽃: 검붉은 꽃잎 + 가운데 이글거리는 씨앗 주머니 (공격할 때 부풀어 터짐)
-function drawBombFlower(g, f) { const S = MOB[f.kind], t = time + (f.hi || 0), atk = f.atkT != null && !f.dead ? Math.sin(Math.min(1, f.atkT / ATK_T) * Math.PI) : 0, sw = Math.sin(t * 1.8) * 2;
-  g.save(); g.scale(S.sc || 1, S.sc || 1); if (f.flash > 0) g.filter = 'brightness(2.4) saturate(0)'; g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(0, 1, 18, 6, 0, 0, 7); g.fill();
-  g.strokeStyle = '#2a3a12'; g.lineWidth = 3.2; g.lineCap = 'round'; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(-4 + sw, -14, sw, -26); g.stroke();
-  g.fillStyle = '#3a5418'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(s * 9, -6, 9, 3.5, s * 0.5, 0, 7); g.fill(); }
-  g.translate(sw, -28); for (let q = 0; q < 6; q++) { g.save(); g.rotate(q * 1.047 + Math.sin(t) * 0.05); const gr = g.createLinearGradient(0, 0, 0, -16); gr.addColorStop(0, '#5a0a06'); gr.addColorStop(1, '#d83a14'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, -9 - atk * 3, 5.5, 10, 0, 0, 7); g.fill(); g.restore(); }
-  const r = 7 + atk * 4 + Math.sin(t * 5) * 0.6; g.globalCompositeOperation = 'lighter'; mxG(g, '255,140,40', 0, 0, r * 3, 0.55 + atk * 0.4, 1); g.globalCompositeOperation = 'source-over';
-  const gr = g.createRadialGradient(-2, -2, 1, 0, 0, r); gr.addColorStop(0, '#fff2a0'); gr.addColorStop(0.5, '#ff9a20'); gr.addColorStop(1, '#a82a06'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.restore(); }
-// 불새 알: 둥지(검은 잔가지·재) 위의 커다란 알 · 금 간 틈으로 불빛 · 맞으면 흔들림
+// 드래곤플라이: 금빛 마디 몸통(검은 띠) · 붉은 겹눈 · 검은 그물맥 날개 4장(빠른 날갯짓 잔상) · 가슴과 꼬리 끝에 불씨 · 공중에 떠서 흔들림
+//   공격 = 앞으로 돌진하며 꼬리를 말아 찌름 · 죽으면 날개를 접고 땅으로 떨어짐 (그림은 모두 코드로 그림)
+function drawDragonfly(g, f) { const S = MOB[f.kind], sc = S.sc || 1, t = time + (f.hi || 0), d = DIRV[f.row] || [1, 0], dl = Math.hypot(d[0], d[1]) || 1, d0 = d[0] / dl, d1 = d[1] / dl, K = 0.82;
+  const Fx = (d0 - d1) * K, Fy = (d0 + d1) * 0.5 * K, Sx = (-d1 - d0) * K, Sy = (d0 - d1) * 0.5 * K;   // 몸 앞쪽 · 오른쪽 방향을 화면에 투영
+  const dead = !!f.dead, dk = dead ? Math.min(1, (f.deadT || 0) / 0.55) : 0, atk = f.atkT != null && !dead ? Math.sin(Math.min(1, f.atkT / ATK_T) * Math.PI) : 0;
+  const hv = (24 + Math.sin(t * 2.4) * 3.5) * (1 - dk * dk), lean = atk * 8 + Math.sin(t * 1.7) * 1.2, sway = Math.sin(t * 1.3) * 1.5;
+  const P = (u, v, h) => [Fx * (u + lean) + Sx * (v + sway * 0.3), Fy * (u + lean) + Sy * (v + sway * 0.3) - h - hv];
+  const fl = f.flash > 0, sk = dead ? 1 - dk * 0.15 : 1;
+  g.save(); g.scale(sc, sc);
+  const sa = 0.34 * (1 - hv / 70); g.fillStyle = `rgba(0,0,0,${sa.toFixed(2)})`; g.beginPath(); g.ellipse(Fx * lean, Fy * lean + 1, 17 - hv * 0.12, 6 - hv * 0.05, 0, 0, 7); g.fill();
+  if (fl) g.filter = 'brightness(2.3) saturate(.3)';
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  // 다리 (가슴 아래로 늘어뜨림)
+  g.strokeStyle = '#1e1a14'; g.lineWidth = 1.1;
+  for (const s of [-1, 1]) for (let q = 0; q < 3; q++) { const u = 10 - q * 2.6, a = P(u, s * 1.6, -1.5), b = P(u + 2 - q * 1.6, s * (4.5 + q), -6 - q * 0.5 + (dead ? 4 : 0)), c = P(u + 3.2 - q * 2.6, s * (3.5 + q * 0.8), -11 + q * 0.6 + (dead ? 7 : 0));
+    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.stroke(); }
+  // 배 (꼬리): 마디마다 금빛 · 검은 띠 번갈아 · 공격 때 아래로 말림
+  const N = 9, seg = []; for (let i = 0; i <= N; i++) { const k = i / N, cu = atk * k * k; seg.push(P(3.5 - i * 3.1 + cu * 9, Math.sin(t * 2 + i * 0.5) * k * 1.4, -cu * 15 - (dead ? 0 : Math.sin(t * 2.4 + i * 0.3) * k * 1.2))); }
+  for (let i = 0; i < N; i++) { const a = seg[i], b = seg[i + 1], w = 6.4 - i * 0.42;
+    g.strokeStyle = i % 2 ? '#2a200c' : '#3a2c10'; g.lineWidth = w + 1.2; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+    const gr = g.createLinearGradient(a[0], a[1] - w, a[0], a[1] + w); gr.addColorStop(0, '#fff0a0'); gr.addColorStop(0.45, '#d8b440'); gr.addColorStop(1, '#6a5214');
+    g.strokeStyle = gr; g.lineWidth = w; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(a[0] + (b[0] - a[0]) * 0.62, a[1] + (b[1] - a[1]) * 0.62); g.stroke();   // 마디 앞 62%는 금빛, 뒤는 검은 띠
+    g.strokeStyle = 'rgba(255,250,210,.55)'; g.lineWidth = Math.max(0.6, w * 0.22); g.beginPath(); g.moveTo(a[0], a[1] - w * 0.25); g.lineTo(a[0] + (b[0] - a[0]) * 0.55, a[1] + (b[1] - a[1]) * 0.55 - w * 0.25); g.stroke(); }
+  const tip = seg[N]; g.strokeStyle = '#2a1a08'; g.lineWidth = 1; for (const s of [-1, 1]) { const q = P(3.5 - N * 3.1 - 3 + atk * 9, s * 1.8, -atk * 15); g.beginPath(); g.moveTo(tip[0], tip[1]); g.lineTo(q[0], q[1]); g.stroke(); }
+  // 가슴 (몸통 앞): 굵고 둥근 금빛 · 등 쪽 검은 줄무늬
+  const t0 = P(4, 0, 0.5), t1 = P(13, 0, 1); g.strokeStyle = '#2e220a'; g.lineWidth = 10.5; g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(t1[0], t1[1]); g.stroke();
+  { const gr = g.createLinearGradient(t0[0], t0[1] - 6, t0[0], t0[1] + 6); gr.addColorStop(0, '#fff3b0'); gr.addColorStop(0.5, '#d2a838'); gr.addColorStop(1, '#5e4410'); g.strokeStyle = gr; g.lineWidth = 9; g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(t1[0], t1[1]); g.stroke(); }
+  g.strokeStyle = 'rgba(40,28,8,.85)'; g.lineWidth = 1.3; for (const s of [-1, 1]) { const a = P(5, s * 2, 2.5), b = P(12, s * 1.4, 3); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+  // 머리 · 붉은 겹눈 두 개
+  const hc = P(16.5, 0, 1.5); g.fillStyle = '#7a5a18'; g.beginPath(); g.arc(hc[0], hc[1], 3.6, 0, 7); g.fill();
+  for (const s of [-1, 1]) { const e = P(17.2, s * 3.1, 2.4); const gr = g.createRadialGradient(e[0] - 1, e[1] - 1.2, 0.3, e[0], e[1], 3.7); gr.addColorStop(0, '#ffc0a0'); gr.addColorStop(0.35, '#d8402a'); gr.addColorStop(1, '#4a0a06');
+    g.fillStyle = gr; g.beginPath(); g.arc(e[0], e[1], 3.5, 0, 7); g.fill(); }
+  const mo = P(19.5, 0, 0); g.strokeStyle = '#2a1606'; g.lineWidth = 1; for (const s of [-1, 1]) { const q = P(21 + atk * 1.5, s * (1.2 + atk * 1.4), -0.5); g.beginPath(); g.moveTo(mo[0], mo[1]); g.lineTo(q[0], q[1]); g.stroke(); }
+  // 날개 4장: 연기빛 반투명 · 검은 테두리 · 그물맥 · 끝에 검은 무늬 / 빠른 날갯짓은 잔상 두 겹
+  const wing = (u0, side, L, ph, al) => { const sp = dead ? -0.06 : 0.12 + 0.62 * Math.sin(ph), cp = Math.cos(sp), sn = Math.sin(sp), sw_ = 3.2, ch = s => 5.2 * Math.pow(Math.sin(Math.PI * (0.12 + 0.88 * s)), 0.55);
+    const pt = (s, c) => { const span = L * s; return P(u0 + 1.4 - sw_ * s - c, side * (2.2 + span * cp), 1.2 + span * sn); };
+    const lead = [], trail = []; for (let i = 0; i <= 10; i++) { const s = i / 10; lead.push(pt(s, 0)); trail.push(pt(s, ch(s))); }
+    g.globalAlpha = al; g.fillStyle = 'rgba(92,70,50,.3)'; g.beginPath(); g.moveTo(lead[0][0], lead[0][1]); for (const q of lead) g.lineTo(q[0], q[1]); for (let i = trail.length - 1; i >= 0; i--) g.lineTo(trail[i][0], trail[i][1]); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,170,90,.12)'; g.fill();
+    g.strokeStyle = 'rgba(18,12,8,.55)'; g.lineWidth = 0.55; for (const c of [0.33, 0.62]) { g.beginPath(); for (let i = 0; i <= 10; i++) { const s = i / 10, q = pt(s, ch(s) * c); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke(); }
+    g.strokeStyle = 'rgba(18,12,8,.32)'; g.lineWidth = 0.45; for (let i = 1; i < 14; i++) { const s = i / 14, a = pt(s, 0), b = pt(s + 0.025, ch(s)); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    g.strokeStyle = 'rgba(14,10,6,.95)'; g.lineWidth = 1; g.beginPath(); g.moveTo(lead[0][0], lead[0][1]); for (const q of lead) g.lineTo(q[0], q[1]); for (let i = trail.length - 1; i >= 0; i--) g.lineTo(trail[i][0], trail[i][1]); g.closePath(); g.stroke();
+    const st0 = pt(0.84, 0.2), st1 = pt(0.93, 0.25); g.strokeStyle = 'rgba(20,10,6,.9)'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(st0[0], st0[1]); g.lineTo(st1[0], st1[1]); g.stroke(); g.globalAlpha = 1; };
+  const wp = t * 31; for (const [u0, L, off] of [[6.5, 24, 1.6], [11, 26, 0]]) for (const s of [-1, 1]) { if (dead) wing(u0, s, L, 0, 1); else { wing(u0, s, L, wp + off, 0.62); wing(u0, s, L, wp + off + 1.9, 0.48); } }
+  // 불씨: 가슴과 꼬리 끝이 숨 쉬듯 달아오름
+  if (!dead || dk < 1) { const pu = 0.5 + 0.5 * Math.sin(t * 4.2), ga = (1 - dk); g.globalCompositeOperation = 'lighter'; mxG(g, '255,130,40', (t0[0] + t1[0]) / 2, (t0[1] + t1[1]) / 2, 13 + pu * 3, (0.22 + 0.12 * pu) * ga, 1); mxG(g, '255,160,60', tip[0], tip[1], 6 + pu * 2, (0.35 + 0.2 * pu) * ga, 1);
+    mxG(g, '255,90,30', hc[0], hc[1], 6, 0.12 * ga, 1); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
+  g.restore(); }
+// 폭탄꽃: 회색 가시 뿌리 · 가시 돋친 줄기 · 누런 잎 · 주홍빛 꽃봉오리 대포 (입 안쪽 고리 · 불씨)
+//   공격 = 봉오리가 부풀었다가 대상 쪽으로 고개를 돌려 펑 쏨(반동 · 입에서 불꽃) · 맞으면 흔들림 · 죽으면 꽃잎이 흩어지고 줄기가 시들어 쓰러짐
+function drawBombFlower(g, f) { const S = MOB[f.kind], t = time + (f.hi || 0), dead = !!f.dead, dk = dead ? Math.min(1, (f.deadT || 0) / 1.2) : 0, ap = f.atkT != null && !dead ? Math.min(1, f.atkT / ATK_T) : -1;
+  const inf = ap < 0 ? 0 : ap < 0.55 ? Math.sin(ap / 0.55 * Math.PI / 2) : 1 - (ap - 0.55) / 0.45, shot = ap >= 0.55 && ap < 0.8 ? 1 - (ap - 0.55) / 0.25 : 0, aim = ap < 0 ? 0 : Math.min(1, ap / 0.4) * (ap > 0.85 ? (1 - ap) / 0.15 : 1);
+  const hit = f.flash > 0 || f.hitT > 0, sw = Math.sin(t * 1.8) * 1.6 + (hit ? Math.sin(time * 38) * 2.2 : 0) - shot * 3 * 0, d = DIRV[f.row] || [1, 0], fx = d[0] - d[1], fy = (d[0] + d[1]) * 0.5, fa = Math.atan2(fy, fx), side = fx >= 0 ? 1 : -1;
+  g.save(); g.scale(S.sc || 1, S.sc || 1); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(0, 1, 18, 6, 0, 0, 7); g.fill(); if (f.flash > 0) g.filter = 'brightness(2.3) saturate(.3)';
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  // 뿌리: 회보랏빛 가시 다리 4개
+  g.strokeStyle = '#4a4450'; g.lineWidth = 2.6; for (const [a, l] of [[-2.6, 11], [-0.5, 12], [0.6, 10], [2.5, 11]]) { g.beginPath(); g.moveTo(0, -2); g.quadraticCurveTo(Math.cos(a) * l * 0.5, -4, Math.cos(a) * l, Math.sin(a) * 2.5 + 2); g.stroke(); }
+  g.strokeStyle = '#2a2630'; g.lineWidth = 1; for (const [a, l] of [[-2.6, 11], [-0.5, 12], [0.6, 10], [2.5, 11]]) { g.beginPath(); g.moveTo(Math.cos(a) * l * 0.55, -3.5); g.lineTo(Math.cos(a) * l * 0.62, -7); g.stroke(); }
+  // 줄기: 시들면 옆으로 꺾임 · 가시
+  const wil = dk * side * 16, hx = sw + wil, hy = -27 + dk * 14, cx = -3 * side + sw * 0.5 + wil * 0.2, cy = -14;
+  g.strokeStyle = '#3c3a2a'; g.lineWidth = 3.6; g.beginPath(); g.moveTo(0, -2); g.quadraticCurveTo(cx, cy, hx, hy); g.stroke(); g.strokeStyle = '#5a5a3a'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(-0.6, -3); g.quadraticCurveTo(cx - 0.8, cy, hx - 0.8, hy + 1); g.stroke();
+  g.strokeStyle = '#2a2820'; g.lineWidth = 1.1; for (const k of [0.3, 0.52, 0.74]) { const x = (1 - k) * (1 - k) * 0 + 2 * (1 - k) * k * cx + k * k * hx, y = (1 - k) * (1 - k) * -2 + 2 * (1 - k) * k * cy + k * k * hy, s = k === 0.52 ? -1 : 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + s * 4, y - 1.5); g.stroke(); }
+  // 잎: 누런 녹색 큰 잎 두 장 (가운데 잎맥)
+  for (const [s, k, L, a0] of [[-1, 0.42, 15, -0.35], [1, 0.62, 11, -0.6]]) { const x = 2 * (1 - k) * k * cx + k * k * hx, y = (1 - k) * (1 - k) * -2 + 2 * (1 - k) * k * cy + k * k * hy, a = s > 0 ? a0 : Math.PI - a0, droop = dk * 0.9 * s + Math.sin(t * 1.5 + s) * 0.06, ex = x + Math.cos(a + droop) * L, ey = y + Math.sin(a + droop) * L * 0.8 + 3;
+    const gr = g.createLinearGradient(x, y, ex, ey); gr.addColorStop(0, '#4a5a18'); gr.addColorStop(1, dead ? '#5a4a20' : '#b8b040'); g.fillStyle = gr; g.beginPath(); g.moveTo(x, y);
+    g.quadraticCurveTo((x + ex) / 2 - Math.sin(a) * 5, (y + ey) / 2 - 5, ex, ey); g.quadraticCurveTo((x + ex) / 2 + Math.sin(a) * 2, (y + ey) / 2 + 3, x, y); g.fill(); g.strokeStyle = 'rgba(40,40,10,.7)'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(x, y); g.lineTo(ex, ey); g.stroke(); }
+  // 꽃봉오리 대포
+  g.translate(hx, hy); const r = 8.5 * (1 + inf * 0.22) * (1 - dk * 0.5), up = -Math.PI / 2, th = up + (fa - up) * aim * 0.85 + (dead ? side * dk * 1.4 : 0) + Math.sin(t * 1.2) * 0.05, ux = Math.cos(th), uy = Math.sin(th);
+  if (dk < 1) { g.globalAlpha = 1 - dk * 0.6;
+    g.fillStyle = '#4a6a1a'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(-ux * r * 0.55 - uy * s * r * 0.5, -uy * r * 0.55 + ux * s * r * 0.5, r * 0.55, r * 0.25, th + s * 0.9, 0, 7); g.fill(); }   // 꽃받침
+    const gr = g.createRadialGradient(-r * 0.35, -r * 0.4, 1, 0, 0, r * 1.05); gr.addColorStop(0, '#ffd2b0'); gr.addColorStop(0.45, '#f0784a'); gr.addColorStop(1, '#7a200e'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, r, r * 0.92, th, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(120,30,12,.55)'; g.lineWidth = 0.8; for (let q = -2; q <= 2; q++) { g.beginPath(); g.ellipse(0, 0, r * 0.98, r * (0.25 + Math.abs(q) * 0.16), th, q < 0 ? Math.PI : 0, q < 0 ? Math.PI * 2 : Math.PI); g.stroke(); }   // 꽃잎 결
+    const mx = ux * r * 0.62, my = uy * r * 0.62, mr = r * 0.62, mt = 0.32 + 0.45 * Math.min(1, aim + 0.15);   // 입: 바라보는 쪽 끝 (위로 열면 납작하게, 옆으로 돌리면 둥글게)
+    g.fillStyle = '#f6dcc0'; g.beginPath(); g.ellipse(mx, my, mr, mr * mt, th + Math.PI / 2, 0, 7); g.fill(); g.fillStyle = '#b8442a'; g.beginPath(); g.ellipse(mx + ux * 0.6, my + uy * 0.6, mr * 0.78, mr * mt * 0.78, th + Math.PI / 2, 0, 7); g.fill();
+    g.fillStyle = '#3a0a06'; g.beginPath(); g.ellipse(mx + ux * 1.1, my + uy * 1.1, mr * 0.5, mr * mt * 0.5, th + Math.PI / 2, 0, 7); g.fill();
+    const pu = 0.5 + 0.5 * Math.sin(t * 5), ga = (0.4 + 0.25 * pu + inf * 0.5 + shot) * (1 - dk); g.globalCompositeOperation = 'lighter'; mxG(g, '255,140,40', mx + ux, my + uy, mr * (1.1 + inf * 0.6), ga, 1); if (shot > 0) mxG(g, '255,220,120', mx + ux * 6, my + uy * 6, 9 + shot * 6, shot * 0.9, 1);
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
+  // 죽으면: 꽃잎 6장이 흩날려 떨어짐
+  if (dead) { const sd = (f.hi || 0) * 7.3; for (let q = 0; q < 6; q++) { const a = q * 1.05 + sd, vx = Math.cos(a) * (14 + (q % 3) * 6), k = Math.min(1, (f.deadT || 0) / 1.1), px = vx * k, py = -10 * Math.sin(k * Math.PI) - 4 + k * k * (34 + q * 2), rot = a + k * 6 * (q % 2 ? 1 : -1);
+    g.save(); g.translate(px, py); g.rotate(rot); g.globalAlpha = Math.max(0, 1 - Math.max(0, (f.deadT || 0) - 1.1) / 0.6); g.fillStyle = q % 2 ? '#e8704a' : '#c8482a'; g.beginPath(); g.ellipse(0, 0, 4.2, 2.2, 0, 0, 7); g.fill(); g.restore(); } }
+  g.restore(); }
+// 파이어 에그: 둥지(검은 잔가지·재) 위의 커다란 알 · 금 간 틈으로 불빛 · 맞으면 흔들림
 function drawFireEgg(g, f) { const S = MOB[f.kind], t = time + (f.hi || 0), wob = (f.hitT > 0 || f.flash > 0) ? Math.sin(time * 40) * 0.12 : Math.sin(t * 1.3) * 0.03, pu = 0.5 + 0.5 * Math.sin(t * 2.4);
   g.save(); g.scale(S.sc || 1, S.sc || 1); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(0, 1, 22, 7, 0, 0, 7); g.fill();
   g.strokeStyle = '#2a1a10'; g.lineWidth = 2.2; for (let q = 0; q < 9; q++) { const a = q * 0.7; g.beginPath(); g.moveTo(Math.cos(a) * 20, Math.sin(a) * 6 - 2); g.lineTo(Math.cos(a + 2.4) * 18, Math.sin(a + 2.4) * 5 - 3); g.stroke(); }
@@ -3247,7 +3346,7 @@ const ISLAND = (() => {
          mobs: [['fn_warrior', 7], ['fn_archer', 5], ['fn_golem', 3], ['fn_bomb', 3]], groups: [['fn_fly', [['fn_fly', 2]], 2]] },
     23: { name: '화룡의 둥지 2구역', tier: 2, seed: 2311, N: 66, gore: true, valley: true, fire: true, sites: 3, camps: 0, lava: 9, streams: 3, lavaDmg: [32, 44], bombDmg: [14, 21], bombGap: [11, 17],
          portals: [{ i: 60, j: 60, to: 22, label: '▼ 1구역으로' }], tone: 'rgba(130,26,6,.28)',
-         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 살라만더의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 불새 알은 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다!',
+         hello: '화룡이 잠든 둥지입니다. 이곳의 몬스터는 모두 먼저 덤빕니다! 살라만더의 불 숨결(앞쪽 주황 범위)과 아시타지오의 화염 기둥을 피하세요. 파이어 에그는 가까이 가면 불씨를 튀기지만 약하고, 가끔 귀한 주문서를 품고 있어요. 피닉스가 나타나면 3~4명이 함께 싸우세요 — 한 번 쓰러뜨려도 잿더미에서 되살아납니다!',
          mobs: [['fn_salamander', 10], ['fn_hcerberus', 10], ['fn_ashtazio', 2], ['fn_egg', 3]], groups: [] },
     // 할로윈 이벤트 지역 (21번): 음침한 호박밭 — 귀신이 떠다니고 핏빛 살육터 소품 · 시야는 늘 낮처럼 · 마을 NPC 할로윈 허수아비 잭으로만 입장 · 나가려면 귀환 주문서
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
@@ -6457,7 +6556,7 @@ const TOWN = (() => {
     ['bugbear_field', '버그베어밭', '중급', '20~30', 470, 300, '시체와 핏자국이 널린 어둡고 끔찍한 살육의 땅. 1구간(Lv 20~25): 먼저 활을 쏘는 해골 궁수·좀비(해골·좀비는 밤에 강해짐)·버그베어. 2구간(Lv 25~30): 버그베어·불을 무는 켈베로스·먼저 덤비는 킹 버그베어, 그리고 보스 바포메트(잡으면 3시간~3시간 30분 뒤 다시 등장). 버그베어와 킹 버그베어는 갑옷·무기 마법 주문서를 잘 떨어뜨린다.'],
     ['dark_knight_field', '본토던전', '상급', '30~40', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 30~35): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 35~40): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
     ['dragon_valley', '용의 계곡', '상급', '47~54', 900, 300, '용족이 지배하는 검붉은 협곡 (불 속성 — 물 속성 무기·마법이 잘 듭니다). 1구역(Lv 47~50): 먼저 덤비는 빠른 해골 돌격병·해골 궁수, 3마리씩 무리 지은 트롤. 2구역(Lv 50~54, 모두 선공): 와이번(독)·불 숨결을 뿜는 드레이크·드물게 번개와 토네이도를 쓰는 흑장로, 그리고 보스 드레이크 킹(약 3시간마다, 2인 이상). 용의 비늘·드레이크의 발톱·용의 심장으로 제작 장인 브론에게서 용비늘 장비와 직업 무기를 만들 수 있어요.'],
-    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불꽃 전사·불꽃 궁수·단단한 용암 골렘·3마리씩 나는 화염 잠자리·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 살라만더·뿔 케르베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 불새 알, 그리고 보스 피닉스(약 3시간마다, 3~4명 · 한 번 되살아남). 화룡의 비늘·아시타지오의 재·피닉스의 깃털은 나중에 제작 재료로 쓰여요. 용의 계곡 2구역 북쪽 포털로도 갈 수 있어요.'],
+    ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불꽃 전사·불꽃 궁수·단단한 용암 골렘·3마리씩 나는 드래곤플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 살라만더·뿔 케르베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어 에그, 그리고 보스 피닉스(약 3시간마다, 3~4명 · 한 번 되살아남). 화룡의 비늘·아시타지오의 재·피닉스의 깃털은 나중에 제작 재료로 쓰여요. 용의 계곡 2구역 북쪽 포털로도 갈 수 있어요.'],
     ['summon_altar', '소환의 제단', '상급', '30~50', 700, 560, '영혼석으로 보스를 불러내는 고대의 제단. 몬스터는 없고, 사냥터에서 감시자 리퍼를 쓰러뜨려 얻은 [영혼석]을 제단 가까이에서 쓰면 그 보스(같은 능력치·드랍)가 나타나요. 한 번에 한 마리.'],
     ['oren_elmore', '오렌설원지역', '상급', '40~50', 800, 130, '눈보라가 몰아치는 북쪽의 눈 덮인 설원 (수속성 — 불 속성 무기·마법이 잘 듭니다). 1구역(Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다니며 하나를 치면 무리 전체가 반격. 2구역(Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 얼어붙는 아이스 골렘, 그리고 보스 얼음여왕(약 3시간마다, 블리자드·콘 오브 콜드).'],
   ];
