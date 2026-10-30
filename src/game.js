@@ -938,7 +938,7 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     mxCast(id, hero); spellSfx(id); return; }
   if (SPELL[id]) { const P = SPELL[id]; if (!spellTgt(P.rng)) return; spend(); const d = cheb(T.i, T.j, hero.i, hero.j);
     mxFire(id, hero, T, false, [hx, hy]); mxCast(id, hero); NET.mx(id, T); spellSfx(id); return; }
-  if (id === 'turnund') { if (!spellTgt(8)) return; const S = MOB[T.kind]; if (!S.undead) { say('턴 언데드: 언데드 몬스터에게만 쓸 수 있어요.', '#9c9682'); return; } spend(); const [fx, fy] = W2P(T.x, T.z);
+  if (id === 'turnund') { if (!spellTgt(8)) return; const S = MOB[T.kind]; if (!S.undead) { say('턴 언데드: 언데드 몬스터에게만 쓸 수 있어요.', '#9c9682'); return; } if (S.boss) { say('턴 언데드: 보스에게는 통하지 않아요. (MP를 쓰지 않았어요)', '#9c9682'); return; } spend(); const [fx, fy] = W2P(T.x, T.z);
     mxCast(id, hero); const ok = !S.boss && Math.random() < resist(S, false), vid = ok ? 'turnund' : 'turnund_x'; mLog(T, ok, k.name);
     mxSelf(vid, T); NET.mx(vid, T); spellSfx(vid);
     if (ok) { floatText(fx, fy - headY(T) - 16, '정화! 턴 언데드', { color: '#ffe680', size: 16, big: true, life: 1.4 }); mobHurt(T, Math.max(1, Math.ceil(T.hp)), '#fff6c0'); }
@@ -6201,7 +6201,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       else if (kind === 'barrier') { if (hero.hp / hero.max > 0.3) continue; }
       else if (kind === 'cleanse') { if (!(BUFF.slow > 0 || BUFF.root > 0 || BUFF.poison > 0)) continue; }
       else if (kind === 'aoe') { const P = SPELL[id], inB = f => !f.dead && !f.gone && Math.abs(f.x - hero.x) <= P.box && Math.abs(f.z - hero.z) <= P.box && MOB[f.kind] && !MOB[f.kind].dummy; if (foxes.filter(inB).length < 3 && !foxes.some(f => inB(f) && MOB[f.kind].boss)) continue; }
-      else { if (id === 'triple_arrow') { const W = INV.equipped('weapon'); if (!(W && ITEMS[W] && ITEMS[W].wtype === 'bow')) continue; } const T = hero.target; if ((hero.atk && !hero.atk.hit) || !T || T.dead || T.isRemote || !foxes.includes(T)) continue;   /* 평타가 들어간 뒤엔 바로 써도 됨 (예전엔 공격 동작 중이면 늘 건너뛰어 연속 공격하는 기사 스턴이 거의 안 나감) */ const dd = cheb(T.i, T.j, hero.i, hero.j); if (id === 'stun' ? dd > 1 || T.stunT > 0 : dd > 8 || !FLOS(hero, T)) continue; if (id === 'turnund' && !(MOB[T.kind] && MOB[T.kind].undead)) continue; }
+      else { if (id === 'triple_arrow') { const W = INV.equipped('weapon'); if (!(W && ITEMS[W] && ITEMS[W].wtype === 'bow')) continue; } const T = hero.target; if ((hero.atk && !hero.atk.hit) || !T || T.dead || T.isRemote || !foxes.includes(T)) continue;   /* 평타가 들어간 뒤엔 바로 써도 됨 (예전엔 공격 동작 중이면 늘 건너뛰어 연속 공격하는 기사 스턴이 거의 안 나감) */ const dd = cheb(T.i, T.j, hero.i, hero.j); if (id === 'stun' ? dd > 1 || T.stunT > 0 : dd > 8 || !FLOS(hero, T)) continue; if (id === 'turnund' && !(MOB[T.kind] && MOB[T.kind].undead && !MOB[T.kind].boss)) continue;   /* 자동: 언데드 보스(데스나이트 등)에게는 턴 언데드 안 씀 (보스 면역) */ }
       { const cd0 = SKCD[id] || 0, mp0 = hero.mp; castSkill(id, kind === 'attack' ? hero.target : null); if ((SKCD[id] || 0) > cd0 || hero.mp < mp0) return; } } }   // 못 쓴 자동 스킬이 있으면 다음 스킬로 넘어감 (예전엔 한 스킬이 계속 실패하면 뒤의 스턴 같은 스킬이 영영 안 나감)
   function holdSkill(ev, id) { if (ev.button !== 0) return; holdCancel(); holdP = [ev.clientX, ev.clientY]; holdT = setTimeout(() => { holdT = 0; showSkill(id, holdP[0], holdP[1]); }, 420); }
   function holdHot(ev, i) { const id = hot[i]; if (!id || id.startsWith('act:')) return; if (id.startsWith('sk:')) { if (SK[id.slice(3)]) holdSkill(ev, id.slice(3)); return; } const e = bag.find(x => x.id === id); if (e) holdStart(ev, e); }
