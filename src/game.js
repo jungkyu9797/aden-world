@@ -747,7 +747,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 190;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 191;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1728,6 +1728,10 @@ const EN_ARMOR = ['armor', 'helm', 'gloves', 'boots', 'shield', 'cloak', 'shirt'
 const enTierOf = (id, en) => { const d = id && ITEMS[id]; if (!d || !d.slot || !(en > 0)) return 0; return Math.max(0, Math.min(4, en - SAFE_EN(d))); };
 const heroGlowT = (id, en) => { const d = id && ITEMS[id]; if (!d || !d.slot) return 0; if (d.rar === '영웅') return 5 + Math.max(0, Math.min(4, (en || 0) - SAFE_EN(d))); return enTierOf(id, en); };   // v136: 캐릭터 모습 빛 (영웅 장비는 +0부터 보라)
 const myGlowT = sl => heroGlowT(INV.equipped(sl), INV.enOf(sl));
+// 10/30: 장비 이펙트 켬/끔 (캐릭터 창 미리보기 밑 버튼) — 끔이면 강화·영웅 등급 빛(무기·방어구·몸 테두리·반짝임)과 데스나이트 세트 불티를 안 그림 · 내 화면에서만(나·다른 유저·봇·미리보기 모두) · 이 기기에 기억
+let EQFX = true; try { EQFX = localStorage.getItem('aden_eqfx') !== '0'; } catch (e) {}
+function eqFxBtn() { const b = document.getElementById('cw-fx'); if (!b) return; b.textContent = '장비 이펙트: ' + (EQFX ? '켬' : '끔'); b.setAttribute('aria-pressed', EQFX ? 'true' : 'false'); b.classList.toggle('off', !EQFX); }
+function setEqFx(on) { EQFX = !!on; try { localStorage.setItem('aden_eqfx', EQFX ? '1' : '0'); } catch (e) {} eqFxBtn(); if (window.LOOKPV) LOOKPV.kick(); }
 function glowOut() { const o = {}; let any = false; for (const sl of ['weapon', ...EN_ARMOR]) { const t = myGlowT(sl); if (t) { o[sl] = t; any = true; } } return any ? o : null; }   // 다른 유저에게 보내는 강화 빛 단계
 // 장비 그림 한 장(한 칸)의 빛: 실루엣을 그 색으로 칠해 흐리게 번진 판 + 실루엣 자체 — 칸마다 한 번 만들어 저장 (매 프레임 filter는 느림)
 const GLC = new Map();
@@ -1774,7 +1778,7 @@ function drawClassLayers(g, cls, anim, fr, row, x, y, hurtF, eqf, gl) { const D 
     g.drawImage(src, k * M.W, row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
     if (gl && L !== 'body') { const t = gl(CL_SLOT[L.replace(/_[lp]$/, '')]); if (t) layerGlow(g, img, M, k, row, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), sc, t, D.pfx + L + ':' + a, CL_SLOT[L.replace(/_[lp]$/, '')] === 'weapon' ? 1 : 0.85); } }
   return true; }
-function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
+function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (!EQFX) gl = null;   /* 장비 이펙트 끔 */ if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
   { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf, gl)) return true; }   // 변신 (데스나이트 세트 등)
   if (cls !== 'knight' && CL_DEF[cls] && drawClassLayers(g, cls, anim, fr, row, x, y, hf, eqf, gl)) return true;
   if (cls !== 'knight') { const M = CLSM[cls], a = anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2') ? 'attack' : 'idle', img = M && clsImg(cls, a);
@@ -2987,7 +2991,7 @@ function drawPoly(g, pk, anim, fr, row, x, y, hf, gl) { const P = POLY[pk], pmS 
   if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, k, row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
   else if (gl && pmS) { const wt = gl('weapon') || 0, at = Math.max(0, ...EN_ARMOR.map(sl => gl(sl) || 0)), t = Math.max(wt, at); if (t) layerGlow(g, img, M2, k, row, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s), M2.s, t, 'poly:' + P.sheet + ':' + a, 1.35, true); }   /* v165: 변신 중에도 강화·등급 장비 빛 (평소보다 조금 진하게) */
   const C = P.card, pr = C ? (C.g === '전설' ? 0.12 : C.g === '영웅' ? 0.05 : 0) : P.fx ? 0.1 : 0.18;   /* 변신 카드: 영웅(보라)·전설(금빛)만 불티 */
-  if (Math.random() < pr) mxP(x + mxR(-14, 14), y - mxR(0, 50), { k: 'ember', c: C ? (C.g === '전설' ? '255,190,80' : '200,130,255') : P.fx || '255,110,50', s: 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
+  if ((EQFX || !P.set) && Math.random() < pr) mxP(x + mxR(-14, 14), y - mxR(0, 50), { k: 'ember', c: C ? (C.g === '전설' ? '255,190,80' : '200,130,255') : P.fx || '255,110,50', s: 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
   return true; }
 // 데스나이트 세트 효과 (네 부위 모두): AC -3 · 추가 피해 +2 · 불 저항 +20
 const DK_SET_BONUS = { ac: 3, xdmg: 2, fireRes: 20 };
@@ -3590,9 +3594,10 @@ function regionDrop(f) { const b = REGION_BOSS[f.kind], T = b && DROP_TABLE[b]; 
   const tot = pool.reduce((a, r) => a + r[1], 0); let x = Math.random() * tot; const row = pool.find(r => (x -= r[1]) < 0) || pool[0];
   GROUND.drop(row[0], 1, f.i, f.j); if (!lowRar(row[0])) say(`${rarTag(row[0])}${JOSA(ITEMS[row[0]].name, '이', '가')} 떨어졌습니다!`, rarC(row[0])); return true; }
 const GROUND = (() => {
-  const L = [], IMG = {}, LIFE = Infinity, CAP = 400; let want = null, hov = null, tipOn = false, cap = null, SH = null;   // SH: 게스트일 때 호스트가 보내 준 바닥 아이템 (같은 지역)
+  const L = [], IMG = {}, LIFE = 600, CAP = 50;   // 10/30: 바닥 아이템은 떨어진 지 10분 뒤 사라짐 · 지역당 50개(넘으면 가장 오래된 것부터 사라짐) (아이템마다 따로 · 마지막 30초는 깜빡임 · 타이머 없이 떨어진 뒤 흐른 시간 t만 매 프레임 확인)
+  let want = null, hov = null, tipOn = false, cap = null, SH = null;   // SH: 게스트일 때 호스트가 보내 준 바닥 아이템 (같은 지역)
   const now = () => performance.now(), newGid = () => 1 + Math.floor(Math.random() * 2e9);
-  const prio = d => !d.owner || !(d.until > now()) ? 0 : d.owner === NET.me() ? 1 : 2;   // 0 없음 · 1 내 우선권 · 2 남의 우선권   // 바닥 아이템은 사라지지 않음 (마을·다른 맵 다녀와도 그 자리에 유지), 지역당 최대 150개
+  const prio = d => !d.owner || !(d.until > now()) ? 0 : d.owner === NET.me() ? 1 : 2;   // 0 없음 · 1 내 우선권 · 2 남의 우선권   // 바닥 아이템은 떨어진 지 10분 뒤 사라짐 (마을·다른 맵에 다녀와도 시간은 흐름), 지역당 최대 50개
   const zk = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
   function img(k, bl) { const key = k + (bl ? '|b' : ''); let m = IMG[key]; if (!m) { m = IMG[key] = new Image(); m.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(ICON(k, bl).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" ')); } return m; }
   function drop(id, n, i, j) { if (!ITEMS[id]) return; { const z = zk(), mine = L.filter(d => d.zone === z); if (mine.length >= CAP) L.splice(L.indexOf(mine[0]), 1); } const d = { gid: ARENA() ? 1 + Math.max(1000, ...L.filter(x => x.zone === zk() && x.gid < 1e6).map(x => x.gid)) : newGid(), id, n: n || 1, i, j, x: i + 0.5, z: j + 0.5, zone: zk(), t: 0, ph: Math.random() * 6.28, owner: null, until: 0 }; L.push(d); if (cap) cap.push(d); img(ITEMS[id].icon); return d; }
@@ -3640,6 +3645,7 @@ const GROUND = (() => {
     tip.hidden = false; tipOn = true; const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, cx + 16)) + 'px'; tip.style.top = Math.max(8, Math.min(innerHeight - h - 8, cy - h - 10)) + 'px'; }
   function hoverAt(sx, sy, cx, cy) { const d = at(sx, sy); setTip(d, cx, cy); return d; }
   function tick(dt) { if ((nearT -= dt) <= 0) { nearT = 0.25; const au = AUTO.on(); if ((NEAR_PICK || au) && SCENE !== 'town') pickNear(au && !NEAR_PICK ? AUTO.wantLoot : null, NEAR_PICK ? 1 : 0); }
+    if (SH) for (const d of SH.list) d.t += dt;   // 게스트도 남은 시간 깜빡임 (사라지는 건 호스트가 정함)
     for (let k = L.length - 1; k >= 0; k--) { L[k].t += dt; if (L[k].t > LIFE) { if (L[k] === hov) setTip(null); L.splice(k, 1); } }
     if (want) { if (!here().includes(want)) want = null; else if (hero.t >= 1 && !hero.atk && cheb(hero.i, hero.j, want.i, want.j) <= 1) pick(want); else if (!moveGoal && !hero.target && hero.t >= 1) want = null; } }
   function draw(g) { for (const d of here()) { if (!DN.seen(d.i, d.j)) continue; const it = ITEMS[d.id], m = img(it.icon, d.blessed), rc = rarC(d.id);
@@ -5053,6 +5059,7 @@ for (const d of Object.values(ITEMS)) { if (!d.slot || d.baseMul || d.doll) cont
 const rarC = id => RARITY_C[(ITEMS[id] && ITEMS[id].rar) || '일반'];
 const lowRar = id => { const r = (ITEMS[id] && ITEMS[id].rar) || '일반'; return r !== '영웅'; };   // v112: 일반~희귀는 떨어질 때 메시지 없이 (주울 때 획득 메시지만) · 영웅만 알림
 const rarTag = id => { const r = ITEMS[id] && ITEMS[id].rar; return r && r !== '일반' ? '[' + r + '] ' : ''; };
+const WQ_EL = { earth: 'e', water: 'w', fire: 'f', wind: 'a' };   // 10/30: 접속자 정보 창 presence(wq)용 속성 한 글자
 const ATTR_N = { earth: '땅', water: '물', fire: '불', wind: '바람' }, ATTR_OPP = { fire: 'water', water: 'fire', earth: 'wind', wind: 'earth' }, ATTR_C = { earth: '#d0a060', water: '#6ab8ff', fire: '#ff7a4a', wind: '#8ae0a8' }, ATTR_DMG = [0, 1, 3, 5], ARMOR_SLOTS = new Set(['helm', 'armor', 'shield', 'cloak', 'shirt', 'gloves', 'boots']), ACC_BL = new Set(['ring', 'amulet', 'belt']);
 const nameHTML = e => String(nameOf(e)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]).replace('축복받은', '<span class="bl">축복받은</span>');
 const GOD_SCROLLS = ['scroll_weapon', 'scroll_armor', 'scroll_acc', 'bscroll_acc', 'bscroll_weapon', 'bscroll_armor', 'cscroll_weapon', 'cscroll_armor', 'scroll_earth', 'scroll_water', 'scroll_fire', 'scroll_wind', 'bless_scroll'];
@@ -6374,7 +6381,7 @@ const TOWN = (() => {
   function askTown() { if (SCENE === 'town') { closeAll(); return; } if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
   // ESC: 열린 창을 마지막에 연 것부터 하나씩 닫음 → 다 닫혀 있으면 게임 메뉴
-  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'polywin'], popStack = [];
+  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'polywin'], popStack = [];
   POPS.forEach(id => { const el = $(id); if (!el) return; new MutationObserver(() => { const k = popStack.indexOf(id); if (k >= 0) popStack.splice(k, 1); if (!el.hidden) popStack.push(id); }).observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
   function closePop(id) { if (id === 'shop' || id === 'wmap') closeAll(); else if (id === 'itemwin') INV.hideDetail(); else if (id === 'bulkwin') INV.bulkClose(); else $(id).hidden = true; }
   // 다른 지역으로 가면(텔레포트·월드맵·귀환·수호탑 등) 마을 NPC 창(상점·판매·창고·제작·콜로세움)은 닫음
@@ -6643,7 +6650,8 @@ window.LOOKPV = (() => { let row = 1, t0 = 0, raf = 0; const cvs = () => documen
     g.save(); g.translate(c.width / 2, c.height - 20); g.scale(1.8, 1.8); const fr = Math.floor((ts || 0) / 1000 * 6) % 8; drawHeroSprite(g, 'idle', fr, row, 0, 0); g.restore();
     raf = requestAnimationFrame(draw); }
   function kick() { if (!raf) raf = requestAnimationFrame(draw); }
-  document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'cw-look') { row = (row + 1) % 8; kick(); } });
+  document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'cw-look') { row = (row + 1) % 8; kick(); } else if (ev.target && ev.target.id === 'cw-fx') { setEqFx(!EQFX); say(`장비 이펙트 ${EQFX ? '켬 — 강화·등급 장비 빛이 보여요' : '끔 — 강화·등급 장비 빛을 그리지 않아요 (내 화면만)'}`, EQFX ? '#9fe0a0' : '#9c9682'); } });
+  eqFxBtn();
   return { kick };
 })();
 
@@ -7044,6 +7052,10 @@ const NET = (() => {
     sendT = 0; }
   // ----- 보낼 내 상태
   function eqIds() { const e = {}; for (const L in KL_SLOT) { const id = INV.equipped(KL_SLOT[L]); if (id) e[KL_SLOT[L]] = id; } return e; }
+  // 10/30: 접속자 정보 창용 — xp = 경험치 ‰(0~1000) · wq = 부위별 장비 세부 글자 (e에 있는 부위는 id 없이 '+9*@f2' 처럼 강화·축복·속성만, 목걸이·반지·인형은 id부터) · 아무것도 없으면 null
+  const xpOut = () => { const n = needExp(hero.lv), v = Math.floor((hero.exp || 0) / n * 1000); return isFinite(v) ? Math.max(0, Math.min(1000, v)) : 0; };
+  function wqOut() { const KS = new Set(Object.values(KL_SLOT)), o = {}; let any = false; for (const [s] of SLOTS) { const e = INV.eqE(s); if (!e || !ITEMS[e.id]) continue;
+      const t = (KS.has(s) ? '' : e.id) + (e.en ? (e.en > 0 ? '+' : '') + e.en : '') + (e.blessed ? '*' + (e.blessSp > 1 ? e.blessSp : '') : '') + (e.attr && WQ_EL[e.attr.el] ? '@' + WQ_EL[e.attr.el] + (e.attr.lv | 0) : ''); if (t) { o[s] = t; any = true; } } return any ? o : null; }
   const rpOut = () => { const L = []; for (const r of REAPERS.values()) if (Date.now() < r.until && KINDS.includes(r.bk)) L.push([r.uid, r.z, KINDS.indexOf(r.bk), r.until, Math.round((r.hp || 1) * 1000), r.i, r.j, r.dead || r.gone ? 1 : 0]); return L.length ? L.slice(-4) : null; };
   function rpMerge(o) { const L = o.pr.rp; if (!Array.isArray(L)) return; const now = Date.now();
     for (const x of L.slice(0, 6)) { if (!Array.isArray(x)) continue; const [uid, z, k, until, hp, i, j, dn] = x, bk = KINDS[k]; const soul = isSoulRec(uid, z); if (!isRpUid(uid) || !MOB[bk] || !(soul ? MOB[bk].boss : REAPER_OF[z]) || !(until > now) || until > now + (soul ? SOUL_LIFE + 300 : 1500) * 1000) continue; let r = REAPERS.get(uid);
@@ -7078,7 +7090,7 @@ const NET = (() => {
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
-      e: eqIds(), eg: glowOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
+      e: eqIds(), eg: glowOut(), xp: xpOut(), wq: wqOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; if (ADMIN.cert()) P.adm.c = ADMIN.cert(); P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
@@ -8297,6 +8309,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 191, items: ["바닥에 떨어진 아이템은 떨어진 지 10분이 지나면 사라져요. 사라지기 30초 전부터 깜빡여요.", "한 지역 바닥에는 아이템이 최대 50개까지 남아요. 넘으면 가장 오래된 것부터 사라져요.", "캐릭터 정보 창의 캐릭터 미리보기 밑에 [장비 이펙트: 켬/끔] 버튼이 생겼어요. 끄면 강화·영웅 장비 빛(무기·방어구 빛·반짝임)과 데스나이트 세트 불티가 내 캐릭터·다른 유저·미리보기 모두에서 안 보여요. (내 화면에서만 적용 · 이 기기에 기억 · 버프·스킬·변신 효과는 그대로)", "접속자 목록(월드 서버 창)에서 이름을 누르면 그 캐릭터의 정보 창이 떠요. 레벨·경험치·전투력·있는 지역·착용 장비(강화 수치·등급 색 · 마우스를 올리면 아이템 정보)·캐릭터 모습을 볼 수 있어요. (가방·창고·골드는 안 보여요 · 상대도 이번 버전이어야 경험치·강화 수치·목걸이·반지·인형이 보여요)"] },
     { v: 190, items: ["연금술에 [자동 진행] 버튼이 생겼어요. [일괄 등록]에서 등급을 고르고 누르면 지금 조건(타클래스만·촉매 장수) 그대로 재료가 떨어질 때까지 3개씩 계속 조합해요. [중지]로 언제든 멈추고, '성공하면 멈추기'를 켜면 성공한 순간 멈춰요. (강화·축복·속성이 붙은 장비와 착용·잠긴 장비는 쓰지 않아요)", "아르카의 마법주머니 가격이 10만 골드로 바뀌었어요."] },
     { v: 189, items: ["🎃 할로윈 이벤트가 열렸어요! 마을의 [할로윈 허수아비 잭]에게 할로윈 모자(100골드)를 사면 으스스한 [할로윈 호박밭]에 들어갈 수 있어요. (하루 2시간 · 새벽 5시 초기화 · 안에서는 화면 위에 남은 시간 표시)", "호박밭에 들어가면 누구나 호박 머리 허수아비로 변신해 근거리로 싸워요. 내 능력치·장비 효과는 무시되고 초록 물약·용기의 물약 효과만 적용돼요. 마법·서먼·펫·변신 주문서는 쓸 수 없고, 다른 소모품(물약·주문서·호박 주머니·귀환 부적 등)은 모두 쓸 수 있어요.", "몬스터에게 주는 피해는 1, 받는 피해도 1로 고정이에요. 할로윈 모자를 강화하면 강화 1당 몬스터를 쓰러뜨리는 데 필요한 타수가 1대씩 줄어요 (+0 호박괴물 15대 · +9 6대 · 가방의 모자 중 가장 높은 강화로 계산).", "할로윈 호박괴물(HP 15)과 1.5배 크기의 호박대장(HP 25)이 나와요. 호박씨·호박 강화 주문서·축복받은 호박 강화 주문서(대장)를 떨어뜨려요.", "호박씨 100개를 잭에게 가져가면 [할로윈 호박 주머니]로 바꿔 줘요. 주머니를 열면 고급 마법인형(80%) 또는 [희귀 호박 주머니](20%)가 나오고, 희귀 주머니에서는 희귀 마법인형(84%) 또는 [영웅 호박 주머니](16%), 영웅 주머니에서는 영웅 장비 또는 영웅 마법인형(각 50%)이 나와요. 호박 강화 주문서는 사용한 뒤 강화할 할로윈 모자를 골라 클릭해요. (안전 +4 · 최대 +9)", "장비 강화 창의 [단일 강화]·[다중 강화]에서도 할로윈 모자를 호박 강화 주문서로 강화할 수 있어요. (다중 강화는 모자끼리만 · 최대 +9)", "할로윈 호박밭에서도 자동사냥을 쓸 수 있어요.", "호박괴물·호박대장이 새 아이템을 떨어뜨려요: [호박 사탕](30분 동안 몬스터 경험치 +20%) · [잭오랜턴](1시간 동안 밤 시야가 넓어짐) · 호박대장은 아주 낮은 확률로 [할로윈 망토](희귀 · AC -3 · MR +10 · 최대 HP +20 · 얻으면 전체 공지).", "자동사냥 [설정] 아이템 줍기가 종류 × 등급 표로 바뀌었어요. 예를 들어 고급 장비는 줍지 않고 고급 재료는 줍도록 종류마다 따로 고를 수 있어요. (기존 설정은 그대로 옮겨져요)", "[거대 여왕 개미의 금빛 날개]에 강화 1당 MR +1 옵션이 생겼어요."] },
     { v: 188, items: ['[♪ 강화 BGM]은 처음엔 꺼져 있어요. 한 번 켜면 다음에도 켜진 채로 유지돼요.', '[밀어서 결과 보기]로 결과가 열릴 때, 빨라졌던 강화 음악은 바로 원래 속도로 돌아오며 꺼지고 "빵빵" 효과음은 원래 속도로 나와요.'] },
@@ -8463,8 +8476,10 @@ const MPP = (() => {
   function render() { const n = NET.count(), on = state === 'on' || NET.hasArtRoom(); const b = $('btn-mp'); if (b) b.textContent = on ? `접속 ${n}명` : '서버 연결 중…'; const w = $('mpwin'); if (!w || w.hidden) return;
     $('mp-status').textContent = on ? `월드 서버 · ${n}명 접속 중` : state === 'connecting' ? '월드 서버에 연결하는 중…' : '연결 대기 중 (자동으로 다시 시도해요)';
     const pid = NET.partyId(), me = { n: PNAME(), c: CLASS, lv: hero.lv, z: null, me: 1, cp: myCP().total }, L = [me, ...NET.others().map(o => ({ ...o.pr, peer: o.peer }))], E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-    $('mp-list').innerHTML = on ? L.map(p => { const pm = !p.me && pid && p.pt === pid; return `<div class="mp-pl${p.me ? ' me' : ''}"><b style="color:${p.me ? '#ffffff' : pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(p.n)}${p.me ? ' (나)' : ''}</b><span>${E(CLASS_NAME[p.c] || '')} Lv.${p.lv | 0}${p.cp ? ` · 전투력 ${cpFmt(p.cp)}` : ''}</span><span class="mp-z">${E(zoneTitle(p.z))}</span>${p.me || pm ? '<i></i>' : `<button type="button" class="mp-sm" data-inv="${E(p.peer)}">파티 초대</button>`}</div>`; }).join('') : '';
-    $('mp-list').querySelectorAll('[data-inv]').forEach(x => x.onclick = () => NET.invite(x.dataset.inv)); }
+    const lst = $('mp-list'), html = on ? L.map(p => { const pm = !p.me && pid && p.pt === pid; return `<div class="mp-pl${p.me ? ' me' : ''}"><b class="mp-nm" role="button" tabindex="0" data-who="${p.me ? 'me' : E(p.peer)}" title="캐릭터 정보 보기" style="color:${p.me ? '#ffffff' : pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(p.n)}${p.me ? ' (나)' : ''}</b><span>${E(CLASS_NAME[p.c] || '')} Lv.${p.lv | 0}${p.cp ? ` · 전투력 ${cpFmt(p.cp)}` : ''}</span><span class="mp-z">${E(zoneTitle(p.z))}</span>${p.me || pm ? '<i></i>' : `<button type="button" class="mp-sm" data-inv="${E(p.peer)}">파티 초대</button>`}</div>`; }).join('') : '';
+    if (lst.dataset.h === html) return; lst.dataset.h = html; lst.innerHTML = html;
+    lst.querySelectorAll('[data-inv]').forEach(x => x.onclick = () => NET.invite(x.dataset.inv));
+    lst.querySelectorAll('[data-who]').forEach(x => { x.onclick = () => WHO.open(x.dataset.who); x.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopPropagation(); WHO.open(x.dataset.who); } }; }); }
   function start(c) { code = c; myId = 'w' + Math.random().toString(36).slice(2, 10); others.clear(); state = 'connecting'; tries = 0; render(); tryBroker(); }
   function tryBroker() { const L = BROKERS(); if (tries >= L.length) { state = 'off'; nextTry = performance.now() + 15000; msg('월드 서버에 연결하지 못했어요. 15초 뒤 다시 시도해요. (인터넷 연결을 확인해 주세요)', false); return; }
     const url = L[tries++]; curUrl = url; msg(`서버 ${tries}/${L.length}에 연결하는 중…`, true); clearTimeout(timer); timer = setTimeout(() => { if (state === 'connecting') { try { cli && cli.close(); } catch (e) {} cli = null; tryBroker(); } }, 6000);
@@ -8487,6 +8502,37 @@ const MPP = (() => {
   setInterval(render, 1000);
   return { open, leave, start, state: () => state, code: () => (state !== 'off' ? code : null) };
 })();
+// 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·경험치·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
+const WHO = (() => { const $ = id => document.getElementById(id), E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const ORDER = ['weapon', 'shield', 'helm', 'armor', 'shirt', 'cloak', 'gloves', 'belt', 'boots', 'amulet', 'ring1', 'ring2', 'doll'], LBL = Object.fromEntries(SLOTS), ELK = { e: 'earth', w: 'water', f: 'fire', a: 'wind' };
+  let peer = null, last = null, gone = false, row = 1, raf = 0, tick = 0; const sig = {};
+  // presence → 부위별 장비 (wq 글자 풀기 · 예전 버전은 e의 id만)
+  function gear(pr) { const Eq = pr.e && typeof pr.e === 'object' ? pr.e : {}, Q = pr.wq && typeof pr.wq === 'object' ? pr.wq : {}, out = {};
+    for (const s of ORDER) { const m = /^([a-z0-9_]*)([+-]\d+)?(\*(\d?))?(?:@([ewfa])(\d+))?$/.exec(typeof Q[s] === 'string' ? Q[s] : '') || [], id = m[1] || Eq[s]; if (!id || !ITEMS[id] || !ITEMS[id].slot) continue;
+      const e = { id, n: 1, en: +m[2] || 0, on: false }; if (m[3]) { e.blessed = true; if (m[4]) e.blessSp = +m[4]; } if (m[5]) e.attr = { el: ELK[m[5]], lv: +m[6] || 1 }; out[s] = e; } return out; }
+  const set = (id, h) => { if (sig[id] === h) return; sig[id] = h; const el = $(id); if (el) el.innerHTML = h; };   // 바뀐 칸만 다시 그림 (마우스를 올린 툴팁이 끊기지 않게)
+  function find() { const L = NET.others(); let o = L.find(q => q.peer === peer); if (!o && last) { o = L.find(q => q.pr && q.pr.n === last.n && q.pr.c === last.c); if (o) peer = o.peer; } return o; }   // 다시 접속하면 peer가 바뀜 → 같은 이름·직업으로 다시 찾음
+  function view() { const w = $('whowin'); if (!w || w.hidden || !peer) return; const o = find(); if (o) { last = o.pr; gone = false; } else gone = true; const pr = last || {}, has = k => pr[k] != null;
+    const pm = !gone && NET.partyId() && pr.pt === NET.partyId();
+    set('who-hd', `<b style="color:${pm ? '#8fe08a' : '#a8d8ff'}">${pm ? '[파티] ' : ''}${E(pr.n || '?')}</b>` + (gone ? '<span class="who-off">접속 종료</span>' : pr.dd > 0 ? '<span class="who-off">사망</span>' : '<span class="who-on">접속 중</span>'));
+    const xp = has('xp') && isFinite(+pr.xp) ? (Math.max(0, Math.min(1000, +pr.xp)) / 10).toFixed(1) + '%' : '-';
+    set('who-info', `<div class="big" style="display:contents"><dt>레벨</dt><dd>${has('lv') ? (pr.lv | 0) : '-'}</dd></div><dt>직업</dt><dd>${E(CLASS_NAME[pr.c] || '-')}</dd><dt>경험치</dt><dd>${xp}</dd><dt>전투력</dt><dd class="cp">${pr.cp ? cpFmt(pr.cp) : '-'}</dd><i class="sep"></i><dt>위치</dt><dd class="who-z">${gone ? '-' : has('z') ? E(zoneTitle(pr.z)) : '-'}</dd>`);
+    const G = gear(pr), gk = JSON.stringify(G); if (sig.gk !== gk) { sig.gk = gk; sig['who-eq'] = null; } if (sig['who-eq'] == null) set('who-eq', ORDER.map(s => {   /* 아이콘 그림은 그릴 때마다 id가 달라서 장비가 바뀔 때만 다시 그림 */ const e = G[s], lb = E(LBL[s] || s); if (!e) return `<div class="who-it none"><div class="eq"></div><div class="who-in"><small>${lb}</small><span>-</span></div></div>`; const d = ITEMS[e.id], rr = d.rar || '일반', t = enTierOf(e.id, e.en);
+      const tip = INV.tipOf(e).split('\n').filter(l => !/더블클릭|꾹 누르고/.test(l)).map(l => l.replace(/ — 착용 불가$/, '')).join('\n');
+      return `<div class="who-it" data-itip="${E(tip)}" data-ic="${rarC(e.id)}"><div class="eq has rar r-${{ '일반': 0, '고급': 1, '희귀': 2, '영웅': 3 }[rr] || 0}${t ? ' eg' + t : ''}" style="--rar:${rr === '일반' ? '#b9b4a8' : RARITY_C[rr]}">${ICON(d.icon, e.blessed)}${e.blessed ? '<i class="bl-spark"></i>' : ''}${e.en ? `<i class="en${e.en < 0 ? ' neg' : ''}">${e.en > 0 ? '+' : ''}${e.en}</i>` : ''}</div><div class="who-in"><small>${lb}</small><b style="color:${rarC(e.id)}">${nameHTML(e)}</b></div></div>`; }).join(''));
+    set('who-note', gone ? '접속을 종료해서 마지막으로 받은 정보를 보여 줘요.' : !has('wq') && !has('xp') ? '상대가 예전 버전이라 경험치·강화 수치와 목걸이·반지·인형은 보이지 않아요.' : '');
+    kick(); }
+  function draw(ts) { raf = 0; const c = $('who-look'), w = $('whowin'); if (!c || !w || w.hidden) return; const g = c.getContext('2d'), pr = last || {}; g.clearRect(0, 0, c.width, c.height);
+    const gr = g.createRadialGradient(c.width / 2, c.height - 22, 4, c.width / 2, c.height - 22, c.width * 0.45); gr.addColorStop(0, 'rgba(255,230,170,.16)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(c.width / 2, c.height - 20, 34, 9, 0, 0, 7); g.fill();
+    if (pr.n) { const Eq = pr.e && typeof pr.e === 'object' ? pr.e : {}, cls = CLS_DEF[pr.c] ? pr.c : 'knight'; g.save(); if (gone) g.globalAlpha = 0.5; g.translate(c.width / 2, c.height - 20); g.scale(1.8, 1.8);
+      try { drawHeroSprite(g, 'idle', Math.floor((ts || 0) / 1000 * 6) % 8, row, 0, 0, null, cls, s => Eq[s] || null, sl => (pr.eg && +pr.eg[sl]) || 0, pr.pf); } catch (e) {} g.restore(); }
+    raf = requestAnimationFrame(draw); }
+  function kick() { if (!raf) raf = requestAnimationFrame(draw); }
+  function open(p) { if (!p) return; if (p === 'me') { const cw = $('charwin'); if (cw) { cw.hidden = false; INV.render(); } return; } const o = NET.others().find(q => q.peer === p); if (!o) { say('지금은 접속하지 않은 유저예요.', '#9c9682'); return; }
+    peer = p; last = o.pr; gone = false; row = 1; for (const k in sig) delete sig[k]; const w = $('whowin'); if (!w) return; w.hidden = false; view(); if (!tick) tick = setInterval(() => { const w2 = $('whowin'); if (!w2 || w2.hidden) { clearInterval(tick); tick = 0; return; } view(); }, 500); }
+  document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'who-look') { row = (row + 1) % 8; kick(); } });
+  return { open, peer: () => peer, gone: () => gone }; })();
 // 직업 적용: 처음 접속할 때(새 상태) 한 번 — 다른 직업으로 바꿀 땐 페이지를 새로 불러 깨끗한 상태에서 적용
 function applyClass(cls, name) { CLASS = cls; const C = CLS_DEF[cls]; hero.pname = name; hero.lv = 1; hero.exp = 0; hero.baseHP = C.hp; hero.baseMP = C.mp; hero.bonusPts = 0; coins = 100;
   LEARNED.clear(); for (const k in SKCD) delete SKCD[k]; for (const k in BUFF) BUFF[k] = 0; INV.setClass(cls); hero.hp = hero.max; hero.mp = hero.maxmp; hero.target = null; hero.atk = null; }
