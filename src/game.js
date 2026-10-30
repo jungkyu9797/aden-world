@@ -3993,9 +3993,10 @@ function regionDrop(f) { const b = REGION_BOSS[f.kind], T = b && DROP_TABLE[b]; 
   const tot = pool.reduce((a, r) => a + r[1], 0); let x = Math.random() * tot; const row = pool.find(r => (x -= r[1]) < 0) || pool[0];
   GROUND.drop(row[0], 1, f.i, f.j); if (!lowRar(row[0])) say(`${rarTag(row[0])}${JOSA(ITEMS[row[0]].name, '이', '가')} 떨어졌습니다!`, rarC(row[0])); return true; }
 const GROUND = (() => {
-  const L = [], IMG = {}, LIFE = Infinity, CAP = 400; let want = null, hov = null, tipOn = false, cap = null, SH = null;   // SH: 게스트일 때 호스트가 보내 준 바닥 아이템 (같은 지역)
+  const L = [], IMG = {}, LIFE = 600, CAP = 50;   // 10/30: 바닥 아이템은 떨어진 지 10분 뒤 사라짐 · 지역당 50개(넘으면 가장 오래된 것부터 사라짐) (아이템마다 따로 · 마지막 30초는 깜빡임 · 타이머 없이 떨어진 뒤 흐른 시간 t만 매 프레임 확인)
+  let want = null, hov = null, tipOn = false, cap = null, SH = null;   // SH: 게스트일 때 호스트가 보내 준 바닥 아이템 (같은 지역)
   const now = () => performance.now(), newGid = () => 1 + Math.floor(Math.random() * 2e9);
-  const prio = d => !d.owner || !(d.until > now()) ? 0 : d.owner === NET.me() ? 1 : 2;   // 0 없음 · 1 내 우선권 · 2 남의 우선권   // 바닥 아이템은 사라지지 않음 (마을·다른 맵 다녀와도 그 자리에 유지), 지역당 최대 150개
+  const prio = d => !d.owner || !(d.until > now()) ? 0 : d.owner === NET.me() ? 1 : 2;   // 0 없음 · 1 내 우선권 · 2 남의 우선권   // 바닥 아이템은 떨어진 지 10분 뒤 사라짐 (마을·다른 맵에 다녀와도 시간은 흐름), 지역당 최대 50개
   const zk = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
   function img(k, bl) { const key = k + (bl ? '|b' : ''); let m = IMG[key]; if (!m) { m = IMG[key] = new Image(); m.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(ICON(k, bl).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" ')); } return m; }
   function drop(id, n, i, j) { if (!ITEMS[id]) return; { const z = zk(), mine = L.filter(d => d.zone === z); if (mine.length >= CAP) L.splice(L.indexOf(mine[0]), 1); } const d = { gid: ARENA() ? 1 + Math.max(1000, ...L.filter(x => x.zone === zk() && x.gid < 1e6).map(x => x.gid)) : newGid(), id, n: n || 1, i, j, x: i + 0.5, z: j + 0.5, zone: zk(), t: 0, ph: Math.random() * 6.28, owner: null, until: 0 }; L.push(d); if (cap) cap.push(d); img(ITEMS[id].icon); return d; }
@@ -4043,6 +4044,7 @@ const GROUND = (() => {
     tip.hidden = false; tipOn = true; const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, cx + 16)) + 'px'; tip.style.top = Math.max(8, Math.min(innerHeight - h - 8, cy - h - 10)) + 'px'; }
   function hoverAt(sx, sy, cx, cy) { const d = at(sx, sy); setTip(d, cx, cy); return d; }
   function tick(dt) { if ((nearT -= dt) <= 0) { nearT = 0.25; const au = AUTO.on(); if ((NEAR_PICK || au) && SCENE !== 'town') pickNear(au && !NEAR_PICK ? AUTO.wantLoot : null, NEAR_PICK ? 1 : 0); }
+    if (SH) for (const d of SH.list) d.t += dt;   // 게스트도 남은 시간 깜빡임 (사라지는 건 호스트가 정함)
     for (let k = L.length - 1; k >= 0; k--) { L[k].t += dt; if (L[k].t > LIFE) { if (L[k] === hov) setTip(null); L.splice(k, 1); } }
     if (want) { if (!here().includes(want)) want = null; else if (hero.t >= 1 && !hero.atk && cheb(hero.i, hero.j, want.i, want.j) <= 1) pick(want); else if (!moveGoal && !hero.target && hero.t >= 1) want = null; } }
   function draw(g) { for (const d of here()) { if (!DN.seen(d.i, d.j)) continue; const it = ITEMS[d.id], m = img(it.icon, d.blessed), rc = rarC(d.id);
