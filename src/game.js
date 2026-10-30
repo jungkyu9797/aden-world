@@ -2034,6 +2034,18 @@ function desertFx(g, vw, vh) { if (!ISLE || !ISLE.def.sand) return; const dk = D
   if (dk > 0.05) { g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgba(110,140,210,${Math.min(1, dk) * 0.55})`; g.fillRect(0, 0, vw, vh); }
   g.restore(); }
 // v144: 몬스터 한 마리 그리기 (필드 몬스터 · 소환수 · 다른 사람 화면의 소환수 공용)
+// 10/30 프로듀서: 내가 고른 대상(몹·AI 봇)은 생김새를 따라 빨간 테두리 — 몸을 작은 캔버스에 한 번 그려서 빨간 실루엣을 사방으로 조금씩 밀어 깐 뒤 몸을 위에 얹음
+const TGO = { c: null, c2: null, k: 0, f: '' };   // f: 그림자처럼 반투명한 부분은 테두리에서 빼는 SVG 필터(알파 문턱)
+function tgoFilter() { if (TGO.f) return TGO.f; try { const ns = 'http://www.w3.org/2000/svg', s = document.createElementNS(ns, 'svg'); s.setAttribute('width', '0'); s.setAttribute('height', '0'); s.style.position = 'absolute'; s.setAttribute('aria-hidden', 'true'); s.innerHTML = '<filter id="tgoA" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncA type="linear" slope="5" intercept="-2.6"/></feComponentTransfer></filter>'; document.body.appendChild(s); TGO.f = 'url(#tgoA)'; } catch (e) { TGO.f = 'none'; } return TGO.f; }
+function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] || {}, big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = Math.round(260 * Math.min(2.4, big)), H = Math.round(300 * Math.min(2.4, big)), ox = W / 2, oy = H * 0.78, k = Math.min(2, Math.max(1, curZ || 1));
+  let c = TGO.c, c2 = TGO.c2; if (!c) { c = TGO.c = document.createElement('canvas'); c2 = TGO.c2 = document.createElement('canvas'); }
+  const cw = Math.ceil(W * k), ch = Math.ceil(H * k); if (c.width !== cw || c.height !== ch) { c.width = c2.width = cw; c.height = c2.height = ch; }
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
+  drawMobBody(x, f); x.setTransform(1, 0, 0, 1, 0, 0);
+  const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
+  const d = 2 / (curZ || 1), L = px - ox, T = py - oy; g.save(); g.globalAlpha = 0.8 + 0.2 * Math.sin(time * 6);
+  for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d], [d * 0.7, d * 0.7], [-d * 0.7, d * 0.7], [d * 0.7, -d * 0.7], [-d * 0.7, -d * 0.7]]) g.drawImage(c2, L + dx, T + dy, W, H);
+  g.restore(); g.drawImage(c, L, T, W, H); }
 function drawMobBody(g, f){ if (f.bot || f.twr || (f.kind && f.kind.startsWith('tw_'))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
     const sheetAtk = S.art==='sheet' && !f.dead && f.atkT!=null; mobPose(f, sheetAtk?0.5:1);
     const al=f.dead?Math.max(0,1-f.deadT/1.4):1, fl=f.flash>0?'brightness(2.6) saturate(0)':MP.red?'sepia(.55) saturate(2.4) hue-rotate(-38deg) brightness(1.08)':null;
@@ -2080,7 +2092,7 @@ function drawWorld(g, vw, vh){
       if (!s || !im[p.type+p.v]){ const pc=propCanvas(p.type, p.v); if (pc){ g.save(); g.globalAlpha=fade?0.4:1; g.drawImage(pc.c, Math.round(x-pc.ax), Math.round(y-pc.ay), pc.w, pc.h); g.restore(); } if (p.type==='bonfire') campFlame(g,x,y); return; }   // 사막 소품(코드 그림) — im['cactus0'] 등 정식 그림이 들어오면 위의 스프라이트 경로로
       if (im[p.type+p.v].complete){ const pim = ISLE && ISLE.def.sand ? sandProp(p.type+p.v, p.type) : ISLE && ISLE.def.snow ? snowImg(im[p.type+p.v]) : im[p.type+p.v]; g.save(); g.globalAlpha=fade?0.4:1; const sc=s.s||1, ps=prescaled(pim, sc); if (ps) g.drawImage(ps, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc)); else { if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; } g.drawImage(pim, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc), s.W*sc, s.H*sc); } g.restore(); } }}); }
   if (ISLE && ISLE.def.altar){ const A=ISLE.def.altar; list.push({d:A.i+A.j-4, f:()=>drawAltar(g,A,0)}); list.push({d:A.i+A.j+1, f:()=>drawAltar(g,A,1)}); }   /* v126: 소환의 제단 */
-  for (const f of foxes){ if (f.dead&&f.deadT>1.4) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>drawMobBody(g, f)}); }
+  for (const f of foxes){ if (f.dead&&f.deadT>1.4) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>f===hero.target&&!f.dead?drawTgtOutline(g, f):drawMobBody(g, f)}); }
   if (DEATH) {} else   // 무덤은 어둠 위(이름표 단계)에서 그림
   list.push({d:hero.x+hero.z, f:()=>{ const [x,y]=W2P(hero.x,hero.z); const NF=a=>KN.anims[a].frames; let anim='idle', fr=Math.floor(time*6)%NF('idle');
     if (hero.atk){ anim=hero.atk.v||'attack'; const nf=KN.anims[anim]?NF(anim):8; fr=Math.min(nf-1,Math.floor(hero.atk.t/hero.atk.dur*nf)); if (!KN.anims[anim]&&CLASS==='knight') anim='attack'; } else if (hero.t<1){ anim='walk'; fr=Math.floor(hero.dist*4)%8; } else if (SCENE==='town' && KN.anims.look && CLASS==='knight'){ anim='look'; fr=Math.floor(time*2.5)%NF('look'); }
