@@ -2043,8 +2043,8 @@ function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] 
   const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
   drawMobBody(x, f); x.setTransform(1, 0, 0, 1, 0, 0);
   const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
-  const d = 2 / (curZ || 1), L = px - ox, T = py - oy; g.save(); g.globalAlpha = 0.8 + 0.2 * Math.sin(time * 6);
-  for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d], [d * 0.7, d * 0.7], [-d * 0.7, d * 0.7], [d * 0.7, -d * 0.7], [-d * 0.7, -d * 0.7]]) g.drawImage(c2, L + dx, T + dy, W, H);
+  const d = 4 / (curZ || 1), L = px - ox, T = py - oy; /* 10/30 프로듀서: 테두리 2배 두껍게 (2px → 4px) */ g.save(); g.globalAlpha = 0.8 + 0.2 * Math.sin(time * 6);
+  for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; g.drawImage(c2, L + Math.cos(a) * d, T + Math.sin(a) * d, W, H); } g.drawImage(c2, L + d * 0.5, T, W, H); g.drawImage(c2, L - d * 0.5, T, W, H);   /* 두꺼워져도 둥글게: 12방향 + 안쪽 2번 */
   g.restore(); g.drawImage(c, L, T, W, H); }
 function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO.busy = true; try { drawTgtOutline(g, f); } finally { TGO.busy = false; } return; }   /* 고른 대상은 빨간 테두리 (안에서 다시 이 함수를 부름) */
   if (f.bot || f.twr || (f.kind && f.kind.startsWith('tw_'))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
