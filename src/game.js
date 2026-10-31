@@ -2976,10 +2976,10 @@ const DREAM = {
   LAVA_N: 14, LAVA_ST: 2, LAVA_DMG: [10, 16],   // 동쪽 용암 웅덩이 수 · 용암 줄기 수 · 용암 피해 (약하게 · 화산탄 없음)
   LAKE_N: 2,          // 서쪽 얼음 호수 수
   N_SPIRIT: 15, N_GREAT: 3,   // 사분면마다 정령 15 · 대정령 3 → 총 60 · 12 (5:1)
-  // 정령: HP ×4 · 피해 ×1.6 · 경험치 ×3 · 골드 ×3 (사라만다 기준)
-  SPIRIT: { lv: 60, hp: 9000, dmg: [144, 229], mac: 0, hit: 0.95, mr: 45, exp: 42450, coin: [9750, 15600], walk: 1.1, run: 3.0, cd: 1.42, elAdd: [24, 40] },
+  // 정령: HP ×4 · 피해 ×1.6 · 경험치 ×3 · 골드 ×3 (사라만다 기준) · mac(몹 AC): 명중 식이 레벨 차(1레벨당 5%)에 민감해서 Lv58~60이 맞힐 수 있게 사라만다(1)보다 낮게 (10에 가까울수록 잘 맞음)
+  SPIRIT: { lv: 60, hp: 9000, dmg: [144, 229], mac: 6, hit: 0.95, mr: 45, exp: 42450, coin: [9750, 15600], walk: 1.1, run: 3.0, cd: 1.42, elAdd: [24, 40] },
   // 대정령: HP ×6 · 피해 ×2 · 경험치 ×6 · 골드 ×6 · 선공 6칸
-  GREAT: { lv: 65, hp: 13500, dmg: [180, 286], mac: -1, hit: 0.96, mr: 60, exp: 84900, coin: [19500, 31200], walk: 1.0, run: 2.9, cd: 1.5, aggr: 6, elAdd: [34, 56] },
+  GREAT: { lv: 65, hp: 13500, dmg: [180, 286], mac: 8, hit: 0.96, mr: 60, exp: 84900, coin: [19500, 31200], walk: 1.0, run: 2.9, cd: 1.5, aggr: 6, elAdd: [34, 56] },
   GREAT_SC: 1.5,      // 대정령 크기 배율
   EL_SAME: 0.5, EL_OPP: 1.3,   // 정령·대정령: 같은 속성 피해 ×0.5 · 반대 속성 피해 ×1.3 (무기 속성·공격 마법)
   MAGIC: { cd: [6, 8], range: 5, mul: 1.3, r: 1.6, warn: 0.9 },   // 대정령 속성 마법: 재사용 6~8초 · 사거리 5칸 · 근접 피해의 1.3배 · 범위 반지름 · 예고 시간
@@ -11703,7 +11703,7 @@ const DREAM_PAL = { fire: { a: '#7a1004', b: '#e8481a', c: '#ffb03a', d: '#fff2c
 const DREAM_AUR = {};
 function dreamAura(g, el, x, y, k) { const W = 180, H = 230; let c = DREAM_AUR[el]; if (!c) { c = DREAM_AUR[el] = document.createElement('canvas'); c.width = W; c.height = H; const cg = c.getContext('2d'), P = DREAM_PAL[el];
     const gr = cg.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W / 2); gr.addColorStop(0, `rgba(${P.g},.5)`); gr.addColorStop(0.5, `rgba(${P.g},.2)`); gr.addColorStop(1, `rgba(${P.g},0)`); cg.fillStyle = gr; cg.save(); cg.translate(W / 2, H / 2); cg.scale(1, H / W); cg.translate(-W / 2, -H / 2); cg.beginPath(); cg.arc(W / 2, H / 2, W / 2, 0, 7); cg.fill(); cg.restore();
-    cg.strokeStyle = `rgba(${P.g},.3)`; cg.lineWidth = 3; for (let q = 0; q < 3; q++) { cg.beginPath(); cg.ellipse(W / 2, H / 2, W * 0.28 + q * 14, H * 0.3 + q * 16, 0, 0, 7); cg.stroke(); } }
+    cg.filter = 'blur(7px)'; for (let q = 0; q < 7; q++) { const x = W / 2 + (q - 3) * 19 + ((q * 7) % 5) - 2, h = H * (0.5 + 0.22 * Math.sin(q * 1.7)), gr2 = cg.createLinearGradient(0, H / 2 - h / 2, 0, H / 2 + h / 2); gr2.addColorStop(0, `rgba(${P.g},0)`); gr2.addColorStop(0.35, `rgba(${P.g},.5)`); gr2.addColorStop(0.65, `rgba(${P.g},.4)`); gr2.addColorStop(1, `rgba(${P.g},0)`); cg.fillStyle = gr2; cg.fillRect(x - 5, H / 2 - h / 2, 10 + (q % 3) * 3, h); } cg.filter = 'none'; }   // 오로라: 세로 빛띠 7개를 흐리게
   const s = 0.86 + 0.14 * Math.sin(time * 2.6 + x * 0.01); g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha *= 0.9 * k; g.drawImage(c, x - W / 2 * s, y - H / 2 * s, W * s, H * s); g.restore(); }
 function dreamColumn(g, el, P, t, wd, trail, dk) { const yT = -42, yB = 5, H = (yB - yT) * (1 - dk * 0.6), n = 12, tw = t * (el === 'earth' ? 1.4 : 5), rk = el === 'earth';
   const cxk = k => Math.sin(tw * 0.5 + k * 3.2) * 2.2 * k + trail * k * k, hwk = k => (15 - 11 * Math.pow(k, 0.8)) * wd * (1 + 0.09 * Math.sin(tw + k * 9)) * (1 - dk * 0.5);
