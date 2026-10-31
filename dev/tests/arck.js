@@ -25,8 +25,10 @@ const ONLY = process.env.AKCLS ? process.env.AKCLS.split(',') : ['knight', 'wiza
     const box = () => p.evaluate(() => { const r = document.getElementById('pw-look').getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; });
     const look = async id => { await p.click(`#pw-grid .pw-c[data-id="${id}"]`); await p.waitForTimeout(1200); return p.evaluate(() => { const c = document.getElementById('pw-look'), g = c.getContext('2d'), D = g.getImageData(c.width * 0.3, c.height * 0.15, c.width * 0.4, c.height * 0.6).data; let r = 0, gg = 0, bl = 0, n = 0;
       for (let i = 0; i < D.length; i += 4) { const mx = Math.max(D[i], D[i + 1], D[i + 2]); if (D[i + 3] < 200 || mx < 70) continue; r += D[i]; gg += D[i + 1]; bl += D[i + 2]; n++; } return n ? { r: Math.round(r / n), g: Math.round(gg / n), b: Math.round(bl / n), n } : null; }); };
+    await p.evaluate(() => { const b = document.getElementById('cw-fx'); if (b && !b.classList.contains('off')) b.click(); });   // 미리보기 색만 보려고 장비 이펙트(전설 금빛 오로라) 잠깐 끔
     const A = await look('arc_' + j); await p.screenshot({ path: `dev/out/arck_${cls}_look_arc.png`, clip: await box() });
     const S = await look('sword_' + j); await p.screenshot({ path: `dev/out/arck_${cls}_look_sword.png`, clip: await box() });
+    await p.evaluate(() => { const b = document.getElementById('cw-fx'); if (b && b.classList.contains('off')) b.click(); });
     console.log(cls, 'look arc', JSON.stringify(A), 'sword', JSON.stringify(S));
     ok(N + ': 미리보기 은빛 (아크)', !!A && A.b >= A.r - 12); ok('소드 ' + NM[cls] + ': 예전 아크 금빛 (' + (S && S.r - S.b) + ')', !!S && S.r - S.b > 12);
     // 소드로 바꾸면 금빛 효과 없음
