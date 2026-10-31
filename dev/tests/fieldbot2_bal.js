@@ -7,7 +7,7 @@
 //   기사: 리덕션·바운스·솔리드·카운터 유지 + 붙으면 스턴 · 법사: 콘·이럽·선버·디스(재사용·MP 그대로) · 요정: 트리플 애로우 — 도망·귀환 없음
 // 봇: 같은 레벨(기준 레벨 × 비율 = L)의 라인 봇 (2단계 ① 전부: 버프·스턴·마법·물약·귀환/끝까지)
 const { chromium } = require('playwright'); const PB = require('../sim/pvpbuilds.js');
-const L = +(process.env.LV || 47), N = +(process.env.N || 12), CFG = process.env.CFG ? JSON.parse(process.env.CFG) : null, COPY = process.env.COPY || 'ord', ZONE = +(process.env.ZONE || 12);
+const L = +(process.env.LV || 47), N = +(process.env.N || 12), CFG = process.env.CFG ? JSON.parse(process.env.CFG) : null, COPY = process.env.COPY || 'ord', ZONE = +(process.env.ZONE || 12), PCT = +(process.env.PCT || 0.9);   // 11/1 밤: PCT = 봇 비율(기준 레벨 = L ÷ PCT → 봇 레벨 L) · 1(100% 봇)·0.7(70% 봇)
 const CLS = ['knight', 'elf', 'wizard'], KN = { knight: '기사', elf: '요정', wizard: '법사' };
 async function open(b, cls) { const p = await (await b.newContext({ viewport: { width: 800, height: 600 } })).newPage(); p.on('pageerror', e => console.log('ERR', cls, String(e).slice(0, 200)));
   await p.goto('http://127.0.0.1:' + (process.env.KT_PORT || 8766) + '/_sim2.html'); await p.waitForSelector('#lg-mode', { state: 'visible', timeout: 60000 }); await p.click('#lg-mode');
@@ -42,7 +42,7 @@ async function open(b, cls) { const p = await (await b.newContext({ viewport: { 
   return p; }
 (async () => { const b = await chromium.launch(); const t0 = Date.now(); const pages = {}; for (const c of CLS) pages[c] = await open(b, c);
   // 봇 기준 캐릭터 사진 (기사): ord = 같은 평범한 장비 Lv(L/0.9) · high = 영웅급 Lv55 · 봇 비율 = L / 기준 레벨 → 봇 레벨 L
-  const kp = pages.knight, LC = COPY === 'high' ? 55 : Math.round(L / 0.9);
+  const kp = pages.knight, LC = COPY === 'high' ? 55 : Math.round(L / PCT);
   const cinfo = await kp.evaluate(([LC, high]) => __DUEL.setup('knight', LC, high), [LC, COPY === 'high' ? PB.knight : null]); const copy = await kp.evaluate(() => __FB.mine());
   console.log(`기준 캐릭터(${COPY}) 기사 Lv${LC}`, JSON.stringify(cinfo), 'cb', JSON.stringify(copy.cb));
   const rows = [];
