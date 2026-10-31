@@ -21,10 +21,14 @@
   - 소리: `dev/sfx/fn_sfx.py`처럼 numpy로 합성 → `assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3` → `MSFX`의 `has` 목록에 몹 이름 추가(보스 스킬음이 있으면 `K2`에도).
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
-## 지금 상태 (10/31 06:20 KST)
-- 마지막 배포 **v201** (할로윈 호박괴물·호박대장 낮은 레벨 경험치 감소 없음). v200: 게임 기록 서버 저장(Firestore `worldlog` · 프로듀서가 규칙에 `match /worldlog/{id}` 추가함). v199: 직업 밸런스(마법 (지능+SP−12) 40 넘는 부분 절반 · 서먼 공격 ×0.75 · 기사 몬스터 피해 ×1.25 · 밤 어둠 안전장치 잠수). v196~v199: 게임 기록 · 인벤 마법인형 칸 · 방어 v2 · 화룡 갑옷 강화 불저항 · 어디서나 교환 · 마법사 재사용 +1초 · 서먼 와이번 · 낮/밤 1시간(한국 시각 짝수 시 낮) + 밤 몹 +20%·보상 +20% + 밤 아이콘 · 턴 언데드 보스 제외. 원래 컴퓨터 폴더에는 계속 못 넣음(클라우드 방).
-- **승인 대기 2개** (테스트 판 = `work/stage-all` = main + polygacha + aibot): polymon(`work/polygacha` — 10/31 프로듀서 기획안 반영: 상단 [변신] 창 · 1회 39,900/11회 399,000 · 확정 칸 없음 · 마일리지 1000 · 합성 30/30/10/10 · 천장 7/10 · 변신 칸 · TGFX 뽑기 연출(3단계, 다른 방에서 만듦 — 그 방은 끝남) · 보유중에 없는 카드도 흐리게 · 결과 [나가기] · 아크 시리즈 영상 참고 색감·효과(PM_RC · rcSpec · rcGround/rcSwing/rcHitFx), 인수인계 `dev/rooms/polymon.md`) · aibot(혈맹·필드 봇). (polygacha2.js는 2단계 뽑기 화면용이라 3단계 뒤로는 안 맞음 — polygacha.js·polygacha3.js·pcg_all.js·arck.js를 씀)
-  - 합칠 때 겹치는 곳(rerere 기록됨): polygacha↔main(polyBonus+DEFMODE.spdAdd · INV sum fireEnOf+pcStat · 가방 ondrop · POPS/모바일 메뉴/상단 버튼 둘 다 · 캐릭터 창 dl) · aibot↔main(killCheck FBOT 줄 + coinX · onDmg FBOT 줄 + shareExp nightR).
+## 지금 상태 (10/31 18:50 KST)
+- 마지막 배포 **v202** (변신 카드 polymon + 전설 무기 legitem). v201: 할로윈 몹 경험치 감소 없음. v200: 게임 기록 서버 저장(Firestore `worldlog`).
+  - 변신 카드(`work/polygacha`): 상단 [변신] 창 · 1회 5만/11회 50만 · TGFX 홀 연출(희귀 이상 금빛 · 공개 전 등급 색 숨김) · 합성(희귀/영웅은 홀 연출 · 11장 넘으면 [다음 카드]) · 마일리지 1000 = 무작위 전설 · 전설 재뽑기 300만→600만→1200만→무료 고르기(D.rr · 횟수는 카드를 따라감) · 소드 = 옛 아크 모습 · 아크 3종 금빛 효과(rcSpec·rcGround·rcSwing·rcFlash·rcHitFx) · 전설 카드 변신 금빛 오로라(polyAura) · 특별상점 변신 카드 탭 없음. 인수인계 `dev/rooms/polymon.md`. 테스트 polygacha·polygacha3·pcg_all·pcg_rr·arck·legaura (polygacha2.js는 2단계 화면용이라 안 맞음).
+  - 전설 무기(`work/legitem`): 집행검·가이아의 격노·수정결정체 지팡이 · LEG_ROWS · +0 공격 = 직업별 용 무기 +9(LEG_DMG9) · 명중+15 추피+10 · [심판] 20%+강화당 2% · 내 피해 100%(마법사는 칼질 × spellMul · 공격 마법 X · 대인전 X) · 하늘 금빛 기둥 · 안전 강화 +0 · 강화당 +3 · 연금술 영웅 3개 → 전설 3%(축데이·축젤 10장당 +1%p 최대 +3%p · 직업 무작위) · 특별상점 장비 변경 주문서 1,000만(eq_change) · 방패 같이 들 수 있음 · 도감 '연금술' 표시(프로듀서 결정). 테스트 legitem.js. 시뮬 `dev/sim/wpn_probe.js` + `dev/sim/builds/ref_knight58.json`(기준 캐릭터 Lv58).
+  - 합칠 때(rerere 기록): legitem↔polygacha — strike()에 rcHitFx와 judgeHit 둘 다 · RARITY_C 전설색 #ffa630 · 특별상점 탭은 legitem 줄(변신 카드 탭 없음) · 가방/장비 칸은 legFx 쪽.
+- **승인 대기**: aibot(`work/aibot` 혈맹·필드 봇 1단계). 테스트 판 = `work/stage-all` = main + aibot.
+- 보조 작업자 worktree `.claude/worktrees/agent-a8224c55fd10ac7e6`(work/legitem)은 끝나면 지워도 됨. 원격 `work/polyrr`는 지우기가 막혀 남아 있음(안 씀).
+- 휴대폰 알림: 작업 끝·승인 대기·팝업 질문 때 PushNotification.
 - 결정 대기: 기사 리덕션 아머 레벨 비례(추천 20%+51렙부터 1%, 최대 35%) · 다음 사냥터 컨셉(nextzone) · 밤 전용 재료(달빛 조각 등) 아이디어.
 - 시뮬: `dev/sim/fn_sim.js` (NIGHT=1 밤 고정 · NOMANA=1 마나 물약 없이 · DEF='{"spSoft":40}' · SUMB='{"dmg":0.75}') · 빌드 `dev/sim/builds/ref_wizard57.json`·`ref_knight57.json`(10/31 실제 두 캐릭터). 법사 시뮬은 판마다 편차가 커서 5번 이상 평균.
 - 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT`. 테스트 동시 2개까지(OOM). `pgrep -f`에 포트를 넣지 말 것(자기 셸이 걸림) — 끝 표시 파일로 기다림.
