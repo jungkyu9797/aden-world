@@ -3269,6 +3269,7 @@ function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx) { const P = POLY[pk]
   const R = P.rc && rcSpec(P.rc, P.job), RF = R && R.fx && !nofx && EQFX; if (RF) rcGround(g, R, x, y);
   g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s };
   const af = !pmS && a === 'attack' ? (M.af || 8) : 8, k = af !== 8 ? Math.min(af - 1, Math.floor(Math.min(7, fr) * af / 8)) : Math.min(7, fr);   /* 변신 카드: 공격 그림 장수가 다른 몹(바실리스크 6장 등)은 8장 동작에 맞춰 늘이거나 줄임 */
+  if (P.card && P.card.g === '전설' && EQFX && !hf) { if (RC) polyAura(g, RC.c, { W: RC.c.width, H: RC.c.height }, 0, 0, x - (M2.ax - RC.x0) * M2.s, y - (M2.ay - RC.y0) * M2.s, M2.s, 'rc:' + pk + '|' + a + '|' + Math.min(7, fr) + '|' + row); else polyAura(g, img, M2, k, row, x - M2.ax * M2.s, y - M2.ay * M2.s, M2.s, pk + '|' + a + '|' + k + '|' + row); }   /* 11/1: 전설 카드 변신 = 몸을 두껍게 감싸는 금빛 오로라 (그림 뒤) */
   if (!pmS && M.tint && !hf) { const c = tintFrame('pc:' + pk, a, img, { ...M2, tint: M.tint }, k, row); g.drawImage(c, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s)); }   /* 몬스터 그림의 물들임(카스파·네크로맨서·와이번 등)도 그대로 */
   else if (RC) pmRcDraw(g, RC, M2, x, y, hf); else drawSheet(g, img, M2, k, row, x, y, 1, hf || (!pmS && M.tint) || null); g.restore();
   if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, k, row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
@@ -3277,6 +3278,16 @@ function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx) { const P = POLY[pk]
   const C = P.card, pr = R ? R.pr : C ? (C.g === '전설' ? 0.12 : C.g === '영웅' ? 0.05 : 0) : P.fx ? 0.1 : 0.18;   /* 변신 카드: 영웅(보라)·전설(금빛)만 불티 · 소드는 금빛(가끔 보랏빛) · 아크는 금빛(가끔 주황) */
   if (!nofx && (EQFX || !P.set) && Math.random() < pr) mxP(x + mxR(R ? -17 : -14, R ? 17 : 14), y - mxR(R ? 4 : 0, R ? 62 : 50), { k: 'ember', c: R ? (R.em2 && Math.random() < 0.3 ? R.em2 : R.em) : C ? (C.g === '전설' ? '255,190,80' : '200,130,255') : P.fx || '255,110,50', s: R ? mxR(1.3, 2) : 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
   return true; }
+// 11/1 전설 카드 변신 금빛 오로라: 그 프레임 실루엣을 금빛으로 칠해 넓게 번지게 한 판(절반 크기로 만들어 저장)을 그림 뒤에 더해 그림 · 숨 쉬듯 밝아졌다 어두워짐
+const AURC = new Map();
+function polyAura(g, src, M, k, row, X, Y, sc, key) { const q = 0.5, kk = key + '|' + sc.toFixed(3); let c = AURC.get(kk);
+  if (!c) { if (AURC.size > 240) AURC.clear(); const P = 18, w0 = Math.max(1, Math.ceil(M.W * sc * q)), h0 = Math.max(1, Math.ceil(M.H * sc * q)), sil = document.createElement('canvas'); sil.width = w0 + P * 2; sil.height = h0 + P * 2; const sg = sil.getContext('2d', { willReadFrequently: true });
+    sg.imageSmoothingEnabled = true; sg.drawImage(src, k * M.W, row * M.H, M.W, M.H, P, P, w0, h0);
+    try { const I = sg.getImageData(0, 0, sil.width, sil.height), D = I.data; for (let o = 0; o < D.length; o += 4) { if (D[o + 3] > 40 && Math.max(D[o], D[o + 1], D[o + 2]) >= 22) { D[o] = 255; D[o + 1] = 196; D[o + 2] = 80; D[o + 3] = 255; } else D[o + 3] = 0; } sg.putImageData(I, 0, 0); }   // 바닥 그림자(거의 검은 점묘)는 빼고 몸만
+    catch (e) { sg.globalCompositeOperation = 'source-in'; sg.fillStyle = 'rgb(255,196,80)'; sg.fillRect(0, 0, sil.width, sil.height); }
+    c = document.createElement('canvas'); c.width = sil.width; c.height = sil.height; const cg = c.getContext('2d');
+    cg.filter = 'blur(6px)'; for (const [dx, dy] of [[-2.5, 0], [2.5, 0], [0, -2.5], [0, 2.5]]) cg.drawImage(sil, dx, dy); cg.filter = 'blur(2px)'; cg.drawImage(sil, 0, 0); cg.filter = 'none'; c.P = P; c.q = q; AURC.set(kk, c); }
+  const pulse = 0.8 + 0.2 * Math.sin(time * 3 + X * 0.01); g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha *= pulse; g.imageSmoothingEnabled = true; g.drawImage(c, X - c.P / c.q, Y - c.P / c.q, c.width / c.q, c.height / c.q); g.restore(); }
 // 11/1 아크 시리즈 효과 (나이트·메이지·레인저 같음 · 그림·효과 모두 코드로 직접): 발밑 금빛 광원 · 근접 = 금빛 초승달 · 주문·활 = 무기 앞 금빛 섬광 · 금빛 화살 · 맞힌 곳에 주황 폭발 + 금빛 불티 (치명타 = 크게 + 바닥 고리) · 장비 이펙트 끄면 모두 꺼짐 · 미리보기 창에서는 세상 빛·불티 없음
 function rcGround(g, R, x, y) { const p = 0.82 + 0.18 * Math.sin(time * 3.1 + x * 0.01); g.save(); g.globalCompositeOperation = 'lighter'; mxG(g, R.halo, x, y - 4, 46 * p, 0.32, 0.42); mxG(g, '255,236,170', x, y - 4, 18 * p, 0.28, 0.42); mxG(g, R.halo, x, y - 40, 40, 0.07); g.restore(); if (g === lc && MXLIT.length < 20) mxLight(x, y - 30, 120, 0.85); }
 function rcSwing(g, R, fr, row, x, y) { if (fr < 2 || fr > 6) return; const d = DIRV[row] || [1, 0], fx = d[0] - d[1], fy = (d[0] + d[1]) * 0.5, L = Math.hypot(fx, fy) || 1, fa = Math.atan2(fy / L, fx / L), k = (fr - 2) / 4;   // k: 0 → 1 (휘두르는 동안 · 공격 2~6번째 그림)
@@ -6697,7 +6708,7 @@ const TOWN = (() => {
       get tabs() { return [['무기', [['한손검', 800, '공용 · 공격 1~8 · 처음 쓰기 좋은 검'], ...CX_SHOP.weapon.map(cxRow)]], ['방어구', CX_SHOP.armor.map(cxRow)], ['장신구', CX_SHOP.general.map(cxRow)]]; } },   /* v126: 장신구는 장비상점에서 */
     { id: 'magic', name: '특별상점', npc: '특별상인 엘리스', icon: 'gem', i: 11, j: 2, w: 6, d: 6, h: 3.5, door: 'j', roof: [96, 52, 120], npcType: 'f',   /* v126: 마법상점 → 특별상점 (마나 회복 물약은 잡화상점에서) */
       hello: '귀한 물건만 다뤄요. 장신구 강화·변경 주문서, 능력치 초기화, 남는 주문서 교환은 여기서 하세요.',
-      tabs: [['특별 물품', [['장신구 마법 주문서', 10000, '힘·민첩·지능·모든 능력치가 붙은 반지·목걸이 강화 +1 (최대 +8 · +1부터 실패하면 증발)', 'scroll_acc'], ['장신구 변경 주문서', 100000, '다른 직업의 힘·민첩·지식 반지·목걸이를 같은 부위의 내 직업 것으로 (강화 유지)', 'acc_change'], ['능력치 초기화 주문서', 5000, '보너스 능력치를 다시 나눠요'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 물약과 재사용 대기 공유']]], ['주문서 교환', 'exch'], ['변신 카드', 'pcard']] },   /* 변신 뽑기 (PCG) */   /* v118: 마법서·기술서·정령수정은 레벨이 되면 자동 습득이라 팔지 않음 */
+      tabs: [['특별 물품', [['장신구 마법 주문서', 10000, '힘·민첩·지능·모든 능력치가 붙은 반지·목걸이 강화 +1 (최대 +8 · +1부터 실패하면 증발)', 'scroll_acc'], ['장신구 변경 주문서', 100000, '다른 직업의 힘·민첩·지식 반지·목걸이를 같은 부위의 내 직업 것으로 (강화 유지)', 'acc_change'], ['능력치 초기화 주문서', 5000, '보너스 능력치를 다시 나눠요'], ['카운터 매직 주문서', 500, '받는 마법 공격 1회 무효 · 물약과 재사용 대기 공유']]], ['주문서 교환', 'exch']] },   /* 11/1: 변신 카드 탭은 뺌 (위 메뉴 [변신] 창에서) */   /* v118: 마법서·기술서·정령수정은 레벨이 되면 자동 습득이라 팔지 않음 */
     { id: 'pet', name: '펫상점', npc: '펫상인 루피', icon: 'paw', i: 19, j: 2, w: 6, d: 6, h: 3.5, door: 'j', roof: [63, 106, 58], npcType: 'f',
       hello: '든든한 동료가 필요하신가요? 도베르만이 아주 영리하답니다. 보관소의 펫도 여기서 찾고 맡길 수 있어요.',
       tabs: [['펫 구매', [['펫 목걸이(Lv.1 도베르만)', 100, '도베르만 · Lv.1 · 배고픔 없음 · 사서 \'펫을 찾는다\'로 소환'], ['펫 진화의 열매', 500000, '50레벨 이상 펫을 진화 · 펫 창에서 사용하거나 더블클릭', 'pet_fruit'], ...(window.DEMO_MODE ? [['펫 목걸이(Lv.50 도베르만 · 테스트)', 100, '테스트 모드 전용 · 50레벨 펫 · 진화 시험용', 'pet_collar50']] : [])]], ['펫을 찾는다', 'find'], ['펫을 맡긴다', 'store']] },

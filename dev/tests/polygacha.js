@@ -157,8 +157,7 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
     const t = await p.evaluate(() => document.getElementById('cdx-list').textContent); ok(await p.evaluate(() => document.querySelectorAll('#cdx-list .cdx-card').length) === 26, '⑩ 도감 [변신 카드] 26종');
     ok(/확정 칸 없음/.test(t) && /1,000점/.test(t) && /일반→고급 30% · 고급→희귀 30% · 희귀→영웅 10% · 영웅→전설 10%/.test(t) && !/11회 확정/.test(t) && /희귀 4장 합성 10%/.test(t), '⑩ 도감 글: 확정 칸 없음 · 마일리지 1000 · 합성 확률');
     await p.screenshot({ path: 'dev/out/pg_codex.png' }); await p.evaluate(() => document.getElementById('codexwin').hidden = true);
-    await p.evaluate(() => { __T.TOWN.openShopId('magic'); [...document.querySelectorAll('#shop-tabs .shop-tab')].find(t => t.textContent === '변신 카드').click(); }); await p.waitForTimeout(300);
-    await p.click('#shop-list .pcg-open'); await p.waitForTimeout(400); ok(await p.evaluate(() => document.getElementById('shop').hidden && !document.getElementById('polywin').hidden), '⑩ 특별상점 [변신 카드] 탭 → 변신 카드 창 열기');
+    { const tabs = await p.evaluate(() => { __T.TOWN.openShopId('magic'); const t = [...document.querySelectorAll('#shop-tabs .shop-tab')].map(t => t.textContent); document.getElementById('shop').hidden = true; return t; }); console.log('shop tabs', tabs.join(',')); ok(tabs.length > 0 && !tabs.includes('변신 카드'), '⑩ 특별상점에 [변신 카드] 탭 없음 (위 메뉴 [변신] 창에서)'); }
     await p.evaluate(() => { document.getElementById('polywin').hidden = true; __T.INV.toggleWin('charwin'); }); await p.waitForTimeout(300); await p.click('#cw-poly'); await p.waitForTimeout(300); ok(await p.evaluate(() => !document.getElementById('polywin').hidden), '⑩ 캐릭터 창 [변신 카드] 버튼 → 변신 카드 창');
     await p.evaluate(() => { document.getElementById('charwin').hidden = true; }); }
   // ⑩ 사냥터에서도 열림
