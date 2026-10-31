@@ -808,9 +808,10 @@ const AMB = (() => {
         g.globalAlpha = 0.25 * day; g.fillStyle = '#000'; g.beginPath(); g.ellipse(x + 40, y + 120, 3, 1.3, 0, 0, 7); g.fill();   // 땅에 비친 그림자
         g.globalAlpha = 0.9; g.strokeStyle = '#1a1814'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(x - 6, y - f); g.quadraticCurveTo(x - 3, y - 2 - f * 0.4, x, y); g.quadraticCurveTo(x + 3, y - 2 - f * 0.4, x + 6, y - f); g.stroke(); } g.restore(); }
   }
+  let FLYSP = null; function flySpr() { if (FLYSP) return FLYSP; const c = document.createElement('canvas'); c.width = c.height = 24; const x = c.getContext('2d'), gr = x.createRadialGradient(12, 12, 0, 12, 12, 12); gr.addColorStop(0, 'rgba(220,255,140,1)'); gr.addColorStop(1, 'rgba(160,255,90,0)'); x.fillStyle = gr; x.fillRect(0, 0, 24, 24); return (FLYSP = c); }
   function drawFlies(g, ox, oy) { if (!flies.length || MAZE()) return; g.save(); g.globalCompositeOperation = 'lighter';
-    for (const f of flies) { const [x, y] = W2P(f.x, f.z), a = 0.45 + 0.55 * Math.max(0, Math.sin(f.ph * 2.3)); const X = x + ox, Y = y + oy - f.h * 30;
-      const gr = g.createRadialGradient(X, Y, 0, X, Y, 6); gr.addColorStop(0, `rgba(220,255,140,${a})`); gr.addColorStop(1, 'rgba(160,255,90,0)'); g.fillStyle = gr; g.fillRect(X - 6, Y - 6, 12, 12); }
+    const sp = flySpr(); for (const f of flies) { const [x, y] = W2P(f.x, f.z), a = 0.45 + 0.55 * Math.max(0, Math.sin(f.ph * 2.3)); const X = x + ox, Y = y + oy - f.h * 30;
+      g.globalAlpha = a; g.drawImage(sp, X - 6, Y - 6, 12, 12); }   /* 11/1: 반딧불 빛은 한 번 그려 둔 작은 그림으로 (매 프레임 그라데이션 수십 개 만들던 것) */
     g.restore(); }
   return { update, draw, drawFlies };
 })();
@@ -1985,7 +1986,7 @@ function lavaSkin(c, mode, fr, row, q) { const w = c.width, h = c.height, g = c.
   g.putImageData(SD, 0, 0); const cv = () => { const k = document.createElement('canvas'); k.width = w; k.height = h; return k; }, B = cv(), K = cv(), L = cv(), lg = L.getContext('2d'); B.getContext('2d').putImageData(E, 0, 0); K.getContext('2d').putImageData(MK, 0, 0);
   lg.globalCompositeOperation = 'lighter'; lg.filter = `blur(${1.5 * q}px)`; lg.globalAlpha = rock ? .5 : .42; lg.drawImage(B, 0, 0); lg.filter = `blur(${4.5 * q}px)`; lg.globalAlpha = rock ? .3 : .18; lg.drawImage(B, 0, 0);
   lg.filter = 'none'; lg.globalAlpha = 1; lg.globalCompositeOperation = 'destination-in'; lg.drawImage(K, 0, 0); g.globalCompositeOperation = 'lighter'; g.drawImage(L, 0, 0); g.globalCompositeOperation = 'source-over'; }   // 빛 번짐 (가까이·넓게 두 겹) — 몸 안에만 (밖으로 번지면 흐릿해 보임)
-function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) return c; if (TFR.size > 900) TFR.clear();
+function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) { TFR.delete(key); TFR.set(key, c); return c; } while (TFR.size >= 900) TFR.delete(TFR.keys().next().value);   /* 11/1: 가득 차면 다 지우던 것 → 오래 안 쓴 것부터 하나씩 (다 지우면 화둥처럼 몹 종류가 많은 곳에서 다시 만드느라 끊김) */
   const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   if (M.lava) { const q = MOBILE ? 1 : 2, c2 = document.createElement('canvas'); c2.width = w * q; c2.height = h * q; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.imageSmoothingEnabled = true; g2.imageSmoothingQuality = 'high'; g2.filter = M.tint; g2.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w * q, h * q); g2.filter = 'none'; lavaSkin(c2, M.lava, fr, row, q); g.drawImage(c2, 0, 0, w, h); }   // 용암 몹: 2배로 그려 무늬를 만든 뒤 줄여서 (가는 금까지 매끈)
   else { g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; }
@@ -2200,17 +2201,37 @@ function desertFx(g, vw, vh) { if (!ISLE || !ISLE.def.sand) return; const dk = D
   g.restore(); }
 // v144: 몬스터 한 마리 그리기 (필드 몬스터 · 소환수 · 다른 사람 화면의 소환수 공용)
 // 10/30 프로듀서: 내가 고른 대상(몹·AI 봇)은 생김새를 따라 빨간 테두리 — 몸을 작은 캔버스에 한 번 그려서 빨간 실루엣을 사방으로 조금씩 밀어 깐 뒤 몸을 위에 얹음
-const TGO = { c: null, c2: null, k: 0, f: '' };   // f: 그림자처럼 반투명한 부분은 테두리에서 빼는 SVG 필터(알파 문턱)
+const TGO = { c: null, c2: null, c3: null, f: '', who: null, key: '', t: -1 };   // f: 그림자처럼 반투명한 부분은 테두리에서 빼는 SVG 필터(알파 문턱)
 function tgoFilter() { if (TGO.f) return TGO.f; try { const ns = 'http://www.w3.org/2000/svg', s = document.createElementNS(ns, 'svg'); s.setAttribute('width', '0'); s.setAttribute('height', '0'); s.style.position = 'absolute'; s.setAttribute('aria-hidden', 'true'); s.innerHTML = '<filter id="tgoA" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncA type="linear" slope="5" intercept="-2.6"/></feComponentTransfer></filter>'; document.body.appendChild(s); TGO.f = 'url(#tgoA)'; } catch (e) { TGO.f = 'none'; } return TGO.f; }
-function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] || {}, big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = Math.round(260 * Math.min(2.4, big)), H = Math.round(300 * Math.min(2.4, big)), ox = W / 2, oy = H * 0.78, k = Math.min(2, Math.max(1, curZ || 1));
-  let c = TGO.c, c2 = TGO.c2; if (!c) { c = TGO.c = document.createElement('canvas'); c2 = TGO.c2 = document.createElement('canvas'); }
-  const cw = Math.ceil(W * k), ch = Math.ceil(H * k); if (c.width !== cw || c.height !== ch) { c.width = c2.width = cw; c.height = c2.height = ch; }
-  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
-  drawMobBody(x, f); x.setTransform(1, 0, 0, 1, 0, 0);
-  const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
-  const d = 4 / (curZ || 1), L = px - ox, T = py - oy; /* 10/30 프로듀서: 테두리 2배 두껍게 (2px → 4px) */ g.save(); g.globalAlpha = 0.8 + 0.2 * Math.sin(time * 6);
-  for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; g.drawImage(c2, L + Math.cos(a) * d, T + Math.sin(a) * d, W, H); } g.drawImage(c2, L + d * 0.5, T, W, H); g.drawImage(c2, L - d * 0.5, T, W, H);   /* 두꺼워져도 둥글게: 12방향 + 안쪽 2번 */
-  g.restore(); g.drawImage(c, L, T, W, H); }
+function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] || {}, big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = Math.round(260 * Math.min(2.4, big)), H = Math.round(300 * Math.min(2.4, big)), ox = W / 2, oy = H * 0.78, d = 4 / (curZ || 1), L = px - ox, T = py - oy;
+  /* 11/1 렉 최적화: 빨간 테두리(실루엣을 12방향으로 밀어 깐 것)는 작은 캔버스에서 한 번에 만들어 1/30초마다만 새로 고치고, 화면에는 한 장만 얹음 · 몸은 다른 몹처럼 화면에 바로 그림
+     (예전: 매 프레임 큰 캔버스를 14번 확대해 겹쳐 그려서, 큰 몹(아스타지오·이프리트·불사조)을 고르면 프레임의 대부분을 여기서 씀) · 해상도는 30만 화소 안에서 (작은 몹은 2배, 큰 몹은 1배) */
+  const k = Math.max(1, Math.min(2, curZ || 1, Math.sqrt(300000 / (W * H)))), cw = Math.ceil(W * k), ch = Math.ceil(H * k), key = cw + 'x' + ch + ':' + d.toFixed(2);
+  if (!TGO.c) { TGO.c = document.createElement('canvas'); TGO.c2 = document.createElement('canvas'); TGO.c3 = document.createElement('canvas'); }
+  const c = TGO.c, c2 = TGO.c2, c3 = TGO.c3;
+  if (TGO.who !== f || TGO.key !== key || !(time - TGO.t < 1 / 30 && time >= TGO.t)) { TGO.who = f; TGO.key = key; TGO.t = time;
+    if (c.width !== cw || c.height !== ch) { c.width = c2.width = c3.width = cw; c.height = c2.height = c3.height = ch; }
+    const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
+    const fl0 = f.flash; f.flash = 0; try { drawMobBody(x, f); } finally { f.flash = fl0; } x.setTransform(1, 0, 0, 1, 0, 0);   /* 실루엣엔 번쩍임이 필요 없음 (번쩍임 필터가 비쌈) */
+    const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
+    const z = c3.getContext('2d'), dk = d * k; z.clearRect(0, 0, cw, ch); for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; z.drawImage(c2, Math.round(Math.cos(a) * dk), Math.round(Math.sin(a) * dk)); } z.drawImage(c2, Math.round(dk * 0.5), 0); z.drawImage(c2, -Math.round(dk * 0.5), 0); }   /* 두꺼워져도 둥글게: 12방향 + 안쪽 2번 */
+  const a = 0.8 + 0.2 * Math.sin(time * 6); g.save(); g.globalAlpha = 1 - (1 - a) * (1 - a); g.drawImage(c3, L, T, W, H); g.restore();   /* 예전엔 반투명 14겹이 겹쳐 거의 불투명 — 한 겹이라 그만큼 진하게 */
+  drawMobBody(g, f); }
+// 11/1 렉 최적화: 코드로 그린 몹(거미·개미·전갈·잠자리·폭탄꽃·불알·아스타지오·이프리트)은 선·면 수십 개를 하나씩 그리는데, 맞을 때 번쩍임(brightness 필터)·광폭화 붉은 테두리(drop-shadow)가
+//   켜져 있으면 그 하나하나에 필터가 걸려 한 프레임이 수십~수백 ms (화둥 2층에서 아스타지오·이프리트를 치면 프레임이 뚝 떨어지던 원인) → 몸을 작은 캔버스에 필터 없이 그린 뒤 필터를 한 번만 걸어 얹음
+const PROCFX = { spider: [(g, f) => drawSpider(g, 0, 0, f), 'brightness(2.4) saturate(0)'], ant: [(g, f) => drawAnt(g, 0, 0, f), 'brightness(2.4) saturate(0)'], scorpion: [(g, f) => drawScorpion(g, 0, 0, f), 'brightness(2.4) saturate(0)'],
+  dragonfly: [drawDragonfly, 'brightness(2.3) saturate(.3)'], bombflower: [drawBombFlower, 'brightness(2.3) saturate(.3)'], fireegg: [drawFireEgg, 'brightness(2.4) saturate(0)'], ashtazio: [drawAshtazio, 'brightness(2.3) saturate(.3)'], ifrit: [drawIfrit, 'brightness(2.2) saturate(.35)', 1] };
+const PLC = { c: null };   // procLayer가 쓰는 캔버스 하나 (필요한 만큼만 커짐)
+function procLayer(g, f, S, ART, al) { const [draw, FL, ownA] = PROCFX[ART], dead = f.dead, flashOn = f.flash > 0 && !(ownA && dead && (f.deadT || 0) > 0.1), filt = flashOn ? FL : (f.enraged && !dead ? g.filter : 'none');
+  if (!filt || filt === 'none') return false;   // 필터 없으면 원래대로 (빠름)
+  const big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = 260 * Math.min(2.4, big), H = 300 * Math.min(2.4, big), ox = W / 2, oy = H * 0.78, m = g.getTransform(), cv = g.canvas;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [u, v] of [[-ox, -oy], [W - ox, -oy], [W - ox, H - oy], [-ox, H - oy]]) { const X = m.a * u + m.c * v + m.e, Y = m.b * u + m.d * v + m.f; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
+  x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(cv.width, Math.ceil(x1)); y1 = Math.min(cv.height, Math.ceil(y1)); if (x1 <= x0 || y1 <= y0) return true;   // 화면 밖
+  const bw = x1 - x0, bh = y1 - y0; let c = PLC.c; if (!c) c = PLC.c = document.createElement('canvas'); if (c.width < bw || c.height < bh) { c.width = Math.max(c.width, bw); c.height = Math.max(c.height, bh); }
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.filter = 'none'; x.globalAlpha = 1; x.clearRect(0, 0, bw, bh);
+  x.setTransform(m.a, m.b, m.c, m.d, m.e - x0, m.f - y0); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.globalAlpha = ownA ? g.globalAlpha : al;
+  const fl0 = f.flash; f.flash = 0; try { draw(x, f); } finally { f.flash = fl0; }
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.filter = filt; g.drawImage(c, 0, 0, bw, bh, x0, y0, bw, bh); g.restore(); return true; }
 function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO.busy = true; try { drawTgtOutline(g, f); } finally { TGO.busy = false; } return; }   /* 고른 대상은 빨간 테두리 (안에서 다시 이 함수를 부름) */
   if (f.bot || f.twr || (f.kind && f.kind.startsWith('tw_'))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
     const sheetAtk = S.art==='sheet' && !f.dead && f.atkT!=null; mobPose(f, sheetAtk?0.5:1);
@@ -2223,6 +2244,7 @@ function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO
     if (ART==='cdummy'){ g.globalAlpha=al; const E=CDUM[S.cls].eq; g.fillStyle='#5a3a1e'; g.beginPath(); g.ellipse(0,3,19,8,0,0,7); g.fill(); g.fillStyle='#8a5c30'; g.beginPath(); g.ellipse(0,0,19,8,0,0,7); g.fill(); g.strokeStyle='#3a2410'; g.lineWidth=1.5; g.stroke(); drawHeroSprite(g,'idle',Math.floor(time*6+(f.hi||0))%8,1,0,0,fl,S.cls,sl=>E[sl]||null,null); g.save(); g.font='800 10px "Noto Sans KR",sans-serif'; g.textAlign='center'; const nm=S.name; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(nm,0,-90); g.fillStyle='#9fd0ff'; g.fillText(nm,0,-90); g.restore(); dummyDps(g,f); dummyMag(g,f,f.dlog&&f.dlog.length?-118:-106); g.restore(); return; }
     if (ART==='pumpkin'){ g.globalAlpha=al; drawPumpkin(g,f); g.restore(); return; }
     if (f.ashT>0&&!f.dead){ drawAsh(g,f); g.restore(); return; }   /* 피닉스 잿더미 */
+    if (PROCFX[ART] && procLayer(g, f, S, ART, al)) { g.restore(); return; }   /* 11/1 렉: 코드로 그린 몹이 맞아 번쩍이거나 광폭화면 — 한 장에 그린 뒤 필터를 한 번만 */
     if (ART==='bombflower'){ g.globalAlpha=al; drawBombFlower(g,f); g.restore(); return; }
     if (ART==='dragonfly'){ g.globalAlpha=al; drawDragonfly(g,f); g.restore(); return; }
     if (ART==='fireegg'){ g.globalAlpha=al; drawFireEgg(g,f); g.restore(); return; }
@@ -2560,6 +2582,7 @@ const MM = (() => { let on = true, op = 0.85, key = '', img = null, rect = [0, 0
     if (i >= 0 && j >= 0 && i < N && j < N && walkable(i, j) && !(ISLE && ISLE.def.maze && !(ISLE.explored && ISLE.explored[j * N + i]))) { hero.target = null; moveGoal = [i, j]; holding = false; mark = { t: [i, j], life: 0.6 }; } return true; }
   return { draw, click, rect: () => rect, on: () => on, op: () => op, setOn(v) { on = !!v; save(); }, setOp(v) { op = Math.max(0.2, Math.min(1, v)); save(); }, rebuild() { key = ''; } };
 })();
+const CHWRAP = new WeakMap();   // 채팅 기록 줄 나누기 결과 (메시지 → {글, 폭, 글꼴, 첫 줄, 둘째 줄})
 function drawUI(g, vw, vh){
   if (MOBILE) { MUI.draw(g, vw, vh); return; }   // v168: 모바일 HUD
   const y0 = vh-PH, F='"Noto Sans KR",sans-serif';
@@ -2627,10 +2650,10 @@ function drawUI(g, vw, vh){
   // 긴 메시지는 두 줄로, 최근 20개 기록, 휠로 위아래
   CHATRECT[0]=chX; CHATRECT[1]=top; CHATRECT[2]=chW; CHATRECT[3]=hgt;
   const maxW=chW-18, rows=[];
-  for (const m of log){ let a=m.t, b='';
+  for (const m of log){ let e=CHWRAP.get(m); if (!e||e.t!==m.t||e.w!==maxW||e.f!==g.font){ let a=m.t, b='';   /* 11/1: 줄 나누기는 메시지마다 한 번만 (매 프레임 글자 폭을 수백 번 재던 것) */
     if (g.measureText(a).width>maxW){ let k=a.length; while (k>1&&g.measureText(a.slice(0,k)).width>maxW) k--; const sp=a.lastIndexOf(' ',k); if (sp>k*0.6) k=sp; b=a.slice(k).trim(); a=a.slice(0,k);
       if (g.measureText(b).width>maxW){ let q=b.length; while (q>1&&g.measureText(b.slice(0,q)+'…').width>maxW) q--; b=b.slice(0,q)+'…'; } }
-    rows.push({t:a,c:m.c}); if (b) rows.push({t:'  '+b,c:m.c}); }
+    e={t:m.t,w:maxW,f:g.font,a,b}; CHWRAP.set(m,e); } rows.push({t:e.a,c:m.c}); if (e.b) rows.push({t:'  '+e.b,c:m.c}); }
   const vis=Math.floor((hgt-6-22)/14.5), maxS=Math.max(0,rows.length-vis); logScroll=Math.max(0,Math.min(logScroll,maxS));   // 맨 아래 한 줄은 채팅 입력칸 · 스크롤은 기록 범위 안에서만
   rows.slice(Math.max(0,rows.length-vis-logScroll), rows.length-logScroll).forEach((m,i)=>{ const yy=top+15+i*14.5; g.fillStyle='#000'; g.fillText(m.t,chX+8,yy+1); g.fillStyle=m.c; g.fillText(m.t,chX+7,yy); });
   g.restore();
