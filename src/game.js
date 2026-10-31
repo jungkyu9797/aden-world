@@ -6589,6 +6589,10 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   return { hwHat: () => bag.filter(x => x.id === 'hw_hat').reduce((m, x) => Math.max(m, x.en || 0), -1), twAuto, eqE: s => eq[s] || null, gaho, gahoVal, tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, toggleWin(id) { const w = $(id); if (!w) return; w.hidden = !w.hidden; skKey = ''; render(); renderSkills(); }, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 12) % 12; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${1 + a} ↔ F${1 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; if (hot[i] === 'act:auto') { say('자동사냥 아이콘은 지울 수 없어요. 다른 칸으로 옮기기만 할 수 있어요.', '#f0c080'); return; } if (hot[i] === 'act:pick') { say('줍기 아이콘은 지울 수 없어요. 다른 칸으로 옮기기만 할 수 있어요.', '#f0c080'); return; } const id = hot[i]; hot[i] = null; say(`F${1 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { if (hot[i] === 'act:auto') { say('자동사냥 아이콘이 있는 칸이에요. 자동사냥 아이콘을 다른 칸으로 옮긴 뒤 등록해 주세요.', '#f0c080'); return; } if (hot[i] === 'act:pick') { say('줍기 아이콘이 있는 칸이에요. 줍기 아이콘을 다른 칸으로 옮긴 뒤 등록해 주세요.', '#f0c080'); return; } hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${1 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); hcd = Math.max(0, hcd - dt); cmcd = Math.max(0, cmcd - dt); autoTick(dt); }, healCd: () => hcd / HEAL_CD, cmCd: () => cmcd / CM_CD, er: () => Math.floor(STAT.dex / 3), auto: k => AUTO[k], hamOn: () => !HAM.man, hamToggle, hp3: () => HP3, hpSlot: id => hpSlots()[id], hpToggle, hpAdj, hpActive, blessHit, sp, openAuto, cx: k => sum(k) + (k === 'moveSpd' ? gaho('mv') : 0) + (k === 'hit' ? blessAccHit() : 0) + polyBonus(k) + ((CLS_BASE[CLASS] && CLS_BASE[CLASS][k]) || 0), wAttr: () => (eq.weapon && eq.weapon.attr) || null, useInvis,
     godScrolls(on) { for (const id of GOD_SCROLLS) { let e = bag.find(x => x.id === id);   // 켜면 종류별로 1칸씩(없을 때만, 표시는 ∞), 끄면 그 1장만 빼서 원래 수로
         if (on) { if (!e) { bag.push({ id, n: 1, on: false, godTemp: true }); } } else if (e && e.godTemp) { e.n -= 1; delete e.godTemp; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); } } render(); },
+    ccBonus: () => Object.assign({}, BONUS),   /* 11/1 캐릭터 복사: 보너스 능력치(찍은 값) */
+    ccSet(L, B) { if (!window.DEMO_MODE) return -1; let n = 0; for (const s of Object.keys(eq)) { const e = eq[s]; delete eq[s]; e.on = false; n++; }   /* 11/1 캐릭터 복사(테스트 페이지만): 지금 착용한 장비는 가방으로 · 코드의 장비를 새로 만들어 그 칸에 · 보너스 능력치 */
+      for (const x of L) { const e = { id: x.id, n: 1, on: x.sl }; if (x.en) e.en = x.en; if (x.bl) e.blessed = true; if (x.el) e.attr = { el: x.el, lv: x.al }; if (x.bs) e.blessSp = x.bs; bag.push(e); eq[x.sl] = e; }
+      for (const k in BONUS) BONUS[k] = (B && +B[k]) || 0; render(); return n; },
     trashAsk, setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, showSkill, holdHot, openHot, setAutoSk, autoSk: id => !!AUTOSK[id], applyScroll, targeting: () => tgtScroll, bag: () => bag, tab: t => { if (t !== invTab) { invTab = t; invNow = true; render(); } }, nameOf, wPct, maxW, weightNow: weight, enOf: sl => eq[sl] ? (eq[sl].en || 0) : 0,
     dump() { const cl = x => JSON.parse(JSON.stringify(x, (k, v) => k && k[0] === '_' ? undefined : v)); const B = cl(bag.filter(e => !e.godTemp || e.n > 1).map(e => e.godTemp ? Object.assign({}, e, { n: e.n - 1, godTemp: undefined }) : e)); B.forEach(e => { delete e.godTemp; if (e.pet && e.pet.state === 'out') e.pet.state = 'stored'; });
       return { bag: B.concat(INV_UNK), bonus: Object.assign({}, BONUS), hot: hot.slice(), auto: cl(AUTO), ab: cl(AUTOBUFF), ask: Object.keys(AUTOSK), ham: { man: HAM.man, mem: HAM.mem.slice() } }; },
@@ -8115,7 +8119,7 @@ const NET = (() => {
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t) { anSeq++; anText = String(t).slice(0, 90); anL.push([anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
 })();
 // ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
-// 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지
+// 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지 · 캐릭터 복사 코드(11/1 · 테스트 페이지에 붙여 넣는 코드)
 // 명령은 운영자 키로 서명해서 보내고, 받는 쪽은 게임에 들어 있는 공개 키로 확인한 뒤에만 실행 (다른 사람이 운영자인 척할 수 없음)
 const ADMIN = (() => {
   const ADMC = '#ff86e0', $ = id => document.getElementById(id), enc = new TextEncoder();
@@ -8170,10 +8174,11 @@ const ADMIN = (() => {
     out.push([sq, t, to, cmd, a, sig]); if (out.length > 6) out.shift(); NET.poke(); return true; }
   // ---------- 받는 쪽(일반 유저): 서명 확인이 끝난 명령만 여기로 옴
   function respond(to, sq, cmd, data) { NET.admRespond(to, sq, cmd, data); }
-  function inspData() { const st = INV.stat(), eq = INV.bag().filter(e => e.on).map(e => [e.id, e.en || 0, e.blessed ? 1 : 0]); let bag = INV.bag().filter(e => !e.on).map(e => [e.id, e.n, e.en || 0, e.blessed ? 1 : 0]);
+  function inspData(cc) { const st = INV.stat(), eq = INV.bag().filter(e => e.on).map(e => [e.id, e.en || 0, e.blessed ? 1 : 0]); let bag = INV.bag().filter(e => !e.on).map(e => [e.id, e.n, e.en || 0, e.blessed ? 1 : 0]);
     const D = { n: PNAME(), c: CLASS, lv: hero.lv, ex: +(hero.exp / Math.max(1, needExp(hero.lv)) * 100).toFixed(1), hp: [Math.ceil(hero.hp), hero.max], mp: [Math.floor(hero.mp), hero.maxmp], ac: INV.ac(), mr: mrTotal(),
       st: { str: st.str, dex: st.dex, con: st.con, int: st.int, wis: st.wis, cha: st.cha }, bp: hero.bonusPts | 0, g: Math.floor(coins), z: zoneTitle(), w: Math.round((INV.wPct ? INV.wPct() : 0) * 100), eq, bag };
-    while (JSON.stringify(D).length > 1800 && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
+    let cap = 1800; if (cc) { try { D.cc = CCOPY.make(); if (window.__bigNet) cap += JSON.stringify(D.cc).length; } catch (e) {} }   // 11/1 캐릭터 복사: 운영자가 [복사 코드]를 누를 때만 붙임 (공용 서버는 가방 목록을 줄여 전체 1,800자 안 · 전용 서버는 복사 정보만큼 더)
+    while (JSON.stringify(D).length > cap && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
   function setLv(L) { L = Math.max(1, Math.min(99, L | 0)); const CD = CLS_DEF[CLASS]; let bh = CD.hp, bm = CD.mp, sd = L * 977 + 13; const R0 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
     for (let l = 2; l <= L; l++) { bh += CD.hpLv[0] + Math.floor(R0() * (CD.hpLv[1] - CD.hpLv[0] + 1)); bm += CD.mpLv[0] + Math.floor(R0() * (CD.mpLv[1] - CD.mpLv[0] + 1)); }
     hero.lv = L; hero.exp = 0; hero.baseHP = bh; hero.baseMP = bm; INV.setLevelPts(Math.floor(L / 5)); INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; return L; }
@@ -8181,7 +8186,7 @@ const ADMIN = (() => {
   const zkey = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
   function apply(cmd, a, from, sq) { let A = {}; try { A = JSON.parse(a || '{}') || {}; } catch (e) {} const ok = m => { if (from) respond(from, sq, cmd, { ok: 1, m }); }, no = m => { if (from) respond(from, sq, cmd, { ok: 0, m }); else say(m, '#f08a7a'); };
     switch (cmd) {
-      case 'insp': if (from) respond(from, sq, 'insp', inspData()); return;
+      case 'insp': if (from) respond(from, sq, 'insp', inspData(!!A.cc)); return;
       case 'notice': announce(`[운영자] ${String(A.t || '').slice(0, 80)}`, ADMC); return;
       case 'msg': say(`[운영자 → ${PNAME()}] ${String(A.t || '').slice(0, 80)}`, ADMC, 1); ok('메시지 전달'); return;
       case 'give': { const d = ITEMS[A.id]; if (!d) return no('없는 아이템'); const n = Math.max(1, Math.min(d.stack ? 99999 : (from ? 20 : 100), A.n | 0 || 1));
@@ -8199,8 +8204,17 @@ const ADMIN = (() => {
       case 'kick': ok('추방'); (async () => { try { await SAVE.now(true, true); } catch (e) {} SESS.kick('admin'); })(); return;
       default: return; }
     try { SAVE.now(false, true); } catch (e) {} }
+  // ---------- 11/1 캐릭터 복사 코드 (테스트 페이지 갓 모드 [캐릭터 복사]에 붙여 넣는 코드 · CCOPY): 상대 것은 [살펴보기 → 복사 코드] · 내 것은 [내 캐릭터 복사 코드]
+  const ccs = new Map(); let ccWant = null;   // ccs: 상대별로 받은 복사 정보 · ccWant: 지금 기다리는 상대 (8초)
+  const ccNm = t => String(t || '').replace(/[<>&"]/g, '');
+  function ccOut(code, who, elId) { CCOPY.copy(code).then(ok => { const box = $(elId); if (ok) { const m = `${who} 복사 코드를 복사했어요 (테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여넣기)`; say('[운영자] ' + m, ADMC); if (box) box.innerHTML = `<span class="muted">✔ ${ccNm(m)}</span>`; return; }
+      say('[운영자] 자동 복사가 막혀서 운영자 창에 코드를 띄웠어요. 직접 복사해 주세요. (Ctrl+C)', '#f0c080'); if (!box) return;
+      box.innerHTML = `<div class="muted">${ccNm(who)} 복사 코드 — 직접 복사해서 테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣어 주세요</div><textarea readonly rows="3" style="width:100%;box-sizing:border-box;font:11px Consolas,monospace;background:#140d10;color:#f2e6d8;border:1px solid #6a3a58"></textarea>`; const ta = box.querySelector('textarea'); ta.value = code; ta.focus(); ta.select(); }); }
+  function ccPeer(peer) { const c = ccs.get(peer), o = NET.others().find(q => q.peer === peer), nm = (o ? o.pr.n || '?' : '?') + '님';
+    if (c && Date.now() - c.at < 20000) { ccOut(CCOPY.encode(c.cc), nm, 'adm-cc-out'); return; }   // 20초 안에 받은 정보가 있으면 바로
+    ccWant = { peer, at: Date.now() }; send(peer, 'insp', { cc: 1 }); const box = $('adm-cc-out'); if (box) box.innerHTML = `<span class="muted">${ccNm(nm)} 복사 코드를 받는 중…</span>`; }
   // ---------- 운영자 쪽: 응답 받기
-  function onResp(peer, cmd, data, nm) { if (cmd === 'insp') { insp.set(peer, { at: Date.now(), d: data }); if (sel === peer) drawDet(); return; } acks.unshift(`${nm}: ${data && data.m || cmd} ${data && data.ok ? '✔' : '✖'}`); if (acks.length > 6) acks.pop(); say(`[운영자] ${nm} — ${data && data.m || cmd}${data && data.ok ? '' : ' (실패)'}`, ADMC); drawDet(); }
+  function onResp(peer, cmd, data, nm) { if (cmd === 'insp') { insp.set(peer, { at: Date.now(), d: data }); if (data && data.cc) { ccs.set(peer, { at: Date.now(), cc: data.cc }); if (ccWant && ccWant.peer === peer) { ccWant = null; ccOut(CCOPY.encode(data.cc), nm + '님', 'adm-cc-out'); } } if (sel === peer) drawDet(); return; } acks.unshift(`${nm}: ${data && data.m || cmd} ${data && data.ok ? '✔' : '✖'}`); if (acks.length > 6) acks.pop(); say(`[운영자] ${nm} — ${data && data.m || cmd}${data && data.ok ? '' : ' (실패)'}`, ADMC); drawDet(); }
   // ---------- 창
   const CLS_N = { knight: '기사', elf: '요정', wizard: '마법사' };
   const zoneName = z => { try { return zoneTitle(z); } catch (e) { return z || '-'; } };
@@ -8216,17 +8230,19 @@ const ADMIN = (() => {
       <h4>전체 공지</h4><div class="row"><input id="adm-nt" style="flex:1" maxlength="80" placeholder="모든 접속자 화면에 공지"><button type="button" id="adm-nts">보내기</button></div>
       <h4>내 캐릭터 (운영자)</h4><div class="row">아이템 <input id="adm-sit" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-sin" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-sie" type="number" value="0" style="width:44px"> <label><input id="adm-sib" type="checkbox"> 축복</label> <button type="button" id="adm-sgive">만들기</button></div>
       <div class="row">골드 <input id="adm-sg" type="number" style="width:120px" placeholder="금액"> <button type="button" id="adm-sgadd">만들기</button> &nbsp; 레벨 <input id="adm-sl" type="number" style="width:50px" min="1" max="99"> <button type="button" id="adm-slv">설정</button> <span class="muted">· 이동 5배 · 무적 · 몬스터 공격 안 함</span></div>
-      <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><datalist id="adm-items"></datalist>`;
+      <div class="row"><button type="button" id="adm-ccme">내 캐릭터 복사 코드</button> <span class="muted">테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣으면 이 캐릭터와 똑같이</span></div><div id="adm-ccme-out"></div>
+      <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><div id="adm-cc-out"></div><datalist id="adm-items"></datalist>`;
     document.body.appendChild(w);
     $('adm-x').onclick = () => { w.hidden = true; }; w.addEventListener('keydown', ev => ev.stopPropagation());
     const selfIdOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === String(nm || '').trim() && !ITEMS[k].hidden);
     $('adm-sgive').onclick = () => { const id = selfIdOf($('adm-sit').value); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } apply('give', JSON.stringify({ id, n: Math.max(1, +$('adm-sin').value | 0), en: +$('adm-sie').value | 0, bl: $('adm-sib').checked ? 1 : 0 }), null, 0); };
     $('adm-sgadd').onclick = () => { const v = Math.floor(+$('adm-sg').value || 0); if (v) apply('gold', JSON.stringify({ op: 'add', v }), null, 0); };
     $('adm-slv').onclick = () => { const L = +$('adm-sl').value | 0; if (L >= 1) apply('lv', JSON.stringify({ lv: L }), null, 0); };
+    $('adm-ccme').onclick = () => ccOut(CCOPY.code(), '내 캐릭터', 'adm-ccme-out');
     $('adm-nts').onclick = () => { const t = $('adm-nt').value.trim(); if (!t) return; send('*', 'notice', { t }); announce(`[운영자] ${t}`, ADMC); $('adm-nt').value = ''; };
     $('adm-items').innerHTML = Object.keys(ITEMS).filter(id => !ITEMS[id].hidden).sort((a, b) => ITEMS[a].name.localeCompare(ITEMS[b].name, 'ko')).map(id => `<option value="${ITEMS[id].name.replace(/"/g, '')}">`).join('');
     $('adm-list').onclick = ev => { const b = ev.target.closest('button[data-a]'), tr = ev.target.closest('tr[data-p]'); if (!tr) return; const peer = tr.dataset.p, o = NET.others().find(q => q.peer === peer); if (!o) return;
-      if (!b || b.dataset.a === 'insp') { sel = peer; send(peer, 'insp'); drawList(); drawDet(); return; }
+      if (!b || b.dataset.a === 'insp') { if (sel !== peer && $('adm-cc-out')) $('adm-cc-out').innerHTML = ''; sel = peer; send(peer, 'insp'); drawList(); drawDet(); return; }
       if (b.dataset.a === 'go') { if (goTo(o.pr.z, +o.pr.x || 0, +o.pr.y || 0)) say(`[운영자] ${o.pr.n}님 옆으로 이동했습니다.`, ADMC); else say('그 위치로는 이동할 수 없어요.', '#f08a7a'); }
       if (b.dataset.a === 'pull') send(peer, 'pull', { z: zkey(), x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) }); }; }
   function drawList() { const w = $('admwin'); if (!w || w.hidden) return; const L = NET.others(); $('adm-cnt').textContent = `${L.length}명`;
@@ -8237,7 +8253,7 @@ const ADMIN = (() => {
       <span>힘 ${D.st.str} · 민첩 ${D.st.dex}</span><span>체력 ${D.st.con} · 지능 ${D.st.int}</span><span>지혜 ${D.st.wis} · 매력 ${D.st.cha}</span><span>보너스 ${D.bp}</span><span>무게 ${D.w}%</span><span class="muted">${D.z}</span></div>
       <div style="margin-top:4px"><b>착용</b> ${D.eq.map(([id, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}</span>`).join('') || '<span class="muted">없음</span>'}</div>
       <div style="margin-top:3px"><b>가방</b> ${D.bag.map(([id, n, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}${n > 1 ? ' ×' + n : ''}</span>`).join('') || '<span class="muted">비어 있음</span>'}${D.more ? ` <span class="muted">외 ${D.more}개</span>` : ''}</div>
-      <div class="muted" style="margin-top:2px">${Math.round((Date.now() - I.at) / 1000)}초 전 정보 · <button type="button" id="adm-re">새로고침</button></div>` : '<div class="muted">정보를 받는 중… (상대가 접속 중이어야 해요)</div>';
+      <div class="muted" style="margin-top:2px">${Math.round((Date.now() - I.at) / 1000)}초 전 정보 · <button type="button" id="adm-re">새로고침</button> <button type="button" id="adm-cc" title="테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣는 코드">복사 코드</button></div>` : '<div class="muted">정보를 받는 중… (상대가 접속 중이어야 해요)</div>';
     box.innerHTML = `<h4>${String(o.pr.n || '').replace(/</g, '')} 살펴보기</h4>${info}
       <h4>관리</h4>
       <div class="row">아이템 <input id="adm-it" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-in" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-ie" type="number" value="0" style="width:44px"> <label><input id="adm-ib" type="checkbox"> 축복</label> <button type="button" data-c="give">지급</button><button type="button" data-c="take">회수</button></div>
@@ -8246,7 +8262,7 @@ const ADMIN = (() => {
       <div class="row">메시지 <input id="adm-m" style="flex:1" maxlength="80" placeholder="이 유저에게만 보이는 운영자 메시지"> <button type="button" data-c="msg">보내기</button></div>
       ${acks.length ? `<div class="muted">${acks.slice(0, 3).join(' · ')}</div>` : ''}`;
     for (const k in kept) { const el = $(k); if (el) el.value = kept[k]; } if ($('adm-ib')) $('adm-ib').checked = !!kb; if (foc && $(foc)) $(foc).focus();
-    const re = $('adm-re'); if (re) re.onclick = () => send(sel, 'insp');
+    const re = $('adm-re'); if (re) re.onclick = () => send(sel, 'insp'); const cb = $('adm-cc'); if (cb) cb.onclick = () => ccPeer(sel);
     box.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => { const c = b.dataset.c, idOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === nm.trim() && !ITEMS[k].hidden);
       if (c === 'give' || c === 'take') { const id = idOf($('adm-it').value || ''); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } send(sel, c, { id, n: Math.max(1, +$('adm-in').value | 0), en: +$('adm-ie').value | 0, bl: $('adm-ib').checked ? 1 : 0 }); }
       else if (c === 'gadd' || c === 'gsub' || c === 'gset') { const v = Math.floor(+$('adm-g').value || 0); if (!v && c !== 'gset') return; send(sel, 'gold', c === 'gset' ? { op: 'set', v } : { op: 'add', v: c === 'gsub' ? -Math.abs(v) : Math.abs(v) }); }
@@ -8254,8 +8270,122 @@ const ADMIN = (() => {
       else if (c === 'msg') { const t = $('adm-m').value.trim(); if (t) { send(sel, 'msg', { t }); $('adm-m').value = ''; } }
       else if (c === 'kick') INV.askYesNo(`${o.pr.n}님을 추방할까요?`, '진행 상황을 저장한 뒤 접속을 끊어요.', () => send(sel, 'kick'));
       else send(sel, c); }); }
-  function tick(dt) { if (!on) return; BUFF.invis = Math.max(BUFF.invis || 0, 5); GOD_INV = true; if (BUFF.stun > 0) BUFF.stun = 0; if (BUFF.slow > 0) BUFF.slow = 0; if (hero.target && foxes.includes(hero.target)) hero.target = null; if ((uiT -= dt) <= 0) { uiT = 1; drawList(); } }
+  function tick(dt) { if (!on) return; BUFF.invis = Math.max(BUFF.invis || 0, 5); GOD_INV = true; if (BUFF.stun > 0) BUFF.stun = 0; if (BUFF.slow > 0) BUFF.slow = 0; if (hero.target && foxes.includes(hero.target)) hero.target = null; if ((uiT -= dt) <= 0) { uiT = 1; drawList(); }
+    if (ccWant && Date.now() - ccWant.at > 8000) { ccWant = null; say('[운영자] 복사 코드를 받지 못했어요. 상대가 아직 접속 중인지, 게임이 최신 버전인지 확인해 주세요.', '#f08a7a'); const box = $('adm-cc-out'); if (box) box.innerHTML = ''; } }
   return { on: () => on, pending: () => !on && mine(), tryOn, sign, out: () => out, apply, onResp, tick, send, cert: () => cert, devRequest };
+})();
+// ============================================================ 11/1: 캐릭터 복사 — 본섭 운영자 창 [살펴보기 → 복사 코드]·[내 캐릭터 복사 코드]로 만든 코드를 테스트 페이지 갓 모드 [캐릭터 복사]에 붙여 넣으면
+//   레벨·경험치·기본 HP/MP·보너스 능력치·장비(강화·축복·속성·축복 SP)·인형·가호·변신 카드(변신 칸)·변신 주문서·버프를 똑같이 맞추고, 최대 HP/MP·AC·MR·능력치·공격·SP·전투력을 비교해서 보여 줌
+//   코드 = 'AWC1:' + base64url(JSON) + '.' + 확인값(FNV-1a) · 본섭에는 코드를 만드는 쪽만 있음 (적용은 테스트 페이지 DEMO_MODE에서만 · INV.ccSet도 DEMO_MODE가 아니면 아무것도 안 함)
+const CCOPY = (() => {
+  const VER = 1, ST6 = ['str', 'dex', 'con', 'int', 'wis', 'cha'], ST6_N = ['힘', '민첩', '체력', '지능', '지혜', '카리스마'], SLOT_OK = new Set(SLOTS.map(s => s[0])), BF_SKIP = new Set(['poly', 'abar', 'immune']);
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]), r2 = v => Math.round((+v || 0) * 100) / 100;
+  const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); };
+  const bfKeys = () => Object.keys(BUFF_DEF).filter(k => !BUFF_DEF[k].bad && !BF_SKIP.has(k) && k in BUFF);   // 복사하는 버프 (디버프·변신·앱솔루트 배리어·이뮨 투 함은 뺌)
+  const trim = r => { while (r.length > 2 && !r[r.length - 1]) r.pop(); return r; };
+  const ihOf = o => fnv([...o.e.map(r => r[1]), ...(o.g || []).map(r => r[0])].map(id => (ITEMS[id] || {}).name || id).join('|'));   // 아이템 이름 확인값 — 버전이 달라 같은 아이디가 다른 아이템이면 거절
+  // 지금 캐릭터의 수치 — 코드에 넣어 두고, 적용한 뒤 똑같은지 비교
+  function vals() { const st = INV.stat(), dm = INV.dmg(); return { hp: hero.max, mp: hero.maxmp, ac: r2(INV.ac()), mr: r2(mrTotal()), st: ST6.map(k => st[k]), dm: [dm[0], dm[1]], sp: r2(INV.sp()), cp: combatPower().total, sk: [...LEARNED].filter(id => SK[id] && !SK[id].hidden).length, pf: selfPoly() || 0 }; }
+  // 착용 장비 [칸, 아이디, 강화, 축복, 속성, 속성 단계, 축복 SP] (뒤쪽 0은 뺌)
+  const eqOut = () => SLOTS.map(([sl]) => INV.eqE(sl)).filter(Boolean).map(e => trim([e.on, e.id, e.en | 0, e.blessed ? 1 : 0, e.attr ? e.attr.el : 0, e.attr ? e.attr.lv | 0 : 0, e.blessSp | 0]));
+  // 가방에 있기만 해도 효과가 있는 아이템: 가호(같은 가호는 가장 높은 것 하나만) · 할로윈 모자(가장 높은 강화)
+  const bagKey = id => { const d = ITEMS[id]; return d && d.gstat ? 'g:' + d.gstat : id === 'hw_hat' ? 'hw' : null; }, bagVal = e => ITEMS[e.id].gstat ? INV.gahoVal(e) : (e.en | 0);
+  function bagOut() { const best = {}; for (const e of INV.bag()) { const k = !e.on && bagKey(e.id); if (!k) continue; const v = bagVal(e); if (!best[k] || v > best[k].v) best[k] = { v, e }; }
+    return Object.values(best).map(({ e }) => { const r = [e.id, e.en | 0, e.blessed ? 1 : 0]; while (r.length > 1 && !r[r.length - 1]) r.pop(); return r; }); }
+  function make() { const B = INV.ccBonus(), c = PCG.slot(), cur = POLY_ON && POLY[POLY_ON], ps = cur && !cur.card && BUFF.poly > 0 ? POLY_ON : 0, bf = {};
+    for (const k of bfKeys()) if (BUFF[k] > 0) bf[k] = Math.ceil(BUFF[k]);
+    const o = { v: VER, gv: GAME_VER, n: PNAME(), c: CLASS, lv: hero.lv, ex: hero.exp, bh: hero.baseHP, bm: hero.baseMP, bp: hero.bonusPts | 0, b: ST6.map(k => B[k] | 0), e: eqOut(), g: bagOut(), pc: c ? c.id : 0, ps, pt: ps ? Math.ceil(BUFF.poly) : 0, bf, s: vals() };
+    if (!o.g.length) delete o.g; if (!o.pc) delete o.pc; if (!o.ps) { delete o.ps; delete o.pt; } if (!Object.keys(bf).length) delete o.bf; o.ih = ihOf(o); return o; }
+  const encode = o => { const j = JSON.stringify(o); return 'AWC' + VER + ':' + b64u(new TextEncoder().encode(j)) + '.' + fnv(j); }, code = () => encode(make());
+  // ----- 코드 읽기 · 확인 (형식 · 확인값 · 아는 아이템 · 값 범위)
+  const int = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
+  function invalid(o) { if (!o || typeof o !== 'object' || o.v !== VER) return '코드 내용을 읽을 수 없어요.'; if (!CLS_DEF[o.c]) return '알 수 없는 직업의 코드예요.';
+    if (!int(o.lv, 1, 99) || !(typeof o.ex === 'number' && o.ex >= 0 && isFinite(o.ex)) || !int(o.bh, 1, 99999) || !int(o.bm, 0, 99999) || !int(o.bp, 0, 99)) return '레벨·경험치·기본 HP/MP 값이 이상해요.';
+    if (!Array.isArray(o.b) || o.b.length !== 6 || !o.b.every(v => int(v, 0, 99))) return '보너스 능력치 값이 이상해요.';
+    if (!Array.isArray(o.e) || o.e.length > SLOTS.length) return '장비 목록이 이상해요.'; const seen = new Set();
+    for (const r of o.e) { if (!Array.isArray(r)) return '장비 목록이 이상해요.'; const [sl, id, en = 0, bl = 0, el = 0, al = 0, bs = 0] = r, d = ITEMS[id];
+      if (!SLOT_OK.has(sl) || seen.has(sl)) return `장비 칸이 이상해요. (${sl})`; seen.add(sl);
+      if (!d || REMOVED_ITEMS[id]) return `이 테스트 페이지에 없는 아이템이 있어요: ${id} (게임 버전이 다른지 확인해 주세요)`;
+      if (d.slot === 'ring' ? !/^ring[12]$/.test(sl) : d.slot !== sl) return `${d.name}은(는) ${sl} 칸 장비가 아니에요.`;
+      if (!int(en, -7, 15) || !int(bl, 0, 1) || !int(bs, 0, 9)) return `${d.name}: 강화·축복 값이 이상해요.`;
+      if (el ? !ATTR_N[el] || !int(al, 1, 3) : al) return `${d.name}: 속성 값이 이상해요.`; }
+    if (o.g != null) { if (!Array.isArray(o.g) || o.g.length > 12) return '가방 효과 아이템 목록이 이상해요.';
+      for (const r of o.g) { const [id, en = 0, bl = 0] = Array.isArray(r) ? r : [], d = ITEMS[id]; if (!d || !bagKey(id)) return `이 테스트 페이지에 없는 가방 효과 아이템이 있어요: ${id}`; if (!int(en, 0, 15) || !int(bl, 0, 1)) return `${d.name}: 강화·축복 값이 이상해요.`; } }
+    if (o.ih != null && o.ih !== ihOf(o)) return `코드를 만든 게임(v${o.gv})과 이 테스트 페이지(v${GAME_VER})의 아이템이 달라요. 테스트 페이지를 본섭과 같은 버전으로 올린 뒤 다시 해 주세요.`;
+    if (o.pc != null && !PC_BY[o.pc]) return `이 테스트 페이지에 없는 변신 카드예요: ${o.pc}`;
+    if (o.ps != null && !(POLY[o.ps] && !POLY[o.ps].card && POLY[o.ps].cls === o.c && int(o.pt, 1, 36000))) return `변신 주문서 값이 이상해요: ${o.ps}`;
+    if (o.bf != null) { if (typeof o.bf !== 'object' || Array.isArray(o.bf)) return '버프 값이 이상해요.'; for (const k in o.bf) if (!(o.bf[k] > 0 && o.bf[k] <= 36000)) return `버프 값이 이상해요: ${k}`; }
+    const s = o.s; if (!s || typeof s !== 'object' || !Array.isArray(s.st) || s.st.length !== 6) return '비교용 수치가 없어요.';
+    return ''; }
+  function decode(t) { const m = /^AWC(\d+):([A-Za-z0-9_-]+)\.([0-9a-z]+)$/.exec(String(t || '').replace(/\s+/g, ''));
+    if (!m) return { err: '복사 코드 형식이 아니에요. 운영자 창의 [복사 코드]로 받은 코드를 그대로 붙여 넣어 주세요.' };
+    if (+m[1] !== VER) return { err: `이 테스트 페이지가 모르는 코드예요. (AWC${m[1]} · 테스트 페이지를 새 버전으로 올려 주세요)` };
+    let j, o; try { j = new TextDecoder('utf-8', { fatal: true }).decode(ub64u(m[2])); } catch (e) { return { err: '코드가 손상됐어요. 다시 복사해 주세요.' }; }
+    if (fnv(j) !== m[3]) return { err: '코드가 손상됐어요. (확인값이 맞지 않아요) 다시 복사해 주세요.' };
+    try { o = JSON.parse(j); } catch (e) { return { err: '코드가 손상됐어요. 다시 복사해 주세요.' }; }
+    const w = invalid(o); return w ? { err: w } : { o }; }
+  const clsMsg = o => `${CLASS_NAME[o.c]} 캐릭터로 접속해서 붙여 넣어 주세요. (지금 ${CLASS_NAME[CLASS]} 캐릭터예요)`;
+  // ----- 적용 (테스트 페이지만)
+  function apply(o) { if (!window.DEMO_MODE) return { ok: false, msg: '캐릭터 복사는 테스트 페이지에서만 쓸 수 있어요.' };
+    const w = invalid(o); if (w) return { ok: false, msg: w }; if (o.c !== CLASS) return { ok: false, msg: clsMsg(o) };
+    if (DEATH) return { ok: false, msg: '쓰러진 상태에서는 복사할 수 없어요. 부활한 뒤 다시 해 주세요.' };
+    const note = [];
+    // 1) 레벨·경험치·기본 HP/MP → 기술·마법은 레벨에 맞게 다시 (레벨이 되면 자동으로 배우는 것과 같게)
+    hero.lv = o.lv; hero.exp = o.ex; hero.baseHP = o.bh; hero.baseMP = o.bm; LEARNED.clear(); wizAutoLearn(true);
+    // 2) 장비(지금 착용한 장비는 가방으로) · 보너스 능력치
+    const moved = INV.ccSet(o.e.map(([sl, id, en = 0, bl = 0, el = 0, al = 0, bs = 0]) => ({ sl, id, en, bl, el, al, bs })), Object.fromEntries(ST6.map((k, i) => [k, o.b[i]]))); hero.bonusPts = o.bp;
+    if (moved > 0) note.push(`원래 착용 장비 ${moved}개는 가방으로 옮겼어요`);
+    // 3) 가방 효과 아이템: 코드의 것을 넣고, 더 높은 가호(또는 코드에 없는 가호)는 창고로 (지우지 않음)
+    const want = {}; for (const [id, en = 0, bl = 0] of o.g || []) { const e = { id, n: 1, on: false }; if (en) e.en = en; if (bl) e.blessed = true; want[bagKey(id)] = e; }
+    const keys = new Set(Object.keys(want)); for (const e of INV.bag()) { const k = !e.on && bagKey(e.id); if (k && k[0] === 'g') keys.add(k); }
+    let stored = 0; for (const k of keys) { const wv = want[k] ? bagVal(want[k]) : -1;
+      for (const e of INV.bag().filter(x => !x.on && bagKey(x.id) === k && bagVal(x) > wv)) if (STORE.deposit(e)) stored++;
+      if (want[k] && !INV.bag().some(x => !x.on && bagKey(x.id) === k && bagVal(x) === wv)) INV.insertEntry(want[k]); }
+    if (stored) note.push(`코드보다 높거나 코드에 없는 가호 ${stored}개는 창고로 옮겼어요`);
+    // 4) 버프: 지금 버프를 지우고 코드의 버프를 남은 시간 그대로 (모르는 버프는 건너뜀)
+    for (const k in BUFF_DEF) if (k !== 'poly' && k in BUFF) BUFF[k] = 0; for (const k in o.bf || {}) if (bfKeys().includes(k)) BUFF[k] = +o.bf[k];
+    // 5) 변신 카드(변신 칸) · 변신 주문서
+    const S = PCG.state(); if (o.pc) { const c = PC_BY[o.pc]; if (!PCG.has(o.pc) || (PCG.free(o.pc) <= 0 && S.slot[CLASS] !== o.pc)) { S.cards[o.pc] = (S.cards[o.pc] || 0) + 1; note.push(`변신 카드 [${c.name}] 1장을 넣었어요`); }
+      if (S.slot[CLASS] !== o.pc || PCG.cur() !== c.key) PCG.setSlot(o.pc); } else if (S.slot[CLASS]) PCG.clearSlot(true);
+    { const cur = POLY_ON && POLY[POLY_ON]; if (o.ps) { POLY_ON = o.ps; BUFF.poly = o.pt; } else if (cur && !cur.card) { POLY_ON = null; BUFF.poly = 0; } PCG.sync(); }
+    // 6) 다시 계산 → 비교
+    INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; { const gl = document.getElementById('gp-lv'); if (gl) gl.value = hero.lv; }
+    try { SAVE.now(false, true); } catch (e) {}
+    return { ok: true, diff: compare(o), note }; }
+  // 코드의 수치와 지금 수치 비교 → 다른 점 목록 (없으면 [])
+  function compare(o) { const a = o.s, b = vals(), L = [], J = x => JSON.stringify(x), pn = k => k ? (POLY[k] ? POLY[k].name : k) : '없음';
+    for (const [k, nm] of [['hp', '최대 HP'], ['mp', '최대 MP'], ['ac', 'AC'], ['mr', 'MR']]) if (a[k] !== b[k]) L.push(`${nm} ${a[k]} → ${b[k]}`);
+    ST6.forEach((k, i) => { if (a.st[i] !== b.st[i]) L.push(`${ST6_N[i]} ${a.st[i]} → ${b.st[i]}`); });
+    if (a.dm && J(a.dm) !== J(b.dm)) L.push(`공격 ${a.dm.join('~')} → ${b.dm.join('~')}`); if (a.sp != null && a.sp !== b.sp) L.push(`SP ${a.sp} → ${b.sp}`);
+    if (a.cp != null && a.cp !== b.cp) L.push(`전투력 ${a.cp} → ${b.cp}`); if (a.sk != null && a.sk !== b.sk) L.push(`배운 기술·마법 ${a.sk}개 → ${b.sk}개`);
+    if (a.pf != null && a.pf !== b.pf) L.push(`변신 ${pn(a.pf)} → ${pn(b.pf)}`);
+    if (hero.lv !== o.lv || hero.baseHP !== o.bh || hero.baseMP !== o.bm) L.push(`레벨·기본 HP/MP Lv.${o.lv} ${o.bh}/${o.bm} → Lv.${hero.lv} ${hero.baseHP}/${hero.baseMP}`);
+    if (J(eqOut()) !== J(o.e)) L.push('착용 장비가 코드와 달라요'); return L; }
+  // 클립보드에 복사 (막히면 false)
+  async function copy(t) { let ok = false; try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(t); ok = true; } } catch (e) {}
+    if (!ok) { try { const x = document.createElement('textarea'); x.value = t; x.setAttribute('readonly', ''); x.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(x); x.select(); x.setSelectionRange(0, t.length); ok = document.execCommand('copy'); x.remove(); } catch (e) {} }
+    return ok; }
+  // ----- 갓 모드 패널 [캐릭터 복사] (테스트 페이지만 · 본섭 운영자 갓 모드에는 없음)
+  function show(h, c) { const r = document.getElementById('gp-cc-res'); if (r) { r.innerHTML = h; r.style.color = c || ''; } }
+  function run(t) { const r = decode(t); if (r.err) { show(esc(r.err), '#ff8a7a'); say('[캐릭터 복사] ' + r.err, '#f08a7a'); return false; }
+    const o = r.o; if (o.c !== CLASS) { show(esc(clsMsg(o)), '#ff8a7a'); say('[캐릭터 복사] ' + clsMsg(o), '#f08a7a'); return false; }
+    const who = `${o.n || '?'} (${CLASS_NAME[o.c]} Lv.${o.lv})`;
+    INV.askYesNo(`${who}을(를) 그대로 복사할까요?`, `레벨·능력치·장비·인형·가호·변신·버프가 코드와 똑같이 바뀌어요. 지금 착용한 장비는 가방으로 옮겨요.${o.gv !== GAME_VER ? ` (코드는 v${o.gv} · 이 페이지는 v${GAME_VER})` : ''}`, () => {
+      const R = apply(o); if (!R.ok) { show(esc(R.msg), '#ff8a7a'); say('[캐릭터 복사] ' + R.msg, '#f08a7a'); return; }
+      const s = o.s, nt = R.note.length ? ' · ' + R.note.join(' · ') : '';
+      if (!R.diff.length) { show(`<b>똑같이 맞췄어요</b> — ${esc(who)} · HP ${s.hp} · MP ${s.mp} · AC ${s.ac} · MR ${s.mr} · 전투력 ${s.cp}${esc(nt)}`, '#9fe08a'); say(`[캐릭터 복사] ${who} — 똑같이 맞췄어요. (HP ${s.hp} · MP ${s.mp} · AC ${s.ac} · MR ${s.mr})${nt}`, '#9fe08a'); }
+      else { show(`<b>다른 점 ${R.diff.length}개</b> (코드 → 지금): ${esc(R.diff.join(' · '))}${esc(nt)}`, '#ffc070'); say(`[캐릭터 복사] ${who} — 다른 점 ${R.diff.length}개: ${R.diff.join(' · ')}`, '#ffc070'); } });
+    return true; }
+  function ui() { if (!window.DEMO_MODE) return; const gp = document.getElementById('godpanel'), body = gp && gp.querySelector('.gp-body'); if (!body || document.getElementById('gp-cc')) return;
+    const w = document.createElement('div'); w.className = 'gp-give'; w.id = 'gp-cc';
+    w.innerHTML = '<span class="gp-l">캐릭터 복사</span><small>본섭 운영자 창의 [살펴보기 → 복사 코드] 또는 [내 캐릭터 복사 코드]로 받은 코드를 붙여 넣고 [적용] · 같은 직업 캐릭터만 · 지금 착용한 장비는 가방으로 옮겨요</small>'
+      + '<textarea id="gp-cc-in" rows="3" spellcheck="false" autocomplete="off" placeholder="AWC1:…" aria-label="캐릭터 복사 코드" style="width:100%;box-sizing:border-box;resize:vertical;font:11px Consolas,monospace;background:#0e0b08;color:#f0e2bc;border:1px solid #7a5a2a;border-radius:3px;padding:5px"></textarea>'
+      + '<div class="gp-mrow"><button type="button" id="gp-cc-go" class="gp-go">적용</button></div><p class="gp-note" id="gp-cc-res" role="status" aria-live="polite"></p>';
+    body.appendChild(w); const inp = w.querySelector('#gp-cc-in'); ['keydown', 'keyup', 'keypress'].forEach(t => inp.addEventListener(t, ev => ev.stopPropagation()));
+    w.querySelector('#gp-cc-go').onclick = () => run(inp.value); }
+  ui();
+  const api = { make, code, encode, decode, vals, compare, copy, run, apply }; if (window.DEMO_MODE) window.__CC = api;   // 테스트 훅 (테스트 페이지만)
+  return api;
 })();
 // ============================================================ 교환 (마을에서 다른 유저 클릭 → 교환 신청 → 수락하면 양쪽에 교환창)
 // 각자 아이템·골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?" 한 번 더 → 둘 다 '예'면 서로 주고받음
