@@ -95,7 +95,7 @@ const near = (a, b, e) => Math.abs(a - b) <= (e || 1e-6);
     await A.waitForTimeout(1300); const q = await snap(A); console.log('⑦ wrong slot doc', JSON.stringify({ src: q.src, err: await A.evaluate(() => __FB.snap().err) })); ok(q.src === 'prev' || q.src === 'live', '⑦ 구간 번호가 틀린 문서는 안 씀 (지난 사진/실시간 기준)'); }
   // ⑧ 그림: 사진 = 센 기사(아크나이트·집행검·와이번 인형) → B 화면 사냥터에 반왕·라인 봇 세 직업
   await A.evaluate(() => { __FB.DBG.toff = 0; }); await B.evaluate(() => { __FB.DBG.toff = 0; __T.CLOUD.on = () => false; __FB.snapReset(); });
-  await B.evaluate(cp => { __FB.setRef({ copy: cp }); __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(3); }, cA); await B.waitForTimeout(1200);
+  await B.evaluate(cp => { __FB.setRef({ copy: cp }); __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(4); }, cA);   // 11/1: 봇은 2구역에만 await B.waitForTimeout(1200);
   await B.evaluate(() => { const F = __FB, R = F.roster(); F.DBG.noEnsure = true; F.DBG.noAI = true; for (const f of F.bots()) f.gone = true; __T.TOWN.placeAt(27.5, 30.5); const H = __T.hero;
     const pick = (t, c, k) => R[t].filter(b => b.cls === c)[k || 0].uid; [[pick('A', 'knight'), -3, -2], [pick('A', 'elf'), 0, -3], [pick('A', 'wizard'), 3, -2], [pick('B', 'knight'), -3, 2], [pick('B', 'elf'), 0, 3], [pick('B', 'wizard'), 3, 2]].forEach(([u, di, dj]) => F.spawnTest(u, H.i + di, H.j + dj)); });
   await B.waitForTimeout(4000); await B.screenshot({ path: 'dev/out/fbc_look.png' }); { const k = await B.evaluate(() => { const f = __FB.bots()[0]; return __T.scr(f.x, f.z); }); await B.screenshot({ path: 'dev/out/fbc_look_zoom.png', clip: { x: Math.max(0, k[0] - 160), y: Math.max(0, k[1] - 190), width: 320, height: 260 } }); }

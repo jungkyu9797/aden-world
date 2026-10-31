@@ -62,8 +62,8 @@ const ok = (c, m) => console.log((c ? 'OK  ' : 'FAIL') + ' ' + m);
   const a7 = await p.evaluate(() => ({ alerts: window.__FB.stat().alerts, chat: __T.log.map(l => l.t).filter(t => /전투 중입니다/.test(t)) }));
   const zs = a7.alerts.map(t => t.split('에서 ')[0]); console.log('⑦', JSON.stringify(a7));
   ok(a7.alerts.length >= 1 && new Set(zs).size === zs.length && a7.chat.length === a7.alerts.length, `⑦ 알림 ${a7.alerts.length}번 (같은 지역 중복 없음 · 여러 번 싸웠지만 3분 안에는 한 번)`);
-  // 스크린샷: 트인 사냥터(사막필드 1구간 · 기준 Lv18로 봇 Lv11~18)에서 반왕 봇 사냥 → 라인 봇이 와서 전투 (채팅 알림)
-  await p.evaluate(() => { window.__FB.setRef({ lv: 18, fb: { lv: 18, c: 'knight', hp: 260, ac: -14, mr: 8, d: 16, cp: 900 } }); __T.GOD_INV = true; __T.BUFF.invis = 0; __T.TOWN.toZone(3); }); await p.waitForTimeout(800);
+  // 스크린샷: 트인 사냥터(사막필드 2구간 · 기준 Lv18로 봇 Lv11~18 · 11/1부터 봇은 2구역에만)에서 반왕 봇 사냥 → 라인 봇이 와서 전투 (채팅 알림)
+  await p.evaluate(() => { window.__FB.setRef({ lv: 18, fb: { lv: 18, c: 'knight', hp: 260, ac: -14, mr: 8, d: 16, cp: 900 } }); __T.GOD_INV = true; __T.BUFF.invis = 0; __T.TOWN.toZone(4); }); await p.waitForTimeout(800);
   await p.evaluate(() => { const F = window.__FB, R = F.roster(); F.DBG.noEnsure = true; for (const f of F.bots()) f.gone = true; __T.TOWN.placeAt(27.5, 30.5); const H = __T.hero;
     F.spawnTest(R.A.find(b => b.cls === 'knight').uid, H.i - 4, H.j + 2); F.spawnTest(R.A.find(b => b.cls === 'elf').uid, H.i + 4, H.j - 3); F.spawnTest(R.A.find(b => b.cls === 'wizard').uid, H.i - 3, H.j - 4); });
   await p.waitForTimeout(8000); const hs = await p.evaluate(() => window.__FB.bots().map(f => f.bot.name + ':' + (f.bx ? f.bx.goal : '-'))); console.log('shot hunt', JSON.stringify(hs));
@@ -72,8 +72,8 @@ const ok = (c, m) => console.log((c ? 'OK  ' : 'FAIL') + ' ' + m);
   await p.waitForTimeout(3200); await p.screenshot({ path: 'dev/out/fb_fight.png' });
   await p.screenshot({ path: 'dev/out/fb_label.png', clip: { x: 320, y: 80, width: 640, height: 400 } });
   await p.evaluate(R => { window.__FB.setRef(R); __T.BUFF.invis = 0; }, REF);
-  // 성능 (헤드리스 크롬 · 그래픽카드 없음): 사막필드 1구간에서 몹만 vs 봇 8명이 화면 안에서 싸울 때 · 봇 계산 시간(프레임당) · 30초 모의 계산 시간
-  await p.evaluate(() => { __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(3); }); await p.waitForTimeout(800);
+  // 성능 (헤드리스 크롬 · 그래픽카드 없음): 사막필드 2구간에서 몹만 vs 봇 8명이 화면 안에서 싸울 때 · 봇 계산 시간(프레임당) · 30초 모의 계산 시간
+  await p.evaluate(() => { __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(4); }); await p.waitForTimeout(800);
   await p.evaluate(() => { const F = window.__FB; F.DBG.noEnsure = true; for (const f of F.bots()) f.gone = true; __T.TOWN.placeAt(27.5, 30.5); }); await p.waitForTimeout(1500);
   const fps = () => p.evaluate(() => new Promise(r => { let n = 0, w = 0; const L = [], t0 = performance.now(); let l = t0; const f = t => { n++; L.push(t - l); w = Math.max(w, t - l); l = t; if (t - t0 < 4000) requestAnimationFrame(f); else { L.sort((a, b) => a - b); r({ fps: Math.round(n / ((t - t0) / 1000)), p90ms: Math.round(L[Math.floor(L.length * 0.9)]), worstMs: Math.round(w) }); } }; requestAnimationFrame(f); }));
   const perfN = await fps(); const simN = await p.evaluate(() => window.__FB.sim(30));
