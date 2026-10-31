@@ -9727,6 +9727,732 @@ let last=performance.now(), invT=0;
 // ============================================================ v164: 절전 모드 (리니지M 절전 모드처럼) — 화면 그리기를 멈추고 검은 화면에 사냥 요약만 · 밀어서 해제
 //  들어가기: 위 메뉴 [절전] · 자동사냥 중 입력이 없으면 자동 (자동사냥 설정 '자동 절전') / 절전 귀환: 다른 유저에게 맞으면 마을로
 // v166: 마법인형 — 주인 뒤쪽 비스듬히 둥실 떠서 따라다님 · 다른 유저에게도 보임(접속 정보 dl) · 그림: 몬스터 모델을 머리 크게(인형 비율) 렌더 → 단계별 1장 (doll_t1~3.webp · 인형마다 8장 × 8방향 · 칸 CW×CH)
+// ============================================================ 변신 뽑기 결과 연출 TGFX (10/31 · 홀에 세워진 카드 → 모두 열기 = 고급까지 · 금빛 카드 개별 연출) — PCG.show가 씀
+/* 아덴 월드 - 변신 뽑기 연출 (TransformGacha) v2 : 카드 세우기 + 모두 열기 + 고등급 개별 연출
+ *
+ * const g = new TransformGacha(canvas, {
+ *   results: [ { grade:'hero', name:'데스나이트', image: img }, ... ],   // 1~11장
+ *   sound: true,
+ *   onClose: results => {...},   // [확인]을 눌러 닫을 때
+ * });
+ * g.play();
+ *
+ * grade: normal(일반) | advanced(고급) | rare(희귀) | hero(영웅) | legend(전설)
+ * - 처음엔 카드 뒷면이 바닥에 세워짐. 희귀 이상은 모두 똑같은 금색 빛(등급 숨김).
+ * - [모두 열기]: 일반·고급만 뒤집힘. 금색 카드는 눌러서(또는 [다음 열기]) 개별 연출로 공개.
+ * - 개별 연출 중 화면을 누르면 카드 공개로 건너뜀, 공개 후 누르면 홀로 돌아감.
+ * - image: 투명 배경 스프라이트 컷(권장) — opts.cardIsArt=true 면 꽉 찬 일러스트로 취급.
+ * 시간 t에 대한 render(t) + 동작 함수(openAll/open/tap/confirm)로 영상 추출도 가능.
+ */
+(function (global) {
+  'use strict';
+  const W = 1280, H = 720, CW = 300, CH = 430;
+  const GRADES = {
+    normal:   { label: '일반', c: [225, 225, 232], rank: 0 },
+    advanced: { label: '고급', c: [90, 235, 120], rank: 1 },
+    rare:     { label: '희귀', c: [80, 165, 255], rank: 2 },
+    hero:     { label: '영웅', c: [255, 60, 70], rank: 3 },
+    legend:   { label: '전설', c: [255, 196, 50], rank: 4 },
+  };
+  const GOLD = [255, 198, 80];
+  const KO = { 일반: 'normal', 고급: 'advanced', 희귀: 'rare', 영웅: 'hero', 전설: 'legend' };
+  const hex = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
+  const HIGH = 2; // 희귀 이상
+  const APPEAR = 0.6;
+  // 개별 연출 타임라인(연출 시작 기준, 초)
+  const R = { charge: 1.0, crack: 1.4, shatter: 2.8, card: 3.4, flip: 4.0, reveal: 4.2, done: 5.8 };
+
+  function mulberry(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const seg = (t, a, b) => clamp((t - a) / (b - a));
+  const ease = x => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+  const easeOut = x => 1 - Math.pow(1 - x, 3);
+  const easeBack = x => 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2);
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const mix = (c1, c2, k) => [0, 1, 2].map(i => Math.round(lerp(c1[i], c2[i], k)));
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const imgW = im => im.naturalWidth || im.width, imgH = im => im.naturalHeight || im.height;
+  const ready = im => im && (im.complete === undefined || im.complete) && imgW(im) > 0;
+  const FONT = '"Noto Serif KR","Malgun Gothic",serif';
+
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+
+  // ---------- 홀(바닥 원근) ----------
+  const HOR = 175, F = 700, CAMH = 1.25;
+  const proj = (X, Z) => [W / 2 + (X * F) / Z, HOR + (CAMH * F) / Z];
+  function buildHall(scale) {
+    const c = document.createElement('canvas'); c.width = W * scale; c.height = H * scale;
+    const g = c.getContext('2d'); g.scale(scale, scale);
+    let gr = g.createLinearGradient(0, 0, 0, HOR + 40);
+    gr.addColorStop(0, '#050909'); gr.addColorStop(1, '#13201f');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(120,160,150,${0.05 + 0.05 * Math.abs(Math.sin(i * 1.7))})`; g.fillRect(i * 52 + 10, 0, 18, HOR + 30); }
+    const sp = g.createRadialGradient(W / 2, HOR - 20, 10, W / 2, HOR - 20, 520);
+    sp.addColorStop(0, 'rgba(110,150,140,0.25)'); sp.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = sp; g.fillRect(0, 0, W, HOR + 60);
+    const r = mulberry(7);
+    for (let Z = 22; Z >= 0.8; Z -= 1) for (let X = -14; X < 14; X++) {
+      const z0 = Math.max(0.6, Z - 1);
+      const p1 = proj(X, Z), p2 = proj(X + 1, Z), p3 = proj(X + 1, z0), p4 = proj(X, z0);
+      const red = ((X + Math.round(Z)) & 1) === 0, n = r() * 0.25;
+      g.beginPath(); g.moveTo(...p1); g.lineTo(...p2); g.lineTo(...p3); g.lineTo(...p4); g.closePath();
+      g.fillStyle = red ? `rgb(${70 + n * 60},${12 + n * 10},${16 + n * 10})` : `rgb(${22 + n * 20},${24 + n * 20},${26 + n * 20})`;
+      g.fill(); g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1.2; g.stroke();
+      if (!red) {
+        const cx = (p1[0] + p2[0] + p3[0] + p4[0]) / 4, cy = (p1[1] + p2[1] + p3[1] + p4[1]) / 4;
+        const w = Math.abs(p3[0] - p4[0]) * 0.36, h = Math.abs(p4[1] - p1[1]) * 0.36;
+        g.strokeStyle = 'rgba(190,190,180,0.35)'; g.lineWidth = Math.max(0.5, w / 25);
+        g.beginPath(); g.ellipse(cx, cy, w, h, 0, 0, Math.PI * 2); g.stroke();
+        g.beginPath(); g.ellipse(cx, cy, w * 0.6, h * 0.6, 0, 0, Math.PI * 2); g.stroke();
+        for (let k = 0; k < 4; k++) {
+          const a = k * Math.PI / 2 + Math.PI / 4;
+          g.beginPath(); g.moveTo(cx + Math.cos(a) * w * 0.6, cy + Math.sin(a) * h * 0.6);
+          g.lineTo(cx + Math.cos(a) * w * 1.25, cy + Math.sin(a) * h * 1.25); g.stroke();
+        }
+      }
+    }
+    const gl = g.createRadialGradient(W / 2, 470, 20, W / 2, 470, 650);
+    gl.addColorStop(0, 'rgba(160,190,185,0.18)'); gl.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gl; g.fillRect(0, HOR, W, H - HOR);
+    const vg = g.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, 820);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.85)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    return c;
+  }
+
+  // ---------- 번개 ----------
+  function boltPts(r, x1, y1, x2, y2, disp, out) {
+    if (disp < 3) { out.push([x2, y2]); return; }
+    const mx = (x1 + x2) / 2 + (r() - 0.5) * disp, my = (y1 + y2) / 2 + (r() - 0.5) * disp;
+    boltPts(r, x1, y1, mx, my, disp / 2, out); boltPts(r, mx, my, x2, y2, disp / 2, out);
+  }
+  function drawBolt(g, r, x1, y1, x2, y2, col, a, w) {
+    const pts = [[x1, y1]]; boltPts(r, x1, y1, x2, y2, Math.hypot(x2 - x1, y2 - y1) * 0.45, pts);
+    g.save(); g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(...pts[0]); for (const p of pts) g.lineTo(...p);
+    g.shadowColor = rgba(col, 1); g.shadowBlur = 18;
+    g.strokeStyle = rgba(mix(col, [255, 255, 255], 0.3), a * 0.7); g.lineWidth = w * 3; g.stroke();
+    g.shadowBlur = 0; g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = w; g.stroke();
+    if (pts.length > 6) {
+      const s = pts[Math.floor(pts.length * (0.3 + r() * 0.4))], b = [[s[0], s[1]]];
+      const ang = r() * Math.PI * 2, L = 40 + r() * 60;
+      boltPts(r, s[0], s[1], s[0] + Math.cos(ang) * L, s[1] + Math.sin(ang) * L, L * 0.5, b);
+      g.beginPath(); g.moveTo(...b[0]); for (const p of b) g.lineTo(...p);
+      g.strokeStyle = `rgba(255,255,255,${a * 0.6})`; g.lineWidth = w * 0.6; g.stroke();
+    }
+    g.restore();
+  }
+
+  // ---------- 카드 (CW×CH 단위, 중심 0,0) ----------
+  const frameGrad = g => {
+    const fr = g.createLinearGradient(-CW / 2, -CH / 2, CW / 2, CH / 2);
+    fr.addColorStop(0, '#f6e7b8'); fr.addColorStop(0.3, '#9c7a3c'); fr.addColorStop(0.55, '#f1d98e'); fr.addColorStop(0.8, '#6c5124'); fr.addColorStop(1, '#e8cf8a');
+    return fr;
+  };
+  function drawCard(g, t, o) {
+    // o: { front, res, glowCol, glow, rv(0~1 그림 밝기), sweep(-1 없음), cracks, crack, isArt, nameOnCard }
+    const col = o.res ? GRADES[o.res.grade].c : GOLD;
+    if (o.glow > 0 && !o.cheap) {
+      g.save(); g.shadowColor = rgba(o.glowCol, 1); g.shadowBlur = 60 * o.glow;
+      g.fillStyle = rgba(mix(o.glowCol, [0, 0, 0], 0.3), Math.min(1, o.glow)); roundRect(g, -CW / 2 - 6, -CH / 2 - 6, CW + 12, CH + 12, 16); g.fill();
+      g.restore();
+    }
+    const fr = frameGrad(g);
+    g.fillStyle = fr; roundRect(g, -CW / 2, -CH / 2, CW, CH, 12); g.fill();
+    const x0 = -CW / 2 + 12, y0 = -CH / 2 + 12, iw = CW - 24, ih = CH - 24;
+    g.save(); roundRect(g, x0, y0, iw, ih, 6); g.clip();
+    if (o.front) drawFront(g, t, o, col, x0, y0, iw, ih); else drawBack(g, t, x0, y0, iw, ih);
+    // 균열
+    if (o.crack > 0 && o.cracks) {
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      for (const line of o.cracks) {
+        const n = Math.floor(line.pts.length * clamp((o.crack - line.d) / (1 - line.d)));
+        if (n < 2) continue;
+        g.beginPath(); line.pts.slice(0, n).forEach((p, i) => (i ? g.lineTo(...p) : g.moveTo(...p)));
+        g.strokeStyle = rgba(o.crackCol, 0.3); g.lineWidth = 14; g.stroke();   // 빛 번짐 (shadowBlur 대신 — 가벼움)
+        g.strokeStyle = rgba(mix(o.crackCol, [255, 255, 255], 0.35), 0.95); g.lineWidth = 5; g.stroke();
+        g.strokeStyle = '#fff'; g.lineWidth = 1.8; g.stroke();
+      }
+      if (o.emissive > 0) { g.fillStyle = rgba(o.crackCol, o.emissive * 0.55); g.fillRect(x0, y0, iw, ih); }
+    }
+    g.restore();
+    g.strokeStyle = 'rgba(255,240,200,0.6)'; g.lineWidth = 1.5; roundRect(g, x0, y0, iw, ih, 6); g.stroke();
+    g.fillStyle = fr;
+    for (const [px, py] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      g.save(); g.translate(px * (CW / 2 - 12), py * (CH / 2 - 12)); g.rotate(Math.PI / 4);
+      g.fillRect(-9, -9, 18, 18); g.strokeStyle = '#3a2a10'; g.lineWidth = 1; g.strokeRect(-9, -9, 18, 18); g.restore();
+    }
+    // 보석 (앞면: 등급색 / 뒷면: 금색)
+    const gc = o.front ? col : GOLD;
+    g.save(); g.translate(-CW / 2 + 4, -CH / 2 + 40);
+    g.fillStyle = fr; g.beginPath(); g.arc(0, 0, 20, 0, Math.PI * 2); g.fill();
+    const gm = g.createRadialGradient(-5, -5, 2, 0, 0, 15);
+    gm.addColorStop(0, '#fff'); gm.addColorStop(0.35, rgba(gc, 1)); gm.addColorStop(1, rgba(mix(gc, [0, 0, 0], 0.6), 1));
+    g.fillStyle = gm; g.beginPath(); g.arc(0, 0, 14, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  function drawBack(g, t, x0, y0, iw, ih) {
+    const b = g.createLinearGradient(0, y0, 0, y0 + ih);
+    b.addColorStop(0, '#2a1d14'); b.addColorStop(0.5, '#160f0b'); b.addColorStop(1, '#0a0706');
+    g.fillStyle = b; g.fillRect(x0, y0, iw, ih);
+    // 마름모 격자
+    g.strokeStyle = 'rgba(190,150,80,0.13)'; g.lineWidth = 1;
+    for (let k = -ih; k < iw + ih; k += 22) {
+      g.beginPath(); g.moveTo(x0 + k, y0); g.lineTo(x0 + k - ih, y0 + ih); g.stroke();
+      g.beginPath(); g.moveTo(x0 + k - ih, y0); g.lineTo(x0 + k, y0 + ih); g.stroke();
+    }
+    const vg = g.createRadialGradient(0, 0, 30, 0, 0, 230);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.7)');
+    g.fillStyle = vg; g.fillRect(x0, y0, iw, ih);
+    // 문장
+    g.strokeStyle = 'rgba(220,180,100,0.85)'; g.lineWidth = 2.5;
+    g.beginPath(); g.arc(0, -6, 74, 0, Math.PI * 2); g.stroke();
+    g.lineWidth = 1.2; g.beginPath(); g.arc(0, -6, 64, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = 'rgba(220,180,100,0.85)';
+    for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; g.fillRect(Math.cos(a) * 69 - 2, -6 + Math.sin(a) * 69 - 2, 4, 4); }
+    g.beginPath();
+    for (let i = 0; i <= 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? 22 : 54; const p = [Math.cos(a) * rr, -6 + Math.sin(a) * rr]; i ? g.lineTo(...p) : g.moveTo(...p); }
+    g.closePath(); g.lineWidth = 2; g.stroke();
+    g.fillStyle = 'rgba(220,180,100,0.25)'; g.fill();
+    g.font = `700 22px ${FONT}`; g.textAlign = 'center'; g.fillStyle = 'rgba(225,190,110,0.9)';
+    g.fillText('ADEN', 0, 130);
+    g.fillRect(-60, 96, 120, 1.5); g.fillRect(-40, 140, 80, 1.5);
+  }
+  function drawFront(g, t, o, col, x0, y0, iw, ih) {
+    const im = o.res && o.res.image, rv = o.rv === undefined ? 1 : o.rv;
+    const bg = g.createLinearGradient(0, y0, 0, y0 + ih);
+    bg.addColorStop(0, rgba(mix(col, [10, 10, 20], 0.72), 1)); bg.addColorStop(0.6, '#121218'); bg.addColorStop(1, '#050507');
+    g.fillStyle = bg; g.fillRect(x0, y0, iw, ih);
+    g.fillStyle = rgba(mix(col, [255, 255, 255], 0.7), 0.8); g.save(); g.shadowColor = rgba(col, 1); g.shadowBlur = 30;
+    g.beginPath(); g.arc(70, y0 + 64, 22, 0, Math.PI * 2); g.fill(); g.restore();
+    g.fillStyle = '#0a0a0e'; g.beginPath(); g.moveTo(x0, y0 + ih * 0.7);
+    for (let i = 0; i <= 10; i++) g.lineTo(x0 + (iw * i) / 10, y0 + ih * (0.64 + 0.05 * Math.sin(i * 2.3)));
+    g.lineTo(x0 + iw, y0 + ih); g.lineTo(x0, y0 + ih); g.closePath(); g.fill();
+    const hl = g.createRadialGradient(0, y0 + ih * 0.45, 10, 0, y0 + ih * 0.45, ih * 0.5);
+    hl.addColorStop(0, rgba(col, 0.4)); hl.addColorStop(1, rgba(col, 0));
+    g.fillStyle = hl; g.fillRect(x0, y0, iw, ih);
+    if (ready(im)) {
+      if (o.isArt) {
+        const s = Math.max(iw / imgW(im), ih / imgH(im)), w = imgW(im) * s, h = imgH(im) * s;
+        g.drawImage(im, -w / 2, y0 + (ih - h) / 2, w, h);
+      } else {
+        const h = ih * 0.78, w = (h * imgW(im)) / imgH(im), yb = y0 + ih - 40 + (1 - rv) * 16 + Math.sin(t * 1.5) * 2;
+        if (!o.cheap) { g.save(); g.shadowColor = rgba(col, 1); g.shadowBlur = 24; g.drawImage(im, -w / 2, yb - h, w, h); g.restore(); }
+        g.drawImage(im, -w / 2, yb - h, w, h);
+      }
+    }
+    const fg = g.createLinearGradient(0, y0 + ih * 0.7, 0, y0 + ih);
+    fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(1, 'rgba(0,0,0,0.9)');
+    g.fillStyle = fg; g.fillRect(x0, y0 + ih * 0.6, iw, ih * 0.4);
+    if (o.res && o.res.badge) {
+      g.save(); g.font = `800 22px ${FONT}`; const tw = g.measureText(o.res.badge).width + 18;
+      g.fillStyle = o.res.badge === 'NEW' ? 'rgba(220,40,40,0.92)' : 'rgba(20,20,26,0.8)'; roundRect(g, x0 + iw - tw - 6, y0 + 8, tw, 30, 6); g.fill();
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(o.res.badge, x0 + iw - 6 - tw / 2, y0 + 31); g.restore();
+    }
+    if (o.nameOnCard && o.res) {
+      g.textAlign = 'center'; g.font = `700 30px ${FONT}`; g.fillStyle = '#fff4dc';
+      g.save(); g.shadowColor = rgba(col, 1); g.shadowBlur = 10; g.fillText(o.res.name || '', 0, y0 + ih - 14); g.restore();
+    }
+    if (rv < 1) { g.fillStyle = `rgba(0,0,0,${0.92 * (1 - rv)})`; g.fillRect(x0, y0, iw, ih); }
+    if (o.sweep > 0 && o.sweep < 1) {
+      const px = lerp(-iw, iw, o.sweep), lg = g.createLinearGradient(px - 60, y0, px + 60, y0 + 40);
+      lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.5, 'rgba(255,255,255,0.45)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = lg; g.fillRect(x0, y0, iw, ih);
+    }
+  }
+
+  // ---------- 사운드(간단 합성) ----------
+  function Sfx() {
+    let ac = null;
+    const get = () => (ac = ac || new (global.AudioContext || global.webkitAudioContext)());
+    function noise(dur, f0, f1, vol, type = 'lowpass') {
+      const a = get(), n = a.createBufferSource(), b = a.createBuffer(1, Math.ceil(a.sampleRate * dur), a.sampleRate);
+      const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      n.buffer = b; const f = a.createBiquadFilter(); f.type = type;
+      f.frequency.setValueAtTime(f0, a.currentTime); f.frequency.exponentialRampToValueAtTime(f1, a.currentTime + dur);
+      const gn = a.createGain(); gn.gain.setValueAtTime(0.0001, a.currentTime);
+      gn.gain.exponentialRampToValueAtTime(vol, a.currentTime + dur * 0.15);
+      gn.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+      n.connect(f).connect(gn).connect(a.destination); n.start();
+    }
+    function tone(freq, dur, vol, type = 'sine', f1) {
+      const a = get(), o = a.createOscillator(), gn = a.createGain(); o.type = type;
+      o.frequency.setValueAtTime(freq, a.currentTime);
+      if (f1) o.frequency.exponentialRampToValueAtTime(f1, a.currentTime + dur);
+      gn.gain.setValueAtTime(0.0001, a.currentTime); gn.gain.exponentialRampToValueAtTime(vol, a.currentTime + 0.02);
+      gn.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+      o.connect(gn).connect(a.destination); o.start(); o.stop(a.currentTime + dur + 0.05);
+    }
+    return {
+      resume() { try { get().resume(); } catch (e) {} },
+      play(k) {
+        try {
+          if (k === 'drone') { tone(55, 4, 0.1, 'sawtooth', 50); noise(3, 200, 120, 0.05); }
+          if (k === 'pillar') { tone(1400 + Math.random() * 600, 0.6, 0.035, 'sine', 900); noise(0.5, 6000, 2000, 0.03, 'highpass'); }
+          if (k === 'gold') { [784, 988, 1175].forEach((f, i) => setTimeout(() => tone(f, 1.2, 0.05, 'triangle'), i * 60)); }
+          if (k === 'flip') { noise(0.25, 800, 3000, 0.08, 'bandpass'); tone(660, 0.3, 0.03, 'triangle'); }
+          if (k === 'flip1') { noise(0.25, 800, 3000, 0.08, 'bandpass'); [660, 880].forEach((f, i) => setTimeout(() => tone(f, 0.6, 0.05, 'triangle'), i * 70)); }
+          if (k === 'charge') { noise(1.8, 80, 900, 0.16); tone(40, 1.8, 0.12, 'sawtooth', 120); }
+          if (k === 'crack') { noise(0.12, 3000, 1500, 0.12, 'highpass'); }
+          if (k === 'boom') { noise(1.4, 3000, 60, 0.4); tone(90, 1.2, 0.35, 'sine', 30); }
+          if (k === 'whoosh') { noise(0.7, 400, 4000, 0.12, 'bandpass'); }
+          if (k.startsWith('reveal')) { [392, 523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 2, 0.06, 'triangle'), i * 60)); noise(0.3, 5000, 2000, 0.06, 'highpass'); }
+          if (k === 'click') { tone(900, 0.08, 0.04, 'square', 600); }
+        } catch (e) {}
+      },
+    };
+  }
+
+  // ---------- 메인 ----------
+  class TransformGacha {
+    constructor(canvas, opts = {}) {
+      this.cv = canvas; this.g = canvas.getContext('2d');
+      this.results = (opts.results || [{ grade: opts.grade || 'hero', name: opts.name || '변신', image: opts.image }]).slice(0, 11)
+        .map(r => ({ ...r, grade: GRADES[KO[r.grade] || r.grade] ? (KO[r.grade] || r.grade) : 'normal' }));
+      this.sfxFn = opts.sfx || null;       // 효과음을 게임 쪽에서 낼 때: sfx(key) — key: drone·pillar·gold·flip·flip1·charge·crack·boom·whoosh·reveal:<등급>
+      this.extUI = !!opts.extUI;           // true면 아래 버튼·안내를 캔버스에 그리지 않음 (게임 HTML 버튼 사용)
+      this.onOpen = opts.onOpen || null;   // 카드가 열릴 때 onOpen(result)
+      this.isArt = !!opts.cardIsArt;
+      this.onClose = opts.onClose || null;
+      this.sound = opts.sound !== false;
+      this.seed = opts.seed || 12345;
+      this.hall = buildHall(2);
+      this.t = 0; this.closing = -1; this.fadeIn = -1;
+      this.cine = null;           // { card, s(시작시각) }
+      this.cues = [];
+      this._layout();
+      this._click = e => this._onPointer(e);
+    }
+    _cue(time, key) { this.cues.push([time, key]); }
+    _layout() {
+      const r = mulberry(this.seed), n = this.results.length;
+      // 5장 이하: 한 줄 / 그 이상: 뒷줄·앞줄 엇갈림 (뒷줄 카드가 앞줄 사이로 보이게)
+      const rows = n <= 5 ? [[3.8, n, 0]] : [[4.6, Math.ceil(n / 2), 0], [3.4, Math.floor(n / 2), 1]];
+      const step = n <= 5 ? 250 : 230;
+      this.cards = []; let k = 0;
+      rows.forEach(([Z, c, ri]) => {
+        const same = rows.length > 1 && rows[0][1] === rows[1][1], off = same ? (ri ? step / 4 : -step / 4) : 0;
+        for (let i = 0; i < c; i++) {
+          const x = W / 2 + (i - (c - 1) / 2) * step + off, y = HOR + (CAMH * F) / Z;
+          const hk = n <= 5 ? 1.15 : 1.0;
+          this.cards.push({ x, y, h: (hk * F) / Z, Z, t0: APPEAR + 0.13 * k + r() * 0.08, res: null, opened: false, ft: -1 });
+          k++;
+        }
+      });
+      // 결과 배치(무작위 자리)
+      const order = this.results.map((_, i) => i);
+      for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+      this.cards.forEach((c, i) => { c.res = this.results[order[i]]; c.high = GRADES[c.res.grade].rank >= HIGH; c.idx = i; });
+      this.drawOrder = this.cards.slice().sort((a, b) => b.Z - a.Z);
+      this.allIn = Math.max(...this.cards.map(c => c.t0)) + 0.6;
+      this.stars = Array.from({ length: 160 }, () => ({ x: r() * W, y: r() * H, s: r() * 1.8 + 0.3, ph: r() * 6.28, sp: 0.5 + r() * 2 }));
+      this.motes = Array.from({ length: 60 }, () => ({ a: r() * 6.28, rad: 60 + r() * 260, sp: 0.6 + r() * 1.2, ph: r(), s: 1 + r() * 2.5 }));
+      this.sparks = Array.from({ length: 70 }, () => ({ x: r() * W, y: r() * H, vy: 15 + r() * 40, s: 0.6 + r() * 2, ph: r() * 6.28 }));
+      this._cue(APPEAR - 0.1, 'drone');
+      for (const c of this.cards) { this._cue(c.t0, 'pillar'); if (c.high) this._cue(c.t0 + 0.15, 'gold'); }
+    }
+    _cineAssets(card) {
+      const r = mulberry(this.seed + card.idx * 31);
+      const cracks = [];
+      for (let i = 0; i < 20; i++) {
+        let x = (r() - 0.5) * 220, y = (r() - 0.5) * 360; const pts = [[x, y]]; let a = r() * Math.PI * 2;
+        for (let j = 0; j < 10; j++) { a += (r() - 0.5) * 1.5; x = clamp(x + Math.cos(a) * 24, -138, 138); y = clamp(y + Math.sin(a) * 24, -203, 203); pts.push([x, y]); }
+        cracks.push({ pts, d: (i / 20) * 0.6 });
+      }
+      const frags = [];
+      for (let i = 0; i < 90; i++) {
+        const lx = (r() - 0.5) * CW, ly = (r() - 0.5) * CH, ang = Math.atan2(ly, lx) + (r() - 0.5) * 0.8, sp = 250 + r() * 650;
+        frags.push({ lx, ly, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 120, rot: r() * 6, vr: (r() - 0.5) * 14, sz: 6 + r() * 18, kind: r(),
+          p: [[r() - 0.5, -r()], [r(), r() * 0.6], [-r(), r() * 0.6]] });
+      }
+      return { cracks, frags };
+    }
+
+    // ===== 상태 =====
+    _closedLow() { return this.cards.filter(c => !c.opened && !c.high); }
+    _closedHigh() { return this.cards.filter(c => !c.opened && c.high); }
+    _flip(c, at) { c.opened = true; c.ft = at; if (this.onOpen) this.onOpen(c.res); this._cue(at, GRADES[c.res.grade].rank ? 'flip1' : 'flip'); }
+    openAll() {
+      if (this.cine || this.t < this.allIn) return;
+      const low = this._closedLow().sort((a, b) => a.x - b.x || b.Z - a.Z);
+      if (low.length) low.forEach((c, i) => this._flip(c, this.t + i * 0.09));
+      else { const h = this._closedHigh(); if (h.length) this.open(h[0].idx); }
+    }
+    open(i) {
+      const c = this.cards[i]; if (!c || c.opened || this.cine || this.t < this.allIn) return;
+      if (!c.high) return this._flip(c, this.t);
+      const s = this.t;
+      this.cine = { card: c, s, ...this._cineAssets(c) };
+      this._cue(s + R.charge - 0.2, 'charge');
+      for (let k = 0; k < 8; k++) this._cue(s + R.crack + k * 0.17, 'crack');
+      this._cue(s + R.shatter, 'boom'); this._cue(s + R.card, 'whoosh'); this._cue(s + R.reveal, 'reveal:' + c.res.grade);
+    }
+    tap() { // 개별 연출 중 화면 누르기
+      if (!this.cine) return;
+      const u = this.t - this.cine.s;
+      if (u < R.flip) {
+        this.cine.s = this.t - R.flip;
+        this.cues = this.cues.filter(q => q[0] <= this.t); this._cue(this.cine.s + R.reveal, 'reveal:' + this.cine.card.res.grade);
+      }
+      else if (u >= R.done) this.finishCine();
+    }
+    finishCine() { // 개별 연출을 끝내고 홀로 (Esc 등)
+      if (!this.cine) return; const c = this.cine.card; c.opened = true; c.ft = this.t - 5; this.cine = null; this.fadeIn = this.t;
+      this.cues = this.cues.filter(q => q[0] <= this.t); if (this.onOpen) this.onOpen(c.res);
+    }
+    quickAll() { // 연출 없이 전부 뒤집기 (자동 뽑기)
+      if (this.cine) this.finishCine();
+      this.cards.filter(c => !c.opened).forEach((c, i) => this._flip(c, this.t + i * 0.05));
+    }
+    state() {
+      const low = this._closedLow().length, high = this._closedHigh().length;
+      return { ready: this.t >= this.allIn, cine: !!this.cine, cineDone: !!this.cine && this.t - this.cine.s >= R.done, low, high, open: this.cards.length - low - high, n: this.cards.length };
+    }
+    confirm() { if (!this.cine && this.closing < 0 && this.cards.every(c => c.opened)) this.closing = this.t; }
+    _button() {
+      if (this.cine || this.t < this.allIn || this.closing >= 0) return null;
+      const low = this._closedLow().length, high = this._closedHigh().length;
+      const label = low ? '모두 열기' : high ? '다음 열기' : '확인';
+      return { x: W / 2 - 95, y: H - 76, w: 190, h: 48, label, act: low || high ? 'open' : 'ok' };
+    }
+
+    // ===== 그리기 =====
+    render(t) {
+      this.t = t;
+      const g = this.g, dpr = this.cv.width / W;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+      const u = this.cine ? t - this.cine.s : -1;
+      if (!this.cine || u < R.card + 0.6) this._hall(t, u);
+      if (this.cine && u >= R.card - 0.1) this._reveal(t, u);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!this.cine) this._ui(t);
+      // 섬광
+      if (this.cine) {
+        const col = GRADES[this.cine.card.res.grade].c;
+        let flash = 0;
+        if (u > R.shatter - 0.15) flash = seg(u, R.shatter - 0.15, R.shatter + 0.05);
+        if (u > R.shatter + 0.35) flash = 1 - seg(u, R.shatter + 0.35, R.card + 0.5);
+        if (u >= R.reveal && u < R.reveal + 0.4) flash = Math.max(flash, 0.55 * (1 - seg(u, R.reveal, R.reveal + 0.4)));
+        if (flash > 0) { g.fillStyle = `rgba(${mix([255, 255, 255], col, 0.12).join(',')},${flash})`; g.fillRect(0, 0, W, H); }
+      }
+      let fade = 1 - seg(t, 0, 0.6);
+      if (this.fadeIn >= 0) fade = Math.max(fade, 1 - seg(t, this.fadeIn, this.fadeIn + 0.4));
+      if (this.closing >= 0) fade = Math.max(fade, seg(t, this.closing, this.closing + 0.45));
+      if (fade > 0) { g.fillStyle = `rgba(0,0,0,${fade})`; g.fillRect(0, 0, W, H); }
+    }
+
+    _cardPose(c) { const s = c.h / CH; return { s, cx: c.x, cy: c.y - c.h * 0.08 - c.h / 2 }; }
+
+    _hall(t, u) {
+      const g = this.g, dpr = this.cv.width / W, cine = this.cine, tc = cine && cine.card;
+      let zoom = 1, tx = W / 2, ty = H / 2, shake = 0;
+      if (cine) {
+        const p = this._cardPose(tc), fz = ease(seg(u, 0, R.charge + 0.4));
+        zoom = lerp(1, Math.min(2.6, (H * 0.62) / tc.h), fz) * (1 + 0.08 * easeOut(seg(u, R.charge, R.shatter)));
+        tx = lerp(W / 2, p.cx, fz); ty = lerp(H / 2, p.cy + tc.h * 0.05, fz);
+        if (u > R.charge && u < R.shatter + 0.3) shake = Math.pow(seg(u, R.charge, R.shatter), 2) * 9 * (u > R.shatter ? 1 - seg(u, R.shatter, R.shatter + 0.3) : 1);
+      }
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.translate(W / 2 + Math.sin(t * 91) * shake, H / 2 + Math.cos(t * 77) * shake); g.scale(zoom, zoom); g.translate(-tx, -ty);
+      g.drawImage(this.hall, 0, 0, W, H);
+      const dim = cine ? seg(u, 0, 0.8) : 0;
+      if (dim > 0) { g.fillStyle = `rgba(0,0,0,${dim * 0.55})`; g.fillRect(-W, -H, W * 3, H * 3); }
+      const crackCol = tc ? GRADES[tc.res.grade].c : GOLD;
+      // 마법진
+      if (cine) {
+        const mc = seg(u, R.charge - 0.3, R.charge + 0.5) * (1 - seg(u, R.shatter, R.shatter + 0.4));
+        if (mc > 0) this._circle(t, tc.x, tc.y, tc.h * 0.62, mix(GOLD, crackCol, seg(u, R.crack, R.crack + 0.6)), mc);
+      }
+      for (const c of this.drawOrder) {
+        const ap = seg(t, c.t0, c.t0 + 0.35);
+        if (ap <= 0) continue;
+        const isT = c === tc;
+        const beamA = clamp((t - c.t0) / 0.15) * (1 - seg(t, c.t0 + 0.25, c.t0 + 1.3));
+        if (beamA > 0) this._beam(c, c.high ? GOLD : [225, 235, 255], beamA * (c.high ? 1 : 0.75));
+        const closedHigh = c.high && !c.opened;
+        // 금빛 대기 기둥(희미하게)
+        if (closedHigh && !isT && t > c.t0 + 0.6) this._beam(c, GOLD, (0.16 + 0.06 * Math.sin(t * 3 + c.idx)) * (1 - dim));
+        if (isT && u > R.charge) this._beam(c, [255, 255, 255], 0.5 * seg(u, R.charge, R.shatter) * (1 - seg(u, R.shatter, R.shatter + 0.1)));
+        if (isT && u >= R.shatter) continue;
+        // 뒤집기
+        const fp = c.ft >= 0 ? seg(t, c.ft, c.ft + 0.45) : 0;
+        const front = c.opened && fp >= 0.5;
+        const sx = c.opened && fp < 1 ? Math.abs(Math.cos(Math.PI * fp)) : 1;
+        const lift = c.opened ? Math.sin(Math.PI * fp) * c.h * 0.1 : 0;
+        const drop = (1 - easeOut(ap)) * 40;
+        const { s, cx, cy } = this._cardPose(c);
+        const gcol = c.opened ? GRADES[c.res.grade].c : GOLD;
+        let glow = 0;
+        if (closedHigh) glow = (0.55 + 0.3 * Math.sin(t * 4 + c.idx)) * seg(t, c.t0 + 0.1, c.t0 + 0.5);
+        else if (front) glow = GRADES[c.res.grade].rank ? 0.6 : 0.25;
+        let alpha = ap, dark = 0;
+        if (cine && !isT) { dark = dim * 0.8; alpha *= 1 - dim * 0.5; }
+        // 받침 그림자 + 받침대
+        g.save(); g.globalAlpha = alpha;
+        const bg = g.createRadialGradient(c.x, c.y, 2, c.x, c.y, c.h * 0.4);
+        bg.addColorStop(0, closedHigh || (front && glow > 0.3) ? rgba(gcol, 0.6) : 'rgba(0,0,0,0.75)'); bg.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = bg; g.beginPath(); g.ellipse(c.x, c.y, c.h * 0.4, c.h * 0.1, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#2b2116'; g.beginPath(); g.ellipse(c.x, c.y - c.h * 0.02, c.h * 0.2, c.h * 0.045, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#6f5630'; g.beginPath(); g.ellipse(c.x, c.y - c.h * 0.05, c.h * 0.17, c.h * 0.035, 0, 0, Math.PI * 2); g.fill();
+        g.restore();
+        // 카드
+        g.save(); g.globalAlpha = alpha;
+        const wob = closedHigh ? Math.sin(t * 2 + c.idx) * 2 : 0;
+        g.translate(cx, cy - drop - lift + wob); g.scale(s * Math.max(0.03, sx), s);
+        let ccol = GOLD, crack = 0, emissive = 0;
+        if (isT) {
+          const k = seg(u, R.charge, R.crack + 0.5); ccol = mix(GOLD, crackCol, k);
+          crack = seg(u, R.crack, R.shatter - 0.1); emissive = Math.pow(seg(u, R.crack, R.shatter), 2);
+          glow = 0.8 + seg(u, R.charge, R.shatter) * 0.8;
+        }
+        drawCard(g, t, { front, res: c.res, glowCol: isT ? ccol : gcol, glow, cracks: isT ? cine.cracks : null, crack, crackCol: crackCol, emissive, isArt: this.isArt, nameOnCard: true, cheap: dark > 0.2 });
+        if (dark) { g.fillStyle = `rgba(0,0,0,${dark * 0.75})`; roundRect(g, -CW / 2 - 6, -CH / 2 - 6, CW + 12, CH + 12, 16); g.fill(); }   // 어둡게 (filter보다 가벼움)
+        g.restore();
+        // 뒤집힐 때 터지는 빛
+        if (c.opened && c.ft >= 0 && t > c.ft + 0.22 && t < c.ft + 0.9) {
+          const k = seg(t, c.ft + 0.22, c.ft + 0.9), col = GRADES[c.res.grade].c;
+          g.save(); g.globalCompositeOperation = 'lighter';
+          const rg = g.createRadialGradient(cx, cy, 2, cx, cy, c.h * (0.4 + k * 0.6));
+          rg.addColorStop(0, rgba(col, 0.6 * (1 - k))); rg.addColorStop(1, rgba(col, 0));
+          g.fillStyle = rg; g.fillRect(cx - c.h, cy - c.h, c.h * 2, c.h * 2); g.restore();
+        }
+        c.rect = [cx - (CW * s) / 2, cy - (CH * s) / 2 - drop, CW * s, CH * s];
+      }
+      // 금카드에서 올라가는 금가루
+      if (!cine || u < R.charge) {
+        g.save(); g.globalCompositeOperation = 'lighter';
+        for (const c of this.cards) {
+          if (!c.high || c.opened || t < c.t0 + 0.4) continue;
+          for (let i = 0; i < 6; i++) {
+            const k = (t * 0.35 + i / 6 + c.idx * 0.13) % 1;
+            const x = c.x + Math.sin(i * 2.1 + t + c.idx) * c.h * 0.22, y = c.y - k * c.h * 1.3;
+            g.fillStyle = rgba([255, 220, 140], 0.7 * Math.sin(k * Math.PI) * (1 - dim));
+            g.beginPath(); g.arc(x, y, 1.6 + (i % 3), 0, Math.PI * 2); g.fill();
+          }
+        }
+        g.restore();
+      }
+      if (cine) this._charge(t, u, tc, crackCol);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const vg = g.createRadialGradient(W / 2, H / 2, 260, W / 2, H / 2, 780);
+      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.7)');
+      g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    }
+
+    _charge(t, u, c, col) {
+      const g = this.g, { cx, cy, s } = this._cardPose(c);
+      const en = seg(u, R.charge, R.charge + 0.5) * (u < R.shatter ? 1 : 0);
+      if (en > 0) {
+        const cc = mix(GOLD, col, seg(u, R.crack, R.crack + 0.6));
+        g.save(); g.globalCompositeOperation = 'lighter';
+        for (const m of this.motes) {
+          const k = (t * m.sp * 0.6 + m.ph) % 1, rad = m.rad * (1 - k) * 0.9 + 8, a = m.a + k * 4;
+          const x = cx + Math.cos(a) * rad, y = cy + Math.sin(a) * rad * 0.7;
+          g.fillStyle = rgba(mix(cc, [255, 255, 255], 0.4), en * Math.sin(k * Math.PI));
+          g.beginPath(); g.arc(x, y, m.s, 0, Math.PI * 2); g.fill();
+        }
+        const st = seg(u, R.crack, R.shatter);
+        for (const side of [-1, 1]) {
+          const ox = cx + side * 420, oy = cy - 160, grd = g.createLinearGradient(ox, oy, cx, cy);
+          grd.addColorStop(0, rgba(cc, 0)); grd.addColorStop(1, rgba([255, 255, 255], 0.5 * st));
+          g.strokeStyle = grd; g.lineWidth = 24 * st; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(ox, oy); g.quadraticCurveTo(cx + side * 150, cy - 220, cx, cy); g.stroke();
+        }
+        g.restore();
+        if (u > R.crack + 0.6) {
+          const r = mulberry(Math.floor(t * 14) + 99);
+          if (r() < 0.6) { const a = r() * Math.PI * 2; drawBolt(g, r, cx, cy, cx + Math.cos(a) * c.h * 0.7, cy + Math.sin(a) * c.h * 0.7, cc, 0.8, 1.6); }
+        }
+      }
+      if (u >= R.shatter && u < R.shatter + 1.4) {
+        const dt = u - R.shatter;
+        for (const f of this.cine.frags) {
+          const x = cx + f.lx * s + f.vx * dt * (1 - dt * 0.25), y = cy + f.ly * s + f.vy * dt + 300 * dt * dt;
+          g.save(); g.translate(x, y); g.rotate(f.rot + f.vr * dt); g.globalAlpha = 1 - seg(dt, 0.3, 1.2);
+          g.fillStyle = f.kind < 0.35 ? '#fff' : f.kind < 0.6 ? '#d9b46a' : f.kind < 0.8 ? '#1e150e' : rgba(mix(col, [255, 255, 255], 0.25), 1);
+          g.beginPath(); f.p.forEach((p, i) => (i ? g.lineTo(p[0] * f.sz, p[1] * f.sz) : g.moveTo(p[0] * f.sz, p[1] * f.sz))); g.closePath(); g.fill();
+          g.restore();
+        }
+        const rr = easeOut(seg(dt, 0, 0.6));
+        g.strokeStyle = rgba([255, 255, 255], 0.8 * (1 - rr)); g.lineWidth = 10 * (1 - rr);
+        g.beginPath(); g.ellipse(cx, cy, 30 + rr * 600, 20 + rr * 380, 0, 0, Math.PI * 2); g.stroke();
+      }
+    }
+
+    _beam(c, col, a) {
+      const g = this.g, w = c.h * 0.4;
+      g.save(); g.globalCompositeOperation = 'lighter';
+      const gr = g.createLinearGradient(c.x - w, 0, c.x + w, 0);
+      gr.addColorStop(0, rgba(col, 0)); gr.addColorStop(0.5, rgba(col, 0.55 * a)); gr.addColorStop(1, rgba(col, 0));
+      g.fillStyle = gr; g.fillRect(c.x - w, -H, w * 2, c.y + H);
+      const gc = g.createLinearGradient(c.x - w * 0.25, 0, c.x + w * 0.25, 0);
+      gc.addColorStop(0, rgba(col, 0)); gc.addColorStop(0.5, `rgba(255,255,255,${0.7 * a})`); gc.addColorStop(1, rgba(col, 0));
+      g.fillStyle = gc; g.fillRect(c.x - w * 0.25, -H, w * 0.5, c.y + H);
+      const bg = g.createRadialGradient(c.x, c.y - 4, 2, c.x, c.y - 4, w * 1.6);
+      bg.addColorStop(0, rgba(col, 0.7 * a)); bg.addColorStop(1, rgba(col, 0));
+      g.fillStyle = bg; g.beginPath(); g.ellipse(c.x, c.y - 4, w * 1.6, w * 0.5, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+
+    _circle(t, x, y, r, col, a) {
+      const g = this.g;
+      g.save(); g.translate(x, y); g.scale(1, 0.32); g.globalCompositeOperation = 'lighter';
+      for (const k of [1, 0.82, 0.5]) { g.beginPath(); g.arc(0, 0, r * k * (0.6 + 0.4 * a), 0, Math.PI * 2); g.strokeStyle = rgba(col, 0.25 * a); g.lineWidth = 12; g.stroke(); g.strokeStyle = rgba(col, 0.9 * a); g.lineWidth = 3; g.stroke(); }
+      g.rotate(t * 0.8); g.beginPath();
+      for (let i = 0; i <= 6; i++) { const an = (i * 4 * Math.PI) / 6, p = [Math.cos(an) * r * 0.82, Math.sin(an) * r * 0.82]; i ? g.lineTo(...p) : g.moveTo(...p); }
+      g.stroke(); g.rotate(-t * 1.6);
+      g.fillStyle = rgba(mix(col, [255, 255, 255], 0.5), a);
+      for (let i = 0; i < 24; i++) { const an = (i / 24) * Math.PI * 2; g.fillRect(Math.cos(an) * r * 0.91 - 3, Math.sin(an) * r * 0.91 - 3, 6, 6); }
+      g.restore();
+    }
+
+    _reveal(t, u) {
+      const g = this.g, dpr = this.cv.width / W, res = this.cine.card.res, G = GRADES[res.grade], col = G.c;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.globalAlpha = seg(u, R.card - 0.1, R.card + 0.3);
+      g.fillStyle = '#030305'; g.fillRect(0, 0, W, H);
+      const n1 = g.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, 560);
+      n1.addColorStop(0, rgba(mix(col, [0, 0, 0], 0.55), 0.85)); n1.addColorStop(0.5, rgba(mix(col, [0, 0, 0], 0.85), 0.5)); n1.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = n1; g.fillRect(0, 0, W, H);
+      for (const [x, y, rr] of [[300, 200, 300], [1000, 520, 320], [900, 150, 220]]) {
+        const n = g.createRadialGradient(x + Math.sin(t * 0.3) * 20, y, 10, x, y, rr);
+        n.addColorStop(0, 'rgba(70,60,110,0.22)'); n.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = n; g.fillRect(0, 0, W, H);
+      }
+      for (const s of this.stars) { g.fillStyle = `rgba(255,255,255,${0.3 + 0.7 * Math.abs(Math.sin(t * s.sp + s.ph))})`; g.fillRect(s.x, s.y, s.s, s.s); }
+      g.globalCompositeOperation = 'lighter';
+      for (const p of this.sparks) {
+        const y = (p.y - u * p.vy + H * 10) % H, x = p.x + Math.sin(t + p.ph) * 12;
+        g.fillStyle = rgba(mix(col, [255, 255, 255], 0.3), 0.5 * Math.abs(Math.sin(t * 2 + p.ph)));
+        g.beginPath(); g.arc(x, y, p.s, 0, Math.PI * 2); g.fill();
+      }
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+      const cx = W / 2, cy = H / 2 + 12, ap = seg(u, R.card, R.flip + 0.2);
+      if (ap <= 0) return;
+      const sc = lerp(0.35, 1, easeBack(ap)), fl = seg(u, R.card + 0.1, R.reveal);
+      const ang = (1 - ease(fl)) * Math.PI * 3, sx = Math.cos(ang), front = sx >= 0 && fl > 0.5;
+      const bob = Math.sin(t * 1.6) * 4 * seg(u, R.done - 1, R.done);
+      g.save(); g.translate(cx, cy + bob); g.scale(sc * Math.max(0.02, Math.abs(sx)), sc);
+      g.globalAlpha = seg(u, R.card, R.card + 0.2);
+      drawCard(g, t, { front, res, glowCol: col, glow: 0.75 + 0.25 * Math.sin(t * 4), rv: easeOut(seg(u, R.reveal, R.reveal + 1.4)),
+        sweep: seg(u, R.reveal + 0.2, R.reveal + 1.1), isArt: this.isArt, nameOnCard: false });
+      g.restore();
+      const la = seg(u, R.flip, R.reveal + 0.2) * (u < R.done ? 1 : 0.35);
+      if (la > 0) {
+        const r = mulberry(Math.floor(t * 12) * 7 + 3), cnt = u < R.done ? 3 : 1;
+        for (let i = 0; i < cnt; i++) {
+          if (u >= R.done && r() > 0.35) continue;
+          const side = r() < 0.5 ? -1 : 1, y0 = cy - CH / 2 + r() * CH, x0 = cx + side * (CW / 2 - 4);
+          const a2 = (side > 0 ? 0 : Math.PI) + (r() - 0.5) * 1.4, L = 120 + r() * 180;
+          drawBolt(g, r, x0, y0, x0 + Math.cos(a2) * L, y0 + Math.sin(a2) * L, col, la, 1.8);
+        }
+      }
+      const ta = seg(u, R.reveal + 0.3, R.reveal + 0.9);
+      if (ta > 0) {
+        g.save(); g.globalAlpha = ta; g.textAlign = 'center';
+        g.font = `600 18px ${FONT}`; g.fillStyle = rgba(mix(col, [255, 255, 255], 0.35), 1);
+        g.fillText(`【 ${G.label} 】`, cx, cy - CH / 2 - 52);
+        g.font = `700 34px ${FONT}`; g.shadowColor = rgba(col, 1); g.shadowBlur = 18;
+        g.fillStyle = '#fff4dc'; g.fillText(res.name || '', cx, cy - CH / 2 - 16 + (1 - ta) * 10);
+        g.shadowBlur = 0; g.font = `500 16px ${FONT}`; g.fillStyle = '#e8dcc0';
+        g.textAlign = 'left'; (res.lines || []).forEach((L, i) => g.fillText(L, cx + CW / 2 + 36, cy - 30 + i * 26));
+        g.restore();
+      }
+      if (u > R.done) {
+        g.save(); g.textAlign = 'center'; g.font = '16px "Malgun Gothic",sans-serif';
+        g.globalAlpha = seg(u, R.done, R.done + 0.5) * (0.55 + 0.45 * Math.sin(t * 3));
+        g.fillStyle = '#d8d0c0'; g.fillText('터치 시 화면이 닫힙니다.', cx, H - 26); g.restore();
+      }
+    }
+
+    _ui(t) {
+      if (this.extUI) { this._btn = null; return; }
+      const g = this.g, b = this._button();
+      this._btn = b;
+      if (!b) return;
+      const a = seg(t, this.allIn, this.allIn + 0.4);
+      g.save(); g.globalAlpha = a;
+      if (this._closedHigh().length && !this._closedLow().length) {
+        g.textAlign = 'center'; g.font = `600 17px ${FONT}`;
+        g.fillStyle = `rgba(255,214,130,${0.6 + 0.4 * Math.sin(t * 3)})`;
+        g.fillText('빛나는 카드를 눌러 확인하세요', W / 2, b.y - 16);
+      }
+      const gr = g.createLinearGradient(0, b.y, 0, b.y + b.h);
+      gr.addColorStop(0, '#3a2c18'); gr.addColorStop(1, '#1a130b');
+      g.shadowColor = 'rgba(255,190,80,0.5)'; g.shadowBlur = 14;
+      g.fillStyle = gr; roundRect(g, b.x, b.y, b.w, b.h, 8); g.fill(); g.shadowBlur = 0;
+      g.strokeStyle = '#c9a25a'; g.lineWidth = 2; g.stroke();
+      g.strokeStyle = 'rgba(255,230,170,0.25)'; g.lineWidth = 1; roundRect(g, b.x + 4, b.y + 4, b.w - 8, b.h - 8, 5); g.stroke();
+      g.fillStyle = '#f3e2b8'; g.font = `700 19px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(b.label, W / 2, b.y + b.h / 2 + 1);
+      g.restore();
+    }
+
+    // ===== 입력/재생 =====
+    _onPointer(e) {
+      const rc = this.cv.getBoundingClientRect(), x = ((e.clientX - rc.left) / rc.width) * W, y = ((e.clientY - rc.top) / rc.height) * H;
+      if (this.sfx) this.sfx.resume();
+      if (this.cine) return this.tap();
+      const b = this._btn;
+      if (b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+        if (this.sfx) this.sfx.play('click');
+        return b.act === 'ok' ? this.confirm() : this.openAll();
+      }
+      for (const c of this.cards.slice().sort((p, q) => p.Z - q.Z)) {
+        const r = c.rect; if (!r) continue;
+        if (x >= r[0] && x <= r[0] + r[2] && y >= r[1] && y <= r[1] + r[3]) { this.open(c.idx); return; }
+      }
+    }
+    _resize() {
+      const p = this.cv.parentElement || document.body, bw = p.clientWidth || W, bh = p.clientHeight || H;
+      const s = Math.min(bw / W, bh / H);
+      this.cv.style.width = W * s + 'px'; this.cv.style.height = H * s + 'px';
+      const dpr = Math.min(2, global.devicePixelRatio || 1);
+      this.cv.width = Math.round(W * s * dpr); this.cv.height = Math.round(H * s * dpr);
+    }
+    play() {
+      this._resize();
+      this._onResize = () => this._resize();
+      global.addEventListener('resize', this._onResize);
+      this.cv.addEventListener('pointerdown', this._click);
+      if (this.sound && !this.sfxFn) { this.sfx = Sfx(); this.sfx.resume(); }
+      this.t = 0; this.last = performance.now(); this.running = true;
+      const loop = now => {
+        if (!this.running) return;
+        const t = this.t + Math.min(0.25, (now - this.last) / 1000); this.last = now;
+        const sp = this.sfxFn || (this.sfx && (k => this.sfx.play(k)));
+        if (sp) { this.cues.sort((a, b) => a[0] - b[0]); while (this.cues.length && this.cues[0][0] <= t) { try { sp(this.cues.shift()[1]); } catch (e) {} } }
+        else this.cues = this.cues.filter(q => q[0] > t);
+        this.render(t);
+        if (this.closing >= 0 && t > this.closing + 0.5) return this.stop(true);
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+    }
+    stop(fireClose) {
+      this.running = false;
+      global.removeEventListener('resize', this._onResize);
+      this.cv.removeEventListener('pointerdown', this._click);
+      if (fireClose && this.onClose) this.onClose(this.results);
+    }
+  }
+  TransformGacha.GRADES = GRADES;
+  TransformGacha.setColors = m => { for (const k in m) { const e = GRADES[KO[k] || k]; if (e) e.c = Array.isArray(m[k]) ? m[k] : hex(m[k]); } };
+  TransformGacha.CINE = R;
+  TransformGacha.SIZE = [W, H];
+  global.TransformGacha = TransformGacha;
+})(typeof window !== 'undefined' ? window : globalThis);
+const TGFX = window.TransformGacha; TGFX.setColors(RARITY_C);
 // ============================================================ 변신 카드 (변신 뽑기 2차 · 10/30 프로듀서 결정) — 계정 공유 users/{uid}.polyCards = { v:2, cards:{카드:장수}, lock:{카드:1}, mile, freeAt, draws, pity:{h,l}, slot:{직업:카드} }
 // [변신] 창 = 위 메뉴 [변신] · 캐릭터 창 · 모바일 메뉴 (어디서나 · 사냥 중에도): 11회 399,000 · 1회 39,900 골드 · 2시간마다 무료 1회(쌓이지 않음) · 확정 칸 없음 · 마일리지 = 뽑은 카드 1장 1점(무료 포함) → 1000점이면 원하는 전설 1장
 // 보유중: 등급별 작은 아이콘 · 같은 카드는 장수 · 카드마다 잠금(합성 재료에서 빠짐)
@@ -9874,7 +10600,34 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   const BACK = '<div class="pcg-bk"><b class="gl"></b><b class="sh"></b><i></i></div>';   // 금빛 뒷면: 빛(gl)·빛줄기(sh) 층은 투명도·이동만 움직임 (매 프레임 다시 칠하지 않게)
   const cardHTML = (r, i, x, tag) => `<div class="pcg-c ${isGold(r.c) ? 'y' : 'w'} g${gi(r.c)}${x || ''}" data-i="${i}" style="--gc:${GC(r.c.g)}" role="button" tabindex="0" aria-label="카드 ${i + 1} 뒤집기"><div class="pcg-in">${BACK}${faceHTML(r, tag)}</div></div>`;
   function ovEnsure() { window.__pcgCover = true; if (!ov) { ov = document.createElement('div'); ov.className = 'pcg-ovl'; ov.id = 'pcg-ovl'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', '변신 카드 결과'); document.body.appendChild(ov); } return ov; }
-  function show(res, ttl, opt) { opt = opt || {}; busy = true; ovEnsure(); const n = res.length, rows = n > 6 ? [res.slice(0, 6), res.slice(6)] : [res];
+  // ----- 뽑기 결과 화면 v3 (10/31 프로듀서 요청 · 참고 영상 연출 — TGFX 캔버스): 어두운 홀 체크 바닥에 카드 뒷면이 빛기둥과 함께 세워짐 (11회 = 두 줄 엇갈림)
+  //   희귀 이상 = 모두 같은 금빛(등급 숨김) · [모두 열기] = 일반·고급만 뒤집힘 · 금빛 카드는 누르거나 [다음 열기] → 그 카드로 다가가 마법진 · 금이 가며 진짜 등급 색 → 산산조각 → 카드 공개
+  //   연출 중 누르기·Space = 건너뛰기 → 한 번 더 = 홀로 · Esc = 그 연출 끝내기 / 다 열면 Space = 다시 뽑기 · Enter = 확인 · Esc = 닫기 · 자동 뽑기 = 연출 없이 전부 뒤집고 닫힘
+  const ARTH = {};
+  function artHi(id) { if (ARTH[id]) return ARTH[id]; const c = PC_BY[id]; if (c && c.rc) return art(id); const M = MSHEET[id], I = MIMG[id] && MIMG[id].idle; if (!M || !I || !I.complete || !I.naturalWidth) return null;   // 공개 화면용 큰 그림 (바닥 그림자 빼고 · 캔버스)
+    try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(I, 0, ROW * H, W, H, 0, 0, W, H); g.filter = 'none';
+      const Q = g.getImageData(0, 0, W, H), d = Q.data; let x0 = W, y0 = H, x1 = -1, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = (y * W + x) * 4; if (d[o + 3] < 200) { d[o + 3] = 0; continue; } if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 < 0) return null; g.putImageData(Q, 0, 0); const w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min(3, 420 / h), o = document.createElement('canvas'); o.width = Math.ceil(w * sc); o.height = Math.ceil(h * sc);
+      const og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high'; og.drawImage(t, x0, y0, w, h, 0, 0, o.width, o.height); return (ARTH[id] = o); } catch (e) { return null; } }
+  const TG_SND = { drone: 'gather', gold: 'gold', flip: 'flip', flip1: 'flip', charge: 'charge', boom: 'zoom', 'reveal:rare': 'rare', 'reveal:hero': 'hero', 'reveal:legend': 'legend' }, tgLast = {};
+  function tgSnd(k) { const now = performance.now(); if (k === 'pillar') { if (now - (tgLast.p || 0) < 900) return; tgLast.p = now; return snd('deal'); } const m = TG_SND[k]; if (!m) return; if (k === 'gold') { if (now - (tgLast.g || 0) < 400) return; tgLast.g = now; } snd(m); }
+  function tgImg(id, S, cb) { const set = () => { const v = artHi(id); if (!v) return false; if (typeof v === 'string') { const im = new Image(); im.src = v; cb(im); } else cb(v); return true; }; if (set()) return; let k = 0; const iv = setInterval(() => { if (!ov || ov._S !== S || set() || ++k > 60) clearInterval(iv); }, 150); }
+  function show(res, ttl, opt) { opt = opt || {}; if (opt.open || typeof TGFX !== 'function') return showOld(res, ttl, opt); busy = true; ovEnsure(); const n = res.length;
+    ov.innerHTML = `<canvas class="pcg-tg"></canvas><div class="pcg-tgbar" id="pcg-tgbar"><div class="pcg-ttl">변신 카드 · ${esc(ttl)}</div><p class="pcg-sum" id="pcg-sum"></p><div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort" hidden>모두 열기</button><button type="button" id="pcg-re" class="inv-sort" hidden>다시 뽑기 <small>Space</small></button><button type="button" id="pcg-stop" class="inv-sort"${auto ? '' : ' hidden'}>자동 뽑기 멈추기</button><button type="button" id="pcg-ok" class="sl-go">확인</button></div></div>`;
+    ov.hidden = false; ov.classList.add('tg'); const S = ov._S = { k: 'draw', res, ttl, open: new Set(), ann: new Set(), ready: false, seq: null, auto: !!opt.auto, op: -1 };
+    const L = res.map((r, i) => ({ grade: r.c.g, name: r.c.name, image: null, badge: r.isNew ? 'NEW' : '+1장', i, lines: [`Lv.${r.c.lv} · ${jobTxt(r.c)}`, `공격·이동 속도 +${r.c.pct}%`, ...r.c.opt] }));
+    L.forEach(x => tgImg(res[x.i].c.id, S, im => { x.image = im; }));
+    const G = S.g = new TGFX(ov.querySelector('canvas'), { results: L, extUI: true, sfx: tgSnd, seed: (Math.random() * 1e6) | 0,
+      onOpen: x => { S.open.add(x.i); const r = res[x.i]; if (gi(r.c) >= 4 && !r.mile && !S.ann.has(x.i)) { S.ann.add(x.i); annLegend(r.c, '변신 카드 뽑기'); } } });
+    G.play(); S.iv = setInterval(() => tgUpd(S), 120); tgUpd(S);
+    $('pcg-all').onclick = () => G.openAll(); $('pcg-ok').onclick = () => close(); $('pcg-re').onclick = () => { close(); again(); }; $('pcg-stop').onclick = () => autoStop('자동 뽑기를 멈췄어요.');
+    keys();
+    if (S.auto) { const iv = setInterval(() => { if (!ov || ov._S !== S) return clearInterval(iv); if (G.state().ready) { clearInterval(iv); G.quickAll(); setTimeout(() => { if (ov && ov._S === S) close(); }, 900 + n * 60); } }, 100); } }
+  function tgUpd(S) { if (!ov || ov._S !== S) return clearInterval(S.iv); const st = S.g.state(), bar = $('pcg-tgbar'); S.ready = st.ready; if (bar) bar.classList.toggle('hid', st.cine);
+    const a = $('pcg-all'); if (a) { a.hidden = !st.ready || (!st.low && !st.high); a.textContent = st.low ? '모두 열기' : '다음 열기'; }
+    const sm = $('pcg-sum'); if (sm && st.ready && st.low + st.high > 0 && !st.cine) { const t = st.low ? `카드를 눌러 뒤집어 보세요 <small>(${S.open.size} / ${S.res.length}${st.high ? ' · 금빛 카드 = 희귀 이상' : ''})</small>` : '빛나는 카드를 눌러 확인하세요'; if (S.smT !== t) { S.smT = t; sm.innerHTML = t; } }
+    if (S.open.size !== S.op) { S.op = S.open.size; if (S.op >= S.res.length) { S.smT = ''; sumUpd(); } } }
+  function showOld(res, ttl, opt) { opt = opt || {}; busy = true; ovEnsure(); const n = res.length, rows = n > 6 ? [res.slice(0, 6), res.slice(6)] : [res];
     ov.innerHTML = `<div class="pcg-flash"></div><div class="pcg-box ${n > 1 ? 'n11' : 'n1'}"><div class="pcg-ttl">변신 카드 · ${esc(ttl)}</div><div class="pcg-deck">${rows.map((L, q) => `<div class="pcg-row">${L.map((r, k) => cardHTML(r, q * 6 + k)).join('')}</div>`).join('')}</div><p class="pcg-sum" id="pcg-sum"></p>`
       + `<div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort">모두 뒤집기</button><button type="button" id="pcg-re" class="inv-sort" hidden>다시 뽑기 <small>Space</small></button><button type="button" id="pcg-stop" class="inv-sort"${auto ? '' : ' hidden'}>자동 뽑기 멈추기</button><button type="button" id="pcg-ok" class="sl-go">확인</button></div></div><div class="pcg-big" id="pcg-big" hidden></div>`;
     ov.hidden = false; fillArt(ov); const S = ov._S = { k: 'draw', res, ttl, open: new Set(), ann: new Set(), ready: false, seq: null, auto: !!opt.auto };
@@ -9906,13 +10659,14 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     if (op < n) { el.innerHTML = S.ready ? `카드를 눌러 뒤집어 보세요 <small>(${op} / ${n}${S.res.some(r => isGold(r.c) && !r.mile) ? ' · 금빛 카드 = 희귀 이상' : ''})</small>` : '&nbsp;'; return; } const nw = S.res.filter(r => r.isNew).length;
     el.innerHTML = `새 카드 <b>${nw}장</b> · 같은 카드 <b>${n - nw}장</b> · 마일리지 <b>${D.mile} / ${MILE}</b>${D.mile >= MILE ? ' <span class="pcg-mok">(전설 고르기 가능!)</span>' : ''}`;
     const a = $('pcg-all'); if (a) a.hidden = true; const re = $('pcg-re'); if (re) re.hidden = !last || S.res[0].mile; const b = $('pcg-ok'); if (b) b.focus(); }
-  function close(esc_) { const S = ov && ov._S; if (!S) return; if (S.seq) seqEnd(true); if (S.k === 'syn') S.res.forEach((r, i) => { if (!S.open.has(i)) synOpen(i, true); }); else S.res.forEach((r, i) => { if (!S.open.has(i)) openCard(i, true); });
+  function close(esc_) { const S = ov && ov._S; if (!S) return; if (S.g) { S.g.stop(false); clearInterval(S.iv); ov.classList.remove('tg'); } if (S.seq) seqEnd(true); if (S.k === 'syn') S.res.forEach((r, i) => { if (!S.open.has(i)) synOpen(i, true); }); else S.res.forEach((r, i) => { if (!S.open.has(i)) openCard(i, true); });
     ov.hidden = true; ov._S = null; ov.innerHTML = ''; ov.classList.remove('seq'); window.__pcgCover = false; busy = false; if (lastRes) lastRes.hide = false; if (ovKey) { removeEventListener('keydown', ovKey, true); removeEventListener('keyup', ovKey, true); ovKey = null; } if (ovRs) { removeEventListener('resize', ovRs); ovRs = null; }
     if (S.k === 'draw') say(`[변신 카드] ${S.ttl}: ` + S.res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + ` — 마일리지 ${D.mile} / ${MILE}`, '#e0c8ff'); else say(`[변신 카드] ${S.ttl} — ${synSum(S.res)}`, '#e0c8ff'); refresh();
     if (esc_) { if (auto) autoStop('자동 뽑기를 멈췄어요.'); } else if (S.auto && auto) autoNext(); }
   function keys() { if (ovKey) { removeEventListener('keydown', ovKey, true); removeEventListener('keyup', ovKey, true); }
     ovKey = ev => { if (!ov || ov.hidden || !ov._S) return; const k = ev.key, sp = k === ' ' || ev.code === 'Space'; if (!(sp || k === 'Enter' || k === 'Escape' || k === 'ArrowRight')) return; ev.preventDefault(); ev.stopImmediatePropagation(); if (ev.type !== 'keydown' || ev.repeat) return;
-      const S = ov._S; if (S.seq) { if (k === 'Escape') seqEnd(); else seqKey(); return; } if (k === 'Escape') { close(true); return; } if (!S.ready) return;
+      const S = ov._S; if (S.g) { const G = S.g, st = G.state(); if (st.cine) { if (k === 'Escape') G.finishCine(); else G.tap(); return; } if (k === 'Escape') { close(true); return; } if (!st.ready) return; if (st.low || st.high) { G.openAll(); return; } if (sp && last && !S.res[0].mile) { close(); again(); return; } if (k !== 'ArrowRight') close(); return; }
+      if (S.seq) { if (k === 'Escape') seqEnd(); else seqKey(); return; } if (k === 'Escape') { close(true); return; } if (!S.ready) return;
       if (S.open.size < S.res.length) { flipAll(); return; } if (sp && S.k === 'draw' && last && !S.res[0].mile) { close(); again(); return; } if (k !== 'ArrowRight') close(); };
     addEventListener('keydown', ovKey, true); addEventListener('keyup', ovKey, true); }
   // ----- 금빛 카드 전체 화면: 변신 카드 비(약 3초 · 누르면 건너뜀) → 한 장이 다가옴(금빛 뒷면) → 밀어서 결과 확인 → 등급 연출 → [확인]
@@ -10094,7 +10848,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   return { load, raw, canKeep, clsOk, cur: () => selfPoly(), rcCache: () => [...PMRC.keys()], drawForm: (g, pk, a, fr, row, x, y) => !!POLY[pk] && drawPoly(g, pk, a, fr, row, x, y, null, null, true), has, spare, free, avail, locked, setLock, inSlot, owned, state: () => D, bad: () => bad, freeLeft, draw, again, last: () => last, milePick,
     setSlot, clearSlot, slot: () => mySlot(), sync, charLoad, morph: id => setSlot(id), doMorph: id => setSlot(id), unmorph, autoSyn, manSyn, synOne: g => synOne(g, new Set(Object.keys(D.cards))), gAvail, tray: () => tray, setTray: (g, n) => { tray = { g: g || null, n: n || {} }; renderWin(); }, trayFill: () => { trayFill(); renderWin(); },
     shopPanel, stopShop, openWin, renderWin, codexHTML, fillArt, art, sim, close, flipAll, busy: () => busy, lastRes: () => lastRes, COST1, COST11, MORPH, FREE_MS, MILE, SYN,
-    _force: ids => { FORCE = (ids || []).slice(); }, setSkip, setAuto, skip: () => skip, auto: () => auto, autoWhy: () => autoWhy, seqKey, ov: () => { const S = ov && !ov.hidden && ov._S; return S ? { k: S.k, n: S.res.length, open: S.open.size, ready: S.ready, seq: S.seq ? S.seq.ph : null, auto: S.auto } : null; } };
+    _force: ids => { FORCE = (ids || []).slice(); }, _tg: () => ov && ov._S && ov._S.g, setSkip, setAuto, skip: () => skip, auto: () => auto, autoWhy: () => autoWhy, seqKey, ov: () => { const S = ov && !ov.hidden && ov._S; return S ? { tg: S.g ? S.g.state() : null, k: S.k, n: S.res.length, open: S.open.size, ready: S.ready, seq: S.seq ? S.seq.ph : null, auto: S.auto } : null; } };
 })();
 window.DOLL = (() => {
   const CW = 144, CH = 120, M = /*DOLLMETA*/{ werewolf: { i: 0, ax: 72.0, ay: 117, bb: [27, 13, 90, 90] }, lizard: { i: 1, ax: 72.0, ay: 117, bb: [49, 7, 46, 102] }, dwarf: { i: 2, ax: 72.0, ay: 117, bb: [37, 12, 71, 95] }, orcwiz: { i: 3, ax: 72.0, ay: 117, bb: [39, 16, 63, 100] }, bugbear: { i: 4, ax: 72.0, ay: 117, bb: [42, 40, 60, 71] }, ogre: { i: 5, ax: 72.0, ay: 117, bb: [42, 10, 60, 104] }, basilisk: { i: 0, ax: 72.0, ay: 117, bb: [3, 47, 138, 51] }, orcwar: { i: 1, ax: 72.0, ay: 117, bb: [41, 25, 62, 81] }, drow: { i: 2, ax: 72.0, ay: 117, bb: [50, 8, 45, 108] }, necro: { i: 3, ax: 72.0, ay: 117, bb: [48, 23, 46, 92] }, cerberus: { i: 4, ax: 72.0, ay: 117, bb: [49, 21, 47, 85] }, fireant: { i: 5, ax: 72.0, ay: 117, bb: [40, 35, 64, 73] }, drake: { i: 0, ax: 72.0, ay: 117, bb: [36, 58, 72, 57] }, kbugbear: { i: 1, ax: 72.0, ay: 117, bb: [43, 39, 58, 72] }, troll: { i: 2, ax: 72.0, ay: 117, bb: [21, 15, 102, 86] }, wyvern: { i: 3, ax: 72.0, ay: 117, bb: [30, 48, 84, 69] }, shelob: { i: 4, ax: 72.0, ay: 117, bb: [19, 29, 106, 86] }, spartoi: { i: 5, ax: 72.0, ay: 117, bb: [42, 3, 68, 112] } }/*END*/, IMG = {}, ST = new Map();
