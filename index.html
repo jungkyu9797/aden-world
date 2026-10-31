@@ -790,7 +790,7 @@ html.mob :is(#charwin,#invwin,#storewin,#sellwin,#colowin,#craftwin,#bulkwin,#pe
 html.mob #codexwin{height:calc(100dvh - 16px)}
 #logwin{box-sizing:border-box;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100vw - 24px));height:min(72vh,640px);display:flex;flex-direction:column;gap:6px;padding:12px 14px 10px;z-index:18;cursor:default;user-select:text}
 html.mob #logwin{height:calc(100dvh - 12px - env(safe-area-inset-top,0px));max-height:none;overflow:hidden;top:calc(50% + env(safe-area-inset-top,0px)/2)}
-.gl-head{margin:0;font-size:12px;color:#b8ad92;display:flex;justify-content:space-between;gap:8px} .gl-n{color:#8a8068;white-space:nowrap}
+.gl-head{margin:0;font-size:12px;color:#b8ad92;display:flex;justify-content:space-between;gap:8px} .gl-src{margin-left:auto;font-size:11px;color:#8a8068;white-space:nowrap} .gl-src[data-st=on]{color:#8fe08a} .gl-n{color:#8a8068;white-space:nowrap}
 .gl-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;border:1px solid #5a4a2e;background:rgba(8,6,4,.55);box-shadow:inset 0 0 10px #000;padding:4px 8px;border-radius:3px}
 .gl-day{position:sticky;top:-4px;margin:0 -8px;padding:4px 8px 3px;background:#1d1710;border-bottom:1px solid #4a3c24;color:#d8b968;font:700 12px "Noto Sans KR",sans-serif;z-index:1}
 .gl-row{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px dashed #2e271c;font-size:13px;line-height:1.45} .gl-row time{flex:none;color:#9c9682;font:600 12px ui-monospace,Consolas,monospace} .gl-row span{text-shadow:0 1px 0 #000;word-break:keep-all;overflow-wrap:anywhere}
@@ -949,9 +949,9 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
  <p id="mp-msg" class="nm-msg" role="status" aria-live="polite"></p>
  <div class="mp-foot"><small>게임을 켜면 자동으로 하나뿐인 월드 서버에 접속해요. 일반 채팅은 같은 지역에만, 파티 채팅은 어디서나 보여요. 채팅 맨 앞에 <b>!</b>를 붙이면 전체 채팅이에요. (인터넷 공용 서버를 거쳐 연결되며 채팅 내용은 암호화되지 않아요)</small></div></div>
 <div class="gw" id="logwin" hidden role="dialog" aria-label="게임 기록"><span class="gw-plate">게임 기록</span><button class="x" type="button" data-closewin="logwin">닫기</button>
- <p class="gl-head">보스 등장·토벌 · 영웅·전설 획득 · 고강화 성공 같은 전체 공지 <span id="glog-n" class="gl-n"></span></p>
+ <p class="gl-head">보스 등장·토벌 · 영웅·전설 획득 · 고강화 성공 같은 전체 공지 <span class="gl-src" id="glog-src">이 기기 기록</span> <span id="glog-n" class="gl-n"></span></p>
  <div class="gl-list" id="glog-list" role="log" aria-label="전체 공지 기록"></div>
- <p class="gl-foot">최근 200줄까지 이 기기에 남아요 · 새 기록이 위에 쌓여요</p></div>
+ <p class="gl-foot">최근 200줄 · 새 기록이 위에 쌓여요 · 서버에 연결되면 게임이 꺼져 있던 동안의 공지도 받아 와요</p></div>
 <div class="gw" id="whowin" hidden role="dialog" aria-label="다른 유저 캐릭터 정보"><span class="gw-plate">캐릭터 정보</span><button class="x" type="button" data-closewin="whowin">닫기</button>
  <div class="who-hd" id="who-hd"></div>
  <div class="cw who-top"><dl id="who-info"></dl><canvas id="who-look" class="cw-look" width="150" height="190" title="클릭: 방향 바꾸기" aria-label="착용한 모습"></canvas></div>

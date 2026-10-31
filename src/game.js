@@ -2452,10 +2452,27 @@ const GLOG = (() => { const KEY = 'aden_glog', MAX = 200; let L = null; const g 
       const r = document.createElement('div'); r.className = 'gl-row' + (fresh && i === L.length - 1 ? ' gl-new' : ''); const tm = document.createElement('time'); tm.textContent = `${f2(d.getHours())}:${f2(d.getMinutes())}`; tm.dateTime = d.toISOString(); const sp = document.createElement('span'); sp.textContent = x.t; if (x.c) sp.style.color = x.c; r.append(tm, sp); fr.appendChild(r); }
     box.textContent = ''; if (!L.length) { const p = document.createElement('p'); p.className = 'gl-empty'; p.textContent = '아직 기록이 없어요. 보스 등장·토벌, 영웅·전설 획득, 고강화 성공 같은 전체 공지가 여기에 시각과 함께 쌓여요.'; box.appendChild(p); } else box.appendChild(fr);
     const n = g('glog-n'); if (n) n.textContent = `${L.length} / ${MAX}줄`; if (fresh) box.scrollTop = 0; }   // 새 기록: 맨 위로 올리고 잠깐 빛남 (아래로 내려 보던 중에도 바로 보이게)
-  function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); L.push({ at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }); if (L.length > MAX) L.splice(0, L.length - MAX); if (isOpen()) render(true); save(); }
-  function open(v) { const w = g('logwin'); if (!w) return; w.hidden = v === undefined ? !w.hidden : !v; if (!w.hidden) { render(); const b = g('glog-list'); if (b) b.scrollTop = 0; } }
+  // 11/1: 서버(Firestore worldlog) 기록 — 공지가 뜨면 그 사람 게임이 한 줄 올리고, 게임을 켜거나 창을 열면 최근 200줄을 받아 와 합침 (같은 글 3분 안은 한 줄)
+  //   문서 id = 글 해시 + 2분 칸 → 여러 사람이 같은 공지를 올려도 한 번만 생김 (규칙: 로그인한 사람만 · 만들기만 · 고치기·지우기 안 됨)
+  const hx = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+  const keyOf = (t, at) => hx(t) + '_' + Math.floor(at / 120000);
+  let srv = '', pullAt = 0, pulling = null, lastErr = '';
+  const cloudOn = () => { try { return typeof CLOUD !== 'undefined' && CLOUD.on() && typeof CLOUD.query === 'function'; } catch (e) { return false; } };
+  function share(x) { if (!cloudOn()) return; try { CLOUD.create('worldlog/' + keyOf(x.t, x.at), { t: x.t, c: x.c || '', at: String(x.at), u: CLOUD.uid() || '' }).then(ok => { if (ok && !srv) srv = 'on'; }).catch(e => { lastErr = String(e && e.message || e).slice(0, 80); }); } catch (e) {} }
+  const dup = (x, y) => x.t === y.t && Math.abs(x.at - y.at) < 180000;
+  function merge(rows) { load(); let n = 0; for (const r of rows) { const at = +r.at, t = String(r.t || '').slice(0, 200); if (!at || !t || /님이 접속했습니다/.test(t)) continue; const x = { at, t, c: /^#[0-9a-f]{3,8}$/i.test(r.c || '') ? r.c : '' }; const k = L.findIndex(y => dup(x, y)); if (k >= 0) { if (at < L[k].at) L[k].at = at; continue; } L.push(x); n++; }
+    L.sort((a, b) => a.at - b.at); if (L.length > MAX) L.splice(0, L.length - MAX); save(); return n; }
+  function pull(force) { if (!cloudOn()) { srv = ''; hdr(); return Promise.resolve(0); } if (pulling) return pulling; if (!force && Date.now() - pullAt < 45000) return Promise.resolve(0); pullAt = Date.now();
+    let fill = []; try { fill = (ISLAND.spawnLog && ISLAND.spawnLog()) || []; } catch (e) {}
+    pulling = CLOUD.query('worldlog', 'at', MAX).then(rows => { srv = 'on'; const have = rows.map(r => ({ t: r.t, at: +r.at })); for (const f of fill) if (!have.some(y => dup(f, y))) share(f); const n = merge(rows.concat(fill)); if (isOpen()) render(); else hdr(); return n; })
+      .catch(e => { srv = 'off'; lastErr = String(e && e.message || e).slice(0, 80); merge(fill); hdr(); return 0; }).finally(() => { pulling = null; });
+    return pulling; }
+  function hdr() { const s = g('glog-src'); if (!s) return; s.textContent = srv === 'on' ? '서버 기록 · 모든 사람 공지가 모여요' : srv === 'off' ? '이 기기 기록 (서버에 닿지 않아요)' : '이 기기 기록'; s.dataset.st = srv || 'local'; }
+  function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); const x = { at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }; L.push(x); if (L.length > MAX) L.splice(0, L.length - MAX); if (isOpen()) render(true); save(); if (!GLOG.mute) share(x); }
+  function open(v) { const w = g('logwin'); if (!w) return; w.hidden = v === undefined ? !w.hidden : !v; if (!w.hidden) { render(); hdr(); const b = g('glog-list'); if (b) b.scrollTop = 0; pull(); } }
+  setTimeout(function tk() { if (window.__gameOn) pull(); setTimeout(tk, 5 * 60000); }, 20000);   // 게임을 켜고 20초 뒤 · 그 뒤 5분마다 서버 기록 받아 오기
   { const b = g('btn-glog'); if (b) b.onclick = () => open(); }
-  return { add, open, render, list: () => load().slice() }; })();
+  return { add, open, render, pull, mute: 0, src: () => srv, err: () => lastErr, list: () => load().slice() }; })();
 hero.lv = 1; hero.exp = 0; hero.baseHP = 16; hero.baseMP = 2; hero.hp = hero.max = 16; hero.mp = hero.maxmp = 2; hero.bonusPts = 0; let coins = 100, potions = 20, potCd = 0;
 // 단축키: 브라우저·윈도우 기본 기능(F5 새로고침 등)을 막고 게임 기능으로만 씀
 function usePotion(){ INV.usePotion(); }
@@ -4149,6 +4166,7 @@ const ISLAND = (() => {
       TELE.ev('bossdown', { b: k, by: String(PNAME()).slice(0, 12) }); B.ent = null; KILL[k] = { k: Math.max(killedK(k), lastSlot(k)), by: String(PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; },
     bossTimers: () => Object.fromEntries(Object.keys(BOSS).map(k => [k, isAlive(k) ? 'alive' : Math.round(nextAt(k) - nowS())])),
     bossKills: () => KILL,
+    spawnLog: () => { const o = [], now = nowS(); for (const k in BOSS) { const B = BOSS[k]; if (B.quiet || !KT(k) || !isAlive(k)) continue; const at = respAt(k); if (at > now || now - at > 86400) continue; o.push({ at: Math.round(at * 1000), t: `${B.where} 어딘가에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, c: '#ff7a5a' }); } return o; },   // 11/1: 꺼져 있던 동안 나타난 보스 (게임 기록 채우기)
     // 다른 사람이 잡은 소식: 더 최근 구간이면 받아들이고, 내 화면의 보스는 치움 + 토벌 공지
     mergeKills(o, quiet) { if (!o || typeof o !== 'object') return; for (const k in o) { const B = BOSS[k], x = o[k]; if (!B || !x) continue; const xt = +x.t || 0, ct = KT(k); if (!(xt ? xt > ct + 1 : !ct && +x.k > killedK(k))) continue; const was = isAlive(k);   // v139: 잡은 시각이 더 늦은 기록을 받아들임 (quiet: 불러올 때는 공지 없이)
         KILL[k] = { k: Math.max(+x.k || 0, killedK(k)), by: String(x.by || '누군가').slice(0, 12), t: xt }; keepK(); if (quiet) { B.was = isAlive(k); if (!B.was && B.ent && !B.ent.dead) removeBoss(k); continue; } if (was && !isAlive(k)) { if (!B.quiet) announce(`${KILL[k].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); B.was = false; if (B.ent && !B.ent.dead) removeBoss(k); } } },
@@ -7438,7 +7456,8 @@ const CLOUD = (() => {
   async function del(path) { const r = await fetch(FS + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await token() } }); return r.ok; }
   // 창을 닫을 때: 응답을 기다릴 수 없어서 keepalive로 한 번 보냄 (토큰이 아직 유효할 때만, 64KB 이하)
   function beacon(path, o, merge, pre) { if (!S || Date.now() > S.exp) return false; const body = JSON.stringify(enc(o)); if (body.length > 60000) return false; const q = [merge ? mask(o) : '', pre ? 'currentDocument.updateTime=' + encodeURIComponent(pre) : ''].filter(Boolean).join('&'); try { fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.tok }, body }); return true; } catch (e) { return false; } }
-  return { ping, signUp, signIn, get, set, create, del, beacon, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
+  async function query(col, ord, n) { const r = await fetch(FS.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], orderBy: [{ field: { fieldPath: ord }, direction: 'DESCENDING' }], limit: n } }) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(Array.isArray(j) ? j[0] : j, r.status); return (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => dec(x.document)); }   // 11/1: 월드 게임 기록 (worldlog) 최신순
+  return { ping, signUp, signIn, get, set, create, del, beacon, query, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
 })();
 // ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
 // v137: 게임 설정도 캐릭터 저장(계정 서버)에 함께 — 어느 PC에서 접속하든 같은 설정 (상점 고정 수량 · 휠 고정 · 미니맵 · 창 위치 · 소리는 예전부터)
@@ -7872,7 +7891,7 @@ const NET = (() => {
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt * Math.min(3, Math.max(0.5, +o.pr.hs || 1)); if (v.atkT > 0.75 / GSPD) v.atkT = null; }
       petFollow(o, v, dt); applyPv(o); applyWd(o);
-      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } } }
+      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) { GLOG.mute = 1; try { announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } finally { GLOG.mute = 0; } } } } }
     if (!initDone && performance.now() - roomAt >= 4000) { initDone = true; say(initL.length ? `[월드] 지금 ${initL.length + 1}명이 접속 중이에요: ${initL.join(', ')}` : '[월드] 지금은 혼자 접속 중이에요.', PCOL); }
     reviveTick(); partyTick(); PARTY.length = 0; for (const o of members()) { if (o.pr.z !== zk()) continue; const v = peers.get(o.peer); if (v) PARTY.push({ x: v.x, z: v.z, name: nmOf(o.pr) }); }   // 미니맵 초록 점
     if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } rpEnsure(); }
