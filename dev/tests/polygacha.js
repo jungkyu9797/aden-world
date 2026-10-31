@@ -117,7 +117,7 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
     await p.evaluate(() => { __T.hero.lv = 40; }); await p.evaluate(() => PCG.setSlot('deathknight')); ok(await p.evaluate(() => !PCG.slot()) && /Lv.45/.test(await lastLog()), '⑧ 레벨 모자라면 안 됨 (Lv40 · 전설 45)'); await p.evaluate(() => { __T.hero.lv = 52; });
     await p.click('#pw-grid .pw-c[data-id="deathknight"]'); await p.waitForTimeout(150); await p.click('#pw-sel [data-a="put"]'); await p.waitForTimeout(300);
     ok(await p.evaluate(() => PCG.cur() === 'pc_deathknight' && __T.INV.cx('atkSpd') === 15 && __T.BUFF.poly > 999000), '⑧ 누르고 [변신 칸에 넣기] → 데스나이트 (+15%)');
-    ok(await p.evaluate(() => !document.querySelector('#pw-grid .pw-c[data-id="deathknight"]')), '⑧ 1장뿐인 카드를 칸에 넣으면 보유중에서 사라짐');
+    ok(await p.evaluate(() => { const e = document.querySelector('#pw-grid .pw-c[data-id="deathknight"]'); return !!e && e.classList.contains('sl') && !e.classList.contains('no') && !e.querySelector('.pw-n') && /변신/.test(e.querySelector('.pw-slt').textContent); }), '⑧ 1장뿐인 카드를 칸에 넣으면 보유중에 \'변신\' 표시 (남은 장수 없음)');
     await p.waitForTimeout(1500); ok(await p.evaluate(() => __T.BUFF.poly > 999000), '⑧ 시간이 지나도 그대로');
     await p.evaluate(() => PCG.setSlot('king_bugbear')); ok(await p.evaluate(() => PCG.cur() === 'pc_king_bugbear' && PCG.free('deathknight') === 1), '⑧ 다른 카드를 넣으면 바뀌고 전 카드는 보유중으로');
     await p.evaluate(() => PCG.setSlot('deathknight'));
