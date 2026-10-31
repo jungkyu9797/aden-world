@@ -10371,7 +10371,7 @@ let last=performance.now(), invT=0;
       if (u > R.done) {
         g.save(); g.textAlign = 'center'; g.font = '16px "Malgun Gothic",sans-serif';
         g.globalAlpha = seg(u, R.done, R.done + 0.5) * (0.55 + 0.45 * Math.sin(t * 3));
-        g.fillStyle = '#d8d0c0'; g.fillText('터치 시 화면이 닫힙니다.', cx, H - 26); g.restore();
+        g.fillStyle = '#d8d0c0'; g.fillText('누르면 돌아갑니다.', cx, H - 26); g.restore();
       }
     }
 
