@@ -2244,13 +2244,13 @@ function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO
     if (ART==='cdummy'){ g.globalAlpha=al; const E=CDUM[S.cls].eq; g.fillStyle='#5a3a1e'; g.beginPath(); g.ellipse(0,3,19,8,0,0,7); g.fill(); g.fillStyle='#8a5c30'; g.beginPath(); g.ellipse(0,0,19,8,0,0,7); g.fill(); g.strokeStyle='#3a2410'; g.lineWidth=1.5; g.stroke(); drawHeroSprite(g,'idle',Math.floor(time*6+(f.hi||0))%8,1,0,0,fl,S.cls,sl=>E[sl]||null,null); g.save(); g.font='800 10px "Noto Sans KR",sans-serif'; g.textAlign='center'; const nm=S.name; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(nm,0,-90); g.fillStyle='#9fd0ff'; g.fillText(nm,0,-90); g.restore(); dummyDps(g,f); dummyMag(g,f,f.dlog&&f.dlog.length?-118:-106); g.restore(); return; }
     if (ART==='pumpkin'){ g.globalAlpha=al; drawPumpkin(g,f); g.restore(); return; }
     if (f.ashT>0&&!f.dead){ drawAsh(g,f); g.restore(); return; }   /* 피닉스 잿더미 */
-    if (PROCFX[ART] && procLayer(g, f, S, ART, al)) { g.restore(); return; }   /* 11/1 렉: 코드로 그린 몹이 맞아 번쩍이거나 광폭화면 — 한 장에 그린 뒤 필터를 한 번만 */
+    if (PROCFX[ART] && !((ART==='spirit'||ART==='unicorn') && (Math.abs(x-cam[0])>W/2/curZ+220||Math.abs(y-cam[1])>H/2/curZ+300)) && procLayer(g, f, S, ART, al)) { g.restore(); return; }   /* 11/1 렉: 코드로 그린 몹이 맞아 번쩍이거나 광폭화면 — 한 장에 그린 뒤 필터를 한 번만 */
     if (ART==='bombflower'){ g.globalAlpha=al; drawBombFlower(g,f); g.restore(); return; }
     if (ART==='dragonfly'){ g.globalAlpha=al; drawDragonfly(g,f); g.restore(); return; }
     if (ART==='fireegg'){ g.globalAlpha=al; drawFireEgg(g,f); g.restore(); return; }
     if (ART==='ashtazio'){ g.globalAlpha=al; drawAshtazio(g,f); g.restore(); return; }
     if (ART==='ifrit'){ drawIfrit(g,f); g.restore(); return; }
-    if (ART==='spirit'){ g.globalAlpha=al; drawSpirit(g,f); g.restore(); return; } if (ART==='unicorn'){ g.globalAlpha=al; drawUnicorn(g,f); g.restore(); return; }   /* 11/1 몽환의 섬 */   /* 10/30: 이프리트 (죽는 그림 IFRIT_END초 · 투명도는 그림 안에서) */
+    if (ART==='spirit'||ART==='unicorn'){ if (Math.abs(x-cam[0])>W/2/curZ+220||Math.abs(y-cam[1])>H/2/curZ+300){ g.restore(); return; }   /* 화면 밖 정령은 안 그림 (코드 그림이라 무거움 · 73마리) */ g.globalAlpha=al; if (ART==='spirit') drawSpirit(g,f); else drawUnicorn(g,f); g.restore(); return; }   /* 11/1 몽환의 섬 */   /* 10/30: 이프리트 (죽는 그림 IFRIT_END초 · 투명도는 그림 안에서) */
     if (ART==='spider'){ g.globalAlpha=al; drawSpider(g,0,0,f); g.restore(); return; }
     if (ART==='ant'){ g.globalAlpha=al; drawAnt(g,0,0,f); g.restore(); return; }
     if (ART==='scorpion'){ g.globalAlpha=al; drawScorpion(g,0,0,f); g.restore(); return; }
@@ -6781,6 +6781,7 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
     for (const r of DOLL_DEF) { const n = DOLL_DEF.filter(q => q[2] === r[2]).length, t = r[2];   // v169: 마법인형 — 주머니(1단계) · 합성(2·3단계)
       add('doll_' + r[0], t === 1 ? `잡화상점 [특별] ${ITEMS.doll_pouch.name} (10만 골드) · 1단계 ${n}종 중 하나 (${pct(1 / n)})` : `인형 합성 (제작 장인 브론 · 인형 합성 탭): ${t - 1}단계 인형 ${DOLL_NEED}개 → 성공 ${Math.round(DOLL_SYN[t - 1] * 100)}% · 성공하면 ${t}단계 ${n}종 중 하나 (${pct(1 / n)}) · 실패하면 넣은 인형 중 1개 돌려받음`); }
     for (const c in CLS_DEF) for (const k of CLS_DEF[c].kit || []) add(SHOP2ITEM[k] || (ITEMS[k] ? k : Object.keys(ITEMS).find(i => ITEMS[i].name === k)), `${CLASS_NAME[c]} 시작 장비`);
+    try { for (const [id, t] of dreamCodexSrc()) add(id, t); } catch (e) {}   /* 11/1 몽환의 섬: 대정령 영웅 3% · 엘릭서 교환 */
     return S; }
   function build() { const S = sources(), L = [];
     for (const id in ITEMS) { const d = ITEMS[id]; if (!d || !d.name || d.hidden || /테스트/.test(d.name) || id === 'pet_collar50') continue;
@@ -11814,6 +11815,9 @@ function dreamLoot(f) { const S = MOB[f.kind], got = [], bp = S.great ? DREAM.G_
 Object.assign(REGION_BOSS, Object.fromEntries(Object.keys(DREAM_ELN).flatMap(el => [['dr_' + el, 'unicorn'], ['dr_g' + el, 'unicorn']])));
 DROP_TABLE.unicorn = [['scroll_acc', 0.3], ['book_immune', 0.06], ['scroll_armor', 0.5], ['scroll_weapon', 0.45], ['bless_scroll', 0.4, 1, 3], ['gold_wing', 0.12]];   // + BOSS_FIXED 축데이·축젤·퓨어엘릭서 반드시
 BOSS_FIXED.unicorn = DREAM.UNI_LOOT.map(x => x.slice()); DROP_MIN.unicorn = 3;
+for (const el in DREAM_ELN) { MOB_DROPS['dr_' + el] = [['bscroll_weapon', DREAM.BLESS_P / 2], ['bscroll_armor', DREAM.BLESS_P / 2]]; MOB_DROPS['dr_g' + el] = [['bscroll_weapon', DREAM.G_BLESS_P / 2], ['bscroll_armor', DREAM.G_BLESS_P / 2], ['pure_elixir', DREAM.G_ELIX_P]]; }   // 도감 표시용 (실제 드랍은 dreamLoot가 따로 굴림)
+function dreamCodexSrc() { const L = [], pool = CX_HERO.filter(id => ITEMS[id] && !ITEMS[id].craft && !ITEMS[id].hidden), pc = (DREAM.G_HERO_P * 100).toFixed(0);   // 아이템 도감 '얻는 곳'
+  for (const id of pool) L.push([id, `몽환의 섬 대정령 ${pc}% (영웅 장비 ${pool.length}종 중 하나)`]); for (const k of ['str', 'dex', 'int']) L.push(['elixir_' + k, `제작 장인 브론 [엘릭서 교환]: 퓨어엘릭서 ${DREAM.ELIX_NEED}개 (캐릭터당 ${DREAM.ELIX_MAX}개)`]); return L; }
 // ----- 아이템: 퓨어엘릭서(재료 · 무게 0 · 10/30 재료 무게 0 규칙) · 힘/민첩/지능 엘릭서 (영웅 · 마시면 영구 +1 · 캐릭터당 5개)
 ITEMS.pure_elixir = { name: '퓨어엘릭서', icon: 'pure_elixir', w: 0, mat0: true, stack: true, rar: '희귀', desc: `몽환의 섬 대정령이 ${Math.round(DREAM.G_ELIX_P * 100)}% 확률로 1개씩, 유니콘이 1~5개 떨어뜨리는 맑은 정령의 정수. ${DREAM.ELIX_NEED}개를 모아 마을 제작 장인 브론에게 가져가면 힘·민첩·지능 엘릭서 1개로 바꿔 줘요. (캐릭터당 제작 ${DREAM.ELIX_MAX}개 · 복용 ${DREAM.ELIX_MAX}개까지)` };
 for (const [k, nm] of [['str', '힘'], ['dex', '민첩'], ['int', '지능']]) ITEMS['elixir_' + k] = { name: `${nm}의 엘릭서`, icon: 'elixir_' + k, use: 'elixir', st: k, w: 0.5, stack: true, rar: '영웅', desc: `마시면 ${nm}이(가) 영구히 +1 올라요. 한 캐릭터는 엘릭서를 ${DREAM.ELIX_MAX}개까지만 마실 수 있어요. (퓨어엘릭서 ${DREAM.ELIX_NEED}개로 마을 제작 장인 브론에게서 교환)` };

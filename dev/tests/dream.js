@@ -88,6 +88,8 @@ const Z = 24;
   const wc = await p.evaluate(() => { const c = document.getElementById('wm-codex'); return { txt: c ? c.textContent : '', desc: (document.getElementById('wm-desc') || {}).textContent || '', name: (document.getElementById('wm-name') || {}).textContent, pe: !!(c && [...c.querySelectorAll('.wc-it')].some(e => /퓨어엘릭서/.test(e.dataset.itip || ''))), mobs: c ? [...c.querySelectorAll('.wc-mob b')].map(e => e.textContent) : [] }; });
   ok(wc.name === '몽환의 섬' && /정령/.test(wc.desc) && wc.mobs.length === 9 && /유니콘/.test(wc.txt) && wc.pe, `월드맵 도감: ${wc.name} · 몬스터 ${wc.mobs.length}종 · 유니콘 · 퓨어엘릭서`);
   { const el = await p.$('#wm-codex'); if (el) await el.screenshot({ path: 'dev/out/dream_codex.png' }); }
+  const cdx = await p.evaluate(() => { const L = window.CODEX.list(), f = id => L.find(x => x.id === id); return { pe: f('pure_elixir') && f('pure_elixir').where.join(' / '), es: f('elixir_str') && f('elixir_str').where.join(' / '), hero: (L.find(x => x.rar === '영웅' && x.d.slot && !x.d.craft) || { where: [] }).where.join(' / ') }; });
+  ok(cdx.pe && /대정령/.test(cdx.pe) && /유니콘/.test(cdx.pe) && cdx.es && /브론/.test(cdx.es) && /대정령 3%/.test(cdx.hero), `아이템 도감: 퓨어엘릭서(${cdx.pe}) · 엘릭서(${cdx.es}) · 영웅(대정령 3%)`);
   await p.evaluate(() => { const w = document.getElementById('wmap'); if (w) w.hidden = true; });
   await p.evaluate(() => { __T.TOWN.toField('몽환의 섬'); }); await p.waitForFunction(() => __T.ISLE && __T.ISLE.id === 24 && __T.SCENE === 'field', null, { timeout: 60000 }); await p.waitForTimeout(1200);
   ok(await p.evaluate(() => __T.hero.i === 47 && __T.hero.j === 47), 'toField(몽환의 섬) → 가운데');
@@ -95,8 +97,8 @@ const Z = 24;
   const C = 47; await p.evaluate(() => { for (const f of __T.foxes) f.aggro = false; });
   for (const [q, dx, dz] of [['E', 20, -20], ['W', -20, 20], ['S', 20, 20], ['N', -20, -20]]) { await p.evaluate(([x, z]) => { __T.TOWN.placeAt(x, z); }, [C + dx, C + dz]); await p.waitForTimeout(900); await p.screenshot({ path: `dev/out/dream_q${q}.png` }); }
   await p.evaluate(() => { __T.TOWN.placeAt(47.5, 47.5); const T = __T, H = T.hero; for (let q = T.foxes.length - 1; q >= 0; q--) T.foxes.splice(q, 1); const K = ['dr_fire', 'dr_water', 'dr_earth', 'dr_wind', 'dr_gfire', 'dr_gwater', 'dr_gearth', 'dr_gwind'];
-    K.forEach((k, n) => { const col = n % 4, row = n < 4 ? 1 : 0; const m = T.mkMob(k, H.i - 9 + col * 2 + row * 4, H.j - 3 - col * 2 + row * 5); m.home = [m.i, m.j]; m.row = 1; m.aggro = false; T.MOB[k].passive = true; T.foxes.push(m); });
-    const u = T.mkMob('unicorn', H.i - 5, H.j + 6); u.home = [u.i, u.j]; u.row = 1; u.aggro = false; T.MOB.unicorn.passive = true; T.foxes.push(u); T.DN_.set(0); });
+    K.forEach((k, n) => { const col = n % 4, row = n < 4 ? 1 : 0; const m = T.mkMob(k, H.i - 7 + col * 2 + row * 2, H.j - col * 2 + row * 4); m.home = [m.i, m.j]; m.row = 1; m.aggro = false; T.MOB[k].passive = true; T.foxes.push(m); });
+    const u = T.mkMob('unicorn', H.i - 2, H.j + 5); u.home = [u.i, u.j]; u.row = 1; u.aggro = false; T.MOB.unicorn.passive = true; T.foxes.push(u); T.DN_.set(0); });
   await p.waitForTimeout(1500); await p.screenshot({ path: 'dev/out/dream_spirits.png' });
   await p.evaluate(() => { const T = __T; for (const f of T.foxes) { f.atkT = 0; f.aggro = true; } }); await p.waitForTimeout(250); await p.screenshot({ path: 'dev/out/dream_spirits_attack.png' });
   await p.evaluate(() => { const T = __T, u = T.foxes.find(f => f.kind === 'unicorn'); for (const f of T.foxes) { f.atkT = null; f.aggro = false; } u.casting = { k: { cast: 1 }, t: 0.3 }; const g = T.foxes.find(f => f.kind === 'dr_gfire'); g.casting = { k: { cast: 1 }, t: 0.2 }; }); await p.waitForTimeout(200); await p.screenshot({ path: 'dev/out/dream_cast.png' });
