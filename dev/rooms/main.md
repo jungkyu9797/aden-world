@@ -22,7 +22,7 @@
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
 ## 지금 상태 (10/31 18:50 KST)
-- 마지막 배포 **v204** (전설 무기 칸 황금빛·줄임말 leggold · 렉 최적화 perf · 잠수: 테스트 페이지 캐릭터 복사 charcopy). v203: [다시 뽑기]에 소모·보유 골드. v202: 변신 카드 polymon + 전설 무기 legitem. v201: 할로윈 몹 경험치 감소 없음. v200: 게임 기록 서버 저장(Firestore `worldlog`).
+- 마지막 배포 **v205** (전설 변신 레벨 제한 없음 leglv · 요정 펫 3마리 elfpet · [전설 재뽑기] 버튼 비용 rrcost). v204: 전설 무기 칸 황금빛·줄임말 leggold · 렉 최적화 perf · 잠수: 테스트 페이지 캐릭터 복사 charcopy). v203: [다시 뽑기]에 소모·보유 골드. v202: 변신 카드 polymon + 전설 무기 legitem. v201: 할로윈 몹 경험치 감소 없음. v200: 게임 기록 서버 저장(Firestore `worldlog`).
   - 변신 카드(`work/polygacha`): 상단 [변신] 창 · 1회 5만/11회 50만 · TGFX 홀 연출(희귀 이상 금빛 · 공개 전 등급 색 숨김) · 합성(희귀/영웅은 홀 연출 · 11장 넘으면 [다음 카드]) · 마일리지 1000 = 무작위 전설 · 전설 재뽑기 300만→600만→1200만→무료 고르기(D.rr · 횟수는 카드를 따라감) · 소드 = 옛 아크 모습 · 아크 3종 금빛 효과(rcSpec·rcGround·rcSwing·rcFlash·rcHitFx) · 전설 카드 변신 금빛 오로라(polyAura) · 특별상점 변신 카드 탭 없음. 인수인계 `dev/rooms/polymon.md`. 테스트 polygacha·polygacha3·pcg_all·pcg_rr·arck·legaura (polygacha2.js는 2단계 화면용이라 안 맞음).
   - 전설 무기(`work/legitem`): 집행검·가이아의 격노·수정결정체 지팡이 · LEG_ROWS · +0 공격 = 직업별 용 무기 +9(LEG_DMG9) · 명중+15 추피+10 · [심판] 20%+강화당 2% · 내 피해 100%(마법사는 칼질 × spellMul · 공격 마법 X · 대인전 X) · 하늘 금빛 기둥 · 안전 강화 +0 · 강화당 +3 · 연금술 영웅 3개 → 전설 3%(축데이·축젤 10장당 +1%p 최대 +3%p · 직업 무작위) · 특별상점 장비 변경 주문서 1,000만(eq_change) · 방패 같이 들 수 있음 · 도감 '연금술' 표시(프로듀서 결정). 테스트 legitem.js. 시뮬 `dev/sim/wpn_probe.js` + `dev/sim/builds/ref_knight58.json`(기준 캐릭터 Lv58).
   - 합칠 때(rerere 기록): legitem↔polygacha — strike()에 rcHitFx와 judgeHit 둘 다 · RARITY_C 전설색 #ffa630 · 특별상점 탭은 legitem 줄(변신 카드 탭 없음) · 가방/장비 칸은 legFx 쪽.
