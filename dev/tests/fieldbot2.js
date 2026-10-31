@@ -11,7 +11,7 @@ const BAD = /ㅅㅂ|시발|씨발|병신|븅신|느금|니애미|엠창|좆|존�
   const ctx1 = await b.newContext({ viewport: { width: 1280, height: 800 } }); const p = await ctx1.newPage(); p.on('pageerror', e => errs.push('P1: ' + e.message + ' @ ' + (e.stack || '').split('\n').slice(1, 3).join(' | ')));
   await login(p, { cls: 'knight', name: 'fb2One' });
   // ① 2구역만
-  const z1 = await p.evaluate(R => { const F = __FB; F.setRef(R); const ids = F.zones().map(z => z.id).sort((a, b) => a - b); const all = [];
+  const z1 = await p.evaluate(R => { const F = __FB; F.setRef(R); F.DBG.noReinf = true; F.DBG.noBoss = true;   /* 11/1 ②: 지원군·보스 사냥은 fieldbot3.js에서 — 여기서는 끔 */ const ids = F.zones().map(z => z.id).sort((a, b) => a - b); const all = [];
     for (const lv of [10, 20, 30, 40, 50, 55, 60]) { const P = F.planAt(1793330000000, lv); for (const u in P.at) if (P.at[u]) all.push(P.at[u]); } return { ids, used: [...new Set(all)].sort((a, b) => a - b) }; }, REF);
   console.log('① zones', JSON.stringify(z1)); ok(JSON.stringify(z1.ids) === JSON.stringify(SEC2), '① 봇이 나오는 지역 = 각 사냥터 2구역 ' + z1.ids.join('·')); ok(z1.used.every(z => SEC2.includes(z)) && !z1.used.some(z => SEC1.includes(z)), '① 일과표(여러 기준 레벨)도 2구역만 ' + z1.used.join('·'));
   await p.evaluate(() => { __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(11); }); await p.waitForTimeout(4000);
@@ -104,8 +104,8 @@ const BAD = /ㅅㅂ|시발|씨발|병신|븅신|느금|니애미|엠창|좆|존�
   // ⑦ 실제 화면: 라인 봇이 플레이어를 보면 도발 멘트 (말풍선 + 채팅) · 스크린샷
   await p.evaluate(() => { const F = __FB, H = __T.hero, R = F.roster(); F.DBG.talkP = 1; __T.BUFF.invis = 0; __T.GOD_INV = true; for (const q of F.bots()) q.gone = true; const kb = R.B.filter(b => b.cls === 'knight').sort((a, b) => b.pct - a.pct)[2]; F.spawnTest(kb.uid, H.i + 3, H.j + 1);
     F.spawnTest(R.B.filter(b => b.cls === 'wizard').sort((a, b) => b.pct - a.pct)[1].uid, H.i - 3, H.j + 2); });
-  await p.waitForTimeout(2600); await p.screenshot({ path: 'dev/out/fb2_taunt.png' });
-  const r7b = await p.evaluate(() => ({ chat: __T.log.map(l => l.t).filter(t => /^\[라인\] /.test(t)).slice(-3), bub: __FB.bots().filter(f => f.fbChat && f.fbChat.until > __T.time).length })); console.log('⑦ live', JSON.stringify(r7b));
+  let r7b = null; for (let t = 0; t < 5; t++) { await p.waitForTimeout(2600); r7b = await p.evaluate(() => ({ chat: __T.log.map(l => l.t).filter(t => /^\[라인\] /.test(t)).slice(-3), bub: __FB.bots().filter(f => f.fbChat && f.fbChat.until > __T.time).length })); if (r7b.bub >= 1) break; }   // 11/1 ②: 앞 구간의 멘트(지역 8초 간격) 때문에 조금 늦게 나올 수 있어 최대 13초 기다림
+  await p.screenshot({ path: 'dev/out/fb2_taunt.png' }); console.log('⑦ live', JSON.stringify(r7b));
   ok(r7b.chat.length >= 1 && r7b.bub >= 1, '⑦ 라인 봇 도발: 말풍선 + 채팅 ' + JSON.stringify(r7b.chat)); await p.waitForTimeout(4500); await p.screenshot({ path: 'dev/out/fb2_fight.png' }); await p.evaluate(() => { __FB.DBG.talkP = null; for (const q of __FB.bots()) q.gone = true; });
   // ⑥ 봇과 싸우는 몹도 기술 (용의 계곡 2구역 드레이크 불 숨결) · 멀리 있는 나에게 '피했습니다' 알림 없음
   await p.evaluate(() => { __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(17); }); await p.waitForTimeout(4000);
@@ -118,7 +118,7 @@ const BAD = /ㅅㅂ|시발|씨발|병신|븅신|느금|니애미|엠창|좆|존�
   await ctx1.close();   // 첫 탭은 닫음 (세 탭이 함께 돌면 느려서 게임 시간이 덜 흐름)
   // ⑨ 두 탭: 호스트가 계산한 버프·스턴·마법·물약·귀환·멘트를 게스트도 봄 · 게스트가 스턴에 걸림(대인전 규칙)
   const ctx = await b.newContext({ viewport: { width: 1100, height: 720 } }); const pg = []; for (const nm of ['fb2Host', 'fb2Gst']) { const q = await ctx.newPage(); q.on('pageerror', e => errs.push(nm + ': ' + e.message)); await login(q, { cls: nm === 'fb2Host' ? 'knight' : 'elf', name: nm, mp: true }); pg.push(q); }
-  for (const q of pg) await q.evaluate(([R, z]) => { __FB.setRef(R); __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(z); }, [REF, Z.z]);
+  for (const q of pg) await q.evaluate(([R, z]) => { __FB.setRef(R); __FB.DBG.noReinf = true; __FB.DBG.noBoss = true; __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(z); }, [REF, Z.z]);
   await pg[0].waitForTimeout(2500); const hi = (await Promise.all(pg.map(q => q.evaluate(() => __FB.host())))).indexOf(true), H9 = pg[hi], G9 = pg[1 - hi]; ok(hi >= 0, '⑨ 호스트 1명');
   const hp = await H9.evaluate(() => [__T.hero.x, __T.hero.z]); await G9.evaluate(([x, z]) => { const H = __T.hero; __T.TOWN.placeAt(x + 2, z + 1); H.lv = 55; H.baseHP = 1e5; __T.INV.render(); H.hp = H.max; __T.GOD_INV = false; __T.BUFF.invis = 0; }, hp);
   await H9.waitForTimeout(1200);
