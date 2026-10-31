@@ -7396,7 +7396,7 @@ const TOWN = (() => {
     return t; }
   function setVol(k, v) {
     if (!AC) return; const t = track(k);
-    if (t.failed) { const a = EL[k]; if (!a) return; if (v > 0) { if (a.paused) { if (k === 'boss') a.currentTime = 0; a.play().catch(() => {}); } a.volume = v; } else if (!a.paused) a.pause(); return; }
+    if (t.failed) { const a = EL[k]; if (!a) return; if (v > 0) { if (a.paused) { if (a.preload !== 'auto') { a.preload = 'auto'; a.load(); } if (k === 'boss') a.currentTime = 0; a.play().catch(() => {}); }   /* 11/1: <audio>는 preload=none (배경음은 fetch로 받으므로 두 번 받지 않게 · 봇 호스트는 안 받게) — 폴백으로 쓸 때만 그때 받음 */ a.volume = v; } else if (!a.paused) a.pause(); return; }
     if (!t.buf) { if (v > 0) t.loading.then(() => { if (curWant === k) setVol(k, v); else if (t.failed) setVol(k, 0); }); return; }
     const now = AC.currentTime;
     if (v > 0 && !t.src) { t.gain = AC.createGain(); t.gain.gain.value = 0; t.gain.connect(AC.destination); t.src = AC.createBufferSource(); t.src.buffer = t.buf; t.src.loop = true; t.src.connect(t.gain); t.src.start(); }
