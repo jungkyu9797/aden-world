@@ -5369,7 +5369,7 @@ function cxOpt(txt) { const o = {}; if (!txt || txt === '—' || /롱소드/.tes
     else if ((m = p.match(/^MP 회복 \+(\d+)$/))) o.mpRegen = +m[1];
     else if ((m = p.match(/^강화 1당 MR \+(\d+)$/))) o.mrEn = +m[1];   /* v189: 거대 여왕 개미의 금빛 날개 — 강화 1당 MR */
     else if ((m = p.match(/^타격 시 (\d+)% (번개|화염) 추가 피해 (\d+)~(\d+)$/))) o.proc = { kind: m[2] === '번개' ? 'lightning' : 'fire', p: m[1] / 100, dmg: [+m[3], +m[4]] };
-    else if ((m = p.match(/^타격 시 (\d+)% 확률로 \[심판\] 추가 피해 — 내 피해의 (\d+)%(?: \(강화 1당 \+(\d+)%)?/))) { o.judgeP = m[1] / 100; o.judgePct = +m[2]; if (m[3]) o.judgeEn = m[3] / 100; }   // 10/31 전설 공통 (judgeHit)
+    else if ((m = p.match(/^타격 시 (\d+)% 확률로 \[심판\] 추가 피해 — 내 피해의 (\d+)%( × 마법 배율)?(?: \(강화 1당 \+(\d+)%)?/))) { o.judgeP = m[1] / 100; o.judgePct = +m[2]; if (m[3]) o.judgeSp = true; if (m[4]) o.judgeEn = m[4] / 100; }   // 10/31 전설 공통 (judgeHit)
     else if ((m = p.match(/^공격 마법 피해 \+(\d+)%$/))) o.allMagic = +m[1];   // 10/31 전설 지팡이
     else if ((m = p.match(/^HP 30% 이하 적에게 주는 피해 \+(\d+)%$/))) o.execDmg = +m[1];   // 10/31 전설 양손검 (몬스터만)
     else if ((m = p.match(/^타격 시 (\d+)% 출혈 \((\d+)초, 초당 (\d+)\)$/))) o.proc = { kind: 'bleed', p: m[1] / 100, dur: +m[2], dps: +m[3] };
@@ -5708,21 +5708,21 @@ CX_ZONE[22] = [...CX_ZONE[16]]; CX_ZONE[23] = [...CX_ZONE[17]]; CX_ZONE_R[22] = 
 
 // ===== 10/31 전설 무기 3종 — 등급 '전설' (영웅 위) · 얻는 곳은 아직 정하지 않음 → 드랍·제작·상점 없음 · 테스트: 갓 모드 [아이템 지급] → [전설] 탭
 //   ★ 수치는 이 표 한 곳에 (CODEX_ROWS와 같은 열): 부위, 등급, 이름, 직업, 착용 Lv, 공격(등급 배율 ×1.5 전 — 영웅 표와 바로 비교), AC, 명중, 추가 피해, MR, 고정 옵션, 무게, 안전 강화(표시용 · 실제는 무기 +6), 얻는 곳
-//   기준(Lv55): 직업별 가장 센 영웅 무기(드래곤 슬레이어·용의 활·용의 지팡이)보다 실제 피해 +0에서 약 +30% · 강화 1당 공격 +3 (영웅과 같음, EN_MUL)
+//   11/1 프로듀서: +0 공격 = 그 직업 용 무기(드래곤 슬레이어·용의 활·용의 지팡이) +9 공격 (아래 LEG_DMG9 · 표의 공격 칸은 쓰지 않음) · 명중 +15 · 추가 피해 +10 · 강화 1당 공격 +3 (영웅과 같음, EN_MUL)
 //   안전 강화 +0 (SAFE_EN): +0→+1부터 성공 1/3 · 실패하면 증발 (일반 무기가 안전 강화를 넘었을 때와 같은 판정) → 고강화 전설은 아주 드묾
-//   전설 공통 [심판] (judgeHit · judgeChance): 타격 시 20% + 강화 1당 2% 확률로 그 타격 피해의 100%를 한 번 더 — 기사 근접·요정 화살은 그 한 방, 마법사는 공격 마법이 맞힌 대상마다 따로 (범위 마법 포함)
+//   전설 공통 [심판] (judgeHit · judgeChance): 타격 시 20% + 강화 1당 2% 확률로 그 타격 피해의 100%를 한 번 더 — 기사 근접·요정 화살은 그 한 방, 마법사는 근접 공격(칼질) 한 방 × 마법 배율(spellMul · 공격 마법과 같은 SP 배율) · 공격 마법에서는 안 터짐
 //   그 밖의 특수 옵션 — 집행검: HP 30% 이하 몬스터에게 피해 +15% / 가이아의 격노: 땅 저항 +20 / 수정결정체 지팡이: 공격 마법 피해 +20%·MP 회복 +3
 //   이름·컨셉·분위기만 리니지 DB 참고 · 그림은 코드로 직접 그린 오리지널 · 양손검이지만 이 게임은 활처럼 방패와 같이 들 수 있음 (방패 금지는 프로듀서 결정 대기)
 const LEG_ROWS = [
-  ['양손검', '전설', '진명황의 집행검', '기사', 55, '9~23', 0, 4, 3, 0, '힘 +2 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · HP 30% 이하 적에게 주는 피해 +15%', 16, 6, '추후 공개 (아직 얻을 수 없음)', 0],
-  ['활', '전설', '가이아의 격노', '요정', 55, '9~21', 0, 4, 3, 0, '민첩 +2 · 화살 소모 없음 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · 땅 저항 +20', 9, 6, '추후 공개 (아직 얻을 수 없음)', 0],
-  ['지팡이', '전설', '수정결정체 지팡이', '마법사', 55, '6~15', 0, 0, 0, 10, 'SP +8 · 지능 +1 · MP +50 · 공격 마법 피해 +20% · MP 회복 +3 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2% · 공격 마법이 맞힌 대상마다)', 8, 6, '추후 공개 (아직 얻을 수 없음)', 0] ];
+  ['양손검', '전설', '진명황의 집행검', '기사', 55, '9~23', 0, 15, 10, 0, '힘 +2 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · HP 30% 이하 적에게 주는 피해 +15%', 16, 6, '추후 공개 (아직 얻을 수 없음)', 0],
+  ['활', '전설', '가이아의 격노', '요정', 55, '9~21', 0, 15, 10, 0, '민첩 +2 · 화살 소모 없음 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · 땅 저항 +20', 9, 6, '추후 공개 (아직 얻을 수 없음)', 0],
+  ['지팡이', '전설', '수정결정체 지팡이', '마법사', 55, '6~15', 0, 15, 10, 10, 'SP +8 · 지능 +1 · MP +50 · 공격 마법 피해 +20% · MP 회복 +3 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% × 마법 배율 (강화 1당 +2% · 근접 공격)', 8, 6, '추후 공개 (아직 얻을 수 없음)', 0] ];
 { CX_SLOT['양손검'] = ['weapon', 'sword', 'th']; if (!CX_GROUPS.includes('양손검')) CX_GROUPS.splice(1, 0, '양손검');   // 갓 모드 아이템 지급 탭: 한손검 다음
   Object.assign(CODEX_ID, { '진명황의 집행검': 'lg_sword', '가이아의 격노': 'lg_bow', '수정결정체 지팡이': 'lg_staff' });
   Object.assign(CX_SPEC, { '진명황의 집행검': ['sword', { b: 'long', c1: '#ffffff', c2: '#6a8ac0', gu: 'wing', h: '#1c2340', gem: '#4a8cff' }], '가이아의 격노': ['bow', { t: 'master', c1: '#c8e8a0', c2: '#3a6a1a' }], '수정결정체 지팡이': ['staff', { h: 'crystal', s1: '#e8f0ff', s2: '#2a3450', g1: '#ffffff', g2: '#4ab0ff' }] });   // 기본 그림 (아래 직접 그린 그림으로 바꿈)
   const DESC = { lg_sword: '옛 황제의 이름으로 죄인을 심판하던 거대한 양손검. 푸른 칼날에 새겨진 맹세가 빛날 때마다 하늘의 심판이 함께 내리치고, 쓰러져 가는 적일수록 더 무겁게 떨어진다.',
     lg_bow: '대지의 어머니 가이아의 분노가 깃든 살아 있는 나무 활. 시위를 당기면 뿌리가 꿈틀대고, 화살이 꽂힌 자리에는 하늘의 심판이 금빛 기둥으로 내리꽂힌다.',
-    lg_staff: '마나가 수천 년 동안 굳어 생긴 수정결정체를 머리에 얹은 지팡이. 수정이 마력을 공명시켜 모든 공격 마법을 키우고, 마법이 닿은 적마다 하늘의 심판을 부르며, 쉬지 않고 마나를 되돌려 준다.' };
+    lg_staff: '마나가 수천 년 동안 굳어 생긴 수정결정체를 머리에 얹은 지팡이. 수정이 마력을 공명시켜 모든 공격 마법을 키우고, 지팡이로 내려칠 때는 마력이 실린 하늘의 심판을 부르며, 쉬지 않고 마나를 되돌려 준다.' };
   for (const r of LEG_ROWS) { const id = CX_MAKE(r), d = ITEMS[id]; d.desc = DESC[id]; d.legend = true;
     for (const L of [CX_HERO, ...Object.values(CX_ZONE), ...Object.values(CX_ZONE_R), ...Object.values(CX_ZONE_H), ...Object.values(CX_BOSS)]) { const k = L.indexOf(id); if (k >= 0) L.splice(k, 1); }   // 혹시라도 드랍표에 들어가지 않게
     for (const b in DROP_TABLE) DROP_TABLE[b] = DROP_TABLE[b].filter(x => x[0] !== id); }
@@ -5787,9 +5787,9 @@ function cxWhere(id) { const W = [], d = ITEMS[id];
 //   · d = 그 타격이 dmgMob에 넣은 피해 (같은 dmgMob 배율이 다시 붙어 실제 피해도 같음) · 몬스터·수호탑 봇/탑만 (다른 유저는 없음 — 기존 타격 발동 옵션과 같음)
 //   · 심판 피해는 dmgMob만 써서 심판·다른 발동이 다시 일어나지 않음 · 장비 이펙트 끔(EQFX)이면 금빛 기둥·빛 없이 피해와 글자만
 const judgeChance = (d, en) => d && d.judgeP ? d.judgeP + (d.judgeEn || 0) * Math.max(0, en || 0) : 0;   // 11/1: 20% + 강화 1당 2% (+5 30% · +9 38% · 음수 강화는 20%)
-function judgeHit(f, d, spell) { const w = ITEMS[INV.equipped('weapon')]; if (!w || !w.judgeP || (spell ? w.wtype !== 'staff' : w.wtype === 'staff')) return 0;
+function judgeHit(f, d, spell) { const w = ITEMS[INV.equipped('weapon')]; if (!w || !w.judgeP || spell) return 0;   // 11/1: 공격 마법에서는 안 터짐 (마법사도 칼질)
   if (!(d > 0) || !f || f.dead || f.isRemote || !(f.hp > 0) || Math.random() >= judgeChance(w, INV.enOf('weapon'))) return 0;
-  const v = Math.max(1, Math.round(d * (w.judgePct || 100) / 100)); dmgMob(f, v); const [fx, fy] = W2P(f.x, f.z), h = headY(f);
+  const v = Math.max(1, Math.round(d * (w.judgePct || 100) / 100 * (w.judgeSp ? spellMul() : 1))); dmgMob(f, v); const [fx, fy] = W2P(f.x, f.z), h = headY(f);   // 지팡이: 칼질 피해 × 마법 배율
   floatText(fx + 10, fy - h - 44, String(v), { color: '#ffd24a', size: 14, big: true, life: 1.1, rise: 30, tag: 'judge' });   // 11/1: '심판' 글자 없이 금빛 숫자만
   if (EQFX) { mxAdd('pillar', f, { c: '255,176,48', l: '255,246,200', w: 16, H: 360, life: 0.5 }); mxLight(fx, fy - h * 0.5, 120, 0.8); }   // 하늘에서 내리꽂히는 금빛 빛기둥 (화면 번쩍임 없음)
   if (AC && SFX_ON) { const T0 = AC.currentTime; tone(T0, 'triangle', 1320, 1980, 0.2, 0.05); tone(T0 + 0.04, 'sine', 2640, 2640, 0.25, 0.03); }
@@ -5849,7 +5849,10 @@ const CLS_ST = { knight: 'str', elf: 'dex', wizard: 'int' }, ACC_CHG = { ring: {
 const accChgId = (slot, k) => { const nm = ACC_CHG[slot] && ACC_CHG[slot][k]; return nm ? Object.keys(ITEMS).find(id => ITEMS[id].name === nm && ITEMS[id].slot === slot) || null : null; };   // v108: 등급 상관없이 무기 +6 · 방어구 +4
 const EN_MUL = { weapon: { 일반: 1, 고급: 1.5, 희귀: 2, 영웅: 3, 전설: 3 }, armor: { 일반: 1, 고급: 1.25, 희귀: 1.5, 영웅: 2, 전설: 2 } };   // 10/31 전설: 강화 1당 영웅과 같음 (전설 [심판]이 피해 비례라 강화 효과가 이미 10% 더 큼 · +4면 +7~+9에서 영웅보다 +37~44%)
 const enMul = d => (d.slot === 'weapon' ? EN_MUL.weapon : EN_MUL.armor)[RAR_OF(d)] || 1;
-const enBonus = (d, en) => en ? Math.sign(en) * Math.floor(Math.abs(en) * enMul(d) + 1e-9) : 0;   // 강화 수치 → 실제 공격(무기)·방어(방어구) 상승
+const enBonus = (d, en) => en ? Math.sign(en) * Math.floor(Math.abs(en) * enMul(d) + 1e-9) : 0;
+// 11/1 프로듀서: 전설 무기 +0 공격 = 그 직업 용 무기 +9 공격 (드래곤 슬레이어 · 용의 활 · 용의 지팡이 — 그 무기 수치가 바뀌면 같이 따라감)
+const LEG_DMG9 = [['lg_sword', '드래곤 슬레이어'], ['lg_bow', '용의 활'], ['lg_staff', '용의 지팡이']];
+for (const [lid, dn] of LEG_DMG9) { const L = ITEMS[lid], D = Object.values(ITEMS).find(x => x.name === dn && x.slot === 'weapon'); if (!L || !D || !D.dmg) continue; const b = enBonus(D, 9); L.dmg = D.dmg.map(v => v + b); delete L.dmg0; L.baseMul = 1; L.dmgFrom = dn + ' +9'; }   // 강화 수치 → 실제 공격(무기)·방어(방어구) 상승
 const nameOf = e => { const d = ITEMS[e.id]; if (e.pet) return `펫 목걸이(Lv.${e.pet.lv} ${e.pet.name})`; return (e.en ? (e.en > 0 ? '+' : '') + e.en + ' ' : '') + (e.blessed ? '축복받은 ' : '') + d.name + (e.attr ? ` (${ATTR_N[e.attr.el]} ${e.attr.lv}단)` : ''); };
 const SHOP2ITEM = { ...Object.fromEntries(Object.entries(SK).map(([k, v]) => [v.book, 'book_' + k])), '빨간 물약': 'red_potion', '주홍 물약': 'orange_potion', '맑은 물약': 'clear_potion', '귀환 주문서': 'return_scroll', '순간이동 주문서': 'tele_scroll',
   '장검': 'long_sword', '한손검': 'short_sword', '능력치 초기화 주문서': 'stat_reset', '초록 물약': 'green_potion', '용기의 물약': 'brave_potion', '나무 방패': 'wood_shield', '가죽 갑옷': 'leather_armor', '가죽 장화': 'leather_boots', '마나 회복 물약': 'mana_potion', '펫 목걸이(Lv.1 도베르만)': 'pet_collar', '판금 투구': 'plate_helm', '판금 갑옷': 'plate_armor', '판금 장갑': 'plate_gloves', '판금 장화': 'plate_boots', '부활 주문서': 'revive_scroll' };
@@ -6214,7 +6217,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   function infoLines(e) { const d = ITEMS[e.id], L = [], en = e.en || 0;
     if (d.gonoff) { L.push('효과: 화룡의 둥지 용암·화산탄 피해 없음 · 강화·축복 없음', bag.includes(e) ? '가지고 있어서 적용 중' : '가방에 가지고 있으면 적용'); return L; }   // 피닉스의 가호: 켜짐/꺼짐
     if (d.gaho) { const v = gahoVal(e); L.push(`${d.gtxt} +${v}%${e.blessed ? ' (축복 +1% 포함)' : ''} · 강화 +${Math.min(GAHO_MAX, en)} / ${GAHO_MAX}`, bag.includes(e) ? (gaho(d.gstat) === v ? '가지고 있어서 적용 중' : '더 높은 같은 가호가 있어 적용 안 됨') : '가방에 가지고 있으면 적용'); return L; }
-    if (d.dmg) { const a = enBonus(d, en) + (e.attr ? ATTR_DMG[e.attr.lv] : 0); L.push(`공격 ${d.dmg[0] + a}~${d.dmg[1] + a}` + (a || d.dmg0 ? ` (기본 ${d.dmg[0]}~${d.dmg[1]}${d.dmg0 ? ` · ${d.rar} 보너스 ×${d.baseMul}` : ''})` : '')); }
+    if (d.dmg) { const a = enBonus(d, en) + (e.attr ? ATTR_DMG[e.attr.lv] : 0); L.push(`공격 ${d.dmg[0] + a}~${d.dmg[1] + a}` + (a || d.dmg0 || d.dmgFrom ? ` (기본 ${d.dmg[0]}~${d.dmg[1]}${d.dmg0 ? ` · ${d.rar} 보너스 ×${d.baseMul}` : ''}${d.dmgFrom ? ` · ${d.dmgFrom}와 같음` : ''})` : '')); }
     const acv = (d.ac || 0) + (ARMOR_SLOTS.has(d.slot) ? enBonus(d, en) + (e.blessed ? 1 : 0) : 0); if (d.slot && acv && !d.doll) L.push(`방어 AC -${acv}` + (d.ac0 ? ` (기본 ${d.ac0} → ${d.ac} · ${d.rar} 보너스 ×${d.baseMul})` : ''));
     if (accKey(d)) L.push(en ? `강화 +${en} → ${accName(d)} +${en} (장신구 · 강화 1당 ${accName(d)} +1 · 최대 +8 · 안전 강화 없음)` : `장신구 강화: 강화 1당 ${accName(d)} +1 · 최대 +8 · 안전 강화 없음 (장신구 마법 주문서)`); else
     { const mk = d.slot === 'weapon' ? '공격' : '방어', per = `${RAR_OF(d)} · 강화 1당 ${mk} +${enMul(d)}`; if (en) L.push(`강화 ${en > 0 ? '+' : ''}${en} → ${mk} ${enBonus(d, en) >= 0 ? '+' : ''}${enBonus(d, en)} (${per} · 안전 강화 +${SAFE_EN(d)})`); else if (d.slot === 'weapon' || ARMOR_SLOTS.has(d.slot)) L.push(`안전 강화 +${SAFE_EN(d)} (${per})`); }
