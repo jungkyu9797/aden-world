@@ -28,8 +28,12 @@
   - 합칠 때(rerere 기록): legitem↔polygacha — strike()에 rcHitFx와 judgeHit 둘 다 · RARITY_C 전설색 #ffa630 · 특별상점 탭은 legitem 줄(변신 카드 탭 없음) · 가방/장비 칸은 legFx 쪽.
   - 렉 최적화(`work/perf`, v204): 코드로 그린 몹(PROCFX: 거미·개미·전갈·잠자리·폭탄꽃·불알·아스타지오·이프리트)은 번쩍임·광폭화 필터가 있으면 procLayer로 한 장에 그린 뒤 필터 한 번 · 고른 대상 테두리(drawTgtOutline)는 작은 캔버스 1/30초마다·정수 칸 · 채팅 줄 나누기 CHWRAP · tintFrame LRU · 반딧불 스프라이트. 측정 스크립트는 세션 scratchpad의 cmp.js·prof5.js 방식(CDP Profiler + 긴 프레임 표본). 새 코드 그림 몹을 만들 때 번쩍임을 g.filter로 하면 PROCFX에 넣을 것.
   - 캐릭터 복사(`work/charcopy`, v204 잠수): 본섭 운영자 [살펴보기 → 복사 코드] → 테스트 페이지 갓 모드 [캐릭터 복사]. charcopy_adm.js의 '받는 중' 확인은 응답이 빠르면 실패(타이밍) — 버그 아님.
-- **승인 대기**: aibot(`work/aibot` 혈맹·필드 봇 1단계 · 전투력 1등 복사 · Firestore worldbot 규칙은 프로듀서가 넣음). 테스트 판 = `work/stage-all` = main + aibot.
-- 보조 작업자 worktree `.claude/worktrees/agent-a8224c55fd10ac7e6`(work/legitem)은 끝나면 지워도 됨. 원격 `work/polyrr`는 지우기가 막혀 남아 있음(안 씀).
+- **승인 대기 (11/1 밤 기준)** — 테스트 판 = `work/stage-all` = main + `work/bothost`(= aibot 포함) + `work/dream`. 합칠 때 dream↔aibot 충돌 4곳은 rerere에 기록됨(killCheck의 FB_KILLER+spirit 드랍 · lunge의 elAdd · hurtHero의 'elem' 종류 · addDraw의 dreamShrineDraw · mkkt.py의 __T 목록 = 둘 다).
+  - **aibot** `work/aibot` 244b0ed (카드 ready): 1단계 + 2단계 ①(전투를 사람처럼) + ②(파티·보스·뒷치기·보스 알림·지원군) + 이름 38개 고정(FBOT.TAB · 고구마·발라카스 예비) · 분배(반왕 100×4/90×4/80×5/70×5 · 라인 100×4/90×6/80×5/70×5) · 100% 봇만 전설 변신 · 법사 슬로우(wslow) · 요정 게일/똥물/어바 · `worldbot_chars/{uid}` 3분 저장 + 구간마다 cp 1등 사진. **프로듀서가 넣을 Firestore 규칙**: `match /worldbot_chars/{uid} { allow read: if request.auth != null; allow write: if request.auth != null && request.auth.uid == uid; }`. 상세 `dev/rooms/aibot.md` 맨 위 4개 섹션. 테스트 fieldbot·fieldbot2·fieldbot3·fieldbot4·fieldbot_copy.
+  - **botserver** `work/bothost` bba0f92 (카드 ready · 잠수 · aibot 위): 게임 `?bothost=1&zone=N` 봇 호스트 모드(BOTHOST · 그림/바닥/소리 없음 · 워커 타이머 20Hz · 안 보임 · hostOf 우선 · presence 최소) + `server/bothost/`(run.js·install.sh·README·config.example.json · config.json은 gitignore) + 배경음 <audio> preload=none. 8탭 ≈ 700MB → t4g.medium 추천. 프로듀서가 할 일은 README·카드 next. 상세 `dev/rooms/bothost.md`.
+  - **dream** `work/dream` 8d36028 (카드 test — 프로듀서 기획을 메인방 판단으로 만듦 · 승인 전 확인 요청): 지역 24 몽환의 섬 N94 단층 · 정령/대정령 8종 · 유니콘 2시간 · 퓨어엘릭서→엘릭서(5개 상한) · 제작 창 [엘릭서 교환] 탭. 상세 `dev/rooms/dream.md`. 봇 없음(nobot).
+- 프로듀서 결정(11/1 밤): AWS 월 5만 원까지 OK(CLAUDE.md 고침) · 봇이 보스를 실제로 뺏음 · 봇 줍기는 자기 것만 · 1단계는 2단계와 같이 배포 · 자는 동안은 메인방이 판단해서 진행하고 나중에 보고.
+- 원격 `work/polyrr`는 지우기가 막혀 남아 있음(안 씀). 끝난 갈래(leggold·perf·charcopy·leglv·elfpet·rrcost)는 main에 들어감.
 - 휴대폰 알림: 작업 끝·승인 대기·팝업 질문 때 PushNotification.
 - 결정 대기: 기사 리덕션 아머 레벨 비례(추천 20%+51렙부터 1%, 최대 35%) · 다음 사냥터 컨셉(nextzone) · 밤 전용 재료(달빛 조각 등) 아이디어.
 - 시뮬: `dev/sim/fn_sim.js` (NIGHT=1 밤 고정 · NOMANA=1 마나 물약 없이 · DEF='{"spSoft":40}' · SUMB='{"dmg":0.75}') · 빌드 `dev/sim/builds/ref_wizard57.json`·`ref_knight57.json`(10/31 실제 두 캐릭터). 법사 시뮬은 판마다 편차가 커서 5번 이상 평균.
