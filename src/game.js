@@ -9980,7 +9980,7 @@ let last=performance.now(), invT=0;
     g.fillStyle = fg; g.fillRect(x0, y0 + ih * 0.6, iw, ih * 0.4);
     if (o.res && o.res.badge) {
       g.save(); g.font = `800 22px ${FONT}`; const tw = g.measureText(o.res.badge).width + 18;
-      g.fillStyle = o.res.badge === 'NEW' ? 'rgba(220,40,40,0.92)' : 'rgba(20,20,26,0.8)'; roundRect(g, x0 + iw - tw - 6, y0 + 8, tw, 30, 6); g.fill();
+      g.fillStyle = ({ NEW: 'rgba(220,40,40,0.92)', 성공: 'rgba(40,150,70,0.92)', 천장: 'rgba(205,140,20,0.95)' })[o.res.badge] || 'rgba(20,20,26,0.8)'; roundRect(g, x0 + iw - tw - 6, y0 + 8, tw, 30, 6); g.fill();
       g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(o.res.badge, x0 + iw - 6 - tw / 2, y0 + 31); g.restore();
     }
     if (o.nameOnCard && o.res) {
@@ -10163,7 +10163,7 @@ let last=performance.now(), invT=0;
       if (!this.cine) this._ui(t);
       // 섬광
       if (this.cine) {
-        const col = GRADES[this.cine.card.res.grade].c;
+        const col = u >= R.reveal ? GRADES[this.cine.card.res.grade].c : GOLD;
         let flash = 0;
         if (u > R.shatter - 0.15) flash = seg(u, R.shatter - 0.15, R.shatter + 0.05);
         if (u > R.shatter + 0.35) flash = 1 - seg(u, R.shatter + 0.35, R.card + 0.5);
@@ -10192,7 +10192,7 @@ let last=performance.now(), invT=0;
       g.drawImage(this.hall, 0, 0, W, H);
       const dim = cine ? seg(u, 0, 0.8) : 0;
       if (dim > 0) { g.fillStyle = `rgba(0,0,0,${dim * 0.55})`; g.fillRect(-W, -H, W * 3, H * 3); }
-      const crackCol = tc ? GRADES[tc.res.grade].c : GOLD;
+      const crackCol = GOLD;   // 11/1: 균열·마법진·불티·파편은 등급과 상관없이 금빛 (카드가 앞면으로 돌아설 때 등급 색)
       // 마법진
       if (cine) {
         const mc = seg(u, R.charge - 0.3, R.charge + 0.5) * (1 - seg(u, R.shatter, R.shatter + 0.4));
@@ -10342,7 +10342,7 @@ let last=performance.now(), invT=0;
     }
 
     _reveal(t, u) {
-      const g = this.g, dpr = this.cv.width / W, res = this.cine.card.res, G = GRADES[res.grade], col = G.c;
+      const g = this.g, dpr = this.cv.width / W, res = this.cine.card.res, G = GRADES[res.grade], col = mix(GOLD, G.c, seg(u, R.reveal - 0.25, R.reveal + 0.15));   // 11/1: 앞면이 보일 때까지 금빛
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.globalAlpha = seg(u, R.card - 0.1, R.card + 0.3);
       g.fillStyle = '#030305'; g.fillRect(0, 0, W, H);
@@ -10485,10 +10485,10 @@ const TGFX = window.TransformGacha; TGFX.setColors(RARITY_C);
 //   천장(계정 공유): 희귀→영웅 7번 · 영웅→전설 10번 연속 실패하면 그 실패(돌려받는 카드)에 더해 위 등급 무작위 1장 · 세던 수는 0으로 / [자동 합성] = 일반→고급·고급→희귀를 남김없이 · 희귀·영웅은 직접 4장 단위로 골라서
 // 변신 칸: 직업마다 1칸(계정 문서 slot) · 카드를 끌어다 놓거나 눌러서 넣으면 바로 변신 — 골드·시간 제한 없음 · 쓰러지거나 다시 접속해도 그대로 · 빼면 풀림 · 칸의 카드는 보유중·합성에서 빠짐 · 주문서 변신을 읽으면 그동안만 주문서 모습(끝나면 칸의 카드로)
 window.PCG = (() => { const $ = id => document.getElementById(id);
-  const COST1 = 50000, COST11 = 500000, FREE_MS = 2 * 3600e3, MILE = 1000, ROW = 1, MORPH = 0;
+  const COST1 = 50000, COST11 = 500000, FREE_MS = 2 * 3600e3, MILE = 1000, ROW = 1, MORPH = 0, RR_COST = [3e6, 6e6, 12e6], RR_MAX = 3;   // RR: 전설 재뽑기 1·2·3번째 값 · 그다음은 원하는 전설 무료
   const SYN = { 일반: { to: '고급', p: 0.3 }, 고급: { to: '희귀', p: 0.3 }, 희귀: { to: '영웅', p: 0.1, pity: 7, pk: 'h' }, 영웅: { to: '전설', p: 0.1, pity: 10, pk: 'l' } }, MAN = ['희귀', '영웅'], AUTO_G = ['일반', '고급'];
   const POOL = {}; for (const c of PCARD) (POOL[c.g] = POOL[c.g] || []).push(c);
-  const blank = () => ({ v: 2, cards: {}, lock: {}, mile: 0, freeAt: 0, draws: 0, pity: { h: 0, l: 0 }, slot: {} });
+  const blank = () => ({ v: 2, cards: {}, lock: {}, mile: 0, freeAt: 0, draws: 0, pity: { h: 0, l: 0 }, slot: {}, rr: {} });   // rr: 전설 재뽑기 횟수 (카드 id → 그 카드 장들의 횟수 목록 · 0번인 장은 안 적음)
   let D = blank(), bad = false, busy = false, last = 0, lastRes = null;   // last: 마지막으로 산 뽑기(1 · 11) → [다시 뽑기] · lastRes: 창 오른쪽 '최근 결과'
   const fmt = n => Math.floor(n).toLocaleString(), esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]), GC = g => RARITY_C[g] || '#f2f2f2';
   const effTxt = c => `공격·이동 속도 +${c.pct}%` + (c.opt.length ? ' · ' + c.opt.join(' · ') : '');
@@ -10500,7 +10500,8 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
       D.mile = Math.max(0, Math.floor(+o.mile || 0)); D.freeAt = Math.max(0, +o.freeAt || 0); D.draws = Math.max(0, Math.floor(+o.draws || 0));   // 1차(300점) 때 모은 마일리지도 그대로 점수로
       const pt = o.pity && typeof o.pity === 'object' ? o.pity : {}; D.pity = { h: Math.max(0, Math.floor(+pt.h || 0)), l: Math.max(0, Math.floor(+pt.l || 0)) };
       if (o.slot && typeof o.slot === 'object') for (const k in o.slot) { const v = o.slot[k]; D.slot[k] = typeof v === 'string' && v ? v : null; }
-      for (const k in D.slot) { const v = D.slot[k]; if (v && inSlot(v) > (D.cards[v] || 0)) D.slot[k] = null; } }   // 장수보다 많이 칸에 들어가 있으면 비움
+      for (const k in D.slot) { const v = D.slot[k]; if (v && inSlot(v) > (D.cards[v] || 0)) D.slot[k] = null; }   // 장수보다 많이 칸에 들어가 있으면 비움
+      if (o.rr && typeof o.rr === 'object') for (const k in o.rr) if (Array.isArray(o.rr[k])) { D.rr[k] = o.rr[k].map(v => Math.min(RR_MAX, Math.floor(+v) || 0)); rrFix(k); } }
     catch (e) { bad = true; console.warn('polyCards', e); setTimeout(() => say('[변신 카드] 계정의 카드 정보를 읽지 못했어요. 덮어쓰지 않도록 이번 접속에서는 뽑기·합성·변신을 멈춰요. (다시 접속해 보세요)', '#f08a7a'), 2000); } }
   const raw = () => bad ? null : JSON.stringify(D);   // null = 저장하지 않음
   const has = id => (D.cards[id] || 0) > 0, inSlot = id => { let n = 0; for (const k in D.slot) if (D.slot[k] === id) n++; return n; }, free = id => Math.max(0, (D.cards[id] || 0) - inSlot(id)), locked = id => !!D.lock[id], avail = id => locked(id) ? 0 : free(id);   // free = 보유중(칸에 없는 장수) · avail = 합성 재료로 쓸 수 있는 장수
@@ -10514,7 +10515,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   function annLegend(c, how) { if (!c || c.g !== '전설') return; const m = `${PNAME()}님이 ${how}에서 [전설] ${c.name} 카드를 얻었습니다!`; setTimeout(() => { try { announce(m, GC('전설')); NET.announceAll(m); } catch (e) {} }, 500); }
   // ----- 뽑기 (같은 등급 안에서는 같은 확률 · 확정 칸 없음)
   function rollGrade() { const tot = PC_GO.reduce((a, g) => a + PC_GRADE[g].p, 0); let r = Math.random() * tot; for (const g of PC_GO) { r -= PC_GRADE[g].p; if (r < 0) return g; } return PC_GO[PC_GO.length - 1]; }
-  const pick = g => { const L = POOL[g]; return L[Math.floor(Math.random() * L.length)]; }, rollCard = () => pick(rollGrade());
+  const pick = g => { const L = POOL[g]; return L[Math.floor(Math.random() * L.length)]; }, rollCard = () => pick(rollGrade()), pickF = g => { const f = FORCE && FORCE.length && PC_BY[FORCE[0]] && PC_BY[FORCE[0]].g === g ? PC_BY[FORCE.shift()] : null; return f || pick(g); };
   let FORCE = null;   // 테스트용: 다음에 나올 카드를 정해 둠 (PCG._force)
   function roll(n) { const out = []; for (let i = 0; i < n; i++) { const f = FORCE && FORCE.length ? PC_BY[FORCE.shift()] : null; out.push({ c: f || rollCard() }); } return out; }
   function sim(n, k) { const o = { 일반: 0, 고급: 0, 희귀: 0, 영웅: 0, 전설: 0 }, per = {}; let no11 = 0; for (let i = 0; i < n; i++) { const R = roll(k || 1); if (k >= 11 && !R.some(r => PC_GO.indexOf(r.c.g) >= 2)) no11++; for (const r of R) { o[r.c.g]++; per[r.c.id] = (per[r.c.id] || 0) + 1; } } return { g: o, per, no11 }; }   // 테스트용
@@ -10528,15 +10529,55 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     try { TELE.ev('pcg', { k: String(kind), g: cost, got: res.map(r => r.c.id).join(',') }); } catch (e) {}
     saveNow(); try { INV.render(); } catch (e) {} lastRes = { k: 'draw', t: kind === 'free' ? '무료 뽑기' : `${n}회 뽑기`, L: res, hide: !skip }; refresh(); afterDraw(res, lastRes.t, kind); return res; }
   const again = () => draw(last || 1);
-  function milePick(id) { const c = PC_BY[id]; if (!c || c.g !== '전설' || busy) return; if (bad) { say('변신 카드 정보를 읽지 못해서 지금은 받을 수 없어요.', '#f08a7a'); return; }
-    if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 카드 1장 = 1점)`, '#f08a7a'); return; }
-    INV.askYesNo(`마일리지 ${MILE}점으로 [전설] ${c.name} 카드를 받을까요?`, `${effTxt(c)}${c.cls ? ' · ' + jobTxt(c) : ''} · 남은 마일리지 ${D.mile - MILE}점${has(id) ? ' · 이미 있는 카드라 장수가 늘어요' : ''}`, () => {
-      if (D.mile < MILE || busy || bad) return; D.mile -= MILE; const r = { c, isNew: !has(id), mile: true }; add(id); pickOn = false; try { TELE.ev('pcmile', { id }); } catch (e) {} saveNow(); lastRes = { k: 'draw', t: '마일리지 교환', L: [r], hide: !skip }; refresh(); afterDraw([r], '마일리지 교환', 'free'); }); }
+  // ----- 마일리지 (11/1): 1,000점 → 전설 1장 무작위 (고르기 아님) · 뽑기와 같은 홀 연출
+  function mileGet() { if (busy) return null; if (bad) { say('변신 카드 정보를 읽지 못해서 지금은 받을 수 없어요.', '#f08a7a'); return null; }
+    if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 카드 1장 = 1점)`, '#f0c080'); return null; }
+    INV.askYesNo(`마일리지 ${MILE}점으로 전설 카드를 받을까요?`, `전설 ${POOL['전설'].length}종 중 1장이 무작위로 나와요 · 남은 마일리지 ${D.mile - MILE}점`, () => mileDo()); return 'ask'; }
+  function mileDo() { if (D.mile < MILE || busy || bad) return null; D.mile -= MILE; const c = pickF('전설'), r = { c, isNew: !has(c.id), tag: '마일리지' }; add(c.id); try { TELE.ev('pcmile', { id: c.id }); } catch (e) {} saveNow();
+    lastRes = { k: 'draw', t: '마일리지 전설 받기', L: [r], hide: !skip }; refresh(); afterOne([r], '마일리지 전설 받기', '마일리지 전설 받기', `[전설] <b>${esc(c.name)}</b>${r.isNew ? ' (새 카드!)' : ' (+1장)'} · 마일리지 <b>${D.mile} / ${MILE}</b>`); return r; }
+  const milePick = () => mileGet();   // 예전 이름 (도감 등)
+  // 1장 결과(마일리지·재뽑기): 모션 스킵이면 창에 바로 · 아니면 홀 연출
+  function afterOne(res, ttl, how, sum) { if (skip) { for (const r of res) annLegend(r.c, how); const g = $('pw-res'); if (g) { g.classList.remove('fresh'); void g.offsetWidth; g.classList.add('fresh'); }
+      say(`[변신 카드] ${ttl}: ` + res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · '), '#e0c8ff'); snd(gi(res[0].c) >= 4 ? 'legend' : 'hero'); return; }
+    show(res, ttl, { kind: 'one', ann: how, sum }); }
+  // ----- 전설 재뽑기 (11/1): 가진 전설 1장 → 전설 중 무작위 1장 (같은 카드도 나옴) · 1번째 300만 · 2번째 600만 · 3번째 1,200만 골드 · 3번 한 카드는 다음에 원하는 전설로 무료 고르기
+  //   시도 횟수는 카드를 따라감 (데스나이트 1번 → 카스파가 나오면 그 카스파가 1번) · 장마다 따로 (D.rr[id] = 그 카드 장들의 횟수 · 큰 것부터 씀) · 변신 칸의 카드는 빼고
+  let rrMode = null;   // 창의 재뽑기 칸: null · { k: 'list' } · { k: 'pick', id }
+  function rrL(id) { return (D.rr[id] || []).filter(v => v > 0).sort((a, b) => b - a); }
+  function rrTry(id) { return rrL(id)[0] || 0; }
+  function rrFix(id) { const L = rrL(id).slice(0, D.cards[id] || 0); if (L.length) D.rr[id] = L; else delete D.rr[id]; }
+  function rrTake(id) { const t = rrTry(id), L = rrL(id); if (t > 0) L.splice(L.indexOf(t), 1); D.rr[id] = L; sub(id); rrFix(id); return t; }
+  function rrPut(id, t) { add(id); if (t > 0) { const L = rrL(id); L.push(Math.min(RR_MAX, t)); D.rr[id] = L; } rrFix(id); }
+  function rrWhy(c) { return bad ? '변신 카드 정보를 읽지 못해서 지금은 재뽑기할 수 없어요.' : busy ? '결과 화면을 닫은 뒤에 할 수 있어요.' : DEATH ? '쓰러진 상태에서는 재뽑기할 수 없어요.' : !c || c.g !== '전설' ? '전설 카드만 재뽑기할 수 있어요.'
+    : !has(c.id) ? `[${c.name}] 카드가 없어요.` : free(c.id) <= 0 ? `[${c.name}] 카드가 변신 칸에 있어요. 변신 칸에서 뺀 뒤에 재뽑기할 수 있어요.` : ''; }
+  const man = n => n >= 1e4 && n % 1e4 === 0 ? (n / 1e4).toLocaleString() + '만' : fmt(n);
+  function rrGo(id) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = rrTry(id);
+    if (t >= RR_MAX) { rrMode = { k: 'pick', id }; renderWin(); return 'pick'; }
+    const cost = RR_COST[t]; if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
+    INV.askYesNo(`[전설] ${c.name} 카드를 다시 뽑을까요? (${t + 1}번째 · ${fmt(cost)} 골드)`, `전설 ${POOL['전설'].length}종 중 1장이 무작위로 나와요 (같은 카드가 나올 수도 있어요) · 이 카드로 ${RR_MAX}번 하면 그다음엔 원하는 전설을 무료로 골라요 · 보유 ${fmt(coins)} 골드`, () => rrDo(id)); return 'ask'; }
+  function rrDo(id) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = rrTry(id); if (t >= RR_MAX) return null; const cost = RR_COST[t];
+    if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
+    const nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; rrTake(id); rrPut(nc.id, n2); try { TELE.ev('pcrr', { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {}
+    saveNow(); try { INV.render(); } catch (e) {} rrMode = null; sel = nc.id; const r = { c: nc, isNew, tag: '재뽑기' }, nx = n2 >= RR_MAX ? '이 카드는 다음에 <b>원하는 전설을 무료로</b> 고를 수 있어요' : `이 카드의 다음 재뽑기 <b>${man(RR_COST[n2])} 골드</b>`;
+    lastRes = { k: 'draw', t: `전설 재뽑기 ${n2}번째 · ${c.name} →`, L: [r], hide: !skip }; refresh();
+    afterOne([r], `전설 재뽑기 ${n2}번째`, '전설 재뽑기', `[전설] ${esc(c.name)} → <b>[전설] ${esc(nc.name)}</b>${isNew ? ' (새 카드!)' : ''} · 재뽑기 <b>${n2} / ${RR_MAX}</b> · ${nx}`); return r; }
+  function rrPick(id, to) { const c = PC_BY[id], n = PC_BY[to], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } if (!n || n.g !== '전설' || to === id || rrTry(id) < RR_MAX) return null;
+    INV.askYesNo(`[전설] ${c.name} 카드를 [전설] ${n.name} 카드로 바꿀까요? (무료)`, `재뽑기를 ${RR_MAX}번 한 카드라 원하는 전설을 무료로 골라요 · 바꾼 카드의 재뽑기는 처음(1번째 ${man(RR_COST[0])} 골드)부터예요`, () => rrPickDo(id, to)); return 'ask'; }
+  function rrPickDo(id, to) { const c = PC_BY[id], n = PC_BY[to]; if (rrWhy(c) || !n || n.g !== '전설' || to === id || rrTry(id) < RR_MAX) return null; const isNew = !has(to);
+    rrTake(id); rrPut(to, 0); try { TELE.ev('pcrrpick', { from: id, to }); } catch (e) {} saveNow(); rrMode = null; sel = to;
+    lastRes = { k: 'draw', t: '전설 재뽑기 · 원하는 카드로', L: [{ c: n, isNew, tag: '선택' }], hide: false }; say(`[변신 카드] 전설 재뽑기: [전설] ${c.name} → [전설] ${n.name} (원하는 카드로 바꿨어요)`, '#e0c8ff'); snd('legend'); refresh(); return n; }
+  function rrHTML() { const L = POOL['전설'], cardB = (c, attr, sm, dis) => `<button type="button" ${attr} style="--gc:${GC(c.g)}"${dis ? ' disabled' : ''}><span class="pcg-art"><img data-pc="${c.id}" alt=""></span><b>${esc(c.name)}</b><small>${sm}</small>${has(c.id) ? `<em>보유 ${D.cards[c.id]}</em>` : ''}</button>`;
+    if (rrMode.k === 'pick') { const c = PC_BY[rrMode.id]; return `<div class="pcg-rrh"><span>[전설] <b>${esc(c.name)}</b> 재뽑기 ${RR_MAX}번 완료! 바꿀 전설을 고르세요 <b class="pcg-rrok">(무료)</b></span><button type="button" class="inv-sort" data-rx="list">뒤로</button></div>`
+      + L.filter(x => x.id !== c.id).map(x => cardB(x, `data-to="${x.id}"`, `${x.cls ? `<b class="pcg-jt">${jobTxt(x)}</b> · ` : ''}+${x.pct}%${x.opt.length ? ' · ' + x.opt.map(esc).join(' · ') : ''}`)).join(''); }
+    const mine = L.filter(c => has(c.id));
+    return `<div class="pcg-rrh"><span>전설 재뽑기 — 다시 뽑을 전설 카드를 고르세요<small>1번째 ${man(RR_COST[0])} · 2번째 ${man(RR_COST[1])} · 3번째 ${man(RR_COST[2])} 골드 · 그다음은 원하는 전설 무료 (횟수는 카드를 따라가요)</small></span><button type="button" class="inv-sort" data-rx="close">닫기</button></div>`
+      + (mine.length ? mine.map(c => { const t = rrTry(c.id), fr = free(c.id) > 0; return cardB(c, `data-rr="${c.id}"`, !fr ? '변신 칸에 있음' : t >= RR_MAX ? '<b class="pcg-rrok">원하는 전설 고르기 (무료)</b>' : `재뽑기 ${t} / ${RR_MAX} · 다음 <b>${man(RR_COST[t])}</b>`, !fr); }).join('')
+        : '<p class="pcg-rrn">가진 전설 카드가 없어요. 뽑기 · 영웅→전설 합성 · 마일리지 1,000점으로 얻을 수 있어요.</p>'); }
   // ----- 합성 (같은 등급 4장 → 1번)
   function synWhy() { return bad ? '변신 카드 정보를 읽지 못해서 지금은 합성할 수 없어요.' : busy ? '결과 화면을 닫은 뒤에 합성할 수 있어요.' : DEATH ? '쓰러진 상태에서는 합성할 수 없어요.' : ''; }
   function takeMat(g) { let best = null, ba = 0; for (const c of POOL[g]) { const a = avail(c.id); if (a > ba) { best = c; ba = a; } } if (best) sub(best.id); return best; }   // 자동 합성 재료: 남는 장수가 많은 카드부터 (잠금·변신 칸 빼고)
-  function synOne(g, seen) { const S = SYN[g], ok = Math.random() < S.p, r = { g, to: S.to, ok, c: ok ? pick(S.to) : pick(g), pity: null };   // 성공 = 위 등급 무작위 · 실패 = 같은 등급 무작위
-    if (S.pk) { if (ok) D.pity[S.pk] = 0; else if (++D.pity[S.pk] >= S.pity) { D.pity[S.pk] = 0; r.pity = pick(S.to); } }   // 천장: 연속 실패가 차면 위 등급 1장 더
+  function synOne(g, seen) { const S = SYN[g], ok = Math.random() < S.p, r = { g, to: S.to, ok, c: ok ? pickF(S.to) : pickF(g), pity: null };   // 성공 = 위 등급 무작위 · 실패 = 같은 등급 무작위
+    if (S.pk) { if (ok) D.pity[S.pk] = 0; else if (++D.pity[S.pk] >= S.pity) { D.pity[S.pk] = 0; r.pity = pickF(S.to); } }   // 천장: 연속 실패가 차면 위 등급 1장 더
     r.isNew = !seen.has(r.c.id); seen.add(r.c.id); add(r.c.id); if (r.pity) { r.pNew = !seen.has(r.pity.id); seen.add(r.pity.id); add(r.pity.id); } return r; }
   function autoSyn() { const w = synWhy(); if (w) { say(w, '#f08a7a'); return null; } const seen = new Set(Object.keys(D.cards)), out = [];
     for (const g of AUTO_G) for (let k = 0; k < 1e6 && gAvail(g) >= 4; k++) { for (let i = 0; i < 4; i++) takeMat(g); out.push(synOne(g, seen)); }
@@ -10551,7 +10592,8 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   const synSum = out => { const by = {}; for (const r of out) { const v = by[r.g] = by[r.g] || { ok: 0, no: 0, p: 0 }; r.ok ? v.ok++ : v.no++; if (r.pity) v.p++; } return Object.entries(by).map(([g, v]) => `${g}→${SYN[g].to} ${v.ok + v.no}번: 성공 ${v.ok} · 실패 ${v.no}${v.p ? ` · 천장 ${v.p}` : ''}`).join(' / '); };
   function afterSyn(out, ttl, anim) { if (!anim) for (const r of out) { if (r.ok) annLegend(r.c, '변신 카드 합성'); annLegend(r.pity, '변신 카드 합성 천장'); }   // 연출이 있으면 뒤집을 때 알림
     try { TELE.ev('pcsyn', { t: ttl, n: out.length, ok: out.filter(r => r.ok).length, got: out.map(r => (r.ok ? '+' : '-') + r.c.id + (r.pity ? '!' + r.pity.id : '')).join(',') }); } catch (e) {}
-    trayFix(); saveNow(); lastRes = { k: 'syn', t: ttl, L: out, hide: !!anim }; if (!anim) say(`[변신 카드] ${ttl} — ${synSum(out)}`, '#e0c8ff'); refresh(); if (anim) synShow(out, ttl); }
+    trayFix(); saveNow(); lastRes = { k: 'syn', t: ttl, L: out, hide: !!anim }; if (!anim) say(`[변신 카드] ${ttl} — ${synSum(out)}`, '#e0c8ff'); refresh();
+    if (anim) { const items = []; for (const r of out) { items.push({ c: r.c, isNew: r.isNew, tag: r.ok ? '성공' : '실패', ann: '변신 카드 합성' }); if (r.pity) items.push({ c: r.pity, isNew: r.pNew, tag: '천장', ann: '변신 카드 합성 천장' }); } show(items, ttl, { kind: 'tsyn', out }); } }   // 11/1: 희귀→영웅·영웅→전설 합성도 뽑기와 같은 홀 연출
   // ----- 변신 칸 (직업마다 1칸 · 골드 없음 · 시간 제한 없음)
   function slotWhy(c) { if (bad) return '변신 카드 정보를 읽지 못해서 지금은 변신할 수 없어요.'; if (!has(c.id)) return `아직 없는 카드예요. [${c.name}] — [변신] 창에서 뽑거나 합성해서 얻을 수 있어요.`;
     if (!clsOk(c)) return `[${c.name}] 카드는 ${CLASS_NAME[c.cls]} 전용이에요. (지금 ${CLASS_NAME[CLASS]}) — 같은 계정의 ${CLASS_NAME[c.cls]} 캐릭터로 접속하면 변신할 수 있어요.`;
@@ -10615,7 +10657,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     if (skip) { for (const r of res) if (gi(r.c) >= 4 && !r.mile) annLegend(r.c, '변신 카드 뽑기'); const g = $('pw-res'); if (g) { g.classList.remove('fresh'); void g.offsetWidth; g.classList.add('fresh'); }
       say(`[변신 카드] ${ttl}: ` + res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + ` — 마일리지 ${D.mile} / ${MILE}`, '#e0c8ff'); if (gi(hi.c) >= 3) snd(gi(hi.c) >= 4 ? 'legend' : 'hero'); else snd('flip');
       if (run) autoNext(); return; }
-    show(res, ttl, { auto: run, open: res.length === 1 && res[0].mile }); }
+    show(res, ttl, { auto: run }); }
   // ----- 뽑기 결과 화면: 카드가 가운데로 모였다가 11장(1장)으로 펼쳐짐 · 일반·고급 = 흰 테두리 · 희귀 이상 = 금빛 테두리 + 불꽃(등급은 숨김)
   //   누르면 뒤집힘(흰 카드는 바로) · 금빛 카드는 전체 화면: 카드 비 3초 → 한 장이 다가옴 → 밀어서 결과 확인 → 희귀 파랑 · 영웅 보라(두껍게) · 전설 금빛 + 번개 + 번쩍
   //   [모두 뒤집기] = 전부 · 전체 화면 연출은 가장 높은 금빛 카드 1장만 / Space·Enter = 모두 뒤집기 → (다 뒤집었으면) Space = 다시 뽑기 · Enter = 확인 · Esc = 닫기(자동 뽑기도 멈춤)
@@ -10637,17 +10679,21 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   const TG_SND = { drone: 'gather', gold: 'gold', flip: 'flip', flip1: 'flip', charge: 'charge', boom: 'zoom', 'reveal:rare': 'rare', 'reveal:hero': 'hero', 'reveal:legend': 'legend' }, tgLast = {};
   function tgSnd(k) { const now = performance.now(); if (k === 'pillar') { if (now - (tgLast.p || 0) < 900) return; tgLast.p = now; return snd('deal'); } const m = TG_SND[k]; if (!m) return; if (k === 'gold') { if (now - (tgLast.g || 0) < 400) return; tgLast.g = now; } snd(m); }
   function tgImg(id, S, cb) { const set = () => { const v = artHi(id); if (!v) return false; if (typeof v === 'string') { const im = new Image(); im.src = v; cb(im); } else cb(v); return true; }; if (set()) return; let k = 0; const iv = setInterval(() => { if (!ov || ov._S !== S || set() || ++k > 60) clearInterval(iv); }, 150); }
-  function show(res, ttl, opt) { opt = opt || {}; if (opt.open || typeof TGFX !== 'function') return showOld(res, ttl, opt); busy = true; ovEnsure(); const n = res.length;
-    ov.innerHTML = `<canvas class="pcg-tg"></canvas><div class="pcg-tgbar" id="pcg-tgbar"><div class="pcg-ttl">변신 카드 · ${esc(ttl)}</div><p class="pcg-sum" id="pcg-sum"></p><div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort" hidden>모두 열기</button><button type="button" id="pcg-re" class="inv-sort" hidden>다시 뽑기 <small>Space</small></button><button type="button" id="pcg-stop" class="inv-sort"${auto ? '' : ' hidden'}>자동 뽑기 멈추기</button><button type="button" id="pcg-ok" class="sl-go pcg-exit" title="나가기 (Esc)">나가기</button></div></div>`;
-    ov.hidden = false; ov.classList.add('tg'); const S = ov._S = { k: 'draw', res, ttl, open: new Set(), ann: new Set(), ready: false, seq: null, auto: !!opt.auto, op: -1 };
-    const L = res.map((r, i) => ({ grade: r.c.g, name: r.c.name, image: null, badge: r.isNew ? 'NEW' : '+1장', i, lines: [`Lv.${r.c.lv} · ${jobTxt(r.c)}`, `공격·이동 속도 +${r.c.pct}%`, ...r.c.opt] }));
-    L.forEach(x => tgImg(res[x.i].c.id, S, im => { x.image = im; }));
-    const G = S.g = new TGFX(ov.querySelector('canvas'), { results: L, extUI: true, sfx: tgSnd, seed: (Math.random() * 1e6) | 0,
-      onOpen: x => { S.open.add(x.i); const r = res[x.i]; if (gi(r.c) >= 4 && !r.mile && !S.ann.has(x.i)) { S.ann.add(x.i); annLegend(r.c, '변신 카드 뽑기'); } } });
+  // 11/1: 결과 화면 공용 — kind: draw(뽑기) · one(마일리지·전설 재뽑기 1장) · tsyn(희귀→영웅·영웅→전설 합성) · 11장 넘으면 나눠서 [다음 카드]
+  const badgeOf = r => r.tag ? (r.isNew ? r.tag + ' NEW' : r.tag) : (r.isNew ? 'NEW' : '+1장');
+  function annOne(S, k) { const r = S.all[k]; if (!r || gi(r.c) < 4 || S.ann.has(k)) return; S.ann.add(k); annLegend(r.c, r.ann || S.opt.ann || '변신 카드 뽑기'); }   // 전설은 열릴 때(못 열고 닫으면 닫을 때) 전체 알림 한 번
+  function show(res, ttl, opt) { opt = opt || {}; if (typeof TGFX !== 'function') return opt.kind === 'tsyn' ? synShow(opt.out, ttl) : showOld(res, ttl, opt); busy = true; ovEnsure();
+    const PG = 11, pages = Math.max(1, Math.ceil(res.length / PG)), pg = Math.min(opt.page || 0, pages - 1), base = pg * PG, part = res.slice(base, base + PG), kind = opt.kind || 'draw', n = part.length;
+    ov.innerHTML = `<canvas class="pcg-tg"></canvas><div class="pcg-tgbar" id="pcg-tgbar"><div class="pcg-ttl">변신 카드 · ${esc(ttl)}${pages > 1 ? ` <small>(${pg + 1} / ${pages})</small>` : ''}</div><p class="pcg-sum" id="pcg-sum"></p><div class="pcg-btns"><button type="button" id="pcg-all" class="inv-sort" hidden>모두 열기</button><button type="button" id="pcg-next" class="sl-go" hidden>다음 카드 <small>Space</small></button><button type="button" id="pcg-re" class="inv-sort" hidden>다시 뽑기 <small>Space</small></button><button type="button" id="pcg-stop" class="inv-sort"${auto && kind === 'draw' ? '' : ' hidden'}>자동 뽑기 멈추기</button><button type="button" id="pcg-ok" class="sl-go pcg-exit" title="나가기 (Esc)">나가기</button></div></div>`;
+    ov.hidden = false; ov.classList.add('tg'); const S = ov._S = { k: kind, res: part, all: res, base, pg, pages, opt, ttl, open: new Set(), ann: opt._ann || new Set(), ready: false, seq: null, auto: !!opt.auto, op: -1 };
+    const L = part.map((r, i) => ({ grade: r.c.g, name: r.c.name, image: null, badge: badgeOf(r), i, lines: [`Lv.${r.c.lv} · ${jobTxt(r.c)}`, `공격·이동 속도 +${r.c.pct}%`, ...r.c.opt] }));
+    L.forEach(x => tgImg(part[x.i].c.id, S, im => { x.image = im; }));
+    const G = S.g = new TGFX(ov.querySelector('canvas'), { results: L, extUI: true, sfx: tgSnd, seed: (Math.random() * 1e6) | 0, onOpen: x => { S.open.add(x.i); annOne(S, base + x.i); } });
     G.play(); S.iv = setInterval(() => tgUpd(S), 120); tgUpd(S);
-    $('pcg-all').onclick = () => G.openAll(); $('pcg-ok').onclick = () => close(); $('pcg-re').onclick = () => { close(); again(); }; $('pcg-stop').onclick = () => autoStop('자동 뽑기를 멈췄어요.');
+    $('pcg-all').onclick = () => G.openAll(); $('pcg-next').onclick = () => nextPage(); $('pcg-ok').onclick = () => close(); $('pcg-re').onclick = () => { close(); again(); }; $('pcg-stop').onclick = () => autoStop('자동 뽑기를 멈췄어요.');
     keys();
     if (S.auto) { const iv = setInterval(() => { if (!ov || ov._S !== S) return clearInterval(iv); if (G.state().ready) { clearInterval(iv); G.quickAll(); setTimeout(() => { if (ov && ov._S === S) close(); }, 900 + n * 60); } }, 100); } }
+  function nextPage() { const S = ov && ov._S; if (!S || !S.g || S.pg >= S.pages - 1) return; S.g.stop(false); clearInterval(S.iv); show(S.all, S.ttl, { ...S.opt, page: S.pg + 1, _ann: S.ann }); }   // 다음 11장
   function tgUpd(S) { if (!ov || ov._S !== S) return clearInterval(S.iv); const st = S.g.state(), bar = $('pcg-tgbar'); S.ready = st.ready; if (bar) bar.classList.toggle('hid', st.cine);
     const a = $('pcg-all'); if (a) { a.hidden = !st.ready || (!st.low && !st.high); a.textContent = st.low ? '모두 열기' : '다음 열기'; }
     const sm = $('pcg-sum'); if (sm && st.ready && st.low + st.high > 0 && !st.cine) { const t = st.low ? `카드를 눌러 뒤집어 보세요 <small>(${S.open.size} / ${S.res.length}${st.high ? ' · 금빛 카드 = 희귀 이상' : ''})</small>` : '빛나는 카드를 눌러 확인하세요'; if (S.smT !== t) { S.smT = t; sm.innerHTML = t; } }
@@ -10681,16 +10727,21 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     let k = 0; for (const i of L) if (i !== top) { const q = k++; setTimeout(() => openCard(i, q > 0 && !isGold(S.res[i].c)), q * 80); }
     if (top != null) setTimeout(() => { if (ov && ov._S === S) seqPlay(top); }, k * 80 + 280); }
   function sumUpd() { const S = ov && ov._S, el = $('pcg-sum'); if (!S || !el) return; const n = S.res.length, op = S.open.size; if (S.k === 'syn') return synSum2();
-    if (op < n) { el.innerHTML = S.ready ? `카드를 눌러 뒤집어 보세요 <small>(${op} / ${n}${S.res.some(r => isGold(r.c) && !r.mile) ? ' · 금빛 카드 = 희귀 이상' : ''})</small>` : '&nbsp;'; return; } const nw = S.res.filter(r => r.isNew).length;
-    el.innerHTML = `새 카드 <b>${nw}장</b> · 같은 카드 <b>${n - nw}장</b> · 마일리지 <b>${D.mile} / ${MILE}</b>${D.mile >= MILE ? ' <span class="pcg-mok">(전설 고르기 가능!)</span>' : ''}`;
-    const a = $('pcg-all'); if (a) a.hidden = true; const re = $('pcg-re'); if (re) re.hidden = !last || S.res[0].mile; const b = $('pcg-ok'); if (b) b.focus(); }
-  function close(esc_) { const S = ov && ov._S; if (!S) return; if (S.g) { S.g.stop(false); clearInterval(S.iv); ov.classList.remove('tg'); } if (S.seq) seqEnd(true); if (S.k === 'syn') S.res.forEach((r, i) => { if (!S.open.has(i)) synOpen(i, true); }); else S.res.forEach((r, i) => { if (!S.open.has(i)) openCard(i, true); });
+    if (op < n) { el.innerHTML = S.ready ? `카드를 눌러 뒤집어 보세요 <small>(${op} / ${n}${S.res.some(r => isGold(r.c) && !r.mile) ? ' · 금빛 카드 = 희귀 이상' : ''})</small>` : '&nbsp;'; return; }
+    const more = !!S.g && S.pg < S.pages - 1;
+    if (S.k === 'tsyn') el.innerHTML = esc(synSum(S.opt.out)) + ` · 천장 <b>희귀→영웅 ${D.pity.h}/${SYN.희귀.pity}</b> · <b>영웅→전설 ${D.pity.l}/${SYN.영웅.pity}</b>${more ? ` · 남은 카드 <b>${S.all.length - S.base - n}장</b>` : ''}`;
+    else if (S.k === 'one') el.innerHTML = S.opt.sum || '';
+    else { const nw = S.res.filter(r => r.isNew).length; el.innerHTML = `새 카드 <b>${nw}장</b> · 같은 카드 <b>${n - nw}장</b> · 마일리지 <b>${D.mile} / ${MILE}</b>${D.mile >= MILE ? ' <span class="pcg-mok">(전설 받기 가능!)</span>' : ''}`; }
+    const a = $('pcg-all'); if (a) a.hidden = true; const nx = $('pcg-next'); if (nx) nx.hidden = !more; const re = $('pcg-re'); if (re) re.hidden = more || S.k !== 'draw' || !last || S.res[0].mile; const b = more ? nx : $('pcg-ok'); if (b) b.focus(); }
+  function close(esc_) { const S = ov && ov._S; if (!S) return; if (S.g) { S.g.stop(false); clearInterval(S.iv); ov.classList.remove('tg'); } if (S.seq) seqEnd(true);
+    if (S.g) S.all.forEach((r, k) => annOne(S, k)); else if (S.k === 'syn') S.res.forEach((r, i) => { if (!S.open.has(i)) synOpen(i, true); }); else S.res.forEach((r, i) => { if (!S.open.has(i)) openCard(i, true); });
     ov.hidden = true; ov._S = null; ov.innerHTML = ''; ov.classList.remove('seq'); window.__pcgCover = false; busy = false; if (lastRes) lastRes.hide = false; if (ovKey) { removeEventListener('keydown', ovKey, true); removeEventListener('keyup', ovKey, true); ovKey = null; } if (ovRs) { removeEventListener('resize', ovRs); ovRs = null; }
-    if (S.k === 'draw') say(`[변신 카드] ${S.ttl}: ` + S.res.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + ` — 마일리지 ${D.mile} / ${MILE}`, '#e0c8ff'); else say(`[변신 카드] ${S.ttl} — ${synSum(S.res)}`, '#e0c8ff'); refresh();
+    const all = S.all || S.res; if (S.k === 'tsyn') say(`[변신 카드] ${S.ttl} — ${synSum(S.opt.out)}`, '#e0c8ff'); else if (S.k === 'syn') say(`[변신 카드] ${S.ttl} — ${synSum(S.res)}`, '#e0c8ff');
+    else say(`[변신 카드] ${S.ttl}: ` + all.map(r => `[${r.c.g}] ${r.c.name}${r.isNew ? ' (새 카드)' : ''}`).join(' · ') + (S.k === 'draw' ? ` — 마일리지 ${D.mile} / ${MILE}` : ''), '#e0c8ff'); refresh();
     if (esc_) { if (auto) autoStop('자동 뽑기를 멈췄어요.'); } else if (S.auto && auto) autoNext(); }
   function keys() { if (ovKey) { removeEventListener('keydown', ovKey, true); removeEventListener('keyup', ovKey, true); }
     ovKey = ev => { if (!ov || ov.hidden || !ov._S) return; const k = ev.key, sp = k === ' ' || ev.code === 'Space'; if (!(sp || k === 'Enter' || k === 'Escape' || k === 'ArrowRight')) return; ev.preventDefault(); ev.stopImmediatePropagation(); if (ev.type !== 'keydown' || ev.repeat) return;
-      const S = ov._S; if (S.g) { const G = S.g, st = G.state(); if (st.cine) { if (k === 'Escape') G.finishCine(); else G.tap(); return; } if (k === 'Escape') { close(true); return; } if (!st.ready) return; if (st.low || st.high) { G.openAll(); return; } if (sp && last && !S.res[0].mile) { close(); again(); return; } if (k !== 'ArrowRight') close(); return; }
+      const S = ov._S; if (S.g) { const G = S.g, st = G.state(); if (st.cine) { if (k === 'Escape') G.finishCine(); else G.tap(); return; } if (k === 'Escape') { close(true); return; } if (!st.ready) return; if (st.low || st.high) { G.openAll(); return; } if (S.pg < S.pages - 1) { nextPage(); return; } if (sp && S.k === 'draw' && last && !S.res[0].mile) { close(); again(); return; } if (k !== 'ArrowRight') close(); return; }
       if (S.seq) { if (k === 'Escape') seqEnd(); else seqKey(); return; } if (k === 'Escape') { close(true); return; } if (!S.ready) return;
       if (S.open.size < S.res.length) { flipAll(); return; } if (sp && S.k === 'draw' && last && !S.res[0].mile) { close(); again(); return; } if (k !== 'ArrowRight') close(); };
     addEventListener('keydown', ovKey, true); addEventListener('keyup', ovKey, true); }
@@ -10772,7 +10823,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     list.querySelector('.pcg-open').onclick = () => { const s = $('shop'); if (s) s.hidden = true; openWin(true); }; try { foot(); } catch (e) {} footFix(); }
   function stopShop() {}
   // ----- [변신] 창: 왼쪽 = 보유중(등급별 · 장수 · 잠금) · 합성 · [다시 뽑기] + 변신 칸 / 오른쪽 = 11회·1회·무료 뽑기(보유 골드) · 마일리지 · 고른 카드 · 최근 결과
-  let sel = null, raf = 0, prow = 1, tray = { g: null, n: {} }, pickOn = false;
+  let sel = null, raf = 0, prow = 1, tray = { g: null, n: {} };
   const LOCK = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.6 5.6V4a2.4 2.4 0 0 1 4.8 0v1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2.2" y="5.4" width="7.6" height="5.6" rx="1.2" fill="currentColor"/></svg>';
   const trayN = () => Object.values(tray.n).reduce((a, b) => a + b, 0), trayIds = () => { const L = []; for (const c of POOL[tray.g] || []) for (let i = 0; i < (tray.n[c.id] || 0); i++) L.push(c.id); return L; };
   function trayFix() { if (!tray.g) { tray.n = {}; return; } for (const id in tray.n) { const m = Math.min(tray.n[id], avail(id)); if (m > 0 && PC_BY[id] && PC_BY[id].g === tray.g) tray.n[id] = m; else delete tray.n[id]; } }
@@ -10796,13 +10847,13 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
         + `<div class="pw-tb"><span>${trayN()}장 → 합성 <b>${k}번</b>${rem ? ` <small>(${rem}장은 남아요)</small>` : ''}</span><button type="button" class="inv-sort" data-a="fill">모두 넣기</button><button type="button" class="inv-sort" data-a="clr">비우기</button><button type="button" class="sl-go" data-a="go"${k ? '' : ' disabled'}>합성 ${k}번</button></div></div>`
         : `<small class="pw-th">희귀·영웅 카드는 위 버튼을 누르고 보유중에서 직접 골라 합성해요 (4장마다 1번 · 실패하면 같은 등급 1장을 돌려받아요)</small>`);
     // 다시 뽑기 · 변신 칸
-    const ag = $('pw-again'); ag.innerHTML = `다시 뽑기<small>${last ? `${last}회 · ${fmt(costOf(last))}` : '뽑은 뒤에'}</small>`; ag.disabled = !last;
+    const nl = POOL['전설'].reduce((a, c) => a + (D.cards[c.id] || 0), 0), ag = $('pw-again'); ag.innerHTML = `전설 재뽑기<small>${nl ? `전설 ${nl}장` : '전설 카드가 생기면'}</small>`; ag.classList.toggle('on', !!rrMode); ag.setAttribute('aria-pressed', !!rrMode);
     const sl = $('pw-slot'), scr = P && !P.card; sl.classList.toggle('full', !!my); sl.style.setProperty('--gc', my ? GC(my.g) : '#8a6a30');
     sl.innerHTML = my ? `<div class="pw-sc"><span class="pcg-art"><img data-pc="${my.id}" alt=""></span></div><div class="pw-si"><small>변신 칸</small><b style="color:${GC(my.g)}">${esc(my.name)}</b><span>${scr ? `주문서 변신(${esc(P.name)}) 중 · 끝나면 이 모습으로` : !lvOk(my) ? `<em class="pw-bad">Lv.${my.lv}부터 (지금 Lv.${hero.lv})</em>` : `변신 중 · 속도 +${my.pct}%${my.opt.length ? ' · ' + my.opt.map(esc).join(' · ') : ''}`}</span></div><button type="button" class="pw-sx" data-a="out">빼기</button>`
       : `<div class="pw-sc"></div><div class="pw-si"><small>변신 칸</small><b>비어 있음</b><span>${scr ? `주문서 변신(${esc(P.name)}) 중 · ` : ''}카드를 여기로 끌어다 놓거나, 카드를 누르고 [변신 칸에 넣기]</span></div>`;
-    // 오른쪽: 마일리지 · 전설 고르기 · 고른 카드 · 최근 결과
+    // 오른쪽: 마일리지(전설 받기) · 전설 재뽑기 칸 · 고른 카드 · 최근 결과
     $('pw-mbar').style.width = Math.min(100, D.mile / MILE * 100).toFixed(1) + '%'; $('pw-mn').textContent = `${D.mile} / ${MILE}`; $('pw-mb').classList.toggle('rdy', D.mile >= MILE);
-    const pk = $('pw-pick'); pk.hidden = !pickOn; if (pickOn) pk.innerHTML = POOL['전설'].map(c => `<button type="button" data-id="${c.id}" style="--gc:${GC(c.g)}"><span class="pcg-art"><img data-pc="${c.id}" alt=""></span><b>${esc(c.name)}</b><small>${c.cls ? `<b class="pcg-jt">${jobTxt(c)}</b> · ` : ''}+${c.pct}%${c.opt.length ? ' · ' + c.opt.map(esc).join(' · ') : ''}</small>${has(c.id) ? `<em>보유 ${D.cards[c.id]}</em>` : ''}</button>`).join('');
+    const pk = $('pw-pick'); pk.hidden = !rrMode; if (rrMode) pk.innerHTML = rrHTML(); else pk.innerHTML = '';
     const c = sel && PC_BY[sel]; $('pw-sel').innerHTML = !c ? '<p class="pw-hi">카드를 누르면 여기에 자세히 보여요.<br>[변신 칸에 넣기]를 누르거나 카드를 <b>변신 칸</b>으로 끌어다 놓으면 바로 변신해요.</p>'
       : `<div class="pw-nm"><span style="color:${GC(c.g)}">[${c.g}]</span> <b>${esc(c.name)}</b></div><div class="pw-lv">Lv.${c.lv}부터${!lvOk(c) ? ` <span class="pw-bad">(지금 Lv.${hero.lv})</span>` : ''} · ${c.cls ? `<b class="pw-job">${jobTxt(c)}</b>${!clsOk(c) ? ` <span class="pw-bad">(지금 ${CLASS_NAME[CLASS]})</span>` : ''}` : '모든 직업'}</div><div class="pw-eff">${['공격·이동 속도 +' + c.pct + '%', ...c.opt].map(esc).join('<br>')}</div><div class="pw-own">${has(c.id) ? `보유 <b>${D.cards[c.id]}장</b>${inSlot(c.id) ? ` (변신 칸 ${inSlot(c.id)})` : ''}${locked(c.id) ? ' · <b class="pw-lkt">잠금</b>' : ''}` : `<span class="pw-bad">없는 카드</span><small class="pw-get">뽑기 ${+(PC_GRADE[c.g].p / POOL[c.g].length).toFixed(3)}% (1장마다)${c.g !== '일반' ? ` · ${PC_GO[PC_GO.indexOf(c.g) - 1]} 4장 합성` : ''}${c.g === '전설' ? ` · 마일리지 ${MILE}점이면 골라서 받기` : ''}</small>`}</div>`
         + `<div class="pw-btns"><button type="button" class="sl-go" data-a="put"${!has(c.id) || !clsOk(c) || (my === c) ? ' disabled' : ''}>${my === c ? '변신 중' : !clsOk(c) ? jobTxt(c) : '변신 칸에 넣기'}</button><button type="button" class="inv-sort" data-a="lock"${has(c.id) ? '' : ' disabled'}>${locked(c.id) ? '잠금 풀기' : '잠그기'}</button></div>`;
@@ -10817,7 +10868,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   function tick() { const w = $('polywin'); if (!w || w.hidden) return; for (const b of w.querySelectorAll('.pw-gold')) { const c = +b.dataset.c; b.textContent = '보유 ' + fmt(coins); b.classList.toggle('short', coins < c); }
     for (const b of w.querySelectorAll('.pw-db[data-k]')) if (b.dataset.k !== 'free') b.classList.toggle('short', coins < costOf(+b.dataset.k));
     const L = freeLeft(), f = $('pw-free'), fb = $('pw-dfree'); if (f) f.textContent = L ? tl(L) + ' 뒤' : '지금 뽑을 수 있어요!'; if (fb) fb.classList.toggle('rdy', !L);
-    const ag = $('pw-again'); if (ag) { ag.disabled = !last || busy; ag.classList.toggle('short', !!last && coins < costOf(last)); } }
+    const ag = $('pw-again'); if (ag) ag.disabled = busy; }
   function footUpd() { const f = $('pw-foot'); if (f) f.innerHTML = `뽑기 확률 ${PC_GO.map(g => `<b style="color:${GC(g)}">${g} ${PC_GRADE[g].p}%</b>`).join(' · ')} (같은 등급 안에서 같은 확률 · 확정 칸 없음) · 카드는 <b>계정의 모든 캐릭터</b>가 함께 써요 · 변신 칸은 캐릭터마다`; }
   function loop() { cancelAnimationFrame(raf); const cv2 = $('pw-look'); if (!cv2) return;
     const step = ts => { const w = $('polywin'); if (!w || w.hidden) { raf = 0; return; } const g = cv2.getContext('2d'), W = cv2.width, H = cv2.height, c = (sel && PC_BY[sel]) || mySlot(); g.clearRect(0, 0, W, H);
@@ -10854,9 +10905,9 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
       if (a === 'auto') autoSyn(); else if (a === 'fill') { trayFill(); renderWin(); } else if (a === 'clr') { tray.n = {}; renderWin(); } else if (a === 'go') { const ids = trayIds(); manSyn(ids.slice(0, Math.floor(ids.length / 4) * 4)); } });
     $('pw-slot').addEventListener('click', ev => { const b = ev.target.closest('[data-a="out"]'); if (b) { clearSlot(); return; } const m = mySlot(); if (m) { sel = m.id; renderWin(); } else if (sel && has(sel) && !tray.g) setSlot(sel); });
     $('pw-sel').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || !sel) return; if (b.dataset.a === 'put') setSlot(sel); else if (b.dataset.a === 'lock') setLock(sel, !locked(sel)); });
-    $('pw-again').onclick = () => again(); for (const b of w.querySelectorAll('.pw-db[data-k]')) b.onclick = () => draw(b.dataset.k === 'free' ? 'free' : +b.dataset.k);
-    $('pw-mb').onclick = () => { if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 카드 1장 = 1점)`, '#f0c080'); return; } pickOn = !pickOn; renderWin(); };
-    $('pw-pick').addEventListener('click', ev => { const b = ev.target.closest('[data-id]'); if (b) milePick(b.dataset.id); });
+    $('pw-again').onclick = () => { rrMode = rrMode ? null : { k: 'list' }; renderWin(); }; for (const b of w.querySelectorAll('.pw-db[data-k]')) b.onclick = () => draw(b.dataset.k === 'free' ? 'free' : +b.dataset.k);
+    $('pw-mb').onclick = () => mileGet();
+    $('pw-pick').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; const d = b.dataset; if (d.rx === 'close') { rrMode = null; renderWin(); } else if (d.rx === 'list') { rrMode = { k: 'list' }; renderWin(); } else if (d.rr) rrGo(d.rr); else if (d.to && rrMode && rrMode.id) rrPick(rrMode.id, d.to); });
     const lk = $('pw-look'); if (lk) lk.onclick = () => { prow = (prow + 1) % 8; };
     const sk = $('pw-skip'); if (sk) sk.onchange = () => setSkip(sk.checked); const au = $('pw-auto'); if (au) au.onchange = () => { setAuto(au.checked); if (!au.checked) { autoWhy = '자동 뽑기를 껐어요.'; optUpd(); } };
     // Space = 다시 뽑기 (창이 열려 있고 결과 화면이 없을 때 · 글 쓰는 칸 제외) — 버튼에 포커스가 있어도 한 번만
@@ -10866,12 +10917,12 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   // ----- 아이템 도감 [변신 카드] 탭 (26종 · 확률 · 얻는 곳 · 보유)
   function codexHTML(q, rar, mine) { const pc = p => (p >= 1 ? String(+p.toFixed(1)) : p >= 0.1 ? String(+p.toFixed(2)) : String(+p.toFixed(3))) + '%';
     const L = PCARD.filter(c => (!rar || c.g === rar) && (!mine || clsOk(c)) && (!q || q.split(/\s+/).every(t => (c.name + ' ' + c.g + ' 변신 카드 ' + effTxt(c) + (c.cls ? ' ' + jobTxt(c) : '')).toLowerCase().includes(t))));
-    const guide = `<div class="cdx-guide"><b>변신 카드</b> 위 메뉴 [변신] 창(모바일: 메뉴 → 변신 카드)에서 어디서나 뽑기 — 1회 ${fmt(COST1)} · 11회 ${fmt(COST11)} 골드 · 2시간마다 무료 1회 · 확률은 장마다 아래 그대로 (확정 칸 없음) · 카드는 <b>계정의 모든 캐릭터</b>가 함께 써요<br><b>마일리지</b> 뽑은 카드 1장 = 1점 · ${fmt(MILE)}점이면 원하는 전설 카드 1장<br><b>합성</b> 같은 등급 4장 → 다음 등급 무작위 1장 (일반→고급 30% · 고급→희귀 30% · 희귀→영웅 10% · 영웅→전설 10%) · 실패하면 같은 등급 카드 1장을 돌려받아요 · 천장: 희귀→영웅 ${SYN.희귀.pity}번 · 영웅→전설 ${SYN.영웅.pity}번 연속 실패하면 위 등급 1장 더 · 잠근 카드는 합성에 안 써요<br><b>변신</b> 카드를 변신 칸에 넣으면 바로 그 모습 (골드·시간 제한 없음 · 쓰러져도 그대로 · 빼면 풀림) · 지금 ${owned()} / ${PCARD.length}종 보유<br><b>소드·아크 시리즈</b> 직업 전용 카드 (소드 = 영웅 · 속도 +10% · 아크 = 전설 · 속도 +18%) — 카드는 계정 공유지만 변신은 그 직업 캐릭터만</div>`;
+    const guide = `<div class="cdx-guide"><b>변신 카드</b> 위 메뉴 [변신] 창(모바일: 메뉴 → 변신 카드)에서 어디서나 뽑기 — 1회 ${fmt(COST1)} · 11회 ${fmt(COST11)} 골드 · 2시간마다 무료 1회 · 확률은 장마다 아래 그대로 (확정 칸 없음) · 카드는 <b>계정의 모든 캐릭터</b>가 함께 써요<br><b>마일리지</b> 뽑은 카드 1장 = 1점 · ${fmt(MILE)}점이면 전설 카드 1장 (무작위)<br><b>전설 재뽑기</b> 가진 전설 1장을 전설 중 무작위 1장으로 · ${man(RR_COST[0])} → ${man(RR_COST[1])} → ${man(RR_COST[2])} 골드 · 그다음은 원하는 전설 무료 (횟수는 카드를 따라가요)<br><b>합성</b> 같은 등급 4장 → 다음 등급 무작위 1장 (일반→고급 30% · 고급→희귀 30% · 희귀→영웅 10% · 영웅→전설 10%) · 실패하면 같은 등급 카드 1장을 돌려받아요 · 천장: 희귀→영웅 ${SYN.희귀.pity}번 · 영웅→전설 ${SYN.영웅.pity}번 연속 실패하면 위 등급 1장 더 · 잠근 카드는 합성에 안 써요<br><b>변신</b> 카드를 변신 칸에 넣으면 바로 그 모습 (골드·시간 제한 없음 · 쓰러져도 그대로 · 빼면 풀림) · 지금 ${owned()} / ${PCARD.length}종 보유<br><b>소드·아크 시리즈</b> 직업 전용 카드 (소드 = 영웅 · 속도 +10% · 아크 = 전설 · 속도 +18%) — 카드는 계정 공유지만 변신은 그 직업 캐릭터만</div>`;
     return { n: L.length, html: guide + L.map(c => { const p = PC_GRADE[c.g].p / POOL[c.g].length, gi = PC_GO.indexOf(c.g), lo = gi > 0 ? PC_GO[gi - 1] : null;
       return `<div class="cdx-card" style="--rc:${GC(c.g)}"><span class="cdx-ic pcg-ic"><img data-pc="${c.id}" alt=""></span><div><div class="cdx-nm" style="color:${GC(c.g)}">${esc(c.name)} 변신 카드</div><div class="cdx-meta">${c.g} · Lv.${c.lv}+ · ${c.cls ? `<b class="pcg-jt">${jobTxt(c)}</b>` : '모든 직업'}${c.fit ? ` (추천 ${CLASS_NAME[c.fit]})` : ''}</div></div><div class="cdx-st">${['공격 속도 +' + c.pct + '%', '이동 속도 +' + c.pct + '%', ...c.opt].map(esc).join('<br>')}</div><div class="cdx-src"><b>얻는 곳</b> [변신] 창 뽑기 ${pc(p)}${lo ? ` · ${lo} 4장 합성 ${SYN[lo].p * 100}%` : ''}${c.g === '전설' ? ` · 마일리지 ${fmt(MILE)}점` : ''}<br><b>보유</b> ${has(c.id) ? `<span class="pcg-yes">${D.cards[c.id]}장</span>${locked(c.id) ? ' · 잠금' : ''}` : '<span class="pcg-no">없음</span>'}</div></div>`; }).join('') }; }
   { const b = $('btn-poly'); if (b) b.onclick = () => openWin(); const c2 = $('cw-poly'); if (c2) c2.onclick = () => openWin(); bind(); }
   setInterval(() => { if (sync()) { try { INV.render(); } catch (e) {} refresh(); } tick(); if (auto && !busy && !autoT) { const w = $('polywin'); if (!w || w.hidden) autoStop('변신 카드 창을 닫아서 자동 뽑기를 멈췄어요.'); } }, 1000);   // 변신 칸 맞추기 · 보유 골드 · 무료 뽑기 남은 시간
-  return { load, raw, canKeep, clsOk, cur: () => selfPoly(), rcCache: () => [...PMRC.keys()], drawForm: (g, pk, a, fr, row, x, y) => !!POLY[pk] && drawPoly(g, pk, a, fr, row, x, y, null, null, true), has, spare, free, avail, locked, setLock, inSlot, owned, state: () => D, bad: () => bad, freeLeft, draw, again, last: () => last, milePick,
+  return { load, raw, canKeep, clsOk, cur: () => selfPoly(), rcCache: () => [...PMRC.keys()], drawForm: (g, pk, a, fr, row, x, y) => !!POLY[pk] && drawPoly(g, pk, a, fr, row, x, y, null, null, true), has, spare, free, avail, locked, setLock, inSlot, owned, state: () => D, bad: () => bad, freeLeft, draw, again, last: () => last, milePick, mileGet, mileDo, rrGo, rrDo, rrPick, rrPickDo, rrTry, rrL: id => rrL(id), rrMode: () => rrMode, RR_COST, nextPage,
     setSlot, clearSlot, slot: () => mySlot(), sync, charLoad, morph: id => setSlot(id), doMorph: id => setSlot(id), unmorph, autoSyn, manSyn, synOne: g => synOne(g, new Set(Object.keys(D.cards))), gAvail, tray: () => tray, setTray: (g, n) => { tray = { g: g || null, n: n || {} }; renderWin(); }, trayFill: () => { trayFill(); renderWin(); },
     shopPanel, stopShop, openWin, renderWin, codexHTML, fillArt, art, sim, close, flipAll, busy: () => busy, lastRes: () => lastRes, COST1, COST11, MORPH, FREE_MS, MILE, SYN,
     _force: ids => { FORCE = (ids || []).slice(); }, _tg: () => ov && ov._S && ov._S.g, setSkip, setAuto, skip: () => skip, auto: () => auto, autoWhy: () => autoWhy, seqKey, ov: () => { const S = ov && !ov.hidden && ov._S; return S ? { tg: S.g ? S.g.state() : null, k: S.k, n: S.res.length, open: S.open.size, ready: S.ready, seq: S.seq ? S.seq.ph : null, auto: S.auto } : null; } };
