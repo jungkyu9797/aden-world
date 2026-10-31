@@ -815,15 +815,16 @@ const AMB = (() => {
         g.globalAlpha = 0.25 * day; g.fillStyle = '#000'; g.beginPath(); g.ellipse(x + 40, y + 120, 3, 1.3, 0, 0, 7); g.fill();   // 땅에 비친 그림자
         g.globalAlpha = 0.9; g.strokeStyle = '#1a1814'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(x - 6, y - f); g.quadraticCurveTo(x - 3, y - 2 - f * 0.4, x, y); g.quadraticCurveTo(x + 3, y - 2 - f * 0.4, x + 6, y - f); g.stroke(); } g.restore(); }
   }
+  let FLYSP = null; function flySpr() { if (FLYSP) return FLYSP; const c = document.createElement('canvas'); c.width = c.height = 24; const x = c.getContext('2d'), gr = x.createRadialGradient(12, 12, 0, 12, 12, 12); gr.addColorStop(0, 'rgba(220,255,140,1)'); gr.addColorStop(1, 'rgba(160,255,90,0)'); x.fillStyle = gr; x.fillRect(0, 0, 24, 24); return (FLYSP = c); }
   function drawFlies(g, ox, oy) { if (!flies.length || MAZE()) return; g.save(); g.globalCompositeOperation = 'lighter';
-    for (const f of flies) { const [x, y] = W2P(f.x, f.z), a = 0.45 + 0.55 * Math.max(0, Math.sin(f.ph * 2.3)); const X = x + ox, Y = y + oy - f.h * 30;
-      const gr = g.createRadialGradient(X, Y, 0, X, Y, 6); gr.addColorStop(0, `rgba(220,255,140,${a})`); gr.addColorStop(1, 'rgba(160,255,90,0)'); g.fillStyle = gr; g.fillRect(X - 6, Y - 6, 12, 12); }
+    const sp = flySpr(); for (const f of flies) { const [x, y] = W2P(f.x, f.z), a = 0.45 + 0.55 * Math.max(0, Math.sin(f.ph * 2.3)); const X = x + ox, Y = y + oy - f.h * 30;
+      g.globalAlpha = a; g.drawImage(sp, X - 6, Y - 6, 12, 12); }   /* 11/1: 반딧불 빛은 한 번 그려 둔 작은 그림으로 (매 프레임 그라데이션 수십 개 만들던 것) */
     g.restore(); }
   return { update, draw, drawFlies };
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 203;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 204;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -1992,7 +1993,7 @@ function lavaSkin(c, mode, fr, row, q) { const w = c.width, h = c.height, g = c.
   g.putImageData(SD, 0, 0); const cv = () => { const k = document.createElement('canvas'); k.width = w; k.height = h; return k; }, B = cv(), K = cv(), L = cv(), lg = L.getContext('2d'); B.getContext('2d').putImageData(E, 0, 0); K.getContext('2d').putImageData(MK, 0, 0);
   lg.globalCompositeOperation = 'lighter'; lg.filter = `blur(${1.5 * q}px)`; lg.globalAlpha = rock ? .5 : .42; lg.drawImage(B, 0, 0); lg.filter = `blur(${4.5 * q}px)`; lg.globalAlpha = rock ? .3 : .18; lg.drawImage(B, 0, 0);
   lg.filter = 'none'; lg.globalAlpha = 1; lg.globalCompositeOperation = 'destination-in'; lg.drawImage(K, 0, 0); g.globalCompositeOperation = 'lighter'; g.drawImage(L, 0, 0); g.globalCompositeOperation = 'source-over'; }   // 빛 번짐 (가까이·넓게 두 겹) — 몸 안에만 (밖으로 번지면 흐릿해 보임)
-function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) return c; if (TFR.size > 900) TFR.clear();
+function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) { TFR.delete(key); TFR.set(key, c); return c; } while (TFR.size >= 900) TFR.delete(TFR.keys().next().value);   /* 11/1: 가득 차면 다 지우던 것 → 오래 안 쓴 것부터 하나씩 (다 지우면 화둥처럼 몹 종류가 많은 곳에서 다시 만드느라 끊김) */
   const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   if (M.lava) { const q = MOBILE ? 1 : 2, c2 = document.createElement('canvas'); c2.width = w * q; c2.height = h * q; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.imageSmoothingEnabled = true; g2.imageSmoothingQuality = 'high'; g2.filter = M.tint; g2.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w * q, h * q); g2.filter = 'none'; lavaSkin(c2, M.lava, fr, row, q); g.drawImage(c2, 0, 0, w, h); }   // 용암 몹: 2배로 그려 무늬를 만든 뒤 줄여서 (가는 금까지 매끈)
   else { g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; }
@@ -2207,17 +2208,37 @@ function desertFx(g, vw, vh) { if (!ISLE || !ISLE.def.sand) return; const dk = D
   g.restore(); }
 // v144: 몬스터 한 마리 그리기 (필드 몬스터 · 소환수 · 다른 사람 화면의 소환수 공용)
 // 10/30 프로듀서: 내가 고른 대상(몹·AI 봇)은 생김새를 따라 빨간 테두리 — 몸을 작은 캔버스에 한 번 그려서 빨간 실루엣을 사방으로 조금씩 밀어 깐 뒤 몸을 위에 얹음
-const TGO = { c: null, c2: null, k: 0, f: '' };   // f: 그림자처럼 반투명한 부분은 테두리에서 빼는 SVG 필터(알파 문턱)
+const TGO = { c: null, c2: null, c3: null, f: '', who: null, key: '', t: -1 };   // f: 그림자처럼 반투명한 부분은 테두리에서 빼는 SVG 필터(알파 문턱)
 function tgoFilter() { if (TGO.f) return TGO.f; try { const ns = 'http://www.w3.org/2000/svg', s = document.createElementNS(ns, 'svg'); s.setAttribute('width', '0'); s.setAttribute('height', '0'); s.style.position = 'absolute'; s.setAttribute('aria-hidden', 'true'); s.innerHTML = '<filter id="tgoA" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncA type="linear" slope="5" intercept="-2.6"/></feComponentTransfer></filter>'; document.body.appendChild(s); TGO.f = 'url(#tgoA)'; } catch (e) { TGO.f = 'none'; } return TGO.f; }
-function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] || {}, big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = Math.round(260 * Math.min(2.4, big)), H = Math.round(300 * Math.min(2.4, big)), ox = W / 2, oy = H * 0.78, k = Math.min(2, Math.max(1, curZ || 1));
-  let c = TGO.c, c2 = TGO.c2; if (!c) { c = TGO.c = document.createElement('canvas'); c2 = TGO.c2 = document.createElement('canvas'); }
-  const cw = Math.ceil(W * k), ch = Math.ceil(H * k); if (c.width !== cw || c.height !== ch) { c.width = c2.width = cw; c.height = c2.height = ch; }
-  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
-  drawMobBody(x, f); x.setTransform(1, 0, 0, 1, 0, 0);
-  const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
-  const d = 4 / (curZ || 1), L = px - ox, T = py - oy; /* 10/30 프로듀서: 테두리 2배 두껍게 (2px → 4px) */ g.save(); g.globalAlpha = 0.8 + 0.2 * Math.sin(time * 6);
-  for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; g.drawImage(c2, L + Math.cos(a) * d, T + Math.sin(a) * d, W, H); } g.drawImage(c2, L + d * 0.5, T, W, H); g.drawImage(c2, L - d * 0.5, T, W, H);   /* 두꺼워져도 둥글게: 12방향 + 안쪽 2번 */
-  g.restore(); g.drawImage(c, L, T, W, H); }
+function drawTgtOutline(g, f) { const [px, py] = W2P(f.x, f.z), S = MOB[f.kind] || {}, big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = Math.round(260 * Math.min(2.4, big)), H = Math.round(300 * Math.min(2.4, big)), ox = W / 2, oy = H * 0.78, d = 4 / (curZ || 1), L = px - ox, T = py - oy;
+  /* 11/1 렉 최적화: 빨간 테두리(실루엣을 12방향으로 밀어 깐 것)는 작은 캔버스에서 한 번에 만들어 1/30초마다만 새로 고치고, 화면에는 한 장만 얹음 · 몸은 다른 몹처럼 화면에 바로 그림
+     (예전: 매 프레임 큰 캔버스를 14번 확대해 겹쳐 그려서, 큰 몹(아스타지오·이프리트·불사조)을 고르면 프레임의 대부분을 여기서 씀) · 해상도는 30만 화소 안에서 (작은 몹은 2배, 큰 몹은 1배) */
+  const k = Math.max(1, Math.min(2, curZ || 1, Math.sqrt(300000 / (W * H)))), cw = Math.ceil(W * k), ch = Math.ceil(H * k), key = cw + 'x' + ch + ':' + d.toFixed(2);
+  if (!TGO.c) { TGO.c = document.createElement('canvas'); TGO.c2 = document.createElement('canvas'); TGO.c3 = document.createElement('canvas'); }
+  const c = TGO.c, c2 = TGO.c2, c3 = TGO.c3;
+  if (TGO.who !== f || TGO.key !== key || !(time - TGO.t < 1 / 30 && time >= TGO.t)) { TGO.who = f; TGO.key = key; TGO.t = time;
+    if (c.width !== cw || c.height !== ch) { c.width = c2.width = c3.width = cw; c.height = c2.height = c3.height = ch; }
+    const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cw, ch); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.setTransform(k, 0, 0, k, (ox - px) * k, (oy - py) * k);
+    const fl0 = f.flash; f.flash = 0; try { drawMobBody(x, f); } finally { f.flash = fl0; } x.setTransform(1, 0, 0, 1, 0, 0);   /* 실루엣엔 번쩍임이 필요 없음 (번쩍임 필터가 비쌈) */
+    const y = c2.getContext('2d'); y.globalCompositeOperation = 'source-over'; y.clearRect(0, 0, cw, ch); y.filter = tgoFilter(); y.drawImage(c, 0, 0); y.filter = 'none'; y.globalCompositeOperation = 'source-in'; y.fillStyle = '#ff2a1e'; y.fillRect(0, 0, cw, ch); y.globalCompositeOperation = 'source-over';
+    const z = c3.getContext('2d'), dk = d * k; z.clearRect(0, 0, cw, ch); for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; z.drawImage(c2, Math.round(Math.cos(a) * dk), Math.round(Math.sin(a) * dk)); } z.drawImage(c2, Math.round(dk * 0.5), 0); z.drawImage(c2, -Math.round(dk * 0.5), 0); }   /* 두꺼워져도 둥글게: 12방향 + 안쪽 2번 */
+  const a = 0.8 + 0.2 * Math.sin(time * 6); g.save(); g.globalAlpha = 1 - (1 - a) * (1 - a); g.drawImage(c3, L, T, W, H); g.restore();   /* 예전엔 반투명 14겹이 겹쳐 거의 불투명 — 한 겹이라 그만큼 진하게 */
+  drawMobBody(g, f); }
+// 11/1 렉 최적화: 코드로 그린 몹(거미·개미·전갈·잠자리·폭탄꽃·불알·아스타지오·이프리트)은 선·면 수십 개를 하나씩 그리는데, 맞을 때 번쩍임(brightness 필터)·광폭화 붉은 테두리(drop-shadow)가
+//   켜져 있으면 그 하나하나에 필터가 걸려 한 프레임이 수십~수백 ms (화둥 2층에서 아스타지오·이프리트를 치면 프레임이 뚝 떨어지던 원인) → 몸을 작은 캔버스에 필터 없이 그린 뒤 필터를 한 번만 걸어 얹음
+const PROCFX = { spider: [(g, f) => drawSpider(g, 0, 0, f), 'brightness(2.4) saturate(0)'], ant: [(g, f) => drawAnt(g, 0, 0, f), 'brightness(2.4) saturate(0)'], scorpion: [(g, f) => drawScorpion(g, 0, 0, f), 'brightness(2.4) saturate(0)'],
+  dragonfly: [drawDragonfly, 'brightness(2.3) saturate(.3)'], bombflower: [drawBombFlower, 'brightness(2.3) saturate(.3)'], fireegg: [drawFireEgg, 'brightness(2.4) saturate(0)'], ashtazio: [drawAshtazio, 'brightness(2.3) saturate(.3)'], ifrit: [drawIfrit, 'brightness(2.2) saturate(.35)', 1] };
+const PLC = { c: null };   // procLayer가 쓰는 캔버스 하나 (필요한 만큼만 커짐)
+function procLayer(g, f, S, ART, al) { const [draw, FL, ownA] = PROCFX[ART], dead = f.dead, flashOn = f.flash > 0 && !(ownA && dead && (f.deadT || 0) > 0.1), filt = flashOn ? FL : (f.enraged && !dead ? g.filter : 'none');
+  if (!filt || filt === 'none') return false;   // 필터 없으면 원래대로 (빠름)
+  const big = Math.max(1, ((S.sc || 1) * (S.hh || 60)) / 60), W = 260 * Math.min(2.4, big), H = 300 * Math.min(2.4, big), ox = W / 2, oy = H * 0.78, m = g.getTransform(), cv = g.canvas;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [u, v] of [[-ox, -oy], [W - ox, -oy], [W - ox, H - oy], [-ox, H - oy]]) { const X = m.a * u + m.c * v + m.e, Y = m.b * u + m.d * v + m.f; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
+  x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(cv.width, Math.ceil(x1)); y1 = Math.min(cv.height, Math.ceil(y1)); if (x1 <= x0 || y1 <= y0) return true;   // 화면 밖
+  const bw = x1 - x0, bh = y1 - y0; let c = PLC.c; if (!c) c = PLC.c = document.createElement('canvas'); if (c.width < bw || c.height < bh) { c.width = Math.max(c.width, bw); c.height = Math.max(c.height, bh); }
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.filter = 'none'; x.globalAlpha = 1; x.clearRect(0, 0, bw, bh);
+  x.setTransform(m.a, m.b, m.c, m.d, m.e - x0, m.f - y0); x.imageSmoothingEnabled = g.imageSmoothingEnabled; x.globalAlpha = ownA ? g.globalAlpha : al;
+  const fl0 = f.flash; f.flash = 0; try { draw(x, f); } finally { f.flash = fl0; }
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.filter = filt; g.drawImage(c, 0, 0, bw, bh, x0, y0, bw, bh); g.restore(); return true; }
 function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO.busy = true; try { drawTgtOutline(g, f); } finally { TGO.busy = false; } return; }   /* 고른 대상은 빨간 테두리 (안에서 다시 이 함수를 부름) */
   if (f.bot || f.twr || (f.kind && (f.kind.startsWith('tw_') || f.kind.startsWith('fb_')))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
     const sheetAtk = S.art==='sheet' && !f.dead && f.atkT!=null; mobPose(f, sheetAtk?0.5:1);
@@ -2230,6 +2251,7 @@ function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO
     if (ART==='cdummy'){ g.globalAlpha=al; const E=CDUM[S.cls].eq; g.fillStyle='#5a3a1e'; g.beginPath(); g.ellipse(0,3,19,8,0,0,7); g.fill(); g.fillStyle='#8a5c30'; g.beginPath(); g.ellipse(0,0,19,8,0,0,7); g.fill(); g.strokeStyle='#3a2410'; g.lineWidth=1.5; g.stroke(); drawHeroSprite(g,'idle',Math.floor(time*6+(f.hi||0))%8,1,0,0,fl,S.cls,sl=>E[sl]||null,null); g.save(); g.font='800 10px "Noto Sans KR",sans-serif'; g.textAlign='center'; const nm=S.name; g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(nm,0,-90); g.fillStyle='#9fd0ff'; g.fillText(nm,0,-90); g.restore(); dummyDps(g,f); dummyMag(g,f,f.dlog&&f.dlog.length?-118:-106); g.restore(); return; }
     if (ART==='pumpkin'){ g.globalAlpha=al; drawPumpkin(g,f); g.restore(); return; }
     if (f.ashT>0&&!f.dead){ drawAsh(g,f); g.restore(); return; }   /* 피닉스 잿더미 */
+    if (PROCFX[ART] && procLayer(g, f, S, ART, al)) { g.restore(); return; }   /* 11/1 렉: 코드로 그린 몹이 맞아 번쩍이거나 광폭화면 — 한 장에 그린 뒤 필터를 한 번만 */
     if (ART==='bombflower'){ g.globalAlpha=al; drawBombFlower(g,f); g.restore(); return; }
     if (ART==='dragonfly'){ g.globalAlpha=al; drawDragonfly(g,f); g.restore(); return; }
     if (ART==='fireegg'){ g.globalAlpha=al; drawFireEgg(g,f); g.restore(); return; }
@@ -2396,6 +2418,7 @@ const HOT_AB = { 'sk:heal': '힐', 'sk:shieldm': '실드', 'sk:ebolt': '에볼',
   'sk:quake': '어퀘', 'sk:fstorm': '파스', 'sk:abarrier': '앱배', 'sk:advspirit': '어스', 'sk:lstorm': '라스', 'sk:disint': '디스', 'sk:meteor': '미티', 'sk:blizzard': '블리', 'sk:ghaste': '그헤', 'sk:resur': '리저', 'sk:stun': '스턴',
   'sk:reduction': '리덕', 'sk:bounce': '바운', 'sk:solid': '솔리', 'sk:counter': '카배', 'sk:resist_magic': '레매', 'sk:body_mind': '블소', 'sk:tele_tree': '시야', 'sk:clear_mind': '클마', 'sk:triple_arrow': '트리', 'sk:wind_shot': '윈샷',
   'sk:storm_shot': '스샷', 'sk:striker_gale': '게일', 'sk:earth_bind': '어바', 'sk:pollute_water': '폴워', 'sk:nature_bless': '네블', 'sk:resist_elem': '레엘', 'sk:summon': '서먼', 'act:pick': '줍기',
+  lg_sword: '집행', lg_bow: '격노', lg_staff: '수결',   /* 11/1 전설 무기 줄임말 (프로듀서) */
   hw_scroll: '호강', hw_bscroll: '축호', hw_pouch: '호박', hw_pouch_r: '희호', hw_pouch_h: '영호', hw_candy: '사탕', hw_lantern: '랜턴', red_potion: '빨물', orange_potion: '주물', clear_potion: '맑물', antidote: '해독', candle: '양초', poly_dark: '다변', poly_silver: '실변', scroll_counterm: '카매', mana_potion: '마나', green_potion: '초록', brave_potion: '용기',
   scroll_weapon: '무주', scroll_armor: '갑주', scroll_acc: '장주', bscroll_acc: '축장', bscroll_weapon: '축무', bscroll_armor: '축갑', cscroll_weapon: '저무', cscroll_armor: '저갑', scroll_earth: '땅속', scroll_water: '물속', scroll_fire: '불속', scroll_wind: '바속',
   bless_scroll: '축부', bless_pouch: '축머', arka_pouch: '아르카', pet_fruit: '열매', pet_collar: '목걸이', revive_scroll: '부활', stat_reset: '초기화', return_scroll: '귀환', tele_scroll: '순간', return_charm: '부적', doll_pouch: '인형', acc_change: '변경' };
@@ -2566,6 +2589,7 @@ const MM = (() => { let on = true, op = 0.85, key = '', img = null, rect = [0, 0
     if (i >= 0 && j >= 0 && i < N && j < N && walkable(i, j) && !(ISLE && ISLE.def.maze && !(ISLE.explored && ISLE.explored[j * N + i]))) { hero.target = null; moveGoal = [i, j]; holding = false; mark = { t: [i, j], life: 0.6 }; } return true; }
   return { draw, click, rect: () => rect, on: () => on, op: () => op, setOn(v) { on = !!v; save(); }, setOp(v) { op = Math.max(0.2, Math.min(1, v)); save(); }, rebuild() { key = ''; } };
 })();
+const CHWRAP = new WeakMap();   // 채팅 기록 줄 나누기 결과 (메시지 → {글, 폭, 글꼴, 첫 줄, 둘째 줄})
 function drawUI(g, vw, vh){
   if (MOBILE) { MUI.draw(g, vw, vh); return; }   // v168: 모바일 HUD
   const y0 = vh-PH, F='"Noto Sans KR",sans-serif';
@@ -2633,10 +2657,10 @@ function drawUI(g, vw, vh){
   // 긴 메시지는 두 줄로, 최근 20개 기록, 휠로 위아래
   CHATRECT[0]=chX; CHATRECT[1]=top; CHATRECT[2]=chW; CHATRECT[3]=hgt;
   const maxW=chW-18, rows=[];
-  for (const m of log){ let a=m.t, b='';
+  for (const m of log){ let e=CHWRAP.get(m); if (!e||e.t!==m.t||e.w!==maxW||e.f!==g.font){ let a=m.t, b='';   /* 11/1: 줄 나누기는 메시지마다 한 번만 (매 프레임 글자 폭을 수백 번 재던 것) */
     if (g.measureText(a).width>maxW){ let k=a.length; while (k>1&&g.measureText(a.slice(0,k)).width>maxW) k--; const sp=a.lastIndexOf(' ',k); if (sp>k*0.6) k=sp; b=a.slice(k).trim(); a=a.slice(0,k);
       if (g.measureText(b).width>maxW){ let q=b.length; while (q>1&&g.measureText(b.slice(0,q)+'…').width>maxW) q--; b=b.slice(0,q)+'…'; } }
-    rows.push({t:a,c:m.c}); if (b) rows.push({t:'  '+b,c:m.c}); }
+    e={t:m.t,w:maxW,f:g.font,a,b}; CHWRAP.set(m,e); } rows.push({t:e.a,c:m.c}); if (e.b) rows.push({t:'  '+e.b,c:m.c}); }
   const vis=Math.floor((hgt-6-22)/14.5), maxS=Math.max(0,rows.length-vis); logScroll=Math.max(0,Math.min(logScroll,maxS));   // 맨 아래 한 줄은 채팅 입력칸 · 스크롤은 기록 범위 안에서만
   rows.slice(Math.max(0,rows.length-vis-logScroll), rows.length-logScroll).forEach((m,i)=>{ const yy=top+15+i*14.5; g.fillStyle='#000'; g.fillText(m.t,chX+8,yy+1); g.fillStyle=m.c; g.fillText(m.t,chX+7,yy); });
   g.restore();
@@ -5862,7 +5886,7 @@ const wearTag = d => { if (!d || !d.slot) return ''; const cls = d.codex && d.cl
   if (cls) return `<i class="nowear">${cls.map(c => CLS_SHORT[c] || CLASS_NAME[c] || c).join(',')}</i>`;
   return d.codex && d.lv > 1 && hero.lv < d.lv ? `<i class="nowear">레벨제한(${d.lv})</i>` : ''; };
 /* v186: 인벤·창고 칸 왼쪽 아래에 단축 슬롯처럼 줄임말 (다른 직업 장비처럼 착용 직업이 적히는 장비는 빼고) */
-const invAbbr = id => { const d = ITEMS[id]; if (!d || wearTag(d)) return ''; const t = d.learn ? hotAbbr('sk:' + d.learn) : hotAbbr(id); return t ? `<i class="ab">${t}</i>` : ''; };   /* 마법서·기술서 = 그 마법 줄임말 · 착용 직업/레벨 제한이 적힌 장비는 빼고 */
+const invAbbr = id => { const d = ITEMS[id]; if (!d || (wearTag(d) && !d.legend)) return '';   /* 11/1: 전설 무기는 다른 직업 것도 줄임말 (집행·격노·수결) */ const t = d.learn ? hotAbbr('sk:' + d.learn) : hotAbbr(id); return t ? `<i class="ab">${t}</i>` : ''; };   /* 마법서·기술서 = 그 마법 줄임말 · 착용 직업/레벨 제한이 적힌 장비는 빼고 */
 const cxReq = d => { const okC = !d.cls || d.cls.includes(CLASS), okL = !d.lv || hero.lv >= d.lv; return { okC, okL, ok: okC && okL, txt: `착용 가능: ${cxClsName(d)}${d.lv > 1 ? ` · Lv.${d.lv} 이상` : ''}` }; };
 const cxInfo = d => [cxClsName(d), d.lv > 1 ? 'Lv.' + d.lv : '', d.dmg ? `공격 ${d.dmg[0]}~${d.dmg[1]}` : d.ac ? `방어 +${d.ac}` : '', d.hit ? '명중 +' + d.hit : '', d.xdmg ? '추가 피해 +' + d.xdmg : '', d.mr ? 'MR +' + d.mr : '', ...d.optTxt].filter(Boolean).join(' · ');
 function breakInvis() { if (BUFF.invis > 0) { BUFF.invis = 0; say('공격하면서 투명 상태가 풀렸습니다.', '#9c9682'); } }
@@ -6600,6 +6624,10 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   return { hwHat: () => bag.filter(x => x.id === 'hw_hat').reduce((m, x) => Math.max(m, x.en || 0), -1), twAuto, eqE: s => eq[s] || null, gaho, gahoVal, tipOf: e => tip(e), removeEntry(e) { if (!bag.includes(e) || e.on) return false; bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, insertEntry(e) { const d = ITEMS[e.id]; const x = d && d.stack ? bag.find(y => y.id === e.id) : null; if (x) x.n += e.n; else bag.push(e); render(); }, askYesNo, sellEntry(e, n) { if (!bag.includes(e) || e.on || e.locked) return false; n = Math.min(n || e.n, e.n); e.n -= n; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); BK.list = BK.list.filter(x => bag.includes(x)); render(); return true; }, bulkOpen, bulkClose, holdStart, setClass, add, take, count, use, ac, dmg, stat: () => STAT, addStat, equipped: s => eq[s] ? eq[s].id : null, render, toggle, toggleBoth, toggleWin(id) { const w = $(id); if (!w) return; w.hidden = !w.hidden; skKey = ''; render(); renderSkills(); }, sortBag, useHot, hot: i => hot[i], hotSel: () => hsel, hotMove(d) { hsel = (hsel + d + 12) % 12; }, hotPick(i) { hsel = i; }, hotSwap(a, b) { [hot[a], hot[b]] = [hot[b], hot[a]]; hsel = b; say(`단축키 F${1 + a} ↔ F${1 + b} 자리를 바꿨습니다.`, '#e8d8a8'); }, hotClear(i) { if (!hot[i]) return; if (hot[i] === 'act:auto') { say('자동사냥 아이콘은 지울 수 없어요. 다른 칸으로 옮기기만 할 수 있어요.', '#f0c080'); return; } if (hot[i] === 'act:pick') { say('줍기 아이콘은 지울 수 없어요. 다른 칸으로 옮기기만 할 수 있어요.', '#f0c080'); return; } const id = hot[i]; hot[i] = null; say(`F${1 + i} 칸의 ${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name} 등록을 해제했습니다.`, '#9c9682'); }, setHot(i, id) { if (hot[i] === 'act:auto') { say('자동사냥 아이콘이 있는 칸이에요. 자동사냥 아이콘을 다른 칸으로 옮긴 뒤 등록해 주세요.', '#f0c080'); return; } if (hot[i] === 'act:pick') { say('줍기 아이콘이 있는 칸이에요. 줍기 아이콘을 다른 칸으로 옮긴 뒤 등록해 주세요.', '#f0c080'); return; } hot[i] = id; say(`${id.startsWith('sk:') ? SK[id.slice(3)].name : ITEMS[id].name}을(를) F${1 + i} 칸에 등록했습니다.`, '#e8d8a8'); }, tick(dt) { cd = Math.max(0, cd - dt); hcd = Math.max(0, hcd - dt); cmcd = Math.max(0, cmcd - dt); autoTick(dt); }, healCd: () => hcd / HEAL_CD, cmCd: () => cmcd / CM_CD, er: () => Math.floor(STAT.dex / 3), auto: k => AUTO[k], hamOn: () => !HAM.man, hamToggle, hp3: () => HP3, hpSlot: id => hpSlots()[id], hpToggle, hpAdj, hpActive, blessHit, sp, openAuto, cx: k => sum(k) + (k === 'moveSpd' ? gaho('mv') : 0) + (k === 'hit' ? blessAccHit() : 0) + polyBonus(k) + ((CLS_BASE[CLASS] && CLS_BASE[CLASS][k]) || 0), wAttr: () => (eq.weapon && eq.weapon.attr) || null, useInvis,
     godScrolls(on) { for (const id of GOD_SCROLLS) { let e = bag.find(x => x.id === id);   // 켜면 종류별로 1칸씩(없을 때만, 표시는 ∞), 끄면 그 1장만 빼서 원래 수로
         if (on) { if (!e) { bag.push({ id, n: 1, on: false, godTemp: true }); } } else if (e && e.godTemp) { e.n -= 1; delete e.godTemp; if (e.n <= 0) bag.splice(bag.indexOf(e), 1); } } render(); },
+    ccBonus: () => Object.assign({}, BONUS),   /* 11/1 캐릭터 복사: 보너스 능력치(찍은 값) */
+    ccSet(L, B) { if (!window.DEMO_MODE) return -1; let n = 0; for (const s of Object.keys(eq)) { const e = eq[s]; delete eq[s]; e.on = false; n++; }   /* 11/1 캐릭터 복사(테스트 페이지만): 지금 착용한 장비는 가방으로 · 코드의 장비를 새로 만들어 그 칸에 · 보너스 능력치 */
+      for (const x of L) { const e = { id: x.id, n: 1, on: x.sl }; if (x.en) e.en = x.en; if (x.bl) e.blessed = true; if (x.el) e.attr = { el: x.el, lv: x.al }; if (x.bs) e.blessSp = x.bs; bag.push(e); eq[x.sl] = e; }
+      for (const k in BONUS) BONUS[k] = (B && +B[k]) || 0; render(); return n; },
     trashAsk, setLevelPts(total) { const spent = Object.values(BONUS).reduce((a, b) => a + b, 0); if (spent > total) { for (const k in BONUS) BONUS[k] = 0; hero.bonusPts = total; } else hero.bonusPts = total - spent; render(); }, setAuto, setAutoBuff, autoBuff: id => AUTOBUFF[id], showDetail, hideDetail, showSkill, holdHot, openHot, setAutoSk, autoSk: id => !!AUTOSK[id], applyScroll, targeting: () => tgtScroll, bag: () => bag, tab: t => { if (t !== invTab) { invTab = t; invNow = true; render(); } }, nameOf, wPct, maxW, weightNow: weight, enOf: sl => eq[sl] ? (eq[sl].en || 0) : 0,
     dump() { const cl = x => JSON.parse(JSON.stringify(x, (k, v) => k && k[0] === '_' ? undefined : v)); const B = cl(bag.filter(e => !e.godTemp || e.n > 1).map(e => e.godTemp ? Object.assign({}, e, { n: e.n - 1, godTemp: undefined }) : e)); B.forEach(e => { delete e.godTemp; if (e.pet && e.pet.state === 'out') e.pet.state = 'stored'; });
       return { bag: B.concat(INV_UNK), bonus: Object.assign({}, BONUS), hot: hot.slice(), auto: cl(AUTO), ab: cl(AUTOBUFF), ask: Object.keys(AUTOSK), ham: { man: HAM.man, mem: HAM.mem.slice() } }; },
@@ -8129,7 +8157,7 @@ const NET = (() => {
     chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t, k) { anSeq++; anText = String(t).slice(0, 90); anL.push(k ? [anSeq, anText, String(k).slice(0, 12)] : [anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
 })();
 // ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
-// 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지
+// 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지 · 캐릭터 복사 코드(11/1 · 테스트 페이지에 붙여 넣는 코드)
 // 명령은 운영자 키로 서명해서 보내고, 받는 쪽은 게임에 들어 있는 공개 키로 확인한 뒤에만 실행 (다른 사람이 운영자인 척할 수 없음)
 const ADMIN = (() => {
   const ADMC = '#ff86e0', $ = id => document.getElementById(id), enc = new TextEncoder();
@@ -8184,10 +8212,11 @@ const ADMIN = (() => {
     out.push([sq, t, to, cmd, a, sig]); if (out.length > 6) out.shift(); NET.poke(); return true; }
   // ---------- 받는 쪽(일반 유저): 서명 확인이 끝난 명령만 여기로 옴
   function respond(to, sq, cmd, data) { NET.admRespond(to, sq, cmd, data); }
-  function inspData() { const st = INV.stat(), eq = INV.bag().filter(e => e.on).map(e => [e.id, e.en || 0, e.blessed ? 1 : 0]); let bag = INV.bag().filter(e => !e.on).map(e => [e.id, e.n, e.en || 0, e.blessed ? 1 : 0]);
+  function inspData(cc) { const st = INV.stat(), eq = INV.bag().filter(e => e.on).map(e => [e.id, e.en || 0, e.blessed ? 1 : 0]); let bag = INV.bag().filter(e => !e.on).map(e => [e.id, e.n, e.en || 0, e.blessed ? 1 : 0]);
     const D = { n: PNAME(), c: CLASS, lv: hero.lv, ex: +(hero.exp / Math.max(1, needExp(hero.lv)) * 100).toFixed(1), hp: [Math.ceil(hero.hp), hero.max], mp: [Math.floor(hero.mp), hero.maxmp], ac: INV.ac(), mr: mrTotal(),
       st: { str: st.str, dex: st.dex, con: st.con, int: st.int, wis: st.wis, cha: st.cha }, bp: hero.bonusPts | 0, g: Math.floor(coins), z: zoneTitle(), w: Math.round((INV.wPct ? INV.wPct() : 0) * 100), eq, bag };
-    while (JSON.stringify(D).length > 1800 && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
+    let cap = 1800; if (cc) { try { D.cc = CCOPY.make(); if (window.__bigNet) cap += JSON.stringify(D.cc).length; } catch (e) {} }   // 11/1 캐릭터 복사: 운영자가 [복사 코드]를 누를 때만 붙임 (공용 서버는 가방 목록을 줄여 전체 1,800자 안 · 전용 서버는 복사 정보만큼 더)
+    while (JSON.stringify(D).length > cap && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
   function setLv(L) { L = Math.max(1, Math.min(99, L | 0)); const CD = CLS_DEF[CLASS]; let bh = CD.hp, bm = CD.mp, sd = L * 977 + 13; const R0 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
     for (let l = 2; l <= L; l++) { bh += CD.hpLv[0] + Math.floor(R0() * (CD.hpLv[1] - CD.hpLv[0] + 1)); bm += CD.mpLv[0] + Math.floor(R0() * (CD.mpLv[1] - CD.mpLv[0] + 1)); }
     hero.lv = L; hero.exp = 0; hero.baseHP = bh; hero.baseMP = bm; INV.setLevelPts(Math.floor(L / 5)); INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; return L; }
@@ -8195,7 +8224,7 @@ const ADMIN = (() => {
   const zkey = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
   function apply(cmd, a, from, sq) { let A = {}; try { A = JSON.parse(a || '{}') || {}; } catch (e) {} const ok = m => { if (from) respond(from, sq, cmd, { ok: 1, m }); }, no = m => { if (from) respond(from, sq, cmd, { ok: 0, m }); else say(m, '#f08a7a'); };
     switch (cmd) {
-      case 'insp': if (from) respond(from, sq, 'insp', inspData()); return;
+      case 'insp': if (from) respond(from, sq, 'insp', inspData(!!A.cc)); return;
       case 'notice': announce(`[운영자] ${String(A.t || '').slice(0, 80)}`, ADMC); return;
       case 'msg': say(`[운영자 → ${PNAME()}] ${String(A.t || '').slice(0, 80)}`, ADMC, 1); ok('메시지 전달'); return;
       case 'give': { const d = ITEMS[A.id]; if (!d) return no('없는 아이템'); const n = Math.max(1, Math.min(d.stack ? 99999 : (from ? 20 : 100), A.n | 0 || 1));
@@ -8213,8 +8242,17 @@ const ADMIN = (() => {
       case 'kick': ok('추방'); (async () => { try { await SAVE.now(true, true); } catch (e) {} SESS.kick('admin'); })(); return;
       default: return; }
     try { SAVE.now(false, true); } catch (e) {} }
+  // ---------- 11/1 캐릭터 복사 코드 (테스트 페이지 갓 모드 [캐릭터 복사]에 붙여 넣는 코드 · CCOPY): 상대 것은 [살펴보기 → 복사 코드] · 내 것은 [내 캐릭터 복사 코드]
+  const ccs = new Map(); let ccWant = null;   // ccs: 상대별로 받은 복사 정보 · ccWant: 지금 기다리는 상대 (8초)
+  const ccNm = t => String(t || '').replace(/[<>&"]/g, '');
+  function ccOut(code, who, elId) { CCOPY.copy(code).then(ok => { const box = $(elId); if (ok) { const m = `${who} 복사 코드를 복사했어요 (테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여넣기)`; say('[운영자] ' + m, ADMC); if (box) box.innerHTML = `<span class="muted">✔ ${ccNm(m)}</span>`; return; }
+      say('[운영자] 자동 복사가 막혀서 운영자 창에 코드를 띄웠어요. 직접 복사해 주세요. (Ctrl+C)', '#f0c080'); if (!box) return;
+      box.innerHTML = `<div class="muted">${ccNm(who)} 복사 코드 — 직접 복사해서 테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣어 주세요</div><textarea readonly rows="3" style="width:100%;box-sizing:border-box;font:11px Consolas,monospace;background:#140d10;color:#f2e6d8;border:1px solid #6a3a58"></textarea>`; const ta = box.querySelector('textarea'); ta.value = code; ta.focus(); ta.select(); }); }
+  function ccPeer(peer) { const c = ccs.get(peer), o = NET.others().find(q => q.peer === peer), nm = (o ? o.pr.n || '?' : '?') + '님';
+    if (c && Date.now() - c.at < 20000) { ccOut(CCOPY.encode(c.cc), nm, 'adm-cc-out'); return; }   // 20초 안에 받은 정보가 있으면 바로
+    ccWant = { peer, at: Date.now() }; send(peer, 'insp', { cc: 1 }); const box = $('adm-cc-out'); if (box) box.innerHTML = `<span class="muted">${ccNm(nm)} 복사 코드를 받는 중…</span>`; }
   // ---------- 운영자 쪽: 응답 받기
-  function onResp(peer, cmd, data, nm) { if (cmd === 'insp') { insp.set(peer, { at: Date.now(), d: data }); if (sel === peer) drawDet(); return; } acks.unshift(`${nm}: ${data && data.m || cmd} ${data && data.ok ? '✔' : '✖'}`); if (acks.length > 6) acks.pop(); say(`[운영자] ${nm} — ${data && data.m || cmd}${data && data.ok ? '' : ' (실패)'}`, ADMC); drawDet(); }
+  function onResp(peer, cmd, data, nm) { if (cmd === 'insp') { insp.set(peer, { at: Date.now(), d: data }); if (data && data.cc) { ccs.set(peer, { at: Date.now(), cc: data.cc }); if (ccWant && ccWant.peer === peer) { ccWant = null; ccOut(CCOPY.encode(data.cc), nm + '님', 'adm-cc-out'); } } if (sel === peer) drawDet(); return; } acks.unshift(`${nm}: ${data && data.m || cmd} ${data && data.ok ? '✔' : '✖'}`); if (acks.length > 6) acks.pop(); say(`[운영자] ${nm} — ${data && data.m || cmd}${data && data.ok ? '' : ' (실패)'}`, ADMC); drawDet(); }
   // ---------- 창
   const CLS_N = { knight: '기사', elf: '요정', wizard: '마법사' };
   const zoneName = z => { try { return zoneTitle(z); } catch (e) { return z || '-'; } };
@@ -8230,17 +8268,19 @@ const ADMIN = (() => {
       <h4>전체 공지</h4><div class="row"><input id="adm-nt" style="flex:1" maxlength="80" placeholder="모든 접속자 화면에 공지"><button type="button" id="adm-nts">보내기</button></div>
       <h4>내 캐릭터 (운영자)</h4><div class="row">아이템 <input id="adm-sit" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-sin" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-sie" type="number" value="0" style="width:44px"> <label><input id="adm-sib" type="checkbox"> 축복</label> <button type="button" id="adm-sgive">만들기</button></div>
       <div class="row">골드 <input id="adm-sg" type="number" style="width:120px" placeholder="금액"> <button type="button" id="adm-sgadd">만들기</button> &nbsp; 레벨 <input id="adm-sl" type="number" style="width:50px" min="1" max="99"> <button type="button" id="adm-slv">설정</button> <span class="muted">· 이동 5배 · 무적 · 몬스터 공격 안 함</span></div>
-      <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><datalist id="adm-items"></datalist>`;
+      <div class="row"><button type="button" id="adm-ccme">내 캐릭터 복사 코드</button> <span class="muted">테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣으면 이 캐릭터와 똑같이</span></div><div id="adm-ccme-out"></div>
+      <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><div id="adm-cc-out"></div><datalist id="adm-items"></datalist>`;
     document.body.appendChild(w);
     $('adm-x').onclick = () => { w.hidden = true; }; w.addEventListener('keydown', ev => ev.stopPropagation());
     const selfIdOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === String(nm || '').trim() && !ITEMS[k].hidden);
     $('adm-sgive').onclick = () => { const id = selfIdOf($('adm-sit').value); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } apply('give', JSON.stringify({ id, n: Math.max(1, +$('adm-sin').value | 0), en: +$('adm-sie').value | 0, bl: $('adm-sib').checked ? 1 : 0 }), null, 0); };
     $('adm-sgadd').onclick = () => { const v = Math.floor(+$('adm-sg').value || 0); if (v) apply('gold', JSON.stringify({ op: 'add', v }), null, 0); };
     $('adm-slv').onclick = () => { const L = +$('adm-sl').value | 0; if (L >= 1) apply('lv', JSON.stringify({ lv: L }), null, 0); };
+    $('adm-ccme').onclick = () => ccOut(CCOPY.code(), '내 캐릭터', 'adm-ccme-out');
     $('adm-nts').onclick = () => { const t = $('adm-nt').value.trim(); if (!t) return; send('*', 'notice', { t }); announce(`[운영자] ${t}`, ADMC); $('adm-nt').value = ''; };
     $('adm-items').innerHTML = Object.keys(ITEMS).filter(id => !ITEMS[id].hidden).sort((a, b) => ITEMS[a].name.localeCompare(ITEMS[b].name, 'ko')).map(id => `<option value="${ITEMS[id].name.replace(/"/g, '')}">`).join('');
     $('adm-list').onclick = ev => { const b = ev.target.closest('button[data-a]'), tr = ev.target.closest('tr[data-p]'); if (!tr) return; const peer = tr.dataset.p, o = NET.others().find(q => q.peer === peer); if (!o) return;
-      if (!b || b.dataset.a === 'insp') { sel = peer; send(peer, 'insp'); drawList(); drawDet(); return; }
+      if (!b || b.dataset.a === 'insp') { if (sel !== peer && $('adm-cc-out')) $('adm-cc-out').innerHTML = ''; sel = peer; send(peer, 'insp'); drawList(); drawDet(); return; }
       if (b.dataset.a === 'go') { if (goTo(o.pr.z, +o.pr.x || 0, +o.pr.y || 0)) say(`[운영자] ${o.pr.n}님 옆으로 이동했습니다.`, ADMC); else say('그 위치로는 이동할 수 없어요.', '#f08a7a'); }
       if (b.dataset.a === 'pull') send(peer, 'pull', { z: zkey(), x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) }); }; }
   function drawList() { const w = $('admwin'); if (!w || w.hidden) return; const L = NET.others(); $('adm-cnt').textContent = `${L.length}명`;
@@ -8251,7 +8291,7 @@ const ADMIN = (() => {
       <span>힘 ${D.st.str} · 민첩 ${D.st.dex}</span><span>체력 ${D.st.con} · 지능 ${D.st.int}</span><span>지혜 ${D.st.wis} · 매력 ${D.st.cha}</span><span>보너스 ${D.bp}</span><span>무게 ${D.w}%</span><span class="muted">${D.z}</span></div>
       <div style="margin-top:4px"><b>착용</b> ${D.eq.map(([id, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}</span>`).join('') || '<span class="muted">없음</span>'}</div>
       <div style="margin-top:3px"><b>가방</b> ${D.bag.map(([id, n, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}${n > 1 ? ' ×' + n : ''}</span>`).join('') || '<span class="muted">비어 있음</span>'}${D.more ? ` <span class="muted">외 ${D.more}개</span>` : ''}</div>
-      <div class="muted" style="margin-top:2px">${Math.round((Date.now() - I.at) / 1000)}초 전 정보 · <button type="button" id="adm-re">새로고침</button></div>` : '<div class="muted">정보를 받는 중… (상대가 접속 중이어야 해요)</div>';
+      <div class="muted" style="margin-top:2px">${Math.round((Date.now() - I.at) / 1000)}초 전 정보 · <button type="button" id="adm-re">새로고침</button> <button type="button" id="adm-cc" title="테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣는 코드">복사 코드</button></div>` : '<div class="muted">정보를 받는 중… (상대가 접속 중이어야 해요)</div>';
     box.innerHTML = `<h4>${String(o.pr.n || '').replace(/</g, '')} 살펴보기</h4>${info}
       <h4>관리</h4>
       <div class="row">아이템 <input id="adm-it" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-in" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-ie" type="number" value="0" style="width:44px"> <label><input id="adm-ib" type="checkbox"> 축복</label> <button type="button" data-c="give">지급</button><button type="button" data-c="take">회수</button></div>
@@ -8260,7 +8300,7 @@ const ADMIN = (() => {
       <div class="row">메시지 <input id="adm-m" style="flex:1" maxlength="80" placeholder="이 유저에게만 보이는 운영자 메시지"> <button type="button" data-c="msg">보내기</button></div>
       ${acks.length ? `<div class="muted">${acks.slice(0, 3).join(' · ')}</div>` : ''}`;
     for (const k in kept) { const el = $(k); if (el) el.value = kept[k]; } if ($('adm-ib')) $('adm-ib').checked = !!kb; if (foc && $(foc)) $(foc).focus();
-    const re = $('adm-re'); if (re) re.onclick = () => send(sel, 'insp');
+    const re = $('adm-re'); if (re) re.onclick = () => send(sel, 'insp'); const cb = $('adm-cc'); if (cb) cb.onclick = () => ccPeer(sel);
     box.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => { const c = b.dataset.c, idOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === nm.trim() && !ITEMS[k].hidden);
       if (c === 'give' || c === 'take') { const id = idOf($('adm-it').value || ''); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } send(sel, c, { id, n: Math.max(1, +$('adm-in').value | 0), en: +$('adm-ie').value | 0, bl: $('adm-ib').checked ? 1 : 0 }); }
       else if (c === 'gadd' || c === 'gsub' || c === 'gset') { const v = Math.floor(+$('adm-g').value || 0); if (!v && c !== 'gset') return; send(sel, 'gold', c === 'gset' ? { op: 'set', v } : { op: 'add', v: c === 'gsub' ? -Math.abs(v) : Math.abs(v) }); }
@@ -8268,8 +8308,122 @@ const ADMIN = (() => {
       else if (c === 'msg') { const t = $('adm-m').value.trim(); if (t) { send(sel, 'msg', { t }); $('adm-m').value = ''; } }
       else if (c === 'kick') INV.askYesNo(`${o.pr.n}님을 추방할까요?`, '진행 상황을 저장한 뒤 접속을 끊어요.', () => send(sel, 'kick'));
       else send(sel, c); }); }
-  function tick(dt) { if (!on) return; BUFF.invis = Math.max(BUFF.invis || 0, 5); GOD_INV = true; if (BUFF.stun > 0) BUFF.stun = 0; if (BUFF.slow > 0) BUFF.slow = 0; if (hero.target && foxes.includes(hero.target)) hero.target = null; if ((uiT -= dt) <= 0) { uiT = 1; drawList(); } }
+  function tick(dt) { if (!on) return; BUFF.invis = Math.max(BUFF.invis || 0, 5); GOD_INV = true; if (BUFF.stun > 0) BUFF.stun = 0; if (BUFF.slow > 0) BUFF.slow = 0; if (hero.target && foxes.includes(hero.target)) hero.target = null; if ((uiT -= dt) <= 0) { uiT = 1; drawList(); }
+    if (ccWant && Date.now() - ccWant.at > 8000) { ccWant = null; say('[운영자] 복사 코드를 받지 못했어요. 상대가 아직 접속 중인지, 게임이 최신 버전인지 확인해 주세요.', '#f08a7a'); const box = $('adm-cc-out'); if (box) box.innerHTML = ''; } }
   return { on: () => on, pending: () => !on && mine(), tryOn, sign, out: () => out, apply, onResp, tick, send, cert: () => cert, devRequest };
+})();
+// ============================================================ 11/1: 캐릭터 복사 — 본섭 운영자 창 [살펴보기 → 복사 코드]·[내 캐릭터 복사 코드]로 만든 코드를 테스트 페이지 갓 모드 [캐릭터 복사]에 붙여 넣으면
+//   레벨·경험치·기본 HP/MP·보너스 능력치·장비(강화·축복·속성·축복 SP)·인형·가호·변신 카드(변신 칸)·변신 주문서·버프를 똑같이 맞추고, 최대 HP/MP·AC·MR·능력치·공격·SP·전투력을 비교해서 보여 줌
+//   코드 = 'AWC1:' + base64url(JSON) + '.' + 확인값(FNV-1a) · 본섭에는 코드를 만드는 쪽만 있음 (적용은 테스트 페이지 DEMO_MODE에서만 · INV.ccSet도 DEMO_MODE가 아니면 아무것도 안 함)
+const CCOPY = (() => {
+  const VER = 1, ST6 = ['str', 'dex', 'con', 'int', 'wis', 'cha'], ST6_N = ['힘', '민첩', '체력', '지능', '지혜', '카리스마'], SLOT_OK = new Set(SLOTS.map(s => s[0])), BF_SKIP = new Set(['poly', 'abar', 'immune']);
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]), r2 = v => Math.round((+v || 0) * 100) / 100;
+  const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); };
+  const bfKeys = () => Object.keys(BUFF_DEF).filter(k => !BUFF_DEF[k].bad && !BF_SKIP.has(k) && k in BUFF);   // 복사하는 버프 (디버프·변신·앱솔루트 배리어·이뮨 투 함은 뺌)
+  const trim = r => { while (r.length > 2 && !r[r.length - 1]) r.pop(); return r; };
+  const ihOf = o => fnv([...o.e.map(r => r[1]), ...(o.g || []).map(r => r[0])].map(id => (ITEMS[id] || {}).name || id).join('|'));   // 아이템 이름 확인값 — 버전이 달라 같은 아이디가 다른 아이템이면 거절
+  // 지금 캐릭터의 수치 — 코드에 넣어 두고, 적용한 뒤 똑같은지 비교
+  function vals() { const st = INV.stat(), dm = INV.dmg(); return { hp: hero.max, mp: hero.maxmp, ac: r2(INV.ac()), mr: r2(mrTotal()), st: ST6.map(k => st[k]), dm: [dm[0], dm[1]], sp: r2(INV.sp()), cp: combatPower().total, sk: [...LEARNED].filter(id => SK[id] && !SK[id].hidden).length, pf: selfPoly() || 0 }; }
+  // 착용 장비 [칸, 아이디, 강화, 축복, 속성, 속성 단계, 축복 SP] (뒤쪽 0은 뺌)
+  const eqOut = () => SLOTS.map(([sl]) => INV.eqE(sl)).filter(Boolean).map(e => trim([e.on, e.id, e.en | 0, e.blessed ? 1 : 0, e.attr ? e.attr.el : 0, e.attr ? e.attr.lv | 0 : 0, e.blessSp | 0]));
+  // 가방에 있기만 해도 효과가 있는 아이템: 가호(같은 가호는 가장 높은 것 하나만) · 할로윈 모자(가장 높은 강화)
+  const bagKey = id => { const d = ITEMS[id]; return d && d.gstat ? 'g:' + d.gstat : id === 'hw_hat' ? 'hw' : null; }, bagVal = e => ITEMS[e.id].gstat ? INV.gahoVal(e) : (e.en | 0);
+  function bagOut() { const best = {}; for (const e of INV.bag()) { const k = !e.on && bagKey(e.id); if (!k) continue; const v = bagVal(e); if (!best[k] || v > best[k].v) best[k] = { v, e }; }
+    return Object.values(best).map(({ e }) => { const r = [e.id, e.en | 0, e.blessed ? 1 : 0]; while (r.length > 1 && !r[r.length - 1]) r.pop(); return r; }); }
+  function make() { const B = INV.ccBonus(), c = PCG.slot(), cur = POLY_ON && POLY[POLY_ON], ps = cur && !cur.card && BUFF.poly > 0 ? POLY_ON : 0, bf = {};
+    for (const k of bfKeys()) if (BUFF[k] > 0) bf[k] = Math.ceil(BUFF[k]);
+    const o = { v: VER, gv: GAME_VER, n: PNAME(), c: CLASS, lv: hero.lv, ex: hero.exp, bh: hero.baseHP, bm: hero.baseMP, bp: hero.bonusPts | 0, b: ST6.map(k => B[k] | 0), e: eqOut(), g: bagOut(), pc: c ? c.id : 0, ps, pt: ps ? Math.ceil(BUFF.poly) : 0, bf, s: vals() };
+    if (!o.g.length) delete o.g; if (!o.pc) delete o.pc; if (!o.ps) { delete o.ps; delete o.pt; } if (!Object.keys(bf).length) delete o.bf; o.ih = ihOf(o); return o; }
+  const encode = o => { const j = JSON.stringify(o); return 'AWC' + VER + ':' + b64u(new TextEncoder().encode(j)) + '.' + fnv(j); }, code = () => encode(make());
+  // ----- 코드 읽기 · 확인 (형식 · 확인값 · 아는 아이템 · 값 범위)
+  const int = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
+  function invalid(o) { if (!o || typeof o !== 'object' || o.v !== VER) return '코드 내용을 읽을 수 없어요.'; if (!CLS_DEF[o.c]) return '알 수 없는 직업의 코드예요.';
+    if (!int(o.lv, 1, 99) || !(typeof o.ex === 'number' && o.ex >= 0 && isFinite(o.ex)) || !int(o.bh, 1, 99999) || !int(o.bm, 0, 99999) || !int(o.bp, 0, 99)) return '레벨·경험치·기본 HP/MP 값이 이상해요.';
+    if (!Array.isArray(o.b) || o.b.length !== 6 || !o.b.every(v => int(v, 0, 99))) return '보너스 능력치 값이 이상해요.';
+    if (!Array.isArray(o.e) || o.e.length > SLOTS.length) return '장비 목록이 이상해요.'; const seen = new Set();
+    for (const r of o.e) { if (!Array.isArray(r)) return '장비 목록이 이상해요.'; const [sl, id, en = 0, bl = 0, el = 0, al = 0, bs = 0] = r, d = ITEMS[id];
+      if (!SLOT_OK.has(sl) || seen.has(sl)) return `장비 칸이 이상해요. (${sl})`; seen.add(sl);
+      if (!d || REMOVED_ITEMS[id]) return `이 테스트 페이지에 없는 아이템이 있어요: ${id} (게임 버전이 다른지 확인해 주세요)`;
+      if (d.slot === 'ring' ? !/^ring[12]$/.test(sl) : d.slot !== sl) return `${d.name}은(는) ${sl} 칸 장비가 아니에요.`;
+      if (!int(en, -7, 15) || !int(bl, 0, 1) || !int(bs, 0, 9)) return `${d.name}: 강화·축복 값이 이상해요.`;
+      if (el ? !ATTR_N[el] || !int(al, 1, 3) : al) return `${d.name}: 속성 값이 이상해요.`; }
+    if (o.g != null) { if (!Array.isArray(o.g) || o.g.length > 12) return '가방 효과 아이템 목록이 이상해요.';
+      for (const r of o.g) { const [id, en = 0, bl = 0] = Array.isArray(r) ? r : [], d = ITEMS[id]; if (!d || !bagKey(id)) return `이 테스트 페이지에 없는 가방 효과 아이템이 있어요: ${id}`; if (!int(en, 0, 15) || !int(bl, 0, 1)) return `${d.name}: 강화·축복 값이 이상해요.`; } }
+    if (o.ih != null && o.ih !== ihOf(o)) return `코드를 만든 게임(v${o.gv})과 이 테스트 페이지(v${GAME_VER})의 아이템이 달라요. 테스트 페이지를 본섭과 같은 버전으로 올린 뒤 다시 해 주세요.`;
+    if (o.pc != null && !PC_BY[o.pc]) return `이 테스트 페이지에 없는 변신 카드예요: ${o.pc}`;
+    if (o.ps != null && !(POLY[o.ps] && !POLY[o.ps].card && POLY[o.ps].cls === o.c && int(o.pt, 1, 36000))) return `변신 주문서 값이 이상해요: ${o.ps}`;
+    if (o.bf != null) { if (typeof o.bf !== 'object' || Array.isArray(o.bf)) return '버프 값이 이상해요.'; for (const k in o.bf) if (!(o.bf[k] > 0 && o.bf[k] <= 36000)) return `버프 값이 이상해요: ${k}`; }
+    const s = o.s; if (!s || typeof s !== 'object' || !Array.isArray(s.st) || s.st.length !== 6) return '비교용 수치가 없어요.';
+    return ''; }
+  function decode(t) { const m = /^AWC(\d+):([A-Za-z0-9_-]+)\.([0-9a-z]+)$/.exec(String(t || '').replace(/\s+/g, ''));
+    if (!m) return { err: '복사 코드 형식이 아니에요. 운영자 창의 [복사 코드]로 받은 코드를 그대로 붙여 넣어 주세요.' };
+    if (+m[1] !== VER) return { err: `이 테스트 페이지가 모르는 코드예요. (AWC${m[1]} · 테스트 페이지를 새 버전으로 올려 주세요)` };
+    let j, o; try { j = new TextDecoder('utf-8', { fatal: true }).decode(ub64u(m[2])); } catch (e) { return { err: '코드가 손상됐어요. 다시 복사해 주세요.' }; }
+    if (fnv(j) !== m[3]) return { err: '코드가 손상됐어요. (확인값이 맞지 않아요) 다시 복사해 주세요.' };
+    try { o = JSON.parse(j); } catch (e) { return { err: '코드가 손상됐어요. 다시 복사해 주세요.' }; }
+    const w = invalid(o); return w ? { err: w } : { o }; }
+  const clsMsg = o => `${CLASS_NAME[o.c]} 캐릭터로 접속해서 붙여 넣어 주세요. (지금 ${CLASS_NAME[CLASS]} 캐릭터예요)`;
+  // ----- 적용 (테스트 페이지만)
+  function apply(o) { if (!window.DEMO_MODE) return { ok: false, msg: '캐릭터 복사는 테스트 페이지에서만 쓸 수 있어요.' };
+    const w = invalid(o); if (w) return { ok: false, msg: w }; if (o.c !== CLASS) return { ok: false, msg: clsMsg(o) };
+    if (DEATH) return { ok: false, msg: '쓰러진 상태에서는 복사할 수 없어요. 부활한 뒤 다시 해 주세요.' };
+    const note = [];
+    // 1) 레벨·경험치·기본 HP/MP → 기술·마법은 레벨에 맞게 다시 (레벨이 되면 자동으로 배우는 것과 같게)
+    hero.lv = o.lv; hero.exp = o.ex; hero.baseHP = o.bh; hero.baseMP = o.bm; LEARNED.clear(); wizAutoLearn(true);
+    // 2) 장비(지금 착용한 장비는 가방으로) · 보너스 능력치
+    const moved = INV.ccSet(o.e.map(([sl, id, en = 0, bl = 0, el = 0, al = 0, bs = 0]) => ({ sl, id, en, bl, el, al, bs })), Object.fromEntries(ST6.map((k, i) => [k, o.b[i]]))); hero.bonusPts = o.bp;
+    if (moved > 0) note.push(`원래 착용 장비 ${moved}개는 가방으로 옮겼어요`);
+    // 3) 가방 효과 아이템: 코드의 것을 넣고, 더 높은 가호(또는 코드에 없는 가호)는 창고로 (지우지 않음)
+    const want = {}; for (const [id, en = 0, bl = 0] of o.g || []) { const e = { id, n: 1, on: false }; if (en) e.en = en; if (bl) e.blessed = true; want[bagKey(id)] = e; }
+    const keys = new Set(Object.keys(want)); for (const e of INV.bag()) { const k = !e.on && bagKey(e.id); if (k && k[0] === 'g') keys.add(k); }
+    let stored = 0; for (const k of keys) { const wv = want[k] ? bagVal(want[k]) : -1;
+      for (const e of INV.bag().filter(x => !x.on && bagKey(x.id) === k && bagVal(x) > wv)) if (STORE.deposit(e)) stored++;
+      if (want[k] && !INV.bag().some(x => !x.on && bagKey(x.id) === k && bagVal(x) === wv)) INV.insertEntry(want[k]); }
+    if (stored) note.push(`코드보다 높거나 코드에 없는 가호 ${stored}개는 창고로 옮겼어요`);
+    // 4) 버프: 지금 버프를 지우고 코드의 버프를 남은 시간 그대로 (모르는 버프는 건너뜀)
+    for (const k in BUFF_DEF) if (k !== 'poly' && k in BUFF) BUFF[k] = 0; for (const k in o.bf || {}) if (bfKeys().includes(k)) BUFF[k] = +o.bf[k];
+    // 5) 변신 카드(변신 칸) · 변신 주문서
+    const S = PCG.state(); if (o.pc) { const c = PC_BY[o.pc]; if (!PCG.has(o.pc) || (PCG.free(o.pc) <= 0 && S.slot[CLASS] !== o.pc)) { S.cards[o.pc] = (S.cards[o.pc] || 0) + 1; note.push(`변신 카드 [${c.name}] 1장을 넣었어요`); }
+      if (S.slot[CLASS] !== o.pc || PCG.cur() !== c.key) PCG.setSlot(o.pc); } else if (S.slot[CLASS]) PCG.clearSlot(true);
+    { const cur = POLY_ON && POLY[POLY_ON]; if (o.ps) { POLY_ON = o.ps; BUFF.poly = o.pt; } else if (cur && !cur.card) { POLY_ON = null; BUFF.poly = 0; } PCG.sync(); }
+    // 6) 다시 계산 → 비교
+    INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; { const gl = document.getElementById('gp-lv'); if (gl) gl.value = hero.lv; }
+    try { SAVE.now(false, true); } catch (e) {}
+    return { ok: true, diff: compare(o), note }; }
+  // 코드의 수치와 지금 수치 비교 → 다른 점 목록 (없으면 [])
+  function compare(o) { const a = o.s, b = vals(), L = [], J = x => JSON.stringify(x), pn = k => k ? (POLY[k] ? POLY[k].name : k) : '없음';
+    for (const [k, nm] of [['hp', '최대 HP'], ['mp', '최대 MP'], ['ac', 'AC'], ['mr', 'MR']]) if (a[k] !== b[k]) L.push(`${nm} ${a[k]} → ${b[k]}`);
+    ST6.forEach((k, i) => { if (a.st[i] !== b.st[i]) L.push(`${ST6_N[i]} ${a.st[i]} → ${b.st[i]}`); });
+    if (a.dm && J(a.dm) !== J(b.dm)) L.push(`공격 ${a.dm.join('~')} → ${b.dm.join('~')}`); if (a.sp != null && a.sp !== b.sp) L.push(`SP ${a.sp} → ${b.sp}`);
+    if (a.cp != null && a.cp !== b.cp) L.push(`전투력 ${a.cp} → ${b.cp}`); if (a.sk != null && a.sk !== b.sk) L.push(`배운 기술·마법 ${a.sk}개 → ${b.sk}개`);
+    if (a.pf != null && a.pf !== b.pf) L.push(`변신 ${pn(a.pf)} → ${pn(b.pf)}`);
+    if (hero.lv !== o.lv || hero.baseHP !== o.bh || hero.baseMP !== o.bm) L.push(`레벨·기본 HP/MP Lv.${o.lv} ${o.bh}/${o.bm} → Lv.${hero.lv} ${hero.baseHP}/${hero.baseMP}`);
+    if (J(eqOut()) !== J(o.e)) L.push('착용 장비가 코드와 달라요'); return L; }
+  // 클립보드에 복사 (막히면 false)
+  async function copy(t) { let ok = false; try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(t); ok = true; } } catch (e) {}
+    if (!ok) { try { const x = document.createElement('textarea'); x.value = t; x.setAttribute('readonly', ''); x.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(x); x.select(); x.setSelectionRange(0, t.length); ok = document.execCommand('copy'); x.remove(); } catch (e) {} }
+    return ok; }
+  // ----- 갓 모드 패널 [캐릭터 복사] (테스트 페이지만 · 본섭 운영자 갓 모드에는 없음)
+  function show(h, c) { const r = document.getElementById('gp-cc-res'); if (r) { r.innerHTML = h; r.style.color = c || ''; } }
+  function run(t) { const r = decode(t); if (r.err) { show(esc(r.err), '#ff8a7a'); say('[캐릭터 복사] ' + r.err, '#f08a7a'); return false; }
+    const o = r.o; if (o.c !== CLASS) { show(esc(clsMsg(o)), '#ff8a7a'); say('[캐릭터 복사] ' + clsMsg(o), '#f08a7a'); return false; }
+    const who = `${o.n || '?'} (${CLASS_NAME[o.c]} Lv.${o.lv})`;
+    INV.askYesNo(`${who}을(를) 그대로 복사할까요?`, `레벨·능력치·장비·인형·가호·변신·버프가 코드와 똑같이 바뀌어요. 지금 착용한 장비는 가방으로 옮겨요.${o.gv !== GAME_VER ? ` (코드는 v${o.gv} · 이 페이지는 v${GAME_VER})` : ''}`, () => {
+      const R = apply(o); if (!R.ok) { show(esc(R.msg), '#ff8a7a'); say('[캐릭터 복사] ' + R.msg, '#f08a7a'); return; }
+      const s = o.s, nt = R.note.length ? ' · ' + R.note.join(' · ') : '';
+      if (!R.diff.length) { show(`<b>똑같이 맞췄어요</b> — ${esc(who)} · HP ${s.hp} · MP ${s.mp} · AC ${s.ac} · MR ${s.mr} · 전투력 ${s.cp}${esc(nt)}`, '#9fe08a'); say(`[캐릭터 복사] ${who} — 똑같이 맞췄어요. (HP ${s.hp} · MP ${s.mp} · AC ${s.ac} · MR ${s.mr})${nt}`, '#9fe08a'); }
+      else { show(`<b>다른 점 ${R.diff.length}개</b> (코드 → 지금): ${esc(R.diff.join(' · '))}${esc(nt)}`, '#ffc070'); say(`[캐릭터 복사] ${who} — 다른 점 ${R.diff.length}개: ${R.diff.join(' · ')}`, '#ffc070'); } });
+    return true; }
+  function ui() { if (!window.DEMO_MODE) return; const gp = document.getElementById('godpanel'), body = gp && gp.querySelector('.gp-body'); if (!body || document.getElementById('gp-cc')) return;
+    const w = document.createElement('div'); w.className = 'gp-give'; w.id = 'gp-cc';
+    w.innerHTML = '<span class="gp-l">캐릭터 복사</span><small>본섭 운영자 창의 [살펴보기 → 복사 코드] 또는 [내 캐릭터 복사 코드]로 받은 코드를 붙여 넣고 [적용] · 같은 직업 캐릭터만 · 지금 착용한 장비는 가방으로 옮겨요</small>'
+      + '<textarea id="gp-cc-in" rows="3" spellcheck="false" autocomplete="off" placeholder="AWC1:…" aria-label="캐릭터 복사 코드" style="width:100%;box-sizing:border-box;resize:vertical;font:11px Consolas,monospace;background:#0e0b08;color:#f0e2bc;border:1px solid #7a5a2a;border-radius:3px;padding:5px"></textarea>'
+      + '<div class="gp-mrow"><button type="button" id="gp-cc-go" class="gp-go">적용</button></div><p class="gp-note" id="gp-cc-res" role="status" aria-live="polite"></p>';
+    body.appendChild(w); const inp = w.querySelector('#gp-cc-in'); ['keydown', 'keyup', 'keypress'].forEach(t => inp.addEventListener(t, ev => ev.stopPropagation()));
+    w.querySelector('#gp-cc-go').onclick = () => run(inp.value); }
+  ui();
+  const api = { make, code, encode, decode, vals, compare, copy, run, apply }; if (window.DEMO_MODE) window.__CC = api;   // 테스트 훅 (테스트 페이지만)
+  return api;
 })();
 // ============================================================ 교환 (마을에서 다른 유저 클릭 → 교환 신청 → 수락하면 양쪽에 교환창)
 // 각자 아이템·골드를 올리고 [확인] → 둘 다 확인하면 "교환하시겠습니까?" 한 번 더 → 둘 다 '예'면 서로 주고받음
@@ -9601,6 +9755,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 204, items: ["전설 무기의 가방·장비 칸 바탕이 깊은 파란색에서 황금빛 그라데이션으로 바뀌었어요.", "전설 무기의 가방·창고 칸 줄임말이 [집행] · [격노] · [수결]로 보여요. (다른 직업 전설 무기도 줄임말과 착용 직업이 함께 보여요)", "화룡의 둥지에서 아스타지오·이프리트 같은 큰 몬스터를 때리거나 대상으로 고르면 화면이 뚝뚝 끊기던 렉을 크게 줄였어요.", "채팅 기록이 길게 쌓였을 때 화면이 느려지던 것도 고쳤어요."] },
     { v: 203, items: ["변신 뽑기 결과 화면의 [다시 뽑기] 버튼에 이번에 쓸 골드와 지금 가진 골드가 보여요. (골드가 모자라면 빨간 글자)"] },
     { v: 202, items: ["변신 카드가 생겼어요! 위 메뉴 [변신](모바일: [메뉴] → [변신 카드])에서 사냥 중에도 어디서나 몬스터 변신 카드를 뽑고, 합성하고, 변신할 수 있어요. (특별상점의 [변신 카드] 탭은 없어졌어요)", "뽑기는 1회 50,000 골드 · 11회 500,000 골드이고, 2시간마다 무료 1회를 뽑을 수 있어요. (확률 일반 60% · 고급 30% · 희귀 8% · 영웅 1.8% · 전설 0.2% · 같은 등급 안에서는 같은 확률)", "카드는 26종이에요. 등급이 높을수록 공격·이동 속도가 빨라지고(일반 +1% ~ 전설 +15% · 직업 전용 소드 +10% · 아크 +18%), 희귀 이상은 특별한 능력도 붙어요. 뽑은 카드는 계정의 모든 캐릭터가 함께 써요.", "마일리지: 뽑은 카드 1장마다 1점이 쌓이고, 1,000점이 되면 [전설 받기]로 전설 카드 1장을 무작위로 받아요.", "[전설 재뽑기] (변신 칸 옆): 가진 전설 카드 1장을 전설 중 무작위 1장으로 다시 뽑아요. (같은 카드가 나올 수도 있어요) 1번째 300만 · 2번째 600만 · 3번째 1,200만 골드이고, 3번 재뽑기한 카드는 그다음에 원하는 전설 카드로 무료로 바꿀 수 있어요. 횟수는 카드를 따라가요. (변신 칸에 넣은 카드는 빼고 해요)", "[보유중]에 내 카드가 등급별로 모여요. 같은 카드는 장수로, 등급마다 합계와 모은 종류가 보이고, 자물쇠를 잠근 카드는 합성 재료로 쓰지 않아요. 아직 없는 카드도 흐리게 보여서, 눌러 보면 능력치와 얻는 방법이 나와요.", "합성: 같은 등급 카드 4장을 넣으면 다음 등급 카드 1장이 나와요. (일반→고급 30% · 고급→희귀 30% · 희귀→영웅 10% · 영웅→전설 10%) 실패하면 같은 등급 카드 1장을 돌려받아요. [자동 합성]은 일반·고급을 한 번에 합성하고, 희귀·영웅은 직접 골라 합성해요.", "천장: 희귀→영웅 합성을 7번, 영웅→전설 합성을 10번 연속 실패하면 위 등급 카드 1장을 더 받아요. (남은 횟수는 합성 칸에 보여요)", "변신 칸: 카드를 끌어다 놓거나 [변신 칸에 넣기]를 누르면 바로 변신해요. 골드도 시간 제한도 없고, 쓰러지거나 다시 접속해도 그대로예요. 카드를 빼면 풀려요. (캐릭터마다 1칸 · 변신 칸의 카드는 합성에 쓰지 않아요)", "변신 주문서를 읽으면 30분 동안은 주문서 모습이 되고, 끝나면 변신 칸의 카드 모습으로 돌아와요.", "전설 카드로 변신하면 몸을 두껍게 감싸는 금빛 오로라가 생겨요. (장비 이펙트를 끄면 꺼져요)", "소드 나이트·메이지·레인저는 백금빛 갑옷에 보랏빛 무기를 들어요. 아크 나이트·메이지·레인저는 어두운 은빛 갑옷에 남보라 망토, 금빛으로 빛나는 무기를 들고, 휘두르면 금빛 초승달·섬광이, 맞힌 곳에는 주황빛 폭발이 일어요.", "뽑기·희귀/영웅 합성·마일리지·전설 재뽑기 모두 어두운 홀에 카드 뒷면이 세워지는 연출로 공개돼요. 희귀 이상은 모두 같은 금빛이고, 열 때도 균열·마법진이 금빛이라 카드가 앞면으로 돌아설 때까지 등급을 알 수 없어요.", "[모두 열기]는 일반·고급만 뒤집고, 금빛 카드는 눌러서(또는 [다음 열기]) 하나씩 열어요. 11장이 넘으면 [다음 카드]로 넘겨요. [모션 스킵]을 켜면 연출 없이 결과가 바로 보여요. 뽑은 뒤 스페이스로 같은 뽑기를 한 번 더, 결과 화면은 오른쪽 아래 [나가기](Esc)로 닫아요. [자동 뽑기]는 영웅 이상이 나오거나 골드가 모자라면 멈춰요.", "새 등급 [전설]이 생겼어요. 영웅보다 한 단계 위 등급이에요. 가방·장비 칸에서는 깊은 파란 빛이 일렁이며 칼날을 따라 빛줄기가 지나가요.", "전설 무기 3종이 추가됐어요. 기사 [진명황의 집행검](양손검), 요정 [가이아의 격노](활), 마법사 [수정결정체 지팡이]예요. (착용 Lv 55)", "전설 무기는 연금술로 얻어요. 영웅 장비(무기·방어구 섞어도 돼요) 3개를 올리면 3% 확률로 전설 무기가 나와요. 촉매는 축복받은 무기·갑옷 마법 주문서(축데이·축젤)만 쓸 수 있고, 10장당 +1%p (최대 +3%p · 최대 6%)예요. 실패하면 재료와 넣은 촉매가 사라져요.", "연금술로 얻는 전설 무기는 내 직업과 상관없이 3종 중 하나가 무작위로 나와요. 연금술 [일괄 등록]에 [영웅] 버튼이 생겼어요.", "특별상점에 [장비 변경 주문서]가 들어왔어요. (1,000만 골드) 전설 장비에 쓰면 전설 무기 3종 중 하나로 무작위로 바뀌어요. 같은 무기가 다시 나올 수도 있고, 강화 수치·축복·속성은 그대로예요.", "전설 무기 +0의 공격은 같은 직업의 용 무기(드래곤 슬레이어 · 용의 활 · 용의 지팡이) +9와 같고, 모두 명중 +15 · 추가 피해 +10이 붙어 있어요.", "전설 무기에는 모두 [심판]이 붙어 있어요. 타격 시 20% 확률로 하늘에서 금빛 빛기둥이 내리꽂히며 그 타격 피해만큼 한 번 더 들어가요. 강화 1당 확률이 2%씩 올라가요. (+5 30% · +9 38%) 기사·마법사는 근접 공격, 요정은 화살에서 발동하고, 마법사의 심판은 칼질 피해에 마법 배율(지능·SP)이 곱해져 크게 들어가요. (대인전에서는 발동하지 않아요)", "전설 무기는 안전 강화가 +0이에요. +0에서 +1로 올릴 때부터 성공 확률이 1/3이고, 실패하면 무기가 증발해요. 강화 1당 공격은 +3이에요.", "진명황의 집행검: 공격 39~60 · 명중 +15 · 추가 피해 +10 · 힘 +2 · 심판 · HP 30% 이하인 몬스터에게 주는 피해 +15%", "가이아의 격노: 공격 38~54 · 명중 +15 · 추가 피해 +10 · 민첩 +2 · 심판 · 땅 저항 +20", "수정결정체 지팡이: 공격 35~47 · 명중 +15 · 추가 피해 +10 · SP +8 · 지능 +1 · MP +50 · MR 10 · 공격 마법 피해 +20% · MP 회복 +3 · 심판"] },
     { v: 201, items: ["할로윈 호박괴물·호박대장은 내 레벨이 높아도 경험치가 줄지 않아요. (낮은 레벨 몬스터 경험치 감소에서 빠짐)"] },
