@@ -123,6 +123,75 @@ const OUT = path.join(__dirname, '..', 'out'); const ok = [], bad = []; const ch
   const RM = await p.evaluate(() => { const L = document.querySelector('#inv-grid .slot.r-4 .lg-fx'); return L ? [getComputedStyle(L, '::after').animationName, getComputedStyle(L.querySelector('b')).animationName, getComputedStyle(L.parentElement).backgroundImage.startsWith('radial')] : null; });
   chk(RM && RM[0] === 'none' && RM[1] === 'none' && RM[2], `움직임 줄이기: 애니메이션 ${RM && RM.slice(0, 2).join('/')} · 바탕 유지 ${RM && RM[2]}`);
   await p.emulateMedia({ reducedMotion: 'no-preference' });
+  // 9b) 연금술: 영웅 3개 → 전설 무기 (3% · 촉매 축데이·축젤 10장당 +1%p · 최대 +3%p · 일반 데이·젤은 안 셈 · 결과는 모든 직업 중 무작위) — Math.random·setTimeout은 판정 순간만 바꾸고 바로 되돌림
+  await p.evaluate(() => { const I = __T.INV; for (const e of I.bag().filter(e => ['scroll_weapon', 'bscroll_weapon', 'bscroll_armor'].includes(e.id))) I.removeEntry(e); for (let k = 0; k < 18; k++) I.add(['cx_sw6', 'dv_bow', 'cx_st8'][k % 3], 1, true); I.add('scroll_weapon', 30, true); if (!window.ALCH.open()) document.getElementById('btn-alch').click(); I.render(); });
+  const AL = await p.evaluate(() => { const T = __T, I = T.INV, A = window.ALCH, R0 = Math.random, ST = window.setTimeout, $ = id => document.getElementById(id), out = { tries: [] };
+    const heroN = () => I.bag().filter(e => (T.ITEMS[e.id].rar === '영웅') && T.ITEMS[e.id].slot).length, legN = () => I.bag().filter(e => T.ITEMS[e.id].rar === '전설').length;
+    const setCat = n => { const c = $('al-cat'); c.value = n; c.dispatchEvent(new Event('input')); };
+    const tryOnce = (cat, seq) => { document.querySelector('#alchwin [data-alg="영웅"]').click(); const filled = [...document.querySelectorAll('#alchwin .al-slot')].map(s => (s.dataset.itip || '').match(/\[(.+?)\]/)?.[1]); setCat(cat);
+      const info = $('al-info').textContent, catInfo = $('al-cat-info').textContent, h0 = heroN(), l0 = I.bag().filter(e => T.ITEMS[e.id].rar === '전설').map(e => e.id), b0 = I.count('bscroll_weapon') + I.count('bscroll_armor'), s0 = I.count('scroll_weapon');
+      $('al-go').click(); const ask = $('ask-sub').textContent; const q = seq.slice();
+      window.setTimeout = (fn, ms) => { if (ms !== 1300) return ST(fn, ms); Math.random = () => q.length ? q.shift() : 0.5; try { fn(); } finally { Math.random = R0; } return 0; };   // 판정(1.3초 뒤)만 바로 실행 · 그 순간만 Math.random 바꿈
+      try { $('ask-yes').click(); } finally { Math.random = R0; window.setTimeout = ST; }
+      const l1 = I.bag().filter(e => T.ITEMS[e.id].rar === '전설').map(e => e.id), got = l1.filter(id => { const k = l0.indexOf(id); if (k >= 0) { l0.splice(k, 1); return false; } return true; });
+      const r = { cat, r: seq[0], filled, info, catInfo, ask, hero: h0 - heroN(), b: b0 - (I.count('bscroll_weapon') + I.count('bscroll_armor')), s: s0 - I.count('scroll_weapon'), got, log: T.log.slice(-3).map(l => (l && l.t) || String(l)).join(' | ') }; out.tries.push(r); return r; };
+    tryOnce(0, [0.0301]);   // 3% 실패
+    tryOnce(0, [0.0299, 0.5]);   // 3% 성공 → 3종 중 가운데(가이아의 격노 · 요정 무기)
+    I.add('bscroll_weapon', 5, true); I.add('bscroll_armor', 5, true); tryOnce(10, [0.0401]);   // 축 10장 → 4% · 0.0401 실패
+    I.add('bscroll_weapon', 30, true); I.add('bscroll_armor', 10, true); tryOnce(30, [0.0599, 0.9]);   // 축 30장 → 6% · 성공 → 수정결정체 지팡이 (마법사 무기)
+    I.add('bscroll_weapon', 40, true); tryOnce(40, [0.0601]);   // 최대 +3%p (40장을 넣어도 30장만) · 0.0601 실패
+    for (const e of I.bag().filter(e => ['bscroll_weapon', 'bscroll_armor'].includes(e.id))) I.removeEntry(e); tryOnce(30, [0.0301]);   // 일반 데이 30장만 → 촉매 0 → 3% (데이로 6%가 됐다면 성공했을 값)
+    // 전설은 연금술에 못 올림
+    { const e = I.bag().find(x => T.ITEMS[x.id].rar === '전설' && !x.on); A.put(null, e); out.legPut = A.has(e); out.legMsg = (T.log.slice(-1)[0] || {}).t || String(T.log.slice(-1)[0]); }
+    out.lead = document.querySelector('#alchwin .al-lead').textContent; out.rates = document.querySelector('#alchwin .al-rates').textContent; out.rnd = Math.random === R0 && window.setTimeout === ST; return out; });
+  for (const t of AL.tries) console.log(`연금술 촉매 ${t.cat} · r=${t.r} → 영웅 −${t.hero} · 축 −${t.b} · 데이 −${t.s} · 얻음 ${t.got.join(',') || '없음'} | ${t.info} | ${t.catInfo}`);
+  { const [a, b2, c, d, e2, f] = AL.tries;
+    chk(a.filled.every(x => x === '영웅') && /전설 무기 \(모든 직업 중 무작위\)/.test(a.info) && /3%/.test(a.info), `[일괄 등록] 영웅 → 영웅 3개 · 안내 '${a.info.slice(0, 60)}'`);
+    chk(/전설 무기 \(모든 직업 중 무작위\)/.test(a.ask), '조합 확인 창: 전설 무기 (모든 직업 중 무작위)');
+    chk(a.hero === 3 && a.got.length === 0, '3% · random 0.0301 → 실패 · 영웅 3개 사라짐');
+    chk(b2.hero === 3 && b2.got.length === 1 && b2.got[0] === 'lg_bow' && /연금술 성공! \[전설\]/.test(b2.log) && /연금술로 \[전설\] 가이아의 격노/.test(b2.log), `3% · random 0.0299 → 성공 · 기사가 ${b2.got[0]} (요정 무기) 얻음 · 전체 공지 [전설] · '${b2.log}'`);
+    chk(c.b === 10 && c.got.length === 0 && /\+1%p/.test(c.catInfo) && /4%/.test(c.info), `축데이·축젤 10장 → +1%p (4%) · 0.0401 실패 · 축 ${c.b}장 사라짐`);
+    chk(d.b === 30 && d.got[0] === 'lg_staff' && /\+3%p/.test(d.catInfo) && /6%/.test(d.info), `축 30장 → +3%p (6%) · 0.0599 성공 → ${d.got[0]} (마법사 무기)`);
+    chk(e2.b === 30 && e2.got.length === 0 && /6%/.test(e2.info), `축 40장 넣어도 30장만 (최대 +3%p) · 0.0601 실패 (축 −${e2.b})`);
+    chk(f.s === 0 && f.b === 0 && f.got.length === 0 && /3%/.test(f.info) && /축데이·축젤 0장/.test(f.catInfo), `일반 데이 30장은 촉매로 안 셈 (데이 −${f.s} · ${f.catInfo})`); }
+  chk(!AL.legPut && /전설 등급은 더 올릴 수 없어요/.test(AL.legMsg), `전설 장비는 연금술에 못 올림 ('${AL.legMsg}')`);
+  chk(/영웅 장비 3개 → 전설 무기/.test(AL.lead) && /모든 직업 중에서 무작위로 나와요/.test(AL.lead) && /영웅 3개 → 전설 무기 3%/.test(AL.rates) && /축데이·축젤/.test(AL.rates) && /10장당 \+1%p \(최대 \+3%p/.test(AL.rates) && /연금술로 얻는 전설 장비는 모든 직업 중에서 무작위로 나와요/.test(AL.rates), '연금술 창 안내: 영웅 3개 → 전설 무기 3% · 축데이·축젤 10장당 +1%p 최대 +3%p · 모든 직업 무작위');
+  chk(AL.rnd, 'Math.random·setTimeout 되돌림 (연금술)');
+  // 연금술 창 스크린샷: 영웅 3개 + 축 30장 (6%)
+  await p.evaluate(() => { const I = __T.INV; I.add('bscroll_weapon', 20, true); I.add('bscroll_armor', 20, true); I.render(); document.querySelector('#alchwin [data-alg="영웅"]').click(); const c = document.getElementById('al-cat'); c.value = 30; c.dispatchEvent(new Event('input')); const an = document.getElementById('announce'); if (an) an.style.visibility = 'hidden'; });   // 스크린샷에 전체 공지 띠가 겹치지 않게
+  await p.waitForTimeout(300);
+  { const el = await p.$('#alchwin'); await el.screenshot({ path: path.join(OUT, 'legitem_alch.png') }); }
+  { const AU = await p.evaluate(() => { const $ = id => document.getElementById(id), h0 = __T.INV.bag().filter(e => __T.ITEMS[e.id].rar === '영웅' && __T.ITEMS[e.id].slot).length; $('al-auto').click(); const q = $('ask-q').textContent, s = $('ask-sub').textContent; $('ask-no').click(); return { q, s, on: window.ALCH.auto(), same: h0 === __T.INV.bag().filter(e => __T.ITEMS[e.id].rar === '영웅' && __T.ITEMS[e.id].slot).length }; });
+    chk(/영웅 장비 자동 조합/.test(AU.q) && /영웅 장비가 3개씩 계속 사라져요/.test(AU.s) && /축데이·축젤/.test(AU.s) && !AU.on && AU.same, `[자동 진행] 영웅: 확인 창 경고 '${AU.s.slice(-60)}' · [아니오]면 시작 안 함`); }
+  await p.evaluate(() => { document.getElementById('al-clear').click(); document.getElementById('alchwin').hidden = true; });
+  // 9c) 특별상점: 장비 변경 주문서 10,000,000 골드 (장신구 변경 주문서와 같은 [특별 물품] 탭)
+  const SH = await p.evaluate(() => { const T = __T, b = T.TOWN.shopList().find(x => x.id === 'magic'), tab = b.tabs.find(t => t[0] === '특별 물품'), rows = tab[1], k = rows.findIndex(r => r[3] === 'eq_change'), a = rows.findIndex(r => r[3] === 'acc_change');
+    T.TOWN.shop('magic'); const row = [...document.querySelectorAll('#shop-list > *')].find(x => /장비 변경 주문서/.test(x.textContent)); return { price: k >= 0 ? rows[k][1] : 0, next: k === a + 1, pr: T.TOWN.priceOf('eq_change'), row: row ? row.textContent.replace(/\s+/g, ' ').trim() : '' }; });
+  chk(SH.price === 10000000 && SH.pr === 10000000 && SH.next && /10,000,000/.test(SH.row), `특별상점 [특별 물품]: 장신구 변경 주문서 옆 · ${SH.row}`);
+  await p.waitForTimeout(300);
+  { const el = await p.$('#shop'); await el.screenshot({ path: path.join(OUT, 'legitem_shop.png') }); }
+  await p.evaluate(() => { const s = document.getElementById('shop'); if (s) s.hidden = true; const an = document.getElementById('announce'); if (an) an.style.visibility = ''; });
+  // 9d) 장비 변경 주문서: 전설에만 · 강화·축복·속성 그대로 · 같은 무기도 나옴 · 착용 중이면 그 자리에서 바뀌고 다른 직업 무기면 벗음
+  const CH = await p.evaluate(() => { const T = __T, I = T.INV, R0 = Math.random, $ = id => document.getElementById(id), out = {}; I.add('eq_change', 6, true);
+    const sc = () => I.bag().find(e => e.id === 'eq_change'), n = () => I.count('eq_change'), lastLog = () => (T.log.slice(-1)[0] || {}).t || String(T.log.slice(-1)[0]);
+    const use = (t, r) => { I.use(sc()); I.applyScroll(t); const ask = $('askwin').hidden ? '' : $('ask-sub').textContent; if (ask) { Math.random = () => r; try { $('ask-yes').click(); } finally { Math.random = R0; } } return ask; };
+    // 전설이 아닌 장비: 안내만 · 주문서 그대로
+    { I.add('cx_sw6', 1, true); const h = I.bag().find(e => e.id === 'cx_sw6'), n0 = n(); const ask = use(h, 0.5); out.non = { ask, used: n0 - n(), id: h.id, msg: lastLog() }; }
+    // 착용 중인 +3 축복·불 속성 집행검 → 0.5 → 가이아의 격노 (요정 무기라 기사는 벗음)
+    const x = I.bag().find(e => e.id === 'lg_sword' && e.on) || I.bag().find(e => e.id === 'lg_sword'); if (!x.on) I.use(x); x.en = 3; x.blessed = true; x.attr = { el: 'fire', lv: 1 }; I.render();
+    { const n0 = n(); const ask = use(x, 0.5); out.a = { ask, used: n0 - n(), id: x.id, en: x.en, bl: x.blessed, attr: x.attr && x.attr.lv, on: x.on, msg: lastLog() }; }
+    // 같은 무기 다시 (0.5 → 가이아의 격노)
+    { const n0 = n(); use(x, 0.5); out.same = { used: n0 - n(), id: x.id, en: x.en, msg: lastLog() }; }
+    // 0.1 → 진명황의 집행검 → 기사가 끼고 다시 0.1 → 착용한 채 그대로 · 공격 수치 같음
+    use(x, 0.1); I.use(x); const d0 = I.dmg().join('~'); { const n0 = n(); use(x, 0.1); out.worn = { used: n0 - n(), id: x.id, on: x.on, en: x.en, d0, d1: I.dmg().join('~'), msg: lastLog() }; }
+    x.blessed = false; x.attr = null; I.render(); out.rnd = Math.random === R0; return out; });
+  console.log('변경 주문서:', JSON.stringify(CH));
+  chk(CH.non.used === 0 && !CH.non.ask && CH.non.id === 'cx_sw6' && /전설 장비에만/.test(CH.non.msg), `전설이 아닌 장비: 안 바뀜 · 주문서 그대로 ('${CH.non.msg}')`);
+  chk(/무작위/.test(CH.a.ask) && CH.a.used === 1 && CH.a.id === 'lg_bow' && CH.a.en === 3 && CH.a.bl && CH.a.attr === 1 && !CH.a.on && /\[전설\] 진명황의 집행검 → \[전설\] 가이아의 격노/.test(CH.a.msg) && /강화 \+3 그대로/.test(CH.a.msg), `착용 중 +3 축복 집행검 → 가이아의 격노 (강화·축복·속성 그대로 · 기사라 벗음) '${CH.a.msg}'`);
+  chk(CH.same.used === 1 && CH.same.id === 'lg_bow' && /같은 무기/.test(CH.same.msg), `같은 무기도 나옴: '${CH.same.msg}'`);
+  chk(CH.worn.used === 1 && CH.worn.id === 'lg_sword' && CH.worn.on === 'weapon' && CH.worn.d0 === CH.worn.d1, `착용 중 집행검 → 집행검: 착용 유지 · 공격 ${CH.worn.d0} → ${CH.worn.d1}`);
+  chk(CH.rnd, 'Math.random 되돌림 (변경 주문서)');
+  { const c = await p.evaluate(() => { const T = __T; return { tip: T.INV.tipOf({ id: 'lg_bow', n: 1, on: false }), cs: T.INV.tipOf({ id: 'eq_change', n: 1, on: false }) }; }); chk(/얻는 곳: 연금술 \(영웅 장비 3개 · 축데이\/축젤 촉매 · 직업 무작위\)/.test(c.tip), '툴팁·도감 얻는 곳: 연금술 (영웅 장비 3개 · 축데이/축젤 촉매 · 직업 무작위)'); chk(/전설 장비에만/.test(c.cs), '장비 변경 주문서 설명'); }
   // 10) 심판 순간: 허수아비에게 심판이 터진 직후 금빛 빛기둥 (창을 닫고 확대)
   await p.evaluate(() => { for (const id of ['invwin', 'charwin', 'itemwin']) { const w = document.getElementById(id); if (w) w.hidden = true; } __T.ZOOMT = 1.6; });
   await p.waitForTimeout(900);

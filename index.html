@@ -942,14 +942,14 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
   <ol class="bk-log en-mlog" id="en-mlog" aria-live="polite"></ol>
  </section></div>
 <div class="gw" id="alchwin" hidden role="dialog" aria-label="연금술"><span class="gw-plate">연금술</span><button class="x" type="button" data-closewin="alchwin">닫기</button>
- <p class="al-lead">같은 등급의 장비 3개를 올리고 [조합]을 누르면, 확률에 따라 <b>한 단계 위 등급의 내 직업 장비</b>를 얻어요. 실패하면 재료 3개는 사라져요.</p>
+ <p class="al-lead">같은 등급의 장비 3개를 올리고 [조합]을 누르면, 확률에 따라 <b>한 단계 위 등급의 내 직업 장비</b>를 얻어요. 실패하면 재료 3개는 사라져요. <b style="color:#ffb43a">영웅 장비 3개 → 전설 무기</b>는 연금술로 얻는 전설 장비라 <b>모든 직업 중에서 무작위로 나와요</b>.</p>
  <div class="al-slots"><div class="al-slot" data-k="0"></div><div class="al-slot" data-k="1"></div><div class="al-slot" data-k="2"></div><div class="al-arrow" aria-hidden="true">➜</div><div class="al-out" id="al-out">?</div></div>
- <div class="al-bulk"><span>일괄 등록</span><button type="button" data-alg="일반">일반 <b>0</b></button><button type="button" data-alg="고급">고급 <b>0</b></button><button type="button" data-alg="희귀">희귀 <b>0</b></button><label class="al-oth" title="켜면 내 직업이 쓸 수 있는 장비는 빼고 다른 직업 전용 장비만 올려요"><input type="checkbox" id="al-oth">타클래스만</label></div>
+ <div class="al-bulk"><span>일괄 등록</span><button type="button" data-alg="일반">일반 <b>0</b></button><button type="button" data-alg="고급">고급 <b>0</b></button><button type="button" data-alg="희귀">희귀 <b>0</b></button><button type="button" data-alg="영웅" title="직접 누를 때만 영웅 장비를 올려요 (영웅 3개 → 전설 무기 3%)">영웅 <b>0</b></button><label class="al-oth" title="켜면 내 직업이 쓸 수 있는 장비는 빼고 다른 직업 전용 장비만 올려요"><input type="checkbox" id="al-oth">타클래스만</label></div>
  <p class="al-info" id="al-info"></p>
  <div class="al-cat"><span class="al-cat-l">촉매 (데이·젤)</span><button type="button" data-cd="-5" aria-label="5장 빼기">−5</button><input type="number" id="al-cat" min="0" max="999" value="0" aria-label="촉매 장수"><button type="button" data-cd="5" aria-label="5장 더하기">+5</button><button type="button" data-cd="max">최대</button><button type="button" data-cd="0">0</button><small id="al-cat-info"></small></div>
  <div class="al-btns"><button type="button" id="al-clear" class="cs-go cs-sub">비우기</button><button type="button" id="al-go" class="cs-go" disabled>조합</button><button type="button" id="al-auto" class="cs-go al-auto" title="지금 조건(등급·타클래스만·촉매)으로 재료가 떨어질 때까지 3개씩 계속 조합해요">자동 진행</button></div>
  <label class="al-austop"><input type="checkbox" id="al-austop">자동 진행 중 성공하면 멈추기</label>
- <p class="al-rates">성공 확률 — 일반 → 고급 <b>30%</b> · 고급 → 희귀 <b>10%</b> · 희귀 → 영웅 <b>3%</b><br>촉매(무기·갑옷 마법 주문서): 고급 → 희귀 5장당 +1%p (최대 +5%p) · 희귀 → 영웅 10장당 +1%p (최대 +3%p) · 조합하면 성공·실패와 상관없이 사라져요<br>가방 장비를 클릭(또는 우클릭)하거나 끌어다 놓으면 올라가요 · 올린 칸을 누르면 빠져요</p></div>
+ <p class="al-rates">성공 확률 — 일반 → 고급 <b>30%</b> · 고급 → 희귀 <b>10%</b> · 희귀 → 영웅 <b>3%</b> · <span style="color:#ffb43a">영웅 3개 → 전설 무기 <b>3%</b></span><br>촉매(무기·갑옷 마법 주문서): 고급 → 희귀 5장당 +1%p (최대 +5%p) · 희귀 → 영웅 10장당 +1%p (최대 +3%p) · 조합하면 성공·실패와 상관없이 사라져요<br><span style="color:#ffb43a">영웅 → 전설은 축데이·축젤(축복받은 무기·갑옷 마법 주문서)만 촉매로 써요: 10장당 +1%p (최대 +3%p · 최대 6%) · 일반 데이·젤은 안 돼요 · 연금술로 얻는 전설 장비는 모든 직업 중에서 무작위로 나와요</span><br>가방 장비를 클릭(또는 우클릭)하거나 끌어다 놓으면 올라가요 · 올린 칸을 누르면 빠져요</p></div>
 <div class="gw" id="codexwin" hidden role="dialog" aria-label="아이템 도감"><span class="gw-plate">아이템 도감</span><button class="x" type="button" data-closewin="codexwin">닫기</button>
  <div class="cdx-tabs" id="cdx-tabs" role="tablist" aria-label="분류"></div>
  <div class="cdx-sub" id="cdx-sub" role="tablist" aria-label="부위" hidden></div>
