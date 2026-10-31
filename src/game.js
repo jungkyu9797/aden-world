@@ -1859,8 +1859,8 @@ function drawClassLayers(g, cls, anim, fr, row, x, y, hurtF, eqf, gl) { const D 
     g.drawImage(src, k * M.W, row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
     if (gl && L !== 'body') { const t = gl(CL_SLOT[L.replace(/_[lp]$/, '')]); if (t) layerGlow(g, img, M, k, row, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), sc, t, D.pfx + L + ':' + a, CL_SLOT[L.replace(/_[lp]$/, '')] === 'weapon' ? 1 : 0.85); } }
   return true; }
-function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (!EQFX) gl = null;   /* 장비 이펙트 끔 */ if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
-  { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf, gl)) return true; }   // 변신 (데스나이트 세트 등)
+function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf, lite) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (!EQFX) gl = null;   /* 장비 이펙트 끔 */ if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
+  { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf, gl, lite === 2, lite)) return true; }   // 변신 (데스나이트 세트 등)
   if (cls !== 'knight' && CL_DEF[cls] && drawClassLayers(g, cls, anim, fr, row, x, y, hf, eqf, gl)) return true;
   if (cls !== 'knight') { const M = CLSM[cls], a = anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2') ? 'attack' : 'idle', img = M && clsImg(cls, a);
     if (img) { const m = M[a]; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; drawSheet(g, img, { W: m.W, H: m.H, ax: m.ax, ay: m.ay, s: KN.s || 1 }, Math.min(fr, m.n - 1), row, x, y, 1, hf); if (gl) bodyGlow(g, img, { W: m.W, H: m.H, ax: m.ax, ay: m.ay, s: KN.s || 1 }, Math.min(fr, m.n - 1), row, x, y, gl); g.restore(); return true; }
@@ -3271,7 +3271,8 @@ function pmRcLut(rc, job) { const key = rc + ':' + job; if (PMRC_LUT[key]) retur
   const mk = (st, raw) => { const o = new Uint8ClampedArray(768); for (let L = 0; L < 256; L++) { let t = L / 255; if (!raw) t = Math.max(0, Math.min(1, (t - l0) / (l1 - l0))) ** gm; let j = 1; while (j < st.length - 1 && st[j][0] < t) j++;
     const A = st[j - 1], B = st[j], f = Math.max(0, Math.min(1, (t - A[0]) / ((B[0] - A[0]) || 1))); for (let c = 0; c < 3; c++) o[L * 3 + c] = A[c + 1] + (B[c + 1] - A[c + 1]) * f; } return o; };
   return (PMRC_LUT[key] = { m: mk(job === 'wizard' && S.robe || S.metal), c: mk(S.cloak), b: mk(S.blade, true) }); }
-function pmRcFrame(pk, a, k, row) { const key = pk + '|' + a + '|' + k + '|' + row; let e = PMRC.get(key); if (e) { PMRC.delete(key); PMRC.set(key, e); return e; }
+const BOTFX = { t: -1, n: 0 }, botFxOk = () => { if (BOTFX.t !== time) { BOTFX.t = time; BOTFX.n = 2; } return BOTFX.n-- > 0; };   /* v204: 필드 봇(복사한 소드·아크·전설 변신)의 색 입힌 그림·오로라는 프레임당 2장까지만 새로 만듦 (봇이 여럿이면 멈칫하지 않게 · 아직이면 그 프레임은 바탕 그림) */
+function pmRcFrame(pk, a, k, row, lite) { const key = pk + '|' + a + '|' + k + '|' + row; let e = PMRC.get(key); if (e) { PMRC.delete(key); PMRC.set(key, e); return e; } if (lite && !botFxOk()) return null;
   const P = POLY[pk], M = PMSHEET[P.sheet], G = PMGLOW[P.sheet], S = rcSpec(P.rc, P.job), img = pmImg(P.sheet, a), gi = pmGlowImg(P.sheet), ai = G ? G.an.indexOf(a) : -1;
   if (!M || !S || !img || !img.complete || !img.naturalWidth || !gi || ai < 0) return null;
   const W = M.W, H = M.H, n = W * H, mkC = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }, c = mkC(W, H), cg = c.getContext('2d', { willReadFrequently: true });
@@ -3293,12 +3294,12 @@ function pmRcFrame(pk, a, k, row) { const key = pk + '|' + a + '|' + k + '|' + r
 function pmRcDraw(g, e, M2, x, y, hf) { const s = M2.s; drawSheet(g, e.c, { W: e.c.width, H: e.c.height, ax: M2.ax - e.x0, ay: M2.ay - e.y0, s }, 0, 0, x, y, 1, hf);
   if (!e.h) return; const X = x - M2.ax * s, Y = y - M2.ay * s; g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.max(0, Math.min(1, e.ha * (0.72 + 0.28 * Math.sin(time * 4.2 + x * 0.013))));
   g.imageSmoothingEnabled = true; g.drawImage(e.h, X + e.hx * s, Y + e.hy * s, e.h.width / e.hs * s, e.h.height / e.hs * s); g.restore(); }
-function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
-  if (!img || !img.complete || !img.naturalWidth) return false; const RC = P.rc ? pmRcFrame(pk, a, Math.min(7, fr), row) : null; if (P.rc && !RC) return false;   /* 소드·아크: 색 입힌 그림이 아직이면 (빛 판을 불러오는 중) 원래 모습 */
+function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx, lite) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
+  if (!img || !img.complete || !img.naturalWidth) return false; const RC = P.rc && lite !== 2 ? pmRcFrame(pk, a, Math.min(7, fr), row, lite) : null; if (P.rc && !RC && !lite) return false;   /* v204 lite(필드 봇): 색 입힌 그림이 아직이거나 먼 봇이면 바탕(실버) 그림 */   /* 소드·아크: 색 입힌 그림이 아직이면 (빛 판을 불러오는 중) 원래 모습 */
   const R = P.rc && rcSpec(P.rc, P.job), RF = R && R.fx && !nofx && EQFX; if (RF) rcGround(g, R, x, y);
   g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s };
   const af = !pmS && a === 'attack' ? (M.af || 8) : 8, k = af !== 8 ? Math.min(af - 1, Math.floor(Math.min(7, fr) * af / 8)) : Math.min(7, fr);   /* 변신 카드: 공격 그림 장수가 다른 몹(바실리스크 6장 등)은 8장 동작에 맞춰 늘이거나 줄임 */
-  if (P.card && P.card.g === '전설' && EQFX && !hf) { if (RC) polyAura(g, RC.c, { W: RC.c.width, H: RC.c.height }, 0, 0, x - (M2.ax - RC.x0) * M2.s, y - (M2.ay - RC.y0) * M2.s, M2.s, 'rc:' + pk + '|' + a + '|' + Math.min(7, fr) + '|' + row); else polyAura(g, img, M2, k, row, x - M2.ax * M2.s, y - M2.ay * M2.s, M2.s, pk + '|' + a + '|' + k + '|' + row); }   /* 11/1: 전설 카드 변신 = 몸을 두껍게 감싸는 금빛 오로라 (그림 뒤) */
+  if (P.card && P.card.g === '전설' && EQFX && !hf && lite !== 2) { if (RC) polyAura(g, RC.c, { W: RC.c.width, H: RC.c.height }, 0, 0, x - (M2.ax - RC.x0) * M2.s, y - (M2.ay - RC.y0) * M2.s, M2.s, 'rc:' + pk + '|' + a + '|' + Math.min(7, fr) + '|' + row, lite); else polyAura(g, img, M2, k, row, x - M2.ax * M2.s, y - M2.ay * M2.s, M2.s, pk + '|' + a + '|' + k + '|' + row, lite); }   /* 11/1: 전설 카드 변신 = 몸을 두껍게 감싸는 금빛 오로라 (그림 뒤) */
   if (!pmS && M.tint && !hf) { const c = tintFrame('pc:' + pk, a, img, { ...M2, tint: M.tint }, k, row); g.drawImage(c, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s)); }   /* 몬스터 그림의 물들임(카스파·네크로맨서·와이번 등)도 그대로 */
   else if (RC) pmRcDraw(g, RC, M2, x, y, hf); else drawSheet(g, img, M2, k, row, x, y, 1, hf || (!pmS && M.tint) || null); g.restore();
   if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, k, row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
@@ -3309,8 +3310,8 @@ function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx) { const P = POLY[pk]
   return true; }
 // 11/1 전설 카드 변신 금빛 오로라: 그 프레임 실루엣을 금빛으로 칠해 넓게 번지게 한 판(절반 크기로 만들어 저장)을 그림 뒤에 더해 그림 · 숨 쉬듯 밝아졌다 어두워짐
 const AURC = new Map();
-function polyAura(g, src, M, k, row, X, Y, sc, key) { const q = 0.5, kk = key + '|' + sc.toFixed(3); let c = AURC.get(kk);
-  if (!c) { if (AURC.size > 240) AURC.clear(); const P = 18, w0 = Math.max(1, Math.ceil(M.W * sc * q)), h0 = Math.max(1, Math.ceil(M.H * sc * q)), sil = document.createElement('canvas'); sil.width = w0 + P * 2; sil.height = h0 + P * 2; const sg = sil.getContext('2d', { willReadFrequently: true });
+function polyAura(g, src, M, k, row, X, Y, sc, key, lite) { const q = 0.5, kk = key + '|' + sc.toFixed(3); let c = AURC.get(kk);
+  if (!c) { if (lite && !botFxOk()) return; if (AURC.size > 240) AURC.clear(); const P = 18, w0 = Math.max(1, Math.ceil(M.W * sc * q)), h0 = Math.max(1, Math.ceil(M.H * sc * q)), sil = document.createElement('canvas'); sil.width = w0 + P * 2; sil.height = h0 + P * 2; const sg = sil.getContext('2d', { willReadFrequently: true });
     sg.imageSmoothingEnabled = true; sg.drawImage(src, k * M.W, row * M.H, M.W, M.H, P, P, w0, h0);
     try { const I = sg.getImageData(0, 0, sil.width, sil.height), D = I.data; for (let o = 0; o < D.length; o += 4) { if (D[o + 3] > 40 && Math.max(D[o], D[o + 1], D[o + 2]) >= 22) { D[o] = 255; D[o + 1] = 196; D[o + 2] = 80; D[o + 3] = 255; } else D[o + 3] = 0; } sg.putImageData(I, 0, 0); }   // 바닥 그림자(거의 검은 점묘)는 빼고 몸만
     catch (e) { sg.globalCompositeOperation = 'source-in'; sg.fillStyle = 'rgb(255,196,80)'; sg.fillRect(0, 0, sil.width, sil.height); }
@@ -8628,6 +8629,7 @@ const TWM = (() => {
     if (mode === 'magic') d = Math.round(d * (1 - Math.min(0.5, (st.mr || 0) / 200)));
     if (f.bot.cls === 'knight') d = Math.round(d * 0.85);   // 기사: 리덕션 아머
     if (f.immT > time) d = Math.round(d * 0.7);   // 이뮨 투 함 (유저와 같이 30%)
+    if (st.dr > 0) d -= st.dr;   // v204: 필드 봇 — 복사한 캐릭터의 받는 피해 감소 (장비·인형·변신 카드) × 비율
     return Math.max(1, d); }
   function hitP(f, mode) { if (f.twr) return 0.95; const st = f.bot && f.bot.st; return st ? pvpHitP({ lv: st.lv, ac: st.ac }, mode) : 0.8; }
   const near = (e, r) => !SIM && TW() && Math.max(Math.abs(e.x - hero.x), Math.abs(e.z - hero.z)) <= (r || 16);
@@ -8861,7 +8863,8 @@ const TWM = (() => {
     let anim = 'idle', fr = Math.floor(time * 6 + (f.uid % 7)) % 8; if (f.atkT != null && f.atkT < 0.62 && !f.dead && !DBG.idle) { anim = b.cls === 'knight' ? (f.uid % 2 ? 'attack2' : 'attack') : b.cls === 'wizard' ? 'cast' : 'attack'; fr = Math.min(7, Math.floor(f.atkT / (0.7 / GSPD) * 8)); } else if (moving) { anim = 'walk'; fr = Math.floor((f.dist || 0) * 4) % 8; }
     g.save(); g.globalAlpha = al; g.strokeStyle = `rgba(${ally ? TWL.A.c : TWL.B.c},.6)`; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, 15, 7.5, 0, 0, 7); g.stroke();
     const eq = gearOf(b), en = b.en, lod = f.fb ? FBOT.lod() : LOD, far = lod >= 2 || ((lod >= 1 || f.fb) && Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 6), eqf = far ? (s => s === 'armor' || s === 'weapon' || s === 'helm' ? eq[s] || null : null) : (s => eq[s] || null), glf = s => s === 'weapon' && en >= 7 && !f.fb ? en : 0;   // 프레임이 떨어지면 먼 봇은 갑옷·투구·무기만
-    if (!DBG.noSprite) { LOWQ = true; drawHeroSprite(g, anim, fr, f.row || 0, x, y, f.flash > 0 && !(f.fb && far) ? 'brightness(2.2) saturate(.4)' : null, b.cls, eqf, glf, null); LOWQ = false; }   /* v191: 필드 봇은 6칸 밖이면 늘 간단히 (갑옷·투구·무기만 · 맞을 때 번쩍임 없음) · 무기 빛은 안 그림 (빛 그림을 처음 만들 때 프레임이 멈칫해서) */
+    if (f.fb && b.dl && !f.dead && lod < 2 && window.DOLL) DOLL.remote('fb' + f.uid, f.x, f.z, f.row || 0, b.dl, 0);   // v204: 복사한 마법인형
+    if (!DBG.noSprite) { LOWQ = true; drawHeroSprite(g, anim, fr, f.row || 0, x, y, f.flash > 0 && !(f.fb && far) ? 'brightness(2.2) saturate(.4)' : null, b.cls, eqf, glf, b.pf || null, f.fb ? (lod >= 2 || (lod >= 1 && far) ? 2 : 1) : 0); LOWQ = false; }   /* v204: 필드 봇은 복사한 변신 (lite 1 = 색 입힌 그림·오로라는 프레임당 2장까지만 새로 · 2 = 프레임이 떨어질 때(LOD) 먼 봇은 색 입히기·오로라·불티 없이 바탕 그림) */   /* v191: 필드 봇은 6칸 밖이면 늘 간단히 (갑옷·투구·무기만 · 맞을 때 번쩍임 없음) · 무기 빛은 안 그림 (빛 그림을 처음 만들 때 프레임이 멈칫해서) */
     if (f.immT > time && !f.dead) { g.globalAlpha = al * (0.55 + 0.2 * Math.sin(time * 3)); g.strokeStyle = 'rgba(130,255,170,.85)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(x, y, 21, 9.5, 0, 0, 7); g.stroke(); g.fillStyle = 'rgba(120,255,170,.12)'; g.fill(); }   // 봇 이뮨은 발밑 초록 고리만 (전신 오라는 너무 밝음)
     g.restore(); if (f.dead || DBG.noLabel) return;
     const top = y - 104; g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; if (b.clan) clanName(g, x, top, '[' + b.clan + ']', ally ? CLAN_C.A : CLAN_C.B, b.name, ally ? '#9fd8ff' : '#ff8a7a'); else { g.strokeText(b.name, x, top); g.fillStyle = ally ? '#9fd8ff' : '#ff8a7a'; g.fillText(b.name, x, top); }   /* v191: 필드 봇은 [혈맹] 이름 */
@@ -8989,17 +8992,98 @@ const FBOT = (() => {
   // 지금 이 지역에서 봇이 움직이는지 (필드 사냥터에 있을 때만)
   const here = () => SCENE === 'field' && !!ISLE && zoneOk(ISLE.id) && !TW() && !HW() && !ARENA() && !DUEL();
   const host = () => SIM || (NET.zoneHost() && !ADMIN.on());
-  // ----- 기준 유저 (접속자 중 전투력 1등) — 모든 PC가 presence의 cp·lv로 같은 사람을 고름 · 능력치는 그 사람의 presence fb(=myRef)
+  // ----- v204(10/31 프로듀서 결정): 봇은 캐릭터 하나를 복사 — 접속자 중 전투력 1등 캐릭터의 레벨·능력치·장비(강화·축복·속성)·변신·마법인형을 '2시간마다 찍은 사진'으로
+  //   사진 = Firestore worldbot/s<구간> (만들기만 · 먼저 쓴 사람이 이김 → 모든 PC가 같은 사진) · 구간 = 한국 시간 새벽 5시부터 2시간씩 (05·07·09…시에 바뀜)
+  //   그 구간 사진이 없으면: 접속자 중 전투력(presence cp) 1등 PC가 자기 캐릭터로 만들고, 다른 PC는 구간이 바뀔 때·1분마다 읽어 봄 (찾으면 그 구간 동안 그대로 · 접속자가 바뀌어도 안 바뀜)
+  //   서버를 못 쓰면(로그아웃·규칙 없음·테스트) 예전처럼 presence 실시간 1등 기준 · 읽은 사진은 범위를 잘라 씀(clampCopy: 아는 아이템·변신·인형만 · 레벨·HP·피해·AC·MR 상한)
+  //   봇 세기는 그대로 봇마다 60~100%(PCT) · 직업은 명단 그대로 — 같은 직업은 복사한 장비·변신·인형 그대로 · 다른 직업은 능력치를 직업 보정(HPK·ACK·DMK·MRK)으로 바꾸고 모습은 그 직업 짝(lookFor)
   let REF = null, refSig = '', refAt = -9, FORCE = null;
   function approx(lv) { return { lv, c: 'knight', hp: Math.round(60 + lv * 14), ac: Math.round(4 - lv * 1.1), mr: Math.round(lv * 0.5), d: Math.round((4 + lv * 0.7) * 10) / 10, cp: 0 }; }
+  const CLS3 = ['knight', 'elf', 'wizard'], STK = ['str', 'dex', 'con', 'int', 'wis', 'cha'], SLOT_K = SLOTS.map(s => s[0]), KLS = Object.values(KL_SLOT), ELC = { e: 1, w: 1, f: 1, a: 1 };
+  const SN_MS = 7200e3, SN_OFF = 4 * 3600e3, slotOf = ms => Math.floor((ms + SN_OFF) / SN_MS), slotStart = s => s * SN_MS - SN_OFF;   // 2시간 구간 (한국 시간 05:00 = UTC 20:00 경계)
+  const kHM = ms => { const d = new Date(ms + 9 * 3600e3); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+  const nowMs = () => Date.now() + (DBG.toff || 0);   // DBG.toff: 테스트용 시계 밀기
+  const num = (v, lo, hi, d) => { v = +v; return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; }, r3 = v => Math.round(v * 1000) / 1000;
+  const slotOk = (s, d) => !!d && (d.slot === s || (d.slot === 'ring' && (s === 'ring1' || s === 'ring2')));
+  const eqRow = e => { const r = [e.id, e.en | 0, e.blessed ? Math.max(1, e.blessSp | 0) : 0]; if (e.attr && WQ_EL[e.attr.el]) r.push(WQ_EL[e.attr.el], e.attr.lv | 0); return r; };   // [아이디, 강화, 축복(0·1~), 속성 글자, 속성 단계]
+  // 내 캐릭터 사진 (물약·버프 같은 일시 효과는 빼고 · 변신은 그대로) — 서버 사진 · presence fb(실시간 기준)에 씀
+  let MINE = null, mineAt = -9;
+  function mine() { if (MINE && performance.now() - mineAt < 2000) return MINE; mineAt = performance.now(); const keep = {}; for (const k in BUFF) if (k !== 'poly') { keep[k] = BUFF[k]; BUFF[k] = 0; }
+    try { const S = INV.stat(), W_ = INV.eqE('weapon'), wd = W_ && ITEMS[W_.id], wiz = CLASS === 'wizard', bow = !!wd && wd.wtype === 'bow', mode = wiz ? 'magic' : bow ? 'bow' : undefined, R = wiz ? magicDmg() : INV.dmg(), dl = ITEMS[INV.equipped('doll')] || {}, eq = {};
+      for (const s of SLOT_K) { const e = INV.eqE(s); if (e && ITEMS[e.id]) eq[s] = eqRow(e); }
+      return (MINE = { n: PNAME(), c: CLASS, lv: hero.lv, cp: myCP().total || 0, st: STK.map(k => S[k] | 0),
+        cb: { hp: hero.max, ac: INV.ac(), mr: Math.round(mrTotal()), d: Math.round((R[0] + R[1]) / 2 * 10) / 10, hb: r3(hitSb(mode) + (INV.cx('hit') || 0) * 0.03 + (wiz ? 0 : (INV.cx(bow ? 'hitR' : 'hitM') || 0) * 0.03)),
+          cr: r3(wiz ? spellCritP({ lv: hero.lv, mr: 40 }) : 0.12 + (INV.cx('crit') || 0) / 100), as: Math.round(INV.cx('atkSpd') || 0), ms: Math.round(INV.cx('moveSpd') || 0),
+          dr: Math.round(((INV.cx('dr') || 0) + (INV.cx('drMelee') || 0) * 0.5) * 10) / 10, jg: r3(judgeChance(wd, W_ && W_.en)), pr: dl.proc ? [dl.proc.p, dl.proc.dmg[0], dl.proc.dmg[1]] : 0 },
+        eq, pf: selfPoly() || '', dl: dl.doll || '' }); }
+    catch (e) { return (MINE = null); } finally { for (const k in keep) BUFF[k] = keep[k]; } }
+  function fbOut() { const m = mine(); return m ? Object.assign({ lv: m.lv, c: m.c, cp: m.cp, st: m.st }, m.cb) : K_.myRef(); }   // presence fb: 다른 PC의 실시간 기준용 (장비·변신·인형은 presence e·wq·pf·dl)
+  // presence → 사진 (실시간 기준) · wq 글자 = 접속자 정보 창(WHO)과 같은 형식
+  function fromPr(o) { const pr = o.pr || {}, f = pr.fb && typeof pr.fb === 'object' && pr.fb.hp > 0 ? pr.fb : null, lv = +pr.lv || 1; let eq = null;
+    if (pr.e && typeof pr.e === 'object') { eq = {}; const Q = pr.wq && typeof pr.wq === 'object' ? pr.wq : {};
+      for (const s of SLOT_K) { const m = /^([^+*@-]*)([+-]\d+)?(\*(\d?))?(?:@([ewfa])(\d+))?$/.exec(typeof Q[s] === 'string' ? Q[s] : '') || [], id = m[1] || pr.e[s]; if (!id) continue; const r = [id, +m[2] || 0, m[3] ? Math.max(1, +m[4] || 1) : 0]; if (m[5]) r.push(m[5], +m[6] || 1); eq[s] = r; } }
+    return { n: String(pr.n || ''), c: (f && f.c) || pr.c, lv, cp: +pr.cp || 0, st: f && f.st, cb: f || approx(lv), eq, pf: pr.pf || '', dl: pr.dl || '' }; }
+  // 사진 검사·범위 자르기 (서버 문서·presence 모두): 이상한 문서가 와도 말도 안 되는 봇이 나오지 않게 — 아는 아이템 id·부위만 · 변신·인형도 있는 것만
+  function clampCopy(o) { if (!o || typeof o !== 'object') return null; const c = CLS3.includes(o.c) ? o.c : null, lv = Math.round(num(o.lv, 1, 99, 0)); if (!c || !lv) return null;
+    const B = o.cb && typeof o.cb === 'object' ? o.cb : {}, A = approx(lv), Pr = Array.isArray(B.pr) && B.pr.length === 3 ? B.pr : null;
+    const cb = { hp: Math.round(num(B.hp, 20, 150 + lv * 45, A.hp)), ac: Math.round(num(B.ac, -(20 + lv * 2.5), 10, A.ac)), mr: Math.round(num(B.mr, 0, 40 + lv * 2.5, A.mr)), d: Math.round(num(B.d, 1, 20 + lv * 2.5, A.d) * 10) / 10,
+      hb: r3(num(B.hb, -0.2, 0.9, 0)), cr: r3(num(B.cr, 0, 0.5, 0.1)), as: Math.round(num(B.as, 0, 40, 0)), ms: Math.round(num(B.ms, 0, 40, 0)), dr: num(B.dr, 0, 15, 0), jg: r3(num(B.jg, 0, 0.6, 0)),
+      pr: Pr ? [num(Pr[0], 0, 0.1, 0), num(Pr[1], 0, 60, 0), num(Pr[2], 0, 80, 0)] : null };
+    if (cb.pr && !(cb.pr[0] > 0 && cb.pr[2] > 0)) cb.pr = null; if (cb.pr && cb.pr[1] > cb.pr[2]) cb.pr[1] = cb.pr[2];
+    let eq = null; if (o.eq && typeof o.eq === 'object') { eq = {}; for (const s of SLOT_K) { const r = o.eq[s]; if (!Array.isArray(r) || typeof r[0] !== 'string' || !slotOk(s, ITEMS[r[0]])) continue;
+        const e = [r[0], Math.round(num(r[1], -10, 15, 0)), Math.round(num(r[2], 0, 9, 0))]; if (ELC[r[3]]) e.push(r[3], Math.round(num(r[4], 1, 5, 1))); eq[s] = e; } }
+    const pf = typeof o.pf === 'string' && POLY[o.pf] && !POLY[o.pf].set ? o.pf : '', dl = typeof o.dl === 'string' && ITEMS['doll_' + o.dl] && ITEMS['doll_' + o.dl].doll === o.dl ? o.dl : '';
+    return { n: String(o.n || '').replace(/[\u0000-\u001f<>&"]/g, '').slice(0, 16), c, lv, cp: Math.round(num(o.cp, 0, 1e7, 0)), st: Array.isArray(o.st) && o.st.length === 6 ? o.st.map(v => Math.round(num(v, 1, 60, 10))) : null, cb, eq, pf, dl }; }
+  // ----- 서버 사진 (Firestore worldbot · 만들기만) — SN.cp = 읽은 사진 · 지난 구간 사진은 새 사진을 찾을 때까지 계속 씀 (구간이 바뀌는 순간 깜빡이지 않게)
+  const SN = { slot: -1, cp: null, at: 0, by: '', src: '', cur: -1, next: 0, busy: false, err: '', reads: 0, writes: 0, mode: 'off' }, LSK = 'aden_wbot';
+  try { const c = JSON.parse(localStorage.getItem(LSK) || 'null'), v = c && c.s === slotOf(Date.now()) && clampCopy(c.d); if (v) Object.assign(SN, { slot: c.s, cp: v, at: +c.at || 0, src: 'cache' }); } catch (e) {}
+  const cloudOn = () => { try { return !DBG.noCloud && CLOUD.on() && !!CLOUD.uid(); } catch (e) { return false; } };
+  const isAdm = o => !!(o.pr && o.pr.adm && o.pr.adm.t);
+  let netAt = 0;
+  function amTop() { if (ADMIN.on() || !window.__gameOn || !NET.me()) return false; const me = NET.me(), my = myCP().total || 0;   // 접속자 중 내 전투력이 1등인지 (같으면 peer 이름순 — 실시간 기준과 같은 순서)
+    for (const o of NET.others()) { if (isAdm(o)) continue; const c = +o.pr.cp || 0; if (c > my || (c === my && o.peer < me)) return false; } return true; }
+  function docOk(d, s) { if (!d || String(d.s) !== String(s)) return null; const at = +d.at || 0; if (at && (at < slotStart(s) - 900e3 || at > slotStart(s + 1) + 900e3)) return null; let o = null; try { o = typeof d.d === 'string' ? JSON.parse(d.d) : d.d; } catch (e) { return null; } return clampCopy(o); }
+  function snapTick() { if (FORCE) return; const now = nowMs(), cur = slotOf(now); if (NET.me()) { if (!netAt) netAt = performance.now(); } else netAt = 0;
+    if (cur !== SN.cur) { SN.cur = cur; SN.next = 0; refAt = -9; } if ((SN.cp && SN.slot === cur) || SN.busy || now < SN.next) return;
+    if (!cloudOn()) { SN.mode = 'off'; SN.next = now + 60e3; return; }
+    SN.busy = true; const path = 'worldbot/s' + cur; let wait = 60e3;
+    (async () => { try { SN.reads++; let d = await CLOUD.get(path);
+        if (!d && amTop()) { if (DBG.settled || (netAt && performance.now() - netAt > 8000)) { const me = mine(); if (me) { const body = { v: '1', s: String(cur), at: String(nowMs()), u: String(CLOUD.uid() || ''), d: JSON.stringify(me) }; SN.writes++;   // 먼저 쓴 사람이 이김 (있으면 거절됨 → 다시 읽음)
+              if (await CLOUD.create(path, body)) d = body; else { SN.reads++; d = await CLOUD.get(path); } } } else wait = 10e3; }   // 막 접속했으면 다른 사람 presence가 올 때까지 조금 기다림
+        if (d) { const v = docOk(d, cur); if (v) { Object.assign(SN, { slot: cur, cp: v, at: +d.at || 0, by: String(d.u || '').slice(0, 8), src: 'cloud', err: '' }); refAt = -9; try { localStorage.setItem(LSK, JSON.stringify({ s: cur, at: SN.at, d: v })); } catch (e) {} } else SN.err = 'bad'; }
+        SN.mode = 'on'; }
+      catch (e) { SN.err = String((e && (e.code || e.message)) || e).slice(0, 40); SN.mode = 'fail'; if (e && (e.status === 403 || /PERMISSION/i.test(String(e.message)))) wait = 300e3; }   // 규칙이 아직 없으면 5분마다만
+      finally { SN.busy = false; SN.next = nowMs() + wait; } })(); }
+  // 실시간 기준 (서버 사진이 없을 때): 접속자 중 전투력 1등 (나는 내 캐릭터 · 다른 사람은 presence)
+  function liveCopy() { const L = []; if (!ADMIN.on() && window.__gameOn) L.push({ peer: NET.me() || '', cp: myCP().total || 0, me: true });
+    for (const o of NET.others()) { if (isAdm(o)) continue; L.push({ peer: o.peer, cp: +o.pr.cp || 0, o }); }
+    if (!L.length) return null; L.sort((a, b) => (b.cp - a.cp) || (a.peer < b.peer ? -1 : a.peer > b.peer ? 1 : 0)); const t = L[0]; return clampCopy(t.me ? mine() : fromPr(t.o)); }
+  function srcCopy() { if (FORCE) return { cp: FORCE, src: 'test' }; const cur = slotOf(nowMs()); if (SN.cp && SN.slot <= cur && SN.slot >= cur - 1) return { cp: SN.cp, src: SN.slot === cur ? 'cloud' : 'prev' };
+    return { cp: liveCopy(), src: 'live' }; }
   function refNow() { if (REF && performance.now() - refAt < 1000) return REF; refAt = performance.now();
-    const L = []; if (FORCE) L.push(FORCE); else { if (!ADMIN.on() && window.__gameOn) L.push({ peer: NET.me() || '', n: PNAME(), cp: myCP().total || 0, lv: hero.lv, fb: K_.myRef() });
-      for (const o of NET.others()) L.push({ peer: o.peer, n: String(o.pr.n || ''), cp: +o.pr.cp || 0, lv: +o.pr.lv || 1, fb: o.pr.fb && typeof o.pr.fb === 'object' ? o.pr.fb : null }); }
-    if (!L.length) L.push({ peer: '', n: '', cp: 0, lv: hero.lv || 1, fb: null });
-    L.sort((a, b) => (b.cp - a.cp) || (a.peer < b.peer ? -1 : a.peer > b.peer ? 1 : 0)); const t = L[0], st = t.fb && t.fb.hp > 0 ? t.fb : approx(t.lv), sig = [t.lv, st.c, st.hp, st.ac, st.mr, st.d].join();
-    if (sig !== refSig || !REF) { refSig = sig; REF = { lv: t.lv, n: t.n, cp: t.cp, st: Object.assign({}, st, { lv: t.lv }) }; } else { REF.n = t.n; REF.cp = t.cp; } return REF; }
+    const S = srcCopy(), c = S.cp || clampCopy({ c: 'knight', lv: hero.lv || 1, cb: approx(hero.lv || 1) }), sig = JSON.stringify([c.c, c.lv, c.cb, c.eq, c.pf, c.dl, c.st]);
+    if (sig !== refSig || !REF) { refSig = sig; REF = { lv: c.lv, n: c.n, cp: c.cp, copy: c, src: S.src, st: Object.assign({}, c.cb, { lv: c.lv, c: c.c }), eqC: {} }; } else { REF.n = c.n; REF.cp = c.cp; REF.src = S.src; } return REF; }
+  // 직업마다 모습 (같은 직업 = 복사한 그대로 · 다른 직업 = 그 직업이 쓸 수 있으면 그대로 · 아니면 같은 출처·등급·레벨의 그 직업 장비 · 없으면 예전 등급 장비)
+  const WT = { knight: t => t !== 'bow' && t !== 'staff', elf: t => t === 'bow', wizard: t => t === 'staff' };
+  const wearOk = (d, cls) => !!d && !(Array.isArray(d.cls) && !d.cls.includes(cls)) && !(d.only && d.only !== cls) && (d.slot !== 'weapon' || WT[cls](d.wtype));
+  const EQV = new Map();
+  function eqvOf(id, cls) { const k = id + '>' + cls; if (EQV.has(k)) return EQV.get(k); const d = ITEMS[id]; let r = null;
+    if (d) { if (wearOk(d, cls)) r = id; else if (d.src) for (const q in ITEMS) { const e = ITEMS[q]; if (e !== d && e.slot === d.slot && e.rar === d.rar && (e.lv || 0) === (d.lv || 0) && e.src === d.src && wearOk(e, cls)) { r = q; break; } } }   // 예: 집행검 → 가이아의 격노·수정결정체 지팡이 · 화룡의 갑옷 → 화룡의 로브·가죽갑옷
+    EQV.set(k, r); return r; }
+  function polyFor(C, cls) { const P = POLY[C.pf]; if (!P) return ''; if (P.card) { const c = P.card; if (!c.cls || c.cls === cls) return C.pf; const k = 'pc_' + c.rc + '_' + PM_JOB[cls][0]; return POLY[k] ? k : ''; }   // 몬스터 카드는 모든 직업 · 소드·아크는 같은 시리즈의 그 직업
+    if (P.cls) return P.cls === cls ? C.pf : ((POLY_FORM[cls] || {})[P.tier] || ''); return C.pf; }   // 다크·실버 주문서도 같은 단계의 그 직업
+  function lookFor(R, cls) { const L = R.eqC; if (L[cls]) return L[cls]; const C = R.copy, o = { m: null, en: 0, pf: polyFor(C, cls), dl: C.dl || '' };
+    if (C.eq) { o.m = {}; for (const s of KLS) { const r = C.eq[s]; if (r) o.m[s] = cls === C.c ? r[0] : eqvOf(r[0], cls); } o.en = C.eq.weapon ? C.eq.weapon[1] : 0; }
+    return (L[cls] = o); }
+  function looks(b, R) { const o = lookFor(R, b.cls); b.pf = o.pf; b.dl = o.dl; if (!o.m) { b.eq = null; b.en = null; K_.gearOf(b); return; }   // 장비를 모르면(옛 버전 presence) 예전 등급 장비
+    const T = K_.gearOf({ cls: b.cls, pct: b.pct, lk: b.lk }), eq = {}; for (const s in o.m) { const id = o.m[s] || T[s]; if (id) eq[s] = id; }
+    b.eq = eq; b.en = o.en; if (!b.pf) b.pf = polyOf(s => eq[s] || null) || '';   // 데스나이트 세트처럼 장비로 되는 변신은 먼 봇(간단히 그림)도 같게
+  }
   const elvOf = (b, lv) => Math.max(1, Math.round((lv == null ? refNow().lv : lv) * b.pct));
-  function statFor(b) { const R = refNow(), st = K_.statOf(b, R.st); st.lv = elvOf(b, R.lv); return st; }
+  // 봇 능력치 = 복사한 값 × 비율 × 직업 보정 (HP·AC·MR·평균 피해는 TWM statOf) + 명중 보너스·받는 피해 감소·인형 번개 × 비율 · 치명타·공격/이동 속도·심판 확률은 그대로
+  function statFor(b) { const R = refNow(), st = K_.statOf(b, R.st); if (st.fbR !== R) { const C = R.copy, cb = C.cb, p = b.pct; st.fbR = R; st.lv = elvOf(b, R.lv);
+      st.hb = cb.hb * p; st.cr = cb.cr; st.as = cb.as; st.ms = cb.ms; st.dr = Math.round(cb.dr * p); st.jg = cb.jg; st.pr = cb.pr ? [cb.pr[0], cb.pr[1] * p, cb.pr[2] * p] : null; st.stat = C.st ? C.st.map(v => Math.max(1, Math.round(v * p))) : null; looks(b, R); }
+    return st; }
   // ----- 일과표: 20분 구간마다 봇마다 사냥터 (시각·기준 레벨만으로 정함 → 모든 PC 같은 결과)
   let PL = null;
   function planAt(ms, lv) { const slot = Math.floor(ms / 1000 / C.SLOT), key = slot + ':' + lv; if (PL && PL.key === key) return PL;
@@ -9039,8 +9123,12 @@ const FBOT = (() => {
   const los = (a, b) => !MAZE() || DGLOS(a, b);
   // ----- 전투 계산 (수호탑 봇과 같은 식 · TWB 밸런스 값 공유)
   function lvAc(T) { if (T === hero) return [hero.lv, INV.ac()]; if (T.isRemote) { const o = NET.peerObj(T.peer), r = o && o.pr.fb; return [(o && +o.pr.lv) || 1, r && r.ac != null ? +r.ac : 0]; } if (T.bot && T.bot.st) return [T.bot.st.lv, T.bot.st.ac]; return [1, 10]; }
-  function hitChance(a, T) { const st = a.bot.st, B = K_.TWB, [lv, ac] = lvAc(T); return Math.max(0.2, Math.min(0.95, B.hit + 0.03 * (st.lv - lv) - (10 - ac) * B.acK)); }
-  function rollD(a, mul) { const B = K_.TWB; let d = a.bot.st.d * B.dm * (a.bot.cls === 'wizard' ? B.wiz : 1) * (0.75 + Math.random() * 0.5) * (mul || 1); const cr = Math.random() < 0.1; if (cr) d *= 1.5; return [Math.max(1, Math.round(d)), cr]; }
+  // v204: 대인전 명중 = 유저와 같은 식(PVP_HIT) + 복사한 명중 보너스(힘·민첩·지능 · 장비·인형·변신 카드 명중) × 비율 · 치명타는 복사한 확률 · 전설 무기 [심판]은 그 확률로 2배 (기사·요정)
+  function hitChance(a, T) { const st = a.bot.st, [lv, ac] = lvAc(T); return Math.max(0.2, Math.min(0.95, PVP_HIT.base + 0.03 * (st.lv - lv) + (st.hb || 0) - (10 - ac) * (a.bot.cls === 'wizard' ? PVP_HIT.acKM : PVP_HIT.acK))); }
+  function rollD(a, mul) { const B = K_.TWB, st = a.bot.st; let d = st.d * B.dm * (a.bot.cls === 'wizard' ? B.wiz : 1) * (0.75 + Math.random() * 0.5) * (mul || 1); const cr = Math.random() < (st.cr ?? 0.1); if (cr) d *= 1.5; if (st.jg && a.bot.cls !== 'wizard' && Math.random() < st.jg) d *= 2; return [Math.max(1, Math.round(d)), cr]; }
+  const atkCd = (b, k) => ATK[b.cls] / GSPD / K_.TWB.spd * (k || 1) / (1 + Math.max(0, (b.st && b.st.as) || 0) / 100);   // 공격 속도 (복사한 장비·변신 카드 % 포함)
+  function procHit(f, T, mob) { const P = f.bot.st && f.bot.st.pr; if (!P || Math.random() >= P[0]) return; const d = Math.max(1, Math.round(P[1] + Math.random() * (P[2] - P[1])));   // 인형 번개 (와이번 인형 4%)
+    PEND.push(mob ? { at: time + 0.15, a: f, T, d, cr: false, mob: 1 } : { at: time + 0.15, a: f, T, d, k: 'magic', cr: false, keep: 1 }); }
   const near = (e, r) => !SIM && here() && !!e && Math.max(Math.abs(e.x - hero.x), Math.abs(e.z - hero.z)) <= (r || 16);
   function showD(T, d, cr, c) { if (!near(T, 12)) return; const [x, y] = W2P(T.x, T.z), top = y - headY(T) - 4; floatText(x + (Math.random() * 16 - 8), top - 6, String(d), { color: c || (cr ? '#ffb03a' : '#f2eedf'), size: cr ? 14 : 11, big: cr }); }
   function miss(T) { if (!near(T)) return; const [x, y] = W2P(T.x, T.z); floatText(x, y - headY(T) - 8, 'MISS', { color: '#c8d0d8', size: 10 }); }
@@ -9054,8 +9142,8 @@ const FBOT = (() => {
     if (!live(T) || !T.fb || T.bot.team === a.bot.team) return; if (d <= 0) { miss(T); return; }
     d = K_.inDmg(T, d, kind); T.hp -= d; T.flash = 0.08; T.fbD = (T.fbD || 0) + d; if (T.bx) { T.bx.hitBy = a; T.bx.hitByT = time; } showD(T, d, cr); if (kind === 'melee') snd(T, 'hit'); if (T.hp <= 0) botDie(T, a); }
   // 몬스터에게: 명중은 몬스터 방어(AC)·레벨 차 (유저와 비슷) · 피해는 기준 유저 평균 피해 × 비율 · 플레이어가 함께 때렸으면 보상은 기존 몹 규칙(플레이어 몫) · 봇 혼자 잡으면 보상·드랍 없음
-  function huntHit(a, m, mode) { const st = a.bot.st, S = MOB[m.kind]; const hp = Math.max(0.2, Math.min(0.97, 0.7 + 0.05 * (st.lv - (S.lv || 1)) + (10 - (S.mac ?? 10)) * (mode === 'magic' ? -0.015 : -0.03)));
-    let d = Math.round(st.d * (0.75 + Math.random() * 0.5)); const cr = Math.random() < 0.1; if (cr) d = Math.round(d * 1.5); if (S.pdr && mode !== 'magic') d = Math.max(1, Math.round(d * (1 - S.pdr))); return [Math.random() < hp ? Math.max(1, d) : 0, cr]; }
+  function huntHit(a, m, mode) { const st = a.bot.st, S = MOB[m.kind]; const hp = Math.max(0.2, Math.min(0.97, 0.7 + 0.05 * (st.lv - (S.lv || 1)) + (st.hb || 0) + (10 - (S.mac ?? 10)) * (mode === 'magic' ? -0.015 : -0.03)));
+    let d = Math.round(st.d * (0.75 + Math.random() * 0.5)); const cr = Math.random() < (st.cr ?? 0.1); if (cr) d = Math.round(d * 1.5); if (st.jg && mode !== 'magic' && Math.random() < st.jg) d *= 2; if (S.pdr && mode !== 'magic') d = Math.max(1, Math.round(d * (1 - S.pdr))); return [Math.random() < hp ? Math.max(1, d) : 0, cr]; }
   function mobDeal(a, m, d, cr) { if (!m || m.dead || m.gone) return; if (!m.tgt || !(m.tgt === hero || m.tgt.isRemote || m.tgt.isPet)) { m.aggro = true; m.tgt = a; } if (d <= 0) { miss(m); return; }
     if (m.bindUntil > time) return; m.hp -= d; m.flash = 0.09; m.fbD = (m.fbD || 0) + d; showD(m, d, cr, '#d8d0b8'); if (m.hp > 0) return;
     const pl = m.dmgBy && [...m.dmgBy.values()].some(v => v > 0);
@@ -9100,7 +9188,7 @@ const FBOT = (() => {
   function mobTick(f, dt) { if (!f.bot && !tag(f)) return; f.flash = Math.max(0, (f.flash || 0) - dt); if (f.atkT != null) { f.atkT += dt; if (f.atkT >= ATK_T) f.atkT = null; }
     if (!host() || !here() || DBG.noAI) return; const b = f.bot, X = f.bx || (f.bx = newX(f));
     if (f.dead) { f.deadT += dt; if (f.deadT >= 2.2 && !f.gone) { f.gone = true; AWAY.set(f.uid, Date.now() + (C.RESP[0] + Math.random() * (C.RESP[1] - C.RESP[0])) * 1000); } return; }
-    stepMove(f, dt, SPD() * (f.slowT > 0 ? 0.6 : 1)); if (f.slowT > 0) f.slowT -= dt;
+    stepMove(f, dt, SPD() * (1 + Math.max(0, f.bot.st.ms || 0) / 100) * (f.slowT > 0 ? 0.6 : 1)); if (f.slowT > 0) f.slowT -= dt;
     if (f.stunT > 0) { f.stunT -= dt; return; } if (f.bindUntil > time) return;
     X.cd -= dt; X.pot -= dt; X.kite -= dt; X.idle -= dt; for (const k in X.sk) X.sk[k] -= dt;
     if (potion(f, X)) return;
@@ -9149,11 +9237,11 @@ const FBOT = (() => {
     if (d <= R && (d <= 1 || los(f, T))) { if (pvp && b.cls !== 'knight' && X.kite <= 0 && f.t >= 1) { const m = foesOf(b).find(e => cheb(f.i, f.j, e.i, e.j) <= 1 && isMelee(e)); if (m && stepAway(f, m)) { X.kite = 0.6 + Math.random() * 0.8; return; } }   // 카이팅: 근접이 붙으면 한 칸 물러남
       if (f.t >= 1) { face(f, T); if (X.cd <= 0) { if (pvp) attack(f, b, X, T); else hunt(f, b, X, T); } } return; }
     if (f.t >= 1) stepTo(f, T.i, T.j, R); }
-  function hunt(f, b, X, m) { const cls = b.cls, dist = cheb(f.i, f.j, m.i, m.j), mode = cls === 'knight' ? 'melee' : cls === 'elf' ? 'bow' : 'magic'; f.atkT = 0; X.cd = ATK[cls] / GSPD / K_.TWB.spd * C.HUNT;
+  function hunt(f, b, X, m) { const cls = b.cls, dist = cheb(f.i, f.j, m.i, m.j), mode = cls === 'knight' ? 'melee' : cls === 'elf' ? 'bow' : 'magic'; f.atkT = 0; X.cd = atkCd(b, C.HUNT); procHit(f, m, true);
     const [d, cr] = huntHit(f, m, mode); if (!m.tgt || !(m.tgt === hero || m.tgt.isRemote || m.tgt.isPet)) { m.aggro = true; m.tgt = f; }
     if (cls === 'knight') { mobDeal(f, m, d, cr); snd(f, 'swing'); return; }
     PEND.push({ at: time + (cls === 'elf' ? 0.1 + dist * 0.05 : 0.22 + dist * 0.045), a: f, T: m, d, k: mode, cr, mob: 1 }); fx([cls === 'elf' ? 'a' : 'b', f.uid, m.uid, 1]); if (cls === 'elf') snd(f, 'bow'); }
-  function attack(f, b, X, tg) { const cls = b.cls, dist = cheb(f.i, f.j, tg.i, tg.j); f.atkT = 0; X.cd = ATK[cls] / GSPD / K_.TWB.spd;
+  function attack(f, b, X, tg) { const cls = b.cls, dist = cheb(f.i, f.j, tg.i, tg.j); f.atkT = 0; X.cd = atkCd(b); procHit(f, tg, false);
     if (cls === 'knight') { const [d, cr] = rollD(f); deal(f, tg, Math.random() < hitChance(f, tg) ? d : 0, 'melee', cr); snd(f, 'swing'); return; }
     if (cls === 'elf') { const tri = X.sk.tri <= 0, n = tri ? 3 : 1; if (tri) X.sk.tri = 9;
       for (let q = 0; q < n; q++) { const [d, cr] = rollD(f, tri ? 0.8 : 1), ok = Math.random() < hitChance(f, tg); PEND.push({ at: time + 0.1 + dist * 0.05 + q * 0.12, a: f, T: tg, d: ok ? d : 0, k: 'bow', cr, keep: 1 }); }
@@ -9203,11 +9291,12 @@ const FBOT = (() => {
   function guestFx() { if (pub) { pub = null; NET.setExtra('fbx', null); } const h = NET.others().find(o => o.pr.fbx && o.pr.fbx.z === zkey() && o.pr.z === zkey()); if (!h) return; const L = h.pr.fbx.L; if (!Array.isArray(L)) return;
     const last = seenFx.get(h.peer); let mx = last || 0; for (const ev of L) { if (!Array.isArray(ev) || !(ev[0] > (last || 0))) continue; mx = Math.max(mx, ev[0]); if (last != null) play(ev.slice(1), false); } seenFx.set(h.peer, mx); }
   // ----- 지역을 옮기면 예전 지역의 봇은 치움 (호스트가 새로 내보내거나, 게스트는 호스트 목록으로 받음)
-  let lastArr = null, lastZ = '', ensT = 0.4, refT = 0, refS = '', live_ = [];
+  let lastArr = null, lastZ = '', ensT = 0.4, refT = 0, refS = '', live_ = [], snT = 0;
   function zoneSwitch() { const z = SCENE === 'field' && ISLE ? 'isle' + ISLE.id : SCENE; if (z === lastZ && lastArr === foxes) return; if (lastArr && lastArr !== foxes) for (let k = lastArr.length - 1; k >= 0; k--) if (lastArr[k].fb) lastArr.splice(k, 1);
     lastZ = z; lastArr = foxes; PEND.length = 0; ensT = 0.6; for (const f of foxes) if (f.fb && !NET.guestMob(f)) f.gone = true; }   // 들어오자마자 예전 봇은 정리 → 0.6초 뒤 새로
   function tick(dt) { if (!window.__gameOn) return;
-    if ((refT -= dt) <= 0) { refT = 4; const r = K_.myRef(), s = JSON.stringify(r); if (s !== refS) { refS = s; NET.setExtra('fb', r); } }   // 내 기준 능력치 (다른 PC가 봇 세기를 정할 때 씀)
+    if ((refT -= dt) <= 0) { refT = 4; const r = fbOut(), s = JSON.stringify(r); if (s !== refS) { refS = s; NET.setExtra('fb', r); } }
+    if ((snT -= dt) <= 0) { snT = 1; snapTick(); }   // v204: 2시간 사진 (서버)   // 내 기준 능력치 (다른 PC가 봇 세기를 정할 때 씀)
     zoneSwitch(); live_ = here() ? foxes.filter(f => f.fb && live(f)) : []; lodTick(dt);
     if (!here()) { if (pub) { pub = null; NET.setExtra('fbx', null); } return; }
     if ((ensT -= dt) <= 0) { ensT = 1; if (!host()) { for (const f of foxes) if (f.fb && !f.gone && (!f.bot || f.bot.stRef !== refNow().st)) tag(f); } else if (!DBG.noEnsure) ensure(); }
@@ -9220,7 +9309,8 @@ const FBOT = (() => {
   const tagOn = () => !TW();
   function report() { const P = plan(), R = refNow(), Z = zones(), A = roster(), cnt = id => [A.A.filter(b => P.at[b.uid] === id).length, A.B.filter(b => P.at[b.uid] === id).length];
     const users = 1 + NET.others().length, left = Math.max(0, Math.ceil((P.next - Date.now()) / 60000));
-    say(`[혈맹] 반왕 혈맹: 유저 ${users}명 + 봇 ${NB.A}명 · 라인 혈맹: 봇 ${NB.B}명 · 봇 기준: ${R.n || '나'} Lv.${R.lv} (60~100%)`, '#ffd28a', 1);
+    const src = R.src === 'cloud' ? `다음 갱신 ${kHM(slotStart(SN.slot + 1))}` : R.src === 'prev' ? '지난 사진 · 새 사진 기다리는 중' : R.src === 'test' ? '테스트' : '실시간 기준 · 서버 저장 안 됨';   // v204: 복사한 캐릭터 · 사진 출처
+    say(`[혈맹] 반왕 혈맹: 유저 ${users}명 + 봇 ${NB.A}명 · 라인 혈맹: 봇 ${NB.B}명 · 봇 복사: ${R.n || '나'} Lv.${R.lv} ${CLASS_NAME[R.copy.c] || ''} (${src}) · 봇마다 60~100%`, '#ffd28a', 1);
     const L = Z.map(z => [z, cnt(z.id)]).filter(([, c]) => c[0] + c[1] > 0).map(([z, c]) => `${z.name} ${c[0]}·${c[1]}`); const rest = cnt(0);
     say(`[혈맹] 지금 사냥 중 (반왕·라인): ${L.join(' / ') || '없음'} · 마을 정비 ${rest[0] + rest[1]}명 · ${left}분 뒤 자리 바꿈`, '#ffd28a', 1); }
   // 분배 표 (테스트·확인용): 기준 레벨 lv일 때 사냥터마다 반왕·라인 몇 명 · 봇 레벨대
@@ -9231,7 +9321,8 @@ const FBOT = (() => {
   function sim(sec, dt) { dt = dt || 0.05; SIM = true; const t0 = performance.now(); try { for (let k = 0, n = Math.round(sec / dt); k < n; k++) { time += dt; for (const f of foxes.slice()) updateFox(f, dt); ISLAND.tick(dt); tick(dt); } } finally { SIM = false; } return Math.round(performance.now() - t0); }
   const DBG = {};
   return { tick, mobTick, tag, down, onDmg, mobHit, nearBot, onAlert, tagOn, report, table, sim, isUid, DBG, lod: () => LODF, cfg: o => o ? Object.assign(C, o) : C,
-    live: () => live_.length > 0, roster, plan, planAt, ref: refNow, setRef(r) { FORCE = r ? Object.assign({ peer: '', n: 'TEST', cp: 1e9, fb: null }, r) : null; refAt = -9; PL = null; return refNow(); }, zones, here, host,
+    live: () => live_.length > 0, roster, plan, planAt, ref: refNow, setRef(r) { FORCE = !r ? null : r.copy ? clampCopy(Object.assign({ n: 'TEST', cp: 1e9 }, r.copy)) : clampCopy({ n: r.n || 'TEST', c: (r.fb && r.fb.c) || 'knight', lv: r.lv || (r.fb && r.fb.lv) || 1, cp: 1e9, cb: r.fb || approx(r.lv || 1), eq: null }); refAt = -9; PL = null; return refNow(); }, zones, here, host,
+    snap: () => SN, snapNow() { SN.next = 0; snapTick(); }, snapReset() { Object.assign(SN, { slot: -1, cp: null, at: 0, by: '', src: '', cur: -1, next: 0, err: '' }); refAt = -9; try { localStorage.removeItem(LSK); } catch (e) {} }, copy: () => refNow().copy, mine: () => { mineAt = -9; return mine(); }, fbOut, clampCopy, lookFor: cls => lookFor(refNow(), cls), slotOf, slotStart, kHM, amTop, stOf(uid) { const b = roster().by.get(uid); if (!b) return null; const st = statFor(b); return { uid, cls: b.cls, pct: b.pct, name: b.name, st: Object.assign({}, st, { fbR: undefined }), eq: Object.assign({}, b.eq || {}), en: b.en, pf: b.pf || '', dl: b.dl || '' }; },
     bots: () => foxes.filter(f => f.fb && !f.gone), stat: () => STAT, spawnTest(uid, i, j) { const b = roster().by.get(uid); if (!b) return null; for (let r = 0; r < 6; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { const a = i + di, c = j + dj; if (Math.max(Math.abs(di), Math.abs(dj)) === r && walkable(a, c) && !occ(a, c)) return spawn(b, [a, c]); } return null; }, away: AWAY, alerts: ALERT };
 })();
 window.__FB = FBOT;
