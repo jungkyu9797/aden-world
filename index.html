@@ -808,6 +808,19 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 .iw-mh{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px} .iw-mh span{font:700 11px "Noto Sans KR",sans-serif;color:#cfc6ae;margin-right:2px}
 .iw-mh button{width:30px;height:30px;padding:0!important;font:800 12px "Noto Sans KR",sans-serif!important;background:linear-gradient(#3a2c1c,#1e160e);border:1px solid #7a5a2a;border-radius:4px;color:#f0e2bc}
 .iw-mh button.on{border-color:#ffd040;color:#ffe08a;box-shadow:0 0 6px rgba(255,208,64,.55);background:linear-gradient(#5a4418,#2a1c06)}
+/* 10/31 전설 등급 칸 — 깊은 파란 바탕이 숨 쉬듯 일렁이고, 칼날을 따라 빛줄기가 지나가며, 끝·손잡이에 별빛이 반짝임 (game.js legFx · CSS 애니메이션만 → 가방이 꽉 차도 가벼움 · 칸마다 --lgd로 위상만 다르게) */
+.slot.rar.r-4,.slot.rar.r-4.blessed,.eq.rar.r-4,.iw-ic.r-4,.cdx-ic.r-4{border-color:var(--rar,#ffb43a)!important;background:radial-gradient(circle at 50% 52%,#2a5ae6 0%,#123096 40%,#06103e 78%,#030722 100%)!important;box-shadow:inset 0 0 0 1px rgba(170,210,255,.7),inset 0 0 14px rgba(40,100,255,.85),0 0 7px rgba(70,140,255,.6)!important;isolation:isolate}
+.iw-ic.r-4,.cdx-ic.r-4{--rar:#ffb43a;position:relative;overflow:hidden}
+.r-4:not(.eg1):not(.eg2):not(.eg3):not(.eg4)>svg{filter:drop-shadow(0 0 2px rgba(130,195,255,.95))}
+.lg-fx{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:inherit;font-style:normal;mix-blend-mode:screen}
+.lg-fx::before{content:"";position:absolute;inset:-12%;background:radial-gradient(circle at 50% 55%,rgba(110,175,255,.7),rgba(45,100,255,.32) 36%,rgba(10,30,140,0) 66%),radial-gradient(circle at 22% 28%,rgba(130,90,255,.32),rgba(0,0,0,0) 42%),radial-gradient(circle at 78% 76%,rgba(60,140,255,.28),rgba(0,0,0,0) 40%);animation:lgPulse 2.6s ease-in-out infinite alternate;animation-delay:var(--lgd,0s)}
+.lg-fx::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,#fff 0 4%,rgba(200,230,255,.95) 9%,rgba(90,160,255,.45) 20%,rgba(0,0,0,0) 36%),linear-gradient(90deg,rgba(0,0,0,0) 4%,rgba(215,236,255,.95) 50%,rgba(0,0,0,0) 96%) 50% 50%/100% 2px no-repeat;opacity:0;animation:lgSweep 3.4s cubic-bezier(.45,.05,.55,.95) infinite;animation-delay:var(--lgd,0s)}
+.lg-fx b{position:absolute;left:58%;top:0;width:42%;height:42%;background:radial-gradient(circle at 50% 50%,#fff 0 7%,rgba(205,232,255,.85) 13%,rgba(90,160,255,.3) 26%,rgba(0,0,0,0) 46%),linear-gradient(90deg,rgba(0,0,0,0),#fff 50%,rgba(0,0,0,0)) 50% 50%/100% 1.4px no-repeat,linear-gradient(0deg,rgba(0,0,0,0),#fff 50%,rgba(0,0,0,0)) 50% 50%/1.4px 100% no-repeat;opacity:0;transform:scale(0);animation:lgStar 2.2s ease-in-out infinite;animation-delay:calc(var(--lgd,0s) - .4s)}
+.lg-fx b+b{left:0;top:58%;width:34%;height:34%;animation-duration:2.9s;animation-delay:calc(var(--lgd,0s) - 1.6s)}
+@keyframes lgPulse{0%{opacity:.4;transform:scale(.94)}35%{opacity:.78}50%{opacity:.62}72%{opacity:.92}100%{opacity:1;transform:scale(1.06)}}
+@keyframes lgSweep{0%{opacity:0;transform:translate(-36%,36%) scale(.55)}8%{opacity:1}36%{opacity:.95;transform:translate(34%,-34%) scale(1)}46%{opacity:0;transform:translate(42%,-42%) scale(.5)}100%{opacity:0;transform:translate(42%,-42%) scale(.5)}}
+@keyframes lgStar{0%,52%,100%{opacity:0;transform:scale(0) rotate(0deg)}68%{opacity:1;transform:scale(1) rotate(45deg)}84%{opacity:.55;transform:scale(.45) rotate(90deg)}}
+@media (prefers-reduced-motion:reduce){.lg-fx::before,.lg-fx::after,.lg-fx b{animation:none!important}.lg-fx::before{opacity:.8}.lg-fx::after,.lg-fx b+b{opacity:0}.lg-fx b:first-child{opacity:.75;transform:scale(.7) rotate(45deg)}}
 </style>
 <div id="mob-ui">
 <div id="mob-stick" aria-label="이동 (끌어서 움직이기)"><i></i><b>이동</b></div>
@@ -941,7 +954,7 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
  <div class="cdx-tabs" id="cdx-tabs" role="tablist" aria-label="분류"></div>
  <div class="cdx-sub" id="cdx-sub" role="tablist" aria-label="부위" hidden></div>
  <div class="cdx-sub cdx-cls" id="cdx-cls" role="tablist" aria-label="직업"></div>
- <div class="cdx-flt"><input type="search" id="cdx-q" placeholder="이름 · 옵션 · 얻는 곳으로 찾기" aria-label="아이템 찾기"><select id="cdx-rar" aria-label="등급"><option value="">모든 등급</option><option>일반</option><option>고급</option><option>희귀</option><option>영웅</option></select><label class="cdx-mine"><input type="checkbox" id="cdx-mine"> 내 직업만</label><span id="cdx-n" class="cdx-n"></span></div>
+ <div class="cdx-flt"><input type="search" id="cdx-q" placeholder="이름 · 옵션 · 얻는 곳으로 찾기" aria-label="아이템 찾기"><select id="cdx-rar" aria-label="등급"><option value="">모든 등급</option><option>일반</option><option>고급</option><option>희귀</option><option>영웅</option><option>전설</option></select><label class="cdx-mine"><input type="checkbox" id="cdx-mine"> 내 직업만</label><span id="cdx-n" class="cdx-n"></span></div>
  <div class="cdx-list" id="cdx-list"></div></div>
 <div class="gw" id="mpwin" hidden role="dialog" aria-label="접속자"><span class="gw-plate">월드 서버</span><button class="x" type="button" data-closewin="mpwin">닫기</button>
  <p class="mp-st" id="mp-status">월드 서버에 연결하는 중…</p>
