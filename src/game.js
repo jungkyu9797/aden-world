@@ -2389,6 +2389,7 @@ const HOT_AB = { 'sk:heal': '힐', 'sk:shieldm': '실드', 'sk:ebolt': '에볼',
   'sk:quake': '어퀘', 'sk:fstorm': '파스', 'sk:abarrier': '앱배', 'sk:advspirit': '어스', 'sk:lstorm': '라스', 'sk:disint': '디스', 'sk:meteor': '미티', 'sk:blizzard': '블리', 'sk:ghaste': '그헤', 'sk:resur': '리저', 'sk:stun': '스턴',
   'sk:reduction': '리덕', 'sk:bounce': '바운', 'sk:solid': '솔리', 'sk:counter': '카배', 'sk:resist_magic': '레매', 'sk:body_mind': '블소', 'sk:tele_tree': '시야', 'sk:clear_mind': '클마', 'sk:triple_arrow': '트리', 'sk:wind_shot': '윈샷',
   'sk:storm_shot': '스샷', 'sk:striker_gale': '게일', 'sk:earth_bind': '어바', 'sk:pollute_water': '폴워', 'sk:nature_bless': '네블', 'sk:resist_elem': '레엘', 'sk:summon': '서먼', 'act:pick': '줍기',
+  lg_sword: '집행', lg_bow: '격노', lg_staff: '수결',   /* 11/1 전설 무기 줄임말 (프로듀서) */
   hw_scroll: '호강', hw_bscroll: '축호', hw_pouch: '호박', hw_pouch_r: '희호', hw_pouch_h: '영호', hw_candy: '사탕', hw_lantern: '랜턴', red_potion: '빨물', orange_potion: '주물', clear_potion: '맑물', antidote: '해독', candle: '양초', poly_dark: '다변', poly_silver: '실변', scroll_counterm: '카매', mana_potion: '마나', green_potion: '초록', brave_potion: '용기',
   scroll_weapon: '무주', scroll_armor: '갑주', scroll_acc: '장주', bscroll_acc: '축장', bscroll_weapon: '축무', bscroll_armor: '축갑', cscroll_weapon: '저무', cscroll_armor: '저갑', scroll_earth: '땅속', scroll_water: '물속', scroll_fire: '불속', scroll_wind: '바속',
   bless_scroll: '축부', bless_pouch: '축머', arka_pouch: '아르카', pet_fruit: '열매', pet_collar: '목걸이', revive_scroll: '부활', stat_reset: '초기화', return_scroll: '귀환', tele_scroll: '순간', return_charm: '부적', doll_pouch: '인형', acc_change: '변경' };
@@ -5850,7 +5851,7 @@ const wearTag = d => { if (!d || !d.slot) return ''; const cls = d.codex && d.cl
   if (cls) return `<i class="nowear">${cls.map(c => CLS_SHORT[c] || CLASS_NAME[c] || c).join(',')}</i>`;
   return d.codex && d.lv > 1 && hero.lv < d.lv ? `<i class="nowear">레벨제한(${d.lv})</i>` : ''; };
 /* v186: 인벤·창고 칸 왼쪽 아래에 단축 슬롯처럼 줄임말 (다른 직업 장비처럼 착용 직업이 적히는 장비는 빼고) */
-const invAbbr = id => { const d = ITEMS[id]; if (!d || wearTag(d)) return ''; const t = d.learn ? hotAbbr('sk:' + d.learn) : hotAbbr(id); return t ? `<i class="ab">${t}</i>` : ''; };   /* 마법서·기술서 = 그 마법 줄임말 · 착용 직업/레벨 제한이 적힌 장비는 빼고 */
+const invAbbr = id => { const d = ITEMS[id]; if (!d || (wearTag(d) && !d.legend)) return '';   /* 11/1: 전설 무기는 다른 직업 것도 줄임말 (집행·격노·수결) */ const t = d.learn ? hotAbbr('sk:' + d.learn) : hotAbbr(id); return t ? `<i class="ab">${t}</i>` : ''; };   /* 마법서·기술서 = 그 마법 줄임말 · 착용 직업/레벨 제한이 적힌 장비는 빼고 */
 const cxReq = d => { const okC = !d.cls || d.cls.includes(CLASS), okL = !d.lv || hero.lv >= d.lv; return { okC, okL, ok: okC && okL, txt: `착용 가능: ${cxClsName(d)}${d.lv > 1 ? ` · Lv.${d.lv} 이상` : ''}` }; };
 const cxInfo = d => [cxClsName(d), d.lv > 1 ? 'Lv.' + d.lv : '', d.dmg ? `공격 ${d.dmg[0]}~${d.dmg[1]}` : d.ac ? `방어 +${d.ac}` : '', d.hit ? '명중 +' + d.hit : '', d.xdmg ? '추가 피해 +' + d.xdmg : '', d.mr ? 'MR +' + d.mr : '', ...d.optTxt].filter(Boolean).join(' · ');
 function breakInvis() { if (BUFF.invis > 0) { BUFF.invis = 0; say('공격하면서 투명 상태가 풀렸습니다.', '#9c9682'); } }
