@@ -40,8 +40,8 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
     ok(c0 - await coins() === 50000 && (await S()).draws === d0 + 1, '① 1회 50,000 골드 · 1장'); const c1 = await coins();
     await p.click('#pw-d11'); await p.waitForTimeout(1300); ok(c1 - await coins() === 500000 && (await S()).draws === d0 + 12, '① 11회 500,000 골드 · 11장'); await p.screenshot({ path: 'dev/out/pg_11_back.png' });
     await p.waitForFunction(() => PCG.ov() && PCG.ov().ready); await p.evaluate(() => PCG.flipAll(true)); await p.waitForTimeout(1600); await p.screenshot({ path: 'dev/out/pg_11.png' }); await p.click('#pcg-ok'); await p.waitForTimeout(200);
-    ok(await p.evaluate(() => PCG.last() === 11 && /11회/.test(document.getElementById('pw-again').textContent) && !document.getElementById('pw-again').disabled), '[다시 뽑기] = 11회');
-    const c2 = await coins(); await p.click('#pw-again'); await p.waitForTimeout(900); ok(c2 - await coins() === 500000 && (await S()).draws === d0 + 23, '[다시 뽑기] → 같은 11회 한 번 더'); await p.evaluate(() => PCG.close());
+    ok(await p.evaluate(() => PCG.last() === 11 && /전설 재뽑기/.test(document.getElementById('pw-again').textContent)), '변신 칸 옆 버튼 = [전설 재뽑기] · 다시 뽑기는 Space·결과 화면');
+    const c2 = await coins(); await p.evaluate(() => PCG.again()); await p.waitForTimeout(900); ok(c2 - await coins() === 500000 && (await S()).draws === d0 + 23, '다시 뽑기 → 같은 11회 한 번 더'); await p.evaluate(() => PCG.close());
     ok(await p.evaluate(() => document.querySelectorAll('#pw-res .pw-ri').length) === 11, '최근 결과 칸에 11장');
     await p.evaluate(() => { __T.setCoins(49000); }); await p.waitForTimeout(1100); ok(await p.evaluate(() => document.querySelector('#polywin .pw-gold[data-c="50000"]').classList.contains('short')), '① 골드 모자라면 보유 골드 빨갛게');
     await p.click('#pw-d1'); await p.waitForTimeout(200); ok((await S()).draws === d0 + 23 && /골드가 부족/.test(await lastLog()), '① 골드 부족하면 안 됨 (' + await lastLog() + ')');
@@ -49,10 +49,10 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
   // 강제 전설 연출 (Math.random 잠깐)
   { await p.evaluate(() => { const R = Math.random; let n = 0; Math.random = () => (n++ % 2 ? 0.5 : 0.9995); try { PCG.draw(1); } finally { Math.random = R; } }); await p.waitForFunction(() => PCG.ov() && PCG.ov().ready); await p.evaluate(() => PCG.flipAll(true)); await p.waitForTimeout(900); await p.screenshot({ path: 'dev/out/pg_legend.png' }); await p.evaluate(() => PCG.close()); }
   // ② 마일리지 1000
-  { await p.evaluate(() => { PCG.state().mile = 999; PCG.renderWin(); }); await p.click('#pw-mb'); await p.waitForTimeout(200); ok(await p.evaluate(() => document.getElementById('pw-pick').hidden) && /마일리지가 모자라요.*1000/.test(await lastLog()), '② 999점이면 전설 고르기 안 됨');
-    await p.evaluate(() => { PCG.state().mile = 1003; PCG.renderWin(); }); await p.click('#pw-mb'); await p.waitForTimeout(300); ok(await p.evaluate(() => document.querySelectorAll('#pw-pick [data-id]').length) === 6, '② 1000점 → 전설 6종 고르기'); await p.screenshot({ path: 'dev/out/pg_mile.png' });
-    const w0 = (await S()).cards.wyvern || 0; await p.click('#pw-pick [data-id="wyvern"]'); await p.waitForTimeout(200); await p.click('#ask-yes'); await p.waitForTimeout(600); await p.evaluate(() => PCG.close());
-    const s = await S(); ok(s.mile === 3 && (s.cards.wyvern || 0) === w0 + 1, `② 마일리지 1000 → 와이번 1장 (남은 ${s.mile}점)`); }
+  { await p.evaluate(() => { PCG.state().mile = 999; PCG.renderWin(); }); ok(/전설 받기/.test(await p.evaluate(() => document.getElementById('pw-mb').textContent)), '② 마일리지 버튼 = [전설 받기]'); await p.click('#pw-mb'); await p.waitForTimeout(200); ok(await p.evaluate(() => document.getElementById('askwin').hidden) && /마일리지가 모자라요.*1000/.test(await lastLog()), '② 999점이면 전설 받기 안 됨');
+    await p.evaluate(() => { PCG.state().mile = 1003; PCG.renderWin(); PCG._force(['wyvern']); }); const w0 = (await S()).cards.wyvern || 0; await p.click('#pw-mb'); await p.waitForTimeout(200); ok(/무작위/.test(await p.evaluate(() => document.getElementById('ask-sub').textContent)), '② 1000점 → 무작위 전설 받기 물음');
+    await p.click('#ask-yes'); await p.waitForTimeout(900); ok(await p.evaluate(() => { const o = PCG.ov(); return !!o && !!o.tg && o.n === 1 && o.k === 'one'; }), '② 마일리지 전설도 뽑기 연출(홀)로'); await p.screenshot({ path: 'dev/out/pg_mile.png' }); await p.evaluate(() => PCG.close());
+    const s = await S(); ok(s.mile === 3 && (s.cards.wyvern || 0) === w0 + 1, `② 마일리지 1000 → 전설 1장 (정한 카드 와이번 · 남은 ${s.mile}점)`); }
   // ③ 보유중: 등급별 · 장수 · 합계
   await setCards(SET); await p.waitForTimeout(400);
   { const v = await p.evaluate(() => [...document.querySelectorAll('#pw-grid .pw-gr')].map(r => ({ g: r.querySelector('.pw-gn').childNodes[0].textContent, n: r.querySelector('.pw-gn b').textContent, ids: [...r.querySelectorAll('.pw-c')].map(c => c.dataset.id + ':' + ((c.querySelector('.pw-n') || {}).textContent || '1')) })));

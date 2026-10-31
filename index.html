@@ -937,6 +937,7 @@ html.mob .cs-list{padding:8px;gap:8px} html.mob button.cs-card{width:150px;paddi
 #polywin .pw-aw{margin:-2px 0 0;min-height:0;font-size:11px;line-height:1.35;color:#f0c080} #polywin .pw-aw:empty{display:none} #polywin .pw-aw.on{color:#9fe08a}
 #polywin .pw-res.fresh{animation:pwFresh .9s ease-out} @keyframes pwFresh{0%{box-shadow:0 0 0 2px rgba(255,216,106,.9),inset 0 0 18px rgba(255,216,106,.35)}100%{box-shadow:inset 0 0 10px #000}}
 #polywin .pw-mile{display:flex;align-items:center;gap:6px;font-size:12px} #polywin .pw-mile>span{color:#cfc6ae;white-space:nowrap} #polywin .pw-mile>b{font-variant-numeric:tabular-nums;color:#ffd08a;white-space:nowrap}
+#polywin .pcg-pick .pcg-rrh{grid-column:1/-1;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:12px;color:#ffe0a0;line-height:1.4} #polywin .pcg-rrh small{display:block;font-size:10.5px;color:#bdb39a} #polywin .pcg-rrh .inv-sort{flex:none;padding:2px 10px} #polywin .pcg-pick button:disabled{opacity:.42;cursor:default;box-shadow:none} #polywin .pcg-pick .pcg-rrok{color:#ffd86a} #polywin .pcg-pick small b{color:#ffe0a0} #polywin .pcg-rrn{grid-column:1/-1;font-size:12px;color:#9c9682;margin:4px 0} #polywin .pw-again.on{box-shadow:0 0 0 2px #ffd86a,0 0 12px rgba(255,216,106,.5)}
 #polywin .pcg-pick{gap:4px} #polywin .pcg-pick .pcg-art{width:48px;height:48px} #polywin .pcg-pick b{font-size:12px} #polywin .pcg-pick[hidden]{display:none}
 #polywin .pw-selb{display:flex;gap:8px;background:rgba(10,8,6,.55);border:1px solid #4a3c26;border-radius:4px;padding:5px}
 #pw-look{flex:none;width:120px;height:120px;display:block;cursor:pointer;background:radial-gradient(ellipse at 50% 80%,rgba(80,64,40,.45),rgba(14,11,8,.2) 70%);border:1px solid #3a2e1e;border-radius:4px}
@@ -1100,13 +1101,13 @@ html.mob #polywin .pw-db{padding:4px} html.mob #polywin .pw-db.big{padding:6px 4
  <div class="pw-body"><div class="pw-left">
   <section class="pw-box pw-ownb" aria-label="보유중"><h4>보유중 <small id="pw-total"></small><small class="pw-hint">끌어서 변신 칸에 · 자물쇠 = 합성 안 함</small></h4><div id="pw-grid"></div></section>
   <section class="pw-box pw-synx" aria-label="합성"><h4>합성 <small id="pw-pity"></small></h4><div id="pw-synb"></div></section>
-  <div class="pw-bot"><button type="button" id="pw-again" class="pw-again" disabled>다시 뽑기</button><div id="pw-slot" class="pw-slot" role="button" tabindex="0" aria-label="변신 칸"></div></div>
+  <div class="pw-bot"><button type="button" id="pw-again" class="pw-again" aria-pressed="false" title="가진 전설 카드를 전설 중 무작위 1장으로 다시 뽑아요">전설 재뽑기</button><div id="pw-slot" class="pw-slot" role="button" tabindex="0" aria-label="변신 칸"></div></div>
  </div><div class="pw-right">
   <div class="pw-draws"><div class="pw-dr"><button type="button" id="pw-d11" class="pw-db big" data-k="11"><b>11회 뽑기</b><small>500,000 골드</small></button><span class="pw-gold" data-c="500000"></span></div>
    <div class="pw-dr"><button type="button" id="pw-d1" class="pw-db" data-k="1"><b>1회 뽑기</b><small>50,000 골드</small></button><span class="pw-gold" data-c="50000"></span></div>
    <button type="button" id="pw-dfree" class="pw-db free" data-k="free"><b>무료 1회</b><small id="pw-free"></small></button></div>
   <div class="pw-opts"><label title="뽑기·합성 연출 없이 결과만 바로 보여요 (이 기기에 기억)"><input type="checkbox" id="pw-skip"> 모션 스킵</label><label title="같은 뽑기를 계속 되풀이해요. 영웅 이상이 나오거나 골드가 모자라면 멈춰요."><input type="checkbox" id="pw-auto"> 자동 뽑기</label><small>Space = 다시 뽑기</small></div><p id="pw-autowhy" class="pw-aw" aria-live="polite"></p>
-  <div class="pw-mile"><span>마일리지</span><div class="pcg-bar"><i id="pw-mbar"></i></div><b id="pw-mn"></b><button type="button" id="pw-mb" class="pcg-mb">전설 고르기</button></div>
+  <div class="pw-mile"><span>마일리지</span><div class="pcg-bar"><i id="pw-mbar"></i></div><b id="pw-mn"></b><button type="button" id="pw-mb" class="pcg-mb" title="마일리지 1,000점으로 전설 카드 1장 (무작위)">전설 받기</button></div>
   <div id="pw-pick" class="pcg-pick" hidden></div>
   <div class="pw-selb"><canvas id="pw-look" width="120" height="120" title="클릭: 방향 바꾸기" aria-label="고른 카드 미리보기"></canvas><div id="pw-sel"></div></div>
   <div id="pw-res" class="pw-res" aria-live="polite"></div>
