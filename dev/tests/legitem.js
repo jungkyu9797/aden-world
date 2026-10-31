@@ -43,35 +43,36 @@ const OUT = path.join(__dirname, '..', 'out'); const ok = [], bad = []; const ch
   chk(EN.gone && EN.n1 === EN.n0 - 1 && /증발/.test(EN.failMsg), `+0 강화 실패 → 증발 (집행검 ${EN.n0} → ${EN.n1}개)`);
   chk(/성공 확률 33\.3%/.test(EN.rateTxt) && /증발/.test(EN.rateTxt) && /안전 강화 \+0/.test(EN.rateTxt), `장비 강화 창 +0: ${EN.rateTxt.replace(/\s+/g, ' ').trim()}`);
   chk(/안전 강화 \+0/.test(EN.tip) && /전설 · 강화 1당 공격 \+3/.test(EN.tip), '툴팁: 안전 강화 +0 · 강화 1당 공격 +3');
-  chk(/타격 시 16% 확률로 \[심판\] 추가 피해 — 내 피해의 100% \(강화 1당 \+2%\)/.test(EN.tip), '툴팁(+3): 타격 시 16% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%)');
+  chk(/타격 시 26% 확률로 \[심판\] 추가 피해 — 내 피해의 100% \(강화 1당 \+2%\)/.test(EN.tip), '툴팁(+3): 타격 시 26% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%)');
   chk(EN.rnd, 'Math.random 되돌림 (강화)');
   // 4b) 전설 공통 [심판]: 옵션 · 발동 확률(Math.random 바꿨다가 바로 되돌림) · 심판 피해 = 그 타격 피해 (직업마다) · 장비 이펙트 끔이면 빛기둥 없음
-  const OPT = await p.evaluate(() => ['lg_sword', 'lg_bow', 'lg_staff'].map(id => { const d = __T.ITEMS[id]; return [id, d.judgeP, d.judgePct, !!d.proc, d.optTxt.some(t => /^타격 시 10% 확률로 \[심판\] 추가 피해 — 내 피해의 100% \(강화 1당 \+2%/.test(t)), d.judgeEn]; }));
-  for (const o of OPT) chk(o[1] === 0.1 && o[2] === 100 && o[5] === 0.02 && !o[3] && o[4], `심판 옵션 ${o[0]}: ${o[1] * 100}% + 강화 1당 ${o[5] * 100}% · 피해의 ${o[2]}% · 옛 발동 없음 ${!o[3]}`);
+  const OPT = await p.evaluate(() => ['lg_sword', 'lg_bow', 'lg_staff'].map(id => { const d = __T.ITEMS[id]; return [id, d.judgeP, d.judgePct, !!d.proc, d.optTxt.some(t => /^타격 시 20% 확률로 \[심판\] 추가 피해 — 내 피해의 100% \(강화 1당 \+2%/.test(t)), d.judgeEn]; }));
+  for (const o of OPT) chk(o[1] === 0.2 && o[2] === 100 && o[5] === 0.02 && !o[3] && o[4], `심판 옵션 ${o[0]}: ${o[1] * 100}% + 강화 1당 ${o[5] * 100}% · 피해의 ${o[2]}% · 옛 발동 없음 ${!o[3]}`);
   const JT = await p.evaluate(() => { const T = __T, I = T.INV, H = T.HERO, R0 = Math.random, out = {};
     const mk = (di, dj) => { const m = T.mkMob('dummy50', H.i + di, H.j + dj); m.aggro = false; T.foxes.push(m); return m; };
     const wear = (cls, id) => { T.setCls_(cls); const x = I.bag().find(e => e.id === id); if (!x.on) I.use(x); return I.equipped('weapon') === id; };
     const force = (r, fn) => { Math.random = () => r; try { fn(); } finally { Math.random = R0; } };   // 바꾼 Math.random은 바로 되돌림 (게임 루프가 먹지 않게)
-    const run = (fn, r, M) => { const n = T.floats.length, hp = M.map(m => m.hp); force(r, fn); const t = T.floats.slice(n).map(f => f.text), drop = M.map((m, k) => hp[k] - m.hp); for (const m of M) m.hp = m.max;
-      return { hits: t.filter(x => /^\d+$/.test(x)).map(Number), judge: t.filter(x => /^심판 \d+$/.test(x)).map(x => +x.slice(3)), drop }; };
+    const run = (fn, r, M) => { const n = T.floats.length, hp = M.map(m => m.hp); force(r, fn); const t = T.floats.slice(n).map(f => (f.tag === 'judge' ? 'J' : '') + f.text), drop = M.map((m, k) => hp[k] - m.hp); for (const m of M) m.hp = m.max;
+      return { hits: t.filter(x => /^\d+$/.test(x)).map(Number), judge: t.filter(x => /^J\d+$/.test(x)).map(x => +x.slice(1)), drop }; };
     const setEn = v => { I.eqE('weapon').en = v; };
     const A = mk(1, 0), B = mk(3, 0), C = mk(3, 1); out.ids = [A.uid, B.uid, C.uid];
     for (const [cls, id, fn] of [['knight', 'lg_sword', () => T.strike(A)], ['elf', 'lg_bow', () => T.strike(A, 'bow')], ['wizard', 'lg_staff', () => T.SPH_(A, 'ebolt')]]) { wear(cls, id); setEn(0);
-      out[cls] = { yes: run(fn, 0.0999, [A]), no: run(fn, 0.1001, [A]) }; }
-    out.bolt = run(() => T.strike(A, 'magic'), 0.0999, [A]);   // 마법사 마력탄(기본 공격)은 공격 마법이 아니라 심판 없음
-    out.aoe = run(() => T.SPH_(B, 'fball'), 0.0999, [A, B, C]);   // 범위 마법: 맞은 대상마다 따로
-    wear('knight', 'lg_sword'); out.scale = [[0, 0.1], [5, 0.2], [9, 0.28], [-2, 0.1]].map(([en, c]) => { setEn(en); return [en, c, run(() => T.strike(A), c - 0.0001, [A]).judge.length, run(() => T.strike(A), c + 0.0001, [A]).judge.length, (T.INV.tipOf(T.INV.eqE('weapon')).match(/타격 시 \d+% 확률로 \[심판\]/) || [''])[0]]; });   // 10% + 강화 1당 2% (음수는 10%)
-    setEn(0); let hits = 0, jud = 0; { const n = T.floats.length; for (let k = 0; k < 3000; k++) T.strike(A); const t = T.floats.slice(n).map(f => f.text); hits = t.filter(x => /^\d+$/.test(x)).length; jud = t.filter(x => /^심판 \d+$/.test(x)).length; A.hp = A.max; }
+      const w = T.ITEMS[id], j0 = w.judgeP, same = (() => { w.judgeP = 0; try { return run(fn, 0.1999, [A]); } finally { w.judgeP = j0; } })();   // 같은 무작위 값으로 심판만 끈 한 방 (피해 굴림이 같게)
+      out[cls] = { yes: run(fn, 0.1999, [A]), no: run(fn, 0.2001, [A]), same }; }
+    out.bolt = run(() => T.strike(A, 'magic'), 0.1999, [A]);   // 마법사 마력탄(기본 공격)은 공격 마법이 아니라 심판 없음
+    out.aoe = run(() => T.SPH_(B, 'fball'), 0.1999, [A, B, C]);   // 범위 마법: 맞은 대상마다 따로
+    wear('knight', 'lg_sword'); out.scale = [[0, 0.2], [5, 0.3], [9, 0.38], [-2, 0.2]].map(([en, c]) => { setEn(en); return [en, c, run(() => T.strike(A), c - 0.0001, [A]).judge.length, run(() => T.strike(A), c + 0.0001, [A]).judge.length, (T.INV.tipOf(T.INV.eqE('weapon')).match(/타격 시 \d+% 확률로 \[심판\]/) || [''])[0]]; });   // 10% + 강화 1당 2% (음수는 10%)
+    setEn(0); let hits = 0, jud = 0; { const n = T.floats.length; for (let k = 0; k < 3000; k++) T.strike(A); const t = T.floats.slice(n).map(f => (f.tag === 'judge' ? 'J' : '') + f.text); hits = t.filter(x => /^\d+$/.test(x)).length; jud = t.filter(x => /^J\d+$/.test(x)).length; A.hp = A.max; }
     out.rate = { hits, jud };
-    const pil = () => T.MXL.filter(q => q.k === 'pillar').length; T.MXL.length = 0; out.fxOn = { r: run(() => T.strike(A), 0.0999, [A]), pillar: pil() };
-    document.getElementById('cw-fx').click(); T.MXL.length = 0; out.fxOff = { r: run(() => T.strike(A), 0.0999, [A]), pillar: pil(), btn: document.getElementById('cw-fx').textContent }; document.getElementById('cw-fx').click();
+    const pil = () => T.MXL.filter(q => q.k === 'pillar').length; T.MXL.length = 0; out.fxOn = { r: run(() => T.strike(A), 0.1999, [A]), pillar: pil() };
+    document.getElementById('cw-fx').click(); T.MXL.length = 0; out.fxOff = { r: run(() => T.strike(A), 0.1999, [A]), pillar: pil(), btn: document.getElementById('cw-fx').textContent }; document.getElementById('cw-fx').click();
     setEn(3); out.rnd = Math.random === R0; return out; });
-  for (const cls of ['knight', 'elf', 'wizard']) { const y = JT[cls].yes, n = JT[cls].no;
-    chk(y.judge.length === 1 && n.judge.length === 0, `${cls} 발동 확률 10%: random 0.0999 → 심판 ${y.judge.length}번 · 0.1001 → ${n.judge.length}번`);
-    chk(y.judge[0] === y.hits[0] && y.drop[0] === 2 * n.drop[0] && n.drop[0] > 0, `${cls} 심판 피해 = 그 타격 피해: 표시 ${y.hits[0]} → 심판 ${y.judge[0]} · 실제 HP ${n.drop[0]} → ${y.drop[0]} (2배)`); }
+  for (const cls of ['knight', 'elf', 'wizard']) { const y = JT[cls].yes, n = JT[cls].no, s0 = JT[cls].same;
+    chk(y.judge.length === 1 && n.judge.length === 0, `${cls} 발동 확률 20%: random 0.1999 → 심판 ${y.judge.length}번 · 0.2001 → ${n.judge.length}번`);
+    chk(y.judge[0] === y.hits[0] && s0.judge.length === 0 && y.drop[0] === 2 * s0.drop[0] && s0.drop[0] > 0, `${cls} 심판 피해 = 그 타격 피해: 표시 ${y.hits[0]} → 심판 ${y.judge[0]} · 실제 HP ${s0.drop[0]} → ${y.drop[0]} (2배)`); }
   chk(JT.bolt.judge.length === 0 && JT.bolt.hits.length === 1, `마법사 마력탄(기본 공격)은 심판 없음 (${JT.bolt.judge.length})`);
   chk(JT.aoe.hits.length >= 2 && JT.aoe.judge.length === JT.aoe.hits.length && JT.aoe.judge.every((v, k) => v === JT.aoe.hits[k]), `범위 마법(파이어볼): 맞은 ${JT.aoe.hits.length}마리 각각 심판 ${JT.aoe.judge.join(',')} = ${JT.aoe.hits.join(',')}`);
-  const rate = JT.rate.jud / JT.rate.hits; chk(rate > 0.075 && rate < 0.125, `실제 확률: 명중 ${JT.rate.hits}번 중 심판 ${JT.rate.jud}번 (${(rate * 100).toFixed(1)}%)`);
+  const rate = JT.rate.jud / JT.rate.hits; chk(rate > 0.17 && rate < 0.23, `실제 확률: 명중 ${JT.rate.hits}번 중 심판 ${JT.rate.jud}번 (${(rate * 100).toFixed(1)}%)`);
   chk(JT.fxOn.pillar >= 1 && JT.fxOn.r.judge.length === 1, `장비 이펙트 켬: 금빛 기둥 ${JT.fxOn.pillar}개`);
   chk(JT.fxOff.pillar === 0 && JT.fxOff.r.judge.length === 1 && JT.fxOff.r.drop[0] === JT.fxOn.r.drop[0] && /끔/.test(JT.fxOff.btn), `장비 이펙트 끔: 기둥 ${JT.fxOff.pillar}개 · 피해는 그대로 ${JT.fxOff.r.drop[0]}`);
   for (const [en, c, y, n, tt] of JT.scale) chk(y === 1 && n === 0 && tt === `타격 시 ${Math.round(c * 100)}% 확률로 [심판]`, `${en >= 0 ? '+' : ''}${en} 심판 ${Math.round(c * 100)}%: random ${(c - 0.0001).toFixed(4)} → ${y}번 · ${(c + 0.0001).toFixed(4)} → ${n}번 · 툴팁 '${tt}'`);
@@ -121,7 +122,7 @@ const OUT = path.join(__dirname, '..', 'out'); const ok = [], bad = []; const ch
   // 10) 심판 순간: 허수아비에게 심판이 터진 직후 금빛 빛기둥 (창을 닫고 확대)
   await p.evaluate(() => { for (const id of ['invwin', 'charwin', 'itemwin']) { const w = document.getElementById(id); if (w) w.hidden = true; } __T.ZOOMT = 1.6; });
   await p.waitForTimeout(900);
-  const PS = await p.evaluate(() => { const T = __T, A = T.foxes.find(m => m.kind === 'dummy50'), R0 = Math.random; Math.random = () => 0.0999; try { T.strike(A); } finally { Math.random = R0; } return T.scr(A.x, A.z); });
+  const PS = await p.evaluate(() => { const T = __T, A = T.foxes.find(m => m.kind === 'dummy50'), R0 = Math.random; Math.random = () => 0.1999; try { T.strike(A); } finally { Math.random = R0; } return T.scr(A.x, A.z); });
   await p.waitForTimeout(140);
   await p.screenshot({ path: path.join(OUT, 'legitem_judge.png'), clip: { x: Math.max(0, PS[0] - 190), y: Math.max(0, PS[1] - 400), width: 380, height: 470 } });
   chk(!errs.length, '페이지 오류 없음' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));

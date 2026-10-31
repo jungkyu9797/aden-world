@@ -359,7 +359,7 @@ let mark=null, mouse=null;
 // ---------- combat ----------
 // 떠오르는 글자 (피해 숫자 · CRITICAL · MISS) + 크리티컬 섬광
 const floats=[], bursts=[];
-function floatText(x,y,text,o={}){ floats.push({x,y,text,t:0,life:o.life||0.9,color:o.color||'#fff',size:o.size||11,rise:o.rise||26,big:!!o.big,dx:(Math.random()-0.5)*8}); }
+function floatText(x,y,text,o={}){ floats.push({x,y,text,t:0,life:o.life||0.9,color:o.color||'#fff',size:o.size||11,rise:o.rise||26,big:!!o.big,dx:(Math.random()-0.5)*8,tag:o.tag||null}); }
 function headY(f){ const S=MOB[f.kind]; if (!S) return 72; return (S.hh||Math.round(62*S.sc)); }
 let hitstop=0, shake=0, hurt=0; const parts=[];
 function heroHit(S, mode, f){ const st=INV.stat(), sb = mode==='bow' ? (st.dex>=16?0.05:0)+(st.dex>=18?0.05:0)+Math.max(0,Math.floor((st.dex-20)/2))*0.01 : mode==='magic' ? 0.12+(st.int>=16?0.05:0)+(st.int>=18?0.05:0) : (st.str>=16?0.05:0)+(st.str>=18?0.05:0)+Math.max(0,Math.floor((st.str-20)/2))*0.01;   /* v121: 힘(근거리)·민첩(활) 20 넘으면 2포인트마다 명중 +1% */
@@ -5710,13 +5710,13 @@ CX_ZONE[22] = [...CX_ZONE[16]]; CX_ZONE[23] = [...CX_ZONE[17]]; CX_ZONE_R[22] = 
 //   ★ 수치는 이 표 한 곳에 (CODEX_ROWS와 같은 열): 부위, 등급, 이름, 직업, 착용 Lv, 공격(등급 배율 ×1.5 전 — 영웅 표와 바로 비교), AC, 명중, 추가 피해, MR, 고정 옵션, 무게, 안전 강화(표시용 · 실제는 무기 +6), 얻는 곳
 //   기준(Lv55): 직업별 가장 센 영웅 무기(드래곤 슬레이어·용의 활·용의 지팡이)보다 실제 피해 +0에서 약 +30% · 강화 1당 공격 +3 (영웅과 같음, EN_MUL)
 //   안전 강화 +0 (SAFE_EN): +0→+1부터 성공 1/3 · 실패하면 증발 (일반 무기가 안전 강화를 넘었을 때와 같은 판정) → 고강화 전설은 아주 드묾
-//   전설 공통 [심판] (judgeHit · judgeChance): 타격 시 10% + 강화 1당 2% 확률로 그 타격 피해의 100%를 한 번 더 — 기사 근접·요정 화살은 그 한 방, 마법사는 공격 마법이 맞힌 대상마다 따로 (범위 마법 포함)
+//   전설 공통 [심판] (judgeHit · judgeChance): 타격 시 20% + 강화 1당 2% 확률로 그 타격 피해의 100%를 한 번 더 — 기사 근접·요정 화살은 그 한 방, 마법사는 공격 마법이 맞힌 대상마다 따로 (범위 마법 포함)
 //   그 밖의 특수 옵션 — 집행검: HP 30% 이하 몬스터에게 피해 +15% / 가이아의 격노: 땅 저항 +20 / 수정결정체 지팡이: 공격 마법 피해 +20%·MP 회복 +3
 //   이름·컨셉·분위기만 리니지 DB 참고 · 그림은 코드로 직접 그린 오리지널 · 양손검이지만 이 게임은 활처럼 방패와 같이 들 수 있음 (방패 금지는 프로듀서 결정 대기)
 const LEG_ROWS = [
-  ['양손검', '전설', '진명황의 집행검', '기사', 55, '9~23', 0, 4, 3, 0, '힘 +2 · 타격 시 10% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · HP 30% 이하 적에게 주는 피해 +15%', 16, 6, '추후 공개 (아직 얻을 수 없음)', 0],
-  ['활', '전설', '가이아의 격노', '요정', 55, '9~21', 0, 4, 3, 0, '민첩 +2 · 화살 소모 없음 · 타격 시 10% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · 땅 저항 +20', 9, 6, '추후 공개 (아직 얻을 수 없음)', 0],
-  ['지팡이', '전설', '수정결정체 지팡이', '마법사', 55, '6~15', 0, 0, 0, 10, 'SP +8 · 지능 +1 · MP +50 · 공격 마법 피해 +20% · MP 회복 +3 · 타격 시 10% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2% · 공격 마법이 맞힌 대상마다)', 8, 6, '추후 공개 (아직 얻을 수 없음)', 0] ];
+  ['양손검', '전설', '진명황의 집행검', '기사', 55, '9~23', 0, 4, 3, 0, '힘 +2 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · HP 30% 이하 적에게 주는 피해 +15%', 16, 6, '추후 공개 (아직 얻을 수 없음)', 0],
+  ['활', '전설', '가이아의 격노', '요정', 55, '9~21', 0, 4, 3, 0, '민첩 +2 · 화살 소모 없음 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2%) · 땅 저항 +20', 9, 6, '추후 공개 (아직 얻을 수 없음)', 0],
+  ['지팡이', '전설', '수정결정체 지팡이', '마법사', 55, '6~15', 0, 0, 0, 10, 'SP +8 · 지능 +1 · MP +50 · 공격 마법 피해 +20% · MP 회복 +3 · 타격 시 20% 확률로 [심판] 추가 피해 — 내 피해의 100% (강화 1당 +2% · 공격 마법이 맞힌 대상마다)', 8, 6, '추후 공개 (아직 얻을 수 없음)', 0] ];
 { CX_SLOT['양손검'] = ['weapon', 'sword', 'th']; if (!CX_GROUPS.includes('양손검')) CX_GROUPS.splice(1, 0, '양손검');   // 갓 모드 아이템 지급 탭: 한손검 다음
   Object.assign(CODEX_ID, { '진명황의 집행검': 'lg_sword', '가이아의 격노': 'lg_bow', '수정결정체 지팡이': 'lg_staff' });
   Object.assign(CX_SPEC, { '진명황의 집행검': ['sword', { b: 'long', c1: '#ffffff', c2: '#6a8ac0', gu: 'wing', h: '#1c2340', gem: '#4a8cff' }], '가이아의 격노': ['bow', { t: 'master', c1: '#c8e8a0', c2: '#3a6a1a' }], '수정결정체 지팡이': ['staff', { h: 'crystal', s1: '#e8f0ff', s2: '#2a3450', g1: '#ffffff', g2: '#4ab0ff' }] });   // 기본 그림 (아래 직접 그린 그림으로 바꿈)
@@ -5786,11 +5786,11 @@ function cxWhere(id) { const W = [], d = ITEMS[id];
 // 10/31 전설 [심판] — 전설 무기 공통: 기사 근접·요정 화살 한 방(spell=false) 또는 마법사 공격 마법이 맞힌 대상마다(spell=true) judgeP 확률로 그 피해의 judgePct%를 한 번 더
 //   · d = 그 타격이 dmgMob에 넣은 피해 (같은 dmgMob 배율이 다시 붙어 실제 피해도 같음) · 몬스터·수호탑 봇/탑만 (다른 유저는 없음 — 기존 타격 발동 옵션과 같음)
 //   · 심판 피해는 dmgMob만 써서 심판·다른 발동이 다시 일어나지 않음 · 장비 이펙트 끔(EQFX)이면 금빛 기둥·빛 없이 피해와 글자만
-const judgeChance = (d, en) => d && d.judgeP ? d.judgeP + (d.judgeEn || 0) * Math.max(0, en || 0) : 0;   // 10/31: 10% + 강화 1당 2% (+5 20% · +9 28% · 음수 강화는 10%)
+const judgeChance = (d, en) => d && d.judgeP ? d.judgeP + (d.judgeEn || 0) * Math.max(0, en || 0) : 0;   // 11/1: 20% + 강화 1당 2% (+5 30% · +9 38% · 음수 강화는 20%)
 function judgeHit(f, d, spell) { const w = ITEMS[INV.equipped('weapon')]; if (!w || !w.judgeP || (spell ? w.wtype !== 'staff' : w.wtype === 'staff')) return 0;
   if (!(d > 0) || !f || f.dead || f.isRemote || !(f.hp > 0) || Math.random() >= judgeChance(w, INV.enOf('weapon'))) return 0;
   const v = Math.max(1, Math.round(d * (w.judgePct || 100) / 100)); dmgMob(f, v); const [fx, fy] = W2P(f.x, f.z), h = headY(f);
-  floatText(fx + 10, fy - h - 44, '심판 ' + v, { color: '#ffd24a', size: 14, big: true, life: 1.1, rise: 30 });
+  floatText(fx + 10, fy - h - 44, String(v), { color: '#ffd24a', size: 14, big: true, life: 1.1, rise: 30, tag: 'judge' });   // 11/1: '심판' 글자 없이 금빛 숫자만
   if (EQFX) { mxAdd('pillar', f, { c: '255,176,48', l: '255,246,200', w: 16, H: 360, life: 0.5 }); mxLight(fx, fy - h * 0.5, 120, 0.8); }   // 하늘에서 내리꽂히는 금빛 빛기둥 (화면 번쩍임 없음)
   if (AC && SFX_ON) { const T0 = AC.currentTime; tone(T0, 'triangle', 1320, 1980, 0.2, 0.05); tone(T0 + 0.04, 'sine', 2640, 2640, 0.25, 0.03); }
   return v; }
