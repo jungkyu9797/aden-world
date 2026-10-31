@@ -4448,7 +4448,7 @@ function mkPetData(kind, lv) { const K = PET_KIND[kind], L = Math.max(1, lv | 0 
 const PET = (() => {
   const L = []; let reviveMode = false, winE = null;
   const zk = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
-  const maxOut = () => hero.lv >= 40 ? 2 : 1;   /* v124: 40레벨부터 2마리 (모든 직업 같음) */
+  const maxOut = () => CLASS === 'elf' ? 3 : hero.lv >= 40 ? 2 : 1;   /* v124: 40레벨부터 2마리 · 11/1 프로듀서: 요정은 1레벨부터 3마리 (40레벨에 더 늘지 않음 · 최대 3마리) */
   const chaMul = () => 1 + 0.02 * Math.max(0, INV.stat().cha - 12), MXH = d => Math.round(d.maxhp * chaMul());   /* v124: 카리스마 12 넘는 1포인트마다 펫 체력·공격력 +2% */
   const petAC = d => d.evo ? 6 : PET_KIND[d.kind].ac, petEff = d => d.evo && d.eb ? d.eb.lv + (d.lv - 1) * 0.5 : d.lv;   /* v124: 진화 펫 — 방어 AC 6 · 명중·회피는 진화 때 레벨 수준에서 시작해 레벨마다 조금씩 */
   const GOLDF = 'sepia(1) saturate(5) hue-rotate(-12deg) brightness(1.25)', needOf = d => petNeed(d.lv) * (d.evo ? 2 : 1);
@@ -4505,7 +4505,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
     place(p); L.push(p); return p; }
   const entOf = e => L.find(p => p.e === e);
   function summon(e) { const d = e.pet; if (!d) return false; if (HW()) { say('할로윈 이벤트 지역에는 펫을 데려갈 수 없어요.', '#f08a7a'); return false; } if (TW()) { say('수호탑 대전에는 펫을 데려갈 수 없어요. 마을로 돌아가면 다시 부를 수 있어요.', '#f08a7a'); return false; } if (d.state === 'out') { say(`${nm(d)}은(는) 이미 나와 있습니다.`, '#9c9682'); return false; } if (d.state === 'dead') { say(`${nm(d)}은(는) 쓰러져 있습니다. 부활 주문서로 되살려 주세요.`, '#f08a7a'); return false; }
-    if (L.filter(p => !p.dead && !p.sum).length >= maxOut()) { say(`지금은 펫을 ${maxOut()}마리까지 데리고 다닐 수 있습니다. (40레벨부터 2마리)`, '#f08a7a'); return false; }
+    if (L.filter(p => !p.dead && !p.sum).length >= maxOut()) { say(CLASS === 'elf' ? `요정은 펫을 ${maxOut()}마리까지 데리고 다닐 수 있습니다.` : `지금은 펫을 ${maxOut()}마리까지 데리고 다닐 수 있습니다. (40레벨부터 2마리 · 요정은 3마리)`, '#f08a7a'); return false; }
     d.state = 'out'; d.hp = Math.max(1, d.hp); const p = spawn(e); sfxBark(); spellFx('cast', p, '#9fd8ff'); say(`${JOSA(nm(d), '이', '가')} 나타났습니다! (Lv.${d.lv})`, '#9fe0ff'); refresh(); return true; }
   function store(e, quiet) { const d = e.pet; if (!d) return; const p = entOf(e); if (p) { L.splice(L.indexOf(p), 1); for (const f of foxes) if (f.tgt === p) f.tgt = null; }
     if (d.state === 'out') d.state = 'stored'; if (!quiet) say(`${JOSA(nm(d), '을', '를')} 펫 보관소에 맡겼습니다.`, '#9fe0ff'); refresh(); }
