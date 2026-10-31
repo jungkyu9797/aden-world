@@ -21,14 +21,17 @@
   - 소리: `dev/sfx/fn_sfx.py`처럼 numpy로 합성 → `assets/sound/sfx/<몹>_<attack|attack2|hit|death>.mp3` → `MSFX`의 `has` 목록에 몹 이름 추가(보스 스킬음이 있으면 `K2`에도).
 - 이름이 부적절한 Lv55 기사 캐릭터는 '기준 캐릭터'라고만 부른다. 장비 정보: `dev/sim/builds/ref_knight.json`.
 
-## 지금 상태 (10/30 18:40 KST)
-- 마지막 배포 **v193** (화룡의 둥지 · 화룡 갑옷 3종 · 강화 BGM OFF). v191·v192·v193 모두 원래 컴퓨터 폴더에는 못 넣음(클라우드 방 · 컴퓨터 연결 없음).
-- **승인 대기 6개** (테스트 판 = 다 합친 `work/stage-all`): polymon(`work/polygacha` 변신 카드 + 소드·아크) · aibot(혈맹·필드 봇) · tgtline(고른 대상 빨간 테두리 4px) · phxresp(피닉스 5~6시간) · aggro1(선공 +1칸) · fnminhit(몹 공격 회피 구간 — 사냥터별 기준 구간 20%, AC 10방마다 5%, 캐릭터 창 [몹 공격 회피]).
-  - 배포 때 겹치는 곳(rerere에 기록됨): tgtline↔aibot(drawMobBody 첫 줄 — 테두리 분기 + `fb_` 조건 유지) · aggro1↔fnminhit(파일 끝 블록 — 지금 fnminhit은 끝 블록 없음) · polygacha↔main(이미 해결).
-- 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT` (예약 작업으로 방 열기는 자동 권한 검사에서 막힘). 큰 일은 20~30분 조각으로. 끝나면 `git worktree remove --force`.
-- 메모리 부족: 테스트를 3개 이상 동시에 돌리면 OOM으로 브라우저가 죽을 수 있음(dmesg). 2개까지만.
-- 보류: 아시타지오·이프리트 공격 때 끊김(프로듀서: 더 확인되면 알려 줌 — 테스트 기기에선 재현 안 됨, 측정 스크립트는 지움).
-- 다음 후보: 변신 카드 2단계(합성·도감 보너스) · 필드 봇 2단계 · 대인전 대상 빨간 테두리 · 용계 등 다른 사냥터 몹 마법 명중.
+## 지금 상태 (10/31 18:50 KST)
+- 마지막 배포 **v203** ([다시 뽑기]에 소모·보유 골드). v202: 변신 카드 polymon + 전설 무기 legitem. v201: 할로윈 몹 경험치 감소 없음. v200: 게임 기록 서버 저장(Firestore `worldlog`).
+  - 변신 카드(`work/polygacha`): 상단 [변신] 창 · 1회 5만/11회 50만 · TGFX 홀 연출(희귀 이상 금빛 · 공개 전 등급 색 숨김) · 합성(희귀/영웅은 홀 연출 · 11장 넘으면 [다음 카드]) · 마일리지 1000 = 무작위 전설 · 전설 재뽑기 300만→600만→1200만→무료 고르기(D.rr · 횟수는 카드를 따라감) · 소드 = 옛 아크 모습 · 아크 3종 금빛 효과(rcSpec·rcGround·rcSwing·rcFlash·rcHitFx) · 전설 카드 변신 금빛 오로라(polyAura) · 특별상점 변신 카드 탭 없음. 인수인계 `dev/rooms/polymon.md`. 테스트 polygacha·polygacha3·pcg_all·pcg_rr·arck·legaura (polygacha2.js는 2단계 화면용이라 안 맞음).
+  - 전설 무기(`work/legitem`): 집행검·가이아의 격노·수정결정체 지팡이 · LEG_ROWS · +0 공격 = 직업별 용 무기 +9(LEG_DMG9) · 명중+15 추피+10 · [심판] 20%+강화당 2% · 내 피해 100%(마법사는 칼질 × spellMul · 공격 마법 X · 대인전 X) · 하늘 금빛 기둥 · 안전 강화 +0 · 강화당 +3 · 연금술 영웅 3개 → 전설 3%(축데이·축젤 10장당 +1%p 최대 +3%p · 직업 무작위) · 특별상점 장비 변경 주문서 1,000만(eq_change) · 방패 같이 들 수 있음 · 도감 '연금술' 표시(프로듀서 결정). 테스트 legitem.js. 시뮬 `dev/sim/wpn_probe.js` + `dev/sim/builds/ref_knight58.json`(기준 캐릭터 Lv58).
+  - 합칠 때(rerere 기록): legitem↔polygacha — strike()에 rcHitFx와 judgeHit 둘 다 · RARITY_C 전설색 #ffa630 · 특별상점 탭은 legitem 줄(변신 카드 탭 없음) · 가방/장비 칸은 legFx 쪽.
+- **승인 대기**: aibot(`work/aibot` 혈맹·필드 봇 1단계). 테스트 판 = `work/stage-all` = main + aibot.
+- 보조 작업자 worktree `.claude/worktrees/agent-a8224c55fd10ac7e6`(work/legitem)은 끝나면 지워도 됨. 원격 `work/polyrr`는 지우기가 막혀 남아 있음(안 씀).
+- 휴대폰 알림: 작업 끝·승인 대기·팝업 질문 때 PushNotification.
+- 결정 대기: 기사 리덕션 아머 레벨 비례(추천 20%+51렙부터 1%, 최대 35%) · 다음 사냥터 컨셉(nextzone) · 밤 전용 재료(달빛 조각 등) 아이디어.
+- 시뮬: `dev/sim/fn_sim.js` (NIGHT=1 밤 고정 · NOMANA=1 마나 물약 없이 · DEF='{"spSoft":40}' · SUMB='{"dmg":0.75}') · 빌드 `dev/sim/builds/ref_wizard57.json`·`ref_knight57.json`(10/31 실제 두 캐릭터). 법사 시뮬은 판마다 편차가 커서 5번 이상 평균.
+- 동시 작업: Agent + `isolation: worktree` + 서로 다른 `KT_PORT`. 테스트 동시 2개까지(OOM). `pgrep -f`에 포트를 넣지 말 것(자기 셸이 걸림) — 끝 표시 파일로 기다림.
 
 ## 메인방 도구·요령
 - 묶음 테스트 판: 작업판에서 ready·test·queued 카드의 branch → `python3 dev/stage_test.py <갈래들>` → 테스트 아티팩트(https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6) publish `file_path=dev/out/publish.html`, `root=<저장소>`, `files={}` → 테스트 db `tbuild/cur` = build.json의 {id, at, n} → 작업판 db `meta/test` = 같은 값 + branches. (다른 대화에서 처음 올릴 때는 먼저 Artifact read 한 번 — 페이지가 4.5MB라 읽기가 막히면 publish를 바로 해 보고, 거절되면 돌려준 판 위에 다시 올린다.)
