@@ -49,11 +49,11 @@ async function slide(p, frac) { const kb = await p.locator('#pcg-big .ef-knob').
     ok(v.o.open === 11 && v.re && /새 카드/.test(v.sum) && v.bolt, '③ 다 뒤집으면 요약 · [다시 뽑기] · 덱의 전설 카드에도 번개'); await p.screenshot({ path: 'dev/out/pg2_all.png' }); }
   // ④ 결과 화면에서 Space = 같은 11회 다시
   { const c0 = await coins(), d0 = await p.evaluate(() => PCG.state().draws); await p.keyboard.press('Space'); await p.waitForTimeout(600);
-    ok(c0 - await coins() === 399000 && await p.evaluate(() => PCG.state().draws) === d0 + 11 && (await p.evaluate(() => PCG.ov() && PCG.ov().n)) === 11, '④ 다 뒤집은 뒤 Space → 같은 11회 다시 (399,000)');
+    ok(c0 - await coins() === 500000 && await p.evaluate(() => PCG.state().draws) === d0 + 11 && (await p.evaluate(() => PCG.ov() && PCG.ov().n)) === 11, '④ 다 뒤집은 뒤 Space → 같은 11회 다시 (500,000)');
     await ready(p); await p.evaluate(() => PCG.close()); await p.waitForTimeout(200);
     const c1 = await coins(); await p.evaluate(() => document.activeElement && document.activeElement.blur()); await p.keyboard.press('Space'); await p.waitForTimeout(500);
-    ok(c1 - await coins() === 399000 && !!(await p.evaluate(() => PCG.ov())), '④ 창에서 Space → 같은 뽑기 (결과 화면 열림)'); await ready(p); await p.evaluate(() => PCG.close());
-    await p.focus('#pw-d1'); const c2 = await coins(); await p.keyboard.press('Space'); await p.waitForTimeout(700); ok(c2 - await coins() === 399000, '④ 버튼에 포커스가 있어도 Space는 한 번만 (11회 1번 = 399,000)'); await ready(p); await p.evaluate(() => PCG.close()); }
+    ok(c1 - await coins() === 500000 && !!(await p.evaluate(() => PCG.ov())), '④ 창에서 Space → 같은 뽑기 (결과 화면 열림)'); await ready(p); await p.evaluate(() => PCG.close());
+    await p.focus('#pw-d1'); const c2 = await coins(); await p.keyboard.press('Space'); await p.waitForTimeout(700); ok(c2 - await coins() === 500000, '④ 버튼에 포커스가 있어도 Space는 한 번만 (11회 1번 = 500,000)'); await ready(p); await p.evaluate(() => PCG.close()); }
   // ⑤ 1회: 같은 흐름 (금빛 1장 → 전체 화면 · 영웅 = 보라 두껍게)
   { await p.evaluate(() => PCG._force(['necromancer'])); await p.click('#pw-d1'); await ready(p); ok(await p.evaluate(() => PCG.ov().n === 1 && document.querySelector('#pcg-ovl .pcg-c').classList.contains('y')), '⑤ 1회: 카드 1장 · 금빛 뒷면');
     await p.click('#pcg-ovl .pcg-c'); await p.waitForTimeout(300); await p.keyboard.press('Enter'); await p.keyboard.press('Enter'); await p.waitForTimeout(200); await p.keyboard.press('Enter'); await p.waitForTimeout(900);
@@ -70,7 +70,7 @@ async function slide(p, frac) { const kb = await p.locator('#pcg-big .ef-knob').
     await p.click('#pw-d1'); await p.waitForFunction(() => !PCG.auto(), null, { timeout: 15000 }).catch(() => {}); const v = await p.evaluate(() => ({ a: PCG.auto(), d: PCG.state().draws, w: PCG.autoWhy(), t: document.getElementById('pw-autowhy').textContent }));
     ok(!v.a && v.d === d0 + 5 && /스파토이/.test(v.w) && /멈췄어요/.test(v.t), `⑦ 1회 자동: 5번째에 영웅(스파토이) → 멈춤 · 까닭 표시 (${v.t})`); await p.screenshot({ path: 'dev/out/pg2_auto_stop.png' }); }
   // ⑦ 골드가 모자라면 멈춤
-  { await p.evaluate(() => { __T.setCoins(39900 * 3 + 500); PCG._force(Array(20).fill('goblin')); }); const d0 = await p.evaluate(() => PCG.state().draws); await p.click('#pw-auto'); await p.click('#pw-d1');
+  { await p.evaluate(() => { __T.setCoins(50000 * 3 + 500); PCG._force(Array(20).fill('goblin')); }); const d0 = await p.evaluate(() => PCG.state().draws); await p.click('#pw-auto'); await p.click('#pw-d1');
     await p.waitForFunction(() => !PCG.auto(), null, { timeout: 15000 }).catch(() => {}); const v = await p.evaluate(() => ({ a: PCG.auto(), d: PCG.state().draws, w: PCG.autoWhy(), c: __T.coins }));
     ok(!v.a && v.d === d0 + 3 && v.c === 500 && /골드가 모자라서/.test(v.w), `⑦ 골드가 다음 값보다 적으면 멈춤 (3번 · 남은 ${v.c} · ${v.w})`); await p.evaluate(() => { __T.setCoins(50000000); PCG._force([]); }); }
   // ⑦ 자동 뽑기 (연출 켬): 희귀까지는 알아서 뒤집고 닫음 → 영웅이 나오면 멈추고 금빛 카드를 남겨 둠

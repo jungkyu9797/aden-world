@@ -37,7 +37,7 @@ const st = p => p.evaluate(() => PCG.ov());
   ok(await p.evaluate(() => __T.log.some(l => /전설.*데스나이트/.test(l.t || l.text || ''))), '④ 전설 공지');
   // ⑤ Space = 다시 뽑기
   const c0 = await p.evaluate(() => __T.coins); await p.keyboard.press('Space'); await p.waitForTimeout(700); s = await st(p);
-  ok(s && s.tg && s.n === 11 && (await p.evaluate(() => __T.coins)) === c0 - 399000, '⑤ Space = 11회 다시 뽑기 (399,000 골드)');
+  ok(s && s.tg && s.n === 11 && (await p.evaluate(() => __T.coins)) === c0 - 500000, '⑤ Space = 11회 다시 뽑기 (500,000 골드)');
   await p.keyboard.press('Escape'); await p.waitForTimeout(500); ok(!(await st(p)), '⑤ Esc = 닫기 (안 연 카드도 받음)');
   // ⑥ 1회 (희귀)
   await p.evaluate(() => PCG._force(['bugbear'])); await p.click('#pw-d1'); await p.waitForFunction(() => PCG.ov() && PCG.ov().tg && PCG.ov().tg.ready, null, { timeout: 8000 }); await p.waitForTimeout(300);

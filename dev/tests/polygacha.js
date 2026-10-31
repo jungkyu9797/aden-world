@@ -1,5 +1,5 @@
 // 변신 카드 2차 1단계 테스트 (KT_PORT=8781 bash dev/runkt.sh dev/tests/polygacha.js) — 스크린샷 dev/out/pg_*.png
-// ① 가격·골드 확인 (1회 39,900 · 11회 399,000) · 확정 칸 없음 · 확률 · 무료 2시간 ② 마일리지 1000 ③ 보유중 장수·등급 합계 ④ 잠금 → 합성 재료에서 빠짐
+// ① 가격·골드 확인 (1회 50,000 · 11회 500,000) · 확정 칸 없음 · 확률 · 무료 2시간 ② 마일리지 1000 ③ 보유중 장수·등급 합계 ④ 잠금 → 합성 재료에서 빠짐
 // ⑤ 합성 확률(30/30/10/10 · 경계값) · 실패 = 같은 등급 1장 · 천장 7/10 ⑥ 자동 합성(일반·고급만 · 잠금·변신 칸 제외) ⑦ 직접 합성(창에서 고르기)
 // ⑧ 변신 칸: 끌어다 놓기 · 골드 없음 · 쓰러져도 · 다시 접속해도 · 빼면 풀림 · 칸 카드는 합성 안 함 · 직업·레벨 제한 · 주문서와 함께
 // ⑨ 저장 → 다시 접속(카드·잠금·천장·마일리지·변신 칸) · 다른 직업 · 예전 데이터 옮기기 ⑩ 도감·상점 안내 · 모바일 화면 ⑪ 오류 없음
@@ -26,7 +26,7 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
   // 창 열기 (위 [변신] 버튼)
   await p.click('#btn-poly'); await p.waitForTimeout(700); ok(await p.evaluate(() => !document.getElementById('polywin').hidden), '위 메뉴 [변신] → 변신 카드 창');
   { const t = await p.evaluate(() => ({ d11: document.getElementById('pw-d11').textContent, d1: document.getElementById('pw-d1').textContent, g: [...document.querySelectorAll('#polywin .pw-gold')].map(e => e.textContent) }));
-    ok(/11회 뽑기/.test(t.d11) && /399,000/.test(t.d11) && /1회 뽑기/.test(t.d1) && /39,900/.test(t.d1), '① 버튼: 11회 399,000 · 1회 39,900 (' + t.d11 + ' / ' + t.d1 + ')');
+    ok(/11회 뽑기/.test(t.d11) && /500,000/.test(t.d11) && /1회 뽑기/.test(t.d1) && /50,000/.test(t.d1), '① 버튼: 11회 500,000 · 1회 50,000 (' + t.d11 + ' / ' + t.d1 + ')');
     ok(t.g.length === 2 && t.g.every(x => /보유 5,000,000/.test(x)), '① 버튼 옆 보유 골드 (' + t.g.join(' · ') + ')');
     const order = await p.evaluate(() => document.getElementById('pw-d11').getBoundingClientRect().top < document.getElementById('pw-d1').getBoundingClientRect().top); ok(order, '① 11회 버튼이 위 · 1회가 아래'); }
   await p.screenshot({ path: 'dev/out/pg_win_empty.png' });
@@ -35,15 +35,15 @@ const SET = { goblin: 6, orc: 4, dwarf: 4, hobgoblin: 2, werewolf: 5, lizardman:
     await p.click('#pcg-ok'); await p.waitForTimeout(200); const s = await S(); ok(s.draws === 1 && s.mile === 1 && await coins() === c0, '① 무료 1회: 골드 그대로 · 카드 1장 · 마일리지 1');
     ok(await p.evaluate(() => PCG.freeLeft() > 7190e3), '① 무료 뽑기 뒤 2시간 대기'); await p.click('#pw-dfree'); await p.waitForTimeout(200); ok((await S()).draws === 1, '① 2시간 안엔 무료 다시 안 됨: ' + await lastLog());
     await p.evaluate(() => { PCG.state().freeAt -= 2 * 3600e3 + 1000; }); await p.waitForTimeout(1200); ok(await p.evaluate(() => PCG.freeLeft() === 0 && document.getElementById('pw-dfree').classList.contains('rdy')), '① 2시간 지나면 다시 무료 (버튼 빛남)'); }
-  // ① 1회 39,900 · 11회 399,000 · 다시 뽑기
+  // ① 1회 50,000 · 11회 500,000 · 다시 뽑기
   { const c0 = await coins(), d0 = (await S()).draws; await p.click('#pw-d1'); await p.waitForTimeout(500); await p.click('#pcg-ok'); await p.waitForTimeout(150);
-    ok(c0 - await coins() === 39900 && (await S()).draws === d0 + 1, '① 1회 39,900 골드 · 1장'); const c1 = await coins();
-    await p.click('#pw-d11'); await p.waitForTimeout(1300); ok(c1 - await coins() === 399000 && (await S()).draws === d0 + 12, '① 11회 399,000 골드 · 11장'); await p.screenshot({ path: 'dev/out/pg_11_back.png' });
+    ok(c0 - await coins() === 50000 && (await S()).draws === d0 + 1, '① 1회 50,000 골드 · 1장'); const c1 = await coins();
+    await p.click('#pw-d11'); await p.waitForTimeout(1300); ok(c1 - await coins() === 500000 && (await S()).draws === d0 + 12, '① 11회 500,000 골드 · 11장'); await p.screenshot({ path: 'dev/out/pg_11_back.png' });
     await p.waitForFunction(() => PCG.ov() && PCG.ov().ready); await p.evaluate(() => PCG.flipAll(true)); await p.waitForTimeout(1600); await p.screenshot({ path: 'dev/out/pg_11.png' }); await p.click('#pcg-ok'); await p.waitForTimeout(200);
     ok(await p.evaluate(() => PCG.last() === 11 && /11회/.test(document.getElementById('pw-again').textContent) && !document.getElementById('pw-again').disabled), '[다시 뽑기] = 11회');
-    const c2 = await coins(); await p.click('#pw-again'); await p.waitForTimeout(900); ok(c2 - await coins() === 399000 && (await S()).draws === d0 + 23, '[다시 뽑기] → 같은 11회 한 번 더'); await p.evaluate(() => PCG.close());
+    const c2 = await coins(); await p.click('#pw-again'); await p.waitForTimeout(900); ok(c2 - await coins() === 500000 && (await S()).draws === d0 + 23, '[다시 뽑기] → 같은 11회 한 번 더'); await p.evaluate(() => PCG.close());
     ok(await p.evaluate(() => document.querySelectorAll('#pw-res .pw-ri').length) === 11, '최근 결과 칸에 11장');
-    await p.evaluate(() => { __T.setCoins(39000); }); await p.waitForTimeout(1100); ok(await p.evaluate(() => document.querySelector('#polywin .pw-gold[data-c="39900"]').classList.contains('short')), '① 골드 모자라면 보유 골드 빨갛게');
+    await p.evaluate(() => { __T.setCoins(49000); }); await p.waitForTimeout(1100); ok(await p.evaluate(() => document.querySelector('#polywin .pw-gold[data-c="50000"]').classList.contains('short')), '① 골드 모자라면 보유 골드 빨갛게');
     await p.click('#pw-d1'); await p.waitForTimeout(200); ok((await S()).draws === d0 + 23 && /골드가 부족/.test(await lastLog()), '① 골드 부족하면 안 됨 (' + await lastLog() + ')');
     await p.evaluate(() => { __T.setCoins(5000000); }); const s = await S(), tot = Object.values(s.cards).reduce((a, b) => a + b, 0); ok(tot === s.draws && s.mile === s.draws, `카드 장수 합 ${tot} = 뽑은 수 ${s.draws} = 마일리지 ${s.mile}`); }
   // 강제 전설 연출 (Math.random 잠깐)
