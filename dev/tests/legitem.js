@@ -23,11 +23,40 @@ const OUT = path.join(__dirname, '..', 'out'); const ok = [], bad = []; const ch
       for (const id of ['lg_sword', 'lg_bow', 'lg_staff']) { const x = e(id); if (x.on) I.use(x); I.use(x); r[cls][id] = I.equipped('weapon') === id; if (x.on) I.use(x); } }
     T.setCls_('knight'); I.use(e('lg_sword')); return r; });
   for (const [cls, own] of [['knight', 'lg_sword'], ['elf', 'lg_bow'], ['wizard', 'lg_staff']]) for (const id of ['lg_sword', 'lg_bow', 'lg_staff']) chk(EQ[cls][id] === (id === own), `${cls} ${id} 착용 ${EQ[cls][id] ? '됨' : '안 됨'}`);
-  // 4) 강화: 무기 마법 주문서 +1 → 공격 +4 (전설 강화 1당 +4) · 안전 강화 +6
+  // 4) 강화: 무기 마법 주문서 +1 → 공격 +3 (전설 강화 1당 +3 · 영웅과 같음) · 안전 강화 +6
   const EN = await p.evaluate(() => { const I = __T.INV, x = I.bag().find(e => e.id === 'lg_sword'); I.add('scroll_weapon', 5, true); const d0 = I.dmg();
     for (let k = 0; k < 3; k++) { I.use(I.bag().find(e => e.id === 'scroll_weapon')); I.applyScroll(x); } const d1 = I.dmg(); return { en: x.en, d0, d1, tip: I.tipOf(x), safe: __T.SAFE_EN(__T.ITEMS.lg_sword), mul: __T.enBonus(__T.ITEMS.lg_sword, 1) }; });
-  chk(EN.en === 3 && EN.d1[0] - EN.d0[0] === 12 && EN.mul === 4 && EN.safe === 6, `강화 +${EN.en} · 공격 ${EN.d0.join('~')} → ${EN.d1.join('~')} · 강화 1당 +${EN.mul} · 안전 +${EN.safe}`);
-  chk(/전설 · 강화 1당 공격 \+4/.test(EN.tip), '툴팁에 전설 강화 수치');
+  chk(EN.en === 3 && EN.d1[0] - EN.d0[0] === 9 && EN.mul === 3 && EN.safe === 6, `강화 +${EN.en} · 공격 ${EN.d0.join('~')} → ${EN.d1.join('~')} · 강화 1당 +${EN.mul} · 안전 +${EN.safe}`);
+  chk(/전설 · 강화 1당 공격 \+3/.test(EN.tip) && /\[심판\]/.test(EN.tip), '툴팁에 전설 강화 수치 · 심판 옵션');
+  // 4b) 전설 공통 [심판]: 옵션 · 발동 확률(Math.random 바꿨다가 바로 되돌림) · 심판 피해 = 그 타격 피해 (직업마다) · 장비 이펙트 끔이면 빛기둥 없음
+  const OPT = await p.evaluate(() => ['lg_sword', 'lg_bow', 'lg_staff'].map(id => { const d = __T.ITEMS[id]; return [id, d.judgeP, d.judgePct, !!d.proc, d.optTxt.some(t => /^타격 시 10% 확률로 \[심판\] 추가 피해 — 내 피해의 100%/.test(t))]; }));
+  for (const o of OPT) chk(o[1] === 0.1 && o[2] === 100 && !o[3] && o[4], `심판 옵션 ${o[0]}: ${o[1] * 100}% · 피해의 ${o[2]}% · 옛 발동 없음 ${!o[3]}`);
+  const JT = await p.evaluate(() => { const T = __T, I = T.INV, H = T.HERO, R0 = Math.random, out = {};
+    const mk = (di, dj) => { const m = T.mkMob('dummy50', H.i + di, H.j + dj); m.aggro = false; T.foxes.push(m); return m; };
+    const wear = (cls, id) => { T.setCls_(cls); const x = I.bag().find(e => e.id === id); if (!x.on) I.use(x); return I.equipped('weapon') === id; };
+    const force = (r, fn) => { Math.random = () => r; try { fn(); } finally { Math.random = R0; } };   // 바꾼 Math.random은 바로 되돌림 (게임 루프가 먹지 않게)
+    const run = (fn, r, M) => { const n = T.floats.length, hp = M.map(m => m.hp); force(r, fn); const t = T.floats.slice(n).map(f => f.text), drop = M.map((m, k) => hp[k] - m.hp); for (const m of M) m.hp = m.max;
+      return { hits: t.filter(x => /^\d+$/.test(x)).map(Number), judge: t.filter(x => /^심판 \d+$/.test(x)).map(x => +x.slice(3)), drop }; };
+    const A = mk(1, 0), B = mk(3, 0), C = mk(3, 1); out.ids = [A.uid, B.uid, C.uid];
+    for (const [cls, id, fn] of [['knight', 'lg_sword', () => T.strike(A)], ['elf', 'lg_bow', () => T.strike(A, 'bow')], ['wizard', 'lg_staff', () => T.SPH_(A, 'ebolt')]]) { wear(cls, id);
+      out[cls] = { yes: run(fn, 0.0999, [A]), no: run(fn, 0.1001, [A]) }; }
+    out.bolt = run(() => T.strike(A, 'magic'), 0.0999, [A]);   // 마법사 마력탄(기본 공격)은 공격 마법이 아니라 심판 없음
+    out.aoe = run(() => T.SPH_(B, 'fball'), 0.0999, [A, B, C]);   // 범위 마법: 맞은 대상마다 따로
+    wear('knight', 'lg_sword'); let hits = 0, jud = 0; { const n = T.floats.length; for (let k = 0; k < 3000; k++) T.strike(A); const t = T.floats.slice(n).map(f => f.text); hits = t.filter(x => /^\d+$/.test(x)).length; jud = t.filter(x => /^심판 \d+$/.test(x)).length; A.hp = A.max; }
+    out.rate = { hits, jud };
+    const pil = () => T.MXL.filter(q => q.k === 'pillar').length; T.MXL.length = 0; out.fxOn = { r: run(() => T.strike(A), 0.0999, [A]), pillar: pil() };
+    document.getElementById('cw-fx').click(); T.MXL.length = 0; out.fxOff = { r: run(() => T.strike(A), 0.0999, [A]), pillar: pil(), btn: document.getElementById('cw-fx').textContent }; document.getElementById('cw-fx').click();
+    out.rnd = Math.random === R0; return out; });
+  for (const cls of ['knight', 'elf', 'wizard']) { const y = JT[cls].yes, n = JT[cls].no;
+    chk(y.judge.length === 1 && n.judge.length === 0, `${cls} 발동 확률 10%: random 0.0999 → 심판 ${y.judge.length}번 · 0.1001 → ${n.judge.length}번`);
+    chk(y.judge[0] === y.hits[0] && y.drop[0] === 2 * n.drop[0] && n.drop[0] > 0, `${cls} 심판 피해 = 그 타격 피해: 표시 ${y.hits[0]} → 심판 ${y.judge[0]} · 실제 HP ${n.drop[0]} → ${y.drop[0]} (2배)`); }
+  chk(JT.bolt.judge.length === 0 && JT.bolt.hits.length === 1, `마법사 마력탄(기본 공격)은 심판 없음 (${JT.bolt.judge.length})`);
+  chk(JT.aoe.hits.length >= 2 && JT.aoe.judge.length === JT.aoe.hits.length && JT.aoe.judge.every((v, k) => v === JT.aoe.hits[k]), `범위 마법(파이어볼): 맞은 ${JT.aoe.hits.length}마리 각각 심판 ${JT.aoe.judge.join(',')} = ${JT.aoe.hits.join(',')}`);
+  const rate = JT.rate.jud / JT.rate.hits; chk(rate > 0.075 && rate < 0.125, `실제 확률: 명중 ${JT.rate.hits}번 중 심판 ${JT.rate.jud}번 (${(rate * 100).toFixed(1)}%)`);
+  chk(JT.fxOn.pillar >= 1 && JT.fxOn.r.judge.length === 1, `장비 이펙트 켬: 금빛 기둥 ${JT.fxOn.pillar}개`);
+  chk(JT.fxOff.pillar === 0 && JT.fxOff.r.judge.length === 1 && JT.fxOff.r.drop[0] === JT.fxOn.r.drop[0] && /끔/.test(JT.fxOff.btn), `장비 이펙트 끔: 기둥 ${JT.fxOff.pillar}개 · 피해는 그대로 ${JT.fxOff.r.drop[0]}`);
+  chk(JT.rnd, 'Math.random 되돌림');
+
   // 5) 인벤토리 칸 효과: 전설 칸(r-4) · 효과 요소(.lg-fx) · 애니메이션 · 장비 칸
   await p.evaluate(() => { __T.INV.add('scroll_weapon', 40, true); __T.INV.add('red_potion', 30, true); for (const id of ['cx_sw6', 'dv_sword', 'dv_bow', 'dv_staff']) __T.INV.add(id, 1, true); if (document.getElementById('invwin').hidden || document.getElementById('charwin').hidden) __T.INV.toggleBoth(); __T.INV.render(); });
   await p.waitForTimeout(400);
@@ -53,6 +82,13 @@ const OUT = path.join(__dirname, '..', 'out'); const ok = [], bad = []; const ch
     const r = await p.evaluate(() => { const w = document.getElementById('itemwin'), q = w.getBoundingClientRect(); return { hidden: w.hidden, fx: !!w.querySelector('.iw-ic.r-4 .lg-fx'), txt: w.innerText.slice(0, 400), box: { x: q.left, y: q.top, width: q.width, height: Math.min(q.height, 800 - q.top) } }; });
     chk(!r.hidden && r.fx, `아이템 정보 ${id}: 창 열림 · 아이콘 효과`); console.log('---', id, '\n' + r.txt.replace(/\n+/g, ' / '));
     await p.screenshot({ path: path.join(OUT, `legitem_tip_${id.slice(3)}.png`), clip: r.box }); await p.evaluate(() => __T.INV.hideDetail()); }
+  // 새 집행검 아이콘 크게: 전설 칸 바탕·효과 위에 (애니메이션은 빛줄기·별빛이 보이는 순간에 멈춤)
+  await p.evaluate(() => { const z = document.createElement('div'); z.id = 'lgzoom'; z.className = 'iw-ic r-4'; z.style.cssText = 'position:fixed;left:30px;top:30px;width:260px;height:260px;z-index:99999;--lgd:0s';
+    z.innerHTML = __T.ICON('ic_lg_sword') + '<i class="lg-fx" aria-hidden="true"><b></b><b></b></i>'; z.querySelector('svg').style.cssText = 'width:236px;height:236px'; document.body.appendChild(z); });
+  await p.waitForTimeout(100);
+  await p.evaluate(() => { const z = document.getElementById('lgzoom'), T_ = { lgSweep: 800, lgPulse: 2000 }; let s = 0; for (const a of document.getAnimations()) { const t = a.effect && a.effect.target; if (!t || !z.contains(t)) continue; a.pause(); a.currentTime = a.animationName === 'lgStar' ? (s++ ? 370 : 1100) : (T_[a.animationName] || 0); } });
+  { const el = await p.$('#lgzoom'); await el.screenshot({ path: path.join(OUT, 'legitem_sword_zoom.png') }); }
+  await p.evaluate(() => document.getElementById('lgzoom').remove());
   // 8) 도감: 전설 카드 아이콘 효과
   const CX = await p.evaluate(() => { document.getElementById('btn-codex').click(); const s = document.getElementById('cdx-rar'); s.value = '전설'; s.dispatchEvent(new Event('change')); s.dispatchEvent(new Event('input')); return [...document.querySelectorAll('#cdx-list .cdx-card')].filter(c => c.querySelector('.cdx-ic.r-4 .lg-fx')).length; });
   chk(CX >= 3, `도감 전설 카드 ${CX}개`);
@@ -62,6 +98,12 @@ const OUT = path.join(__dirname, '..', 'out'); const ok = [], bad = []; const ch
   const RM = await p.evaluate(() => { const L = document.querySelector('#inv-grid .slot.r-4 .lg-fx'); return L ? [getComputedStyle(L, '::after').animationName, getComputedStyle(L.querySelector('b')).animationName, getComputedStyle(L.parentElement).backgroundImage.startsWith('radial')] : null; });
   chk(RM && RM[0] === 'none' && RM[1] === 'none' && RM[2], `움직임 줄이기: 애니메이션 ${RM && RM.slice(0, 2).join('/')} · 바탕 유지 ${RM && RM[2]}`);
   await p.emulateMedia({ reducedMotion: 'no-preference' });
+  // 10) 심판 순간: 허수아비에게 심판이 터진 직후 금빛 빛기둥 (창을 닫고 확대)
+  await p.evaluate(() => { for (const id of ['invwin', 'charwin', 'itemwin']) { const w = document.getElementById(id); if (w) w.hidden = true; } __T.ZOOMT = 1.6; });
+  await p.waitForTimeout(900);
+  const PS = await p.evaluate(() => { const T = __T, A = T.foxes.find(m => m.kind === 'dummy50'), R0 = Math.random; Math.random = () => 0.0999; try { T.strike(A); } finally { Math.random = R0; } return T.scr(A.x, A.z); });
+  await p.waitForTimeout(140);
+  await p.screenshot({ path: path.join(OUT, 'legitem_judge.png'), clip: { x: Math.max(0, PS[0] - 190), y: Math.max(0, PS[1] - 400), width: 380, height: 470 } });
   chk(!errs.length, '페이지 오류 없음' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
   console.log(ok.map(m => 'OK  ' + m).join('\n')); if (bad.length) console.log(bad.map(m => 'BAD ' + m).join('\n'));
   console.log(bad.length ? `FAIL ${bad.length}/${ok.length + bad.length}` : `PASS ${ok.length}/${ok.length}`); await b.close(); })();
