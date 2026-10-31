@@ -1,0 +1,12 @@
+{
+  "_설명": "이 파일을 config.json 으로 복사한 뒤 account·password 만 채우면 됩니다. config.json 은 git에 올라가지 않아요(.gitignore).",
+  "url": "https://jungkyu9797.github.io/aden-world/",
+  "account": "bothost",
+  "password": "여기에 비밀번호",
+  "zones": [2, 4, 6, 8, 10, 12, 17, 23],
+  "healthSec": 30,
+  "versionSec": 300,
+  "memCapMB": 3000,
+  "shareProcess": true,
+  "versionUrl": "https://raw.githubusercontent.com/jungkyu9797/aden-world/main/version.json"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "aden-bothost",
+  "version": "1.0.0",
+  "private": true,
+  "description": "아덴 월드 24시간 봇 서버 러너 (헤드리스 크로뮴 · 지역마다 봇 호스트 탭 1개)",
+  "main": "run.js",
+  "scripts": {
+    "start": "node run.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

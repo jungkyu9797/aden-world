@@ -8,3 +8,5 @@ node_modules/
 __pycache__/
 # 운영자 개인키 — 절대 올리지 말 것
 admin_key.js
+# 봇 서버 설정(계정·비밀번호) — 절대 올리지 말 것
+server/bothost/config.json

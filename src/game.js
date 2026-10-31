@@ -24,6 +24,31 @@ const META = window.MAP_META, IMG = {
  "knight_attack": "assets/classic/knight_attack.webp",
  "knight_attack2": "assets/classic/knight_attack2.webp"
 };
+// ============================================================ 11/1 봇 호스트 모드 (24시간 봇 서버 · dev/rooms/bothost.md) — URL ?bothost=1&zone=N (또는 localStorage aden_bothost=1 · aden_bothost_zone)
+//   서버(헤드리스 크로뮴)에서 돌리는 '보이지 않는 접속자': 그림·바닥 캔버스·그리기·소리·서비스워커 없이 게임 논리(몬스터·필드 봇·NET)만 돌리고, 그 지역의 호스트가 되어 필드 봇을 24시간 계산
+//   · 다른 유저에게 안 보이고 공격 못 받음(presence bh:1 → 받는 쪽이 접속자 목록에서 뺌) · 저장 안 함 · 루프는 rAF 대신 50ms 타이머 · 상태는 window.__BH (러너 server/bothost/run.js 가 읽음)
+const BOTHOST = (() => {
+  let on = false, zone = 0, started = false; const S = { ok: false, zone: 0, host: false, bots: 0, mobs: 0, fps: 0, since: Date.now(), ver: 0, err: '', mem: null, peers: 0, phase: 'boot', tick: 0, errN: 0, frames: 0, timer: '' };
+  try { const q = new URLSearchParams(location.search); on = q.get('bothost') === '1' || localStorage.getItem('aden_bothost') === '1'; zone = +(q.get('zone') || localStorage.getItem('aden_bothost_zone') || 0) | 0; } catch (e) {}
+  if (on) { S.zone = zone; window.__BH = S; try { document.querySelectorAll('audio').forEach(a => { a.pause(); a.removeAttribute('src'); a.preload = 'none'; a.load(); }); } catch (e) {}   // 배경음 미리 받기 취소
+    // 그림을 아예 안 불러옴: Image를 빈 껍데기로 (complete=false · naturalWidth=0 → 게임의 모든 '그림이 준비됐나' 검사가 '아직'으로 떨어져 폴백 · decode()는 바로 실패) — 바닥 캔버스(buildGround)도 im.ground.complete 가 false 라 안 만듦
+    window.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; this.naturalHeight = 0; this.width = 0; this.height = 0; this.onload = null; this.onerror = null; this.decoding = ''; this.crossOrigin = null; this._s = ''; } get src() { return this._s; } set src(v) { this._s = String(v || ''); } decode() { const p = Promise.reject(new Error('bothost')); p.catch(() => {}); return p; } addEventListener() {} removeEventListener() {} setAttribute() {} getAttribute() { return null; } }; }
+  let fr = 0, fpsAt = 0, logAt = 0;
+  function frameDone(dt) { fr++; const now = performance.now(); if (now - fpsAt < 1000) return; S.fps = Math.round(fr * 1000 / (now - fpsAt)); fr = 0; fpsAt = now; S.frames++;
+    try { S.host = started && !!NET.zoneHost(); S.peers = Math.max(0, NET.count() - 1); S.bots = FBOT.bots().filter(f => !f.dead).length; S.mobs = foxes.filter(f => !f.dead && !f.gone && !f.fb).length; S.zoneNow = SCENE === 'field' && ISLE ? ISLE.id : 0;
+      S.ok = started && S.zoneNow === zone && !!window.__gameOn; S.ver = GAME_VER; S.tick = Date.now(); S.mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null; S.net = !!NET.me();
+      if (started) { BUFF.invis = Math.max(BUFF.invis, 1e6); GOD_INV = true; hero.hp = hero.max; hero.mp = hero.maxmp; if (hero.target || moveGoal) { hero.target = null; moveGoal = null; } } } catch (e) { S.err = String(e && e.message || e).slice(0, 80); }
+    if (!logAt || now - logAt >= 60000) { logAt = now; try { console.log('[BH] ' + JSON.stringify({ ok: S.ok, zone, z: S.zoneNow, host: S.host, bots: S.bots, mobs: S.mobs, fps: S.fps, peers: S.peers, net: S.net, mem: S.mem, up: Math.round((Date.now() - S.since) / 60000), v: S.ver, err: S.err, errN: S.errN, phase: S.phase })); } catch (e) {} } }
+  // 루프: 헤드리스에서 requestAnimationFrame이 느려지거나 멈추는 탭이 있어서 50ms 타이머로 frame()을 돌림 (밀렸으면 50ms 단위로 2~3번 연속 · dt 상한 0.05는 frame 안에서 그대로)
+  function loop(frame) { let last = performance.now(); const tick = () => { const now = performance.now(); const n = Math.min(3, Math.max(1, Math.round((now - last) / 50))); for (let k = 1; k <= n; k++) { const t = k === n ? now : last + 50 * k; try { frame(t); } catch (e) { S.errN++; S.err = String(e && e.message || e).slice(0, 80); } } last = now; };
+    let w = null; try { w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' }))); w.onmessage = tick; S.timer = 'worker'; } catch (e) { w = null; }   // 워커 타이머는 탭이 가려져도 느려지지 않음
+    if (!w) { setInterval(tick, 50); S.timer = 'interval'; } }
+  // 캐릭터 선택 뒤(ACCOUNT.begin · 마을에 선 상태)에서: 보이지 않게(투명 · 무적) · presence bh:1 · 그 지역으로 바로 들어가 가만히 섬 (저장·귀환·텔레포트 없음)
+  function start() { if (started) return; started = true; S.phase = 'zone'; try { NET.setExtra('bh', 1); GOD_INV = true; BUFF.invis = 1e9; const d = zone && ISLAND.def(zone); if (!d) { S.err = 'badzone ' + zone; S.phase = 'badzone'; return; }
+      TOWN.toZone(zone); { const z = ISLE; if (z) { let p = null; for (let r = 1; r <= 6 && !p; r++) for (let dj = -r; dj <= r && !p; dj++) for (let di = -r; di <= r && !p; di++) { const i = hero.i + di, j = hero.j + dj; if (i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && walkable(i, j) && !occ(i, j) && !z.portals.some(q => Math.max(Math.abs(q.i - i), Math.abs(q.j - j)) < 2)) p = [i, j]; } if (p) TOWN.placeAt(p[0] + 0.5, p[1] + 0.5); } }   // 포털 칸을 밟고 서 있지 않게 옆 칸으로
+      hero.target = null; moveGoal = null; S.phase = 'run'; } catch (e) { S.err = String(e && e.message || e).slice(0, 80); S.phase = 'fail'; } }
+  return { on: () => on, zone: () => zone, started: () => started, S, frameDone, loop, start, fail(w) { S.err = String(w || '').slice(0, 80); S.phase = 'fail'; }, phase(p) { S.phase = p; } };
+})();
 const im = {}; for (const k in IMG){ const i = new Image(); i.src = IMG[k]; im[k] = i;
   // 나무·바위·덤불: 렌더 칸 경계에서 잘린 그림자가 네모로 보이지 않게 가장자리를 부드럽게 지움
   if (/^(tree|rock|bush)\d$/.test(k)) i.onload = () => { const w = i.naturalWidth, h = i.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.drawImage(i, 0, 0);
@@ -155,7 +180,7 @@ const rowFor = (dx,dz) => { let b=0,bd=-9; DIRV.forEach((d,i)=>{ const s=d[0]*dx
 
 // ---------- audio ----------
 let AC=null, master;
-function initAudio(){ if (!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.gain.value=SFX_ON?0.4*SND.sfxK():0; master.connect(AC.destination); } if (AC.state==='suspended') AC.resume(); }
+function initAudio(){ if (BOTHOST.on()) return; if (!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.gain.value=SFX_ON?0.4*SND.sfxK():0; master.connect(AC.destination); } if (AC.state==='suspended') AC.resume(); }
 function tone(t,type,f0,f1,dur,peak){ const o=AC.createOscillator(); o.type=type; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur); const g=AC.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(peak,t+0.004); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.05); }
 let NZB=null; function nzBuf(){ if (!NZB||NZB.sampleRate!==AC.sampleRate){ NZB=AC.createBuffer(1,AC.sampleRate*2|0,AC.sampleRate); const d=NZB.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; } return NZB; }   /* v124: 잡음 버퍼를 한 번만 만들고 재사용 (매번 새로 만들면 끊김) */
 function nz(t,dur,f0,f1,peak){ const b=nzBuf(); const s=AC.createBufferSource(); s.buffer=b; s.loop=dur>1.9; const f=AC.createBiquadFilter(); f.type='bandpass'; f.frequency.setValueAtTime(f0,t); f.frequency.exponentialRampToValueAtTime(f1,t+dur); const g=AC.createGain(); g.gain.setValueAtTime(peak,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()*Math.max(0, 1.95-Math.min(dur,1.9)), dur>1.9?undefined:dur+0.02); if (dur>1.9) s.stop(t+dur+0.02); }
@@ -227,7 +252,7 @@ let UI_TOUCH_T = 0, UI_DOWN = 0; const UI_TOUCH = () => MOBILE && (UI_DOWN > 0 |
 if (MOBILE) { const inW = ev => ev.target && ev.target.closest && ev.target.closest('.gw'); addEventListener('pointerdown', ev => { if (inW(ev)) { UI_DOWN++; UI_TOUCH_T = performance.now(); } }, true); for (const t of ['pointerup', 'pointercancel']) addEventListener(t, ev => { if (UI_DOWN > 0) { UI_DOWN--; UI_TOUCH_T = performance.now(); } }, true); }
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d'); let W=0,H=0,DPR=1;
 const low=document.createElement('canvas'), lc=low.getContext('2d');
-function resize(){ DPR=Math.min(MOBILE&&MOB_LOWQ?1:2,devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }
+function resize(){ if (BOTHOST.on()) { DPR=1; W=H=1; cv.width=cv.height=1; return; } DPR=Math.min(MOBILE&&MOB_LOWQ?1:2,devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }   // 봇 호스트: 캔버스 1×1 · DPR 1
 addEventListener('resize',resize); resize();
 let curZ=2, zoom=2, zoomT=2, pixel=true, cam=W2P(hero.x,hero.z), moveGoal=null, holding=false, hover=null;
 const mobZ = () => MOB_ZS || Math.max(1, Math.min(2, Math.floor(Math.min(W, H) / 330)));   // v168: 폰 = 1배 (화면에 더 넓게) · 태블릿 = 2배
@@ -2508,7 +2533,7 @@ const GLOG = (() => { const KEY = 'aden_glog', MAX = 200; let L = null; const g 
   function hdr() { const s = g('glog-src'); if (!s) return; s.textContent = srv === 'on' ? '서버 기록 · 모든 사람 공지가 모여요' : srv === 'off' ? '이 기기 기록 (서버에 닿지 않아요)' : '이 기기 기록'; s.dataset.st = srv || 'local'; }
   function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); const x = { at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }; L.push(x); if (L.length > MAX) L.splice(0, L.length - MAX); if (isOpen()) render(true); save(); if (!GLOG.mute) share(x); }
   function open(v) { const w = g('logwin'); if (!w) return; w.hidden = v === undefined ? !w.hidden : !v; if (!w.hidden) { render(); hdr(); const b = g('glog-list'); if (b) b.scrollTop = 0; pull(); } }
-  setTimeout(function tk() { if (window.__gameOn) pull(); setTimeout(tk, 5 * 60000); }, 20000);   // 게임을 켜고 20초 뒤 · 그 뒤 5분마다 서버 기록 받아 오기
+  setTimeout(function tk() { if (window.__gameOn && !BOTHOST.on()) pull(); setTimeout(tk, 5 * 60000); }, 20000);   // 봇 호스트는 서버 기록을 받아 오지 않음 (읽기 절약 · 올리기는 함)   // 게임을 켜고 20초 뒤 · 그 뒤 5분마다 서버 기록 받아 오기
   { const b = g('btn-glog'); if (b) b.onclick = () => open(); }
   return { add, open, render, pull, mute: 0, src: () => srv, err: () => lastErr, list: () => load().slice() }; })();
 hero.lv = 1; hero.exp = 0; hero.baseHP = 16; hero.baseMP = 2; hero.hp = hero.max = 16; hero.mp = hero.maxmp = 2; hero.bonusPts = 0; let coins = 100, potions = 20, potCd = 0;
@@ -4330,7 +4355,7 @@ const ISLAND = (() => {
       if (!ISLE.ground && im.ground.complete) ISLE.ground = buildGround(ISLE.def);
       if (ISLE.def.fire) fireTick(dt);
       for (let k = foxes.length - 1; k >= 0; k--) if (foxes[k].gone) foxes.splice(k, 1);
-      if (hero.t >= 1 && !hero.atk && !huntOn()) for (const p of ISLE.portals) if (hero.i === p.i && hero.j === p.j) {   /* v164: 자동사냥 중에는 이동 발판(다른 구역·마을·계단)을 밟아도 넘어가지 않음 */ if (p.to === 'town') { hero.target = null; moveGoal = null; TOWN.goTown(); } else enter(p.to, ISLE.id); break; } },
+      if (hero.t >= 1 && !hero.atk && !huntOn() && !BOTHOST.on()) for (const p of ISLE.portals) if (hero.i === p.i && hero.j === p.j) {   /* v164: 자동사냥 중에는 이동 발판(다른 구역·마을·계단)을 밟아도 넘어가지 않음 */ if (p.to === 'town') { hero.target = null; moveGoal = null; TOWN.goTown(); } else enter(p.to, ISLE.id); break; } },
     addDraw(list, g) { if (ISLE.def.arena || ISLE.def.duel) arenaDraw(list, g); if (ISLE.def.tw) TWM.addDraw(list, g); for (const p of ISLE.portals) { const [x, y] = W2P(p.i + 0.5, p.j + 0.5); list.push({ d: p.i + p.j + (p.stairs ? 0.3 : 0.6), f: () => p.stairs ? dgStairs(g, x, y, p) : portalFx(g, x, y, p.label) }); } },
   };
 })();
@@ -7108,7 +7133,7 @@ const TOWN = (() => {
         label(g, '월드맵', x, y - 30, hoverObj === PORTAL ? '#ffffff' : '#bcd4ff'); } }); }
     },
     enter() {
-      if (!ground) buildGround();
+      if (!ground && !BOTHOST.on()) buildGround();
       blockedT = TB; PROPS = TPROPS; foxes = [];
     },
     SPAWN,
@@ -7446,7 +7471,7 @@ const TOWN = (() => {
         draw(); } } }
   $('btn-bgm').onclick = ev => { muted = !muted; $('btn-bgm').setAttribute('aria-pressed', !muted); syncBGM(); if (ev && ev.isTrusted) SND.set({ bgmOn: !muted }); };   // 직접 누른 것만 저장 (자동사냥 음소거는 저장 안 함)
   $('btn-bgm').setAttribute('aria-pressed', !muted); api.syncBGM = () => syncBGM(); api.setBgm = on => { muted = !on; $('btn-bgm').setAttribute('aria-pressed', !!on); syncBGM(); };
-  api.unlockAudio = () => { if (unlocked) return; unlocked = true; initAudio(); for (const k in SRC) track(k); syncBGM(); };
+  api.unlockAudio = () => { if (unlocked || BOTHOST.on()) return; unlocked = true; initAudio(); for (const k in SRC) track(k); syncBGM(); };
   // 소리는 사용자가 처음 뭔가를 눌러야 켤 수 있음 → 화면 어디를 누르든, 키를 누르든 바로 켜지게
   ['pointerdown', 'keydown'].forEach(t => addEventListener(t, () => { initAudio(); api.unlockAudio(); }, { capture: true }));
   api.bgmTick = () => { if (wantBGM() !== curWant) syncBGM(); };
@@ -7469,7 +7494,7 @@ const TOWN = (() => {
   function scrollHome() { if (SCENE === 'town') return true; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return false; } if (false) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 110, '귀환 주문서 없음', { color: '#ff9a8a', size: 13, big: true, life: 1.6 }); say('귀환 주문서가 없습니다. 1구간의 텔레포트(마을로 가는 포털)를 이용하세요.', '#ff8a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'square', 300, 180, 0.18, 0.05); return false; }
     say('귀환 부적을 사용했습니다.', '#a0c0f2'); toTown(); return true; }
   api.scrollHome = () => scrollHome();
-  api.goTown = () => toTown();
+  api.goTown = () => { if (BOTHOST.started()) return; toTown(); };   // 봇 호스트: 지역에 들어간 뒤로는 귀환 없음
   api.placeAt = (x, z) => { const i = Math.floor(x), j = Math.floor(z); if (walkable(i, j)) place(i, j); };
   api.toZone = (id, x, z) => { ISLAND.enter(id, 'town'); fadeTo(0); syncButtons(); if (x != null) api.placeAt(x, z); };   // 1·2구간 아무 데나 (자동사냥 복귀·업데이트 후 이어하기)
   api.toField = n => toField(n);
@@ -7921,11 +7946,12 @@ const NET = (() => {
   const others = () => { const out = []; if (!room) return out; let L; try { L = room.peers(); } catch (e) { return out; } for (const p of L) { if (p.isMe && p.sameTab) { myPeer = p.peer; continue; } if (p.kind === 'agent') continue; const pr = p.presence || {}; if (!pr.n) continue; out.push({ peer: p.peer, pr }); } return out; };
   const prOf = p => p === myPeer ? null : (OTH.find(o => o.peer === p) || {}).pr;
   // 지역 호스트: 같은 지역에 있는 사람(나 포함) 중 peer 이름이 가장 앞선 사람
-  const hostOf = z => { let h = myPeer && zk() === z && !ADMIN.on() ? myPeer : null; for (const o of OTH) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; return h; };
+  const hostOf = z => { let h = BOTHOST.on() && myPeer && zk() === z ? myPeer : null; for (const o of BHS) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; if (h) return h;   // 11/1 봇 호스트가 그 지역에 있으면 그것이 먼저 (여럿이면 이름순) · 없으면 예전 규칙
+    h = myPeer && zk() === z && !ADMIN.on() && !BOTHOST.on() ? myPeer : null; for (const o of OTH) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; return h; };
   const isHost = () => !room || !myPeer || hostOf(zk()) === myPeer || (ADMIN.on() && !hostOf(zk()));
   const othersInZone = () => OTH.filter(o => o.pr.z === zk());
   const watchersInZone = () => othersInZone().concat(ADMS.filter(o => o.pr.z === zk()));   // v158: 숨은 운영자도 포함 — 호스트가 몬스터·바닥 아이템·보스 기술·대사를 보내 줌 (보상 분배·파티에는 안 셈)
-  function hostData() { if (!ISLE || isHost()) return null; const h = hostOf(zk()), o = OTH.find(q => q.peer === h); return o && o.pr.m && o.pr.mz === zk() ? o : null; }
+  function hostData() { if (!ISLE || isHost()) return null; const h = hostOf(zk()), o = OTH.find(q => q.peer === h) || BHS.find(q => q.peer === h); return o && o.pr.m && o.pr.mz === zk() ? o : null; }
   const guest = () => !!hostCache;
   function guestMob(f) { return !!hostCache && f && f.uid != null && foxes.includes(f); }
   // ----- 파티: 같은 파티 번호(pt)를 가진 사람끼리 · 초대(pi) → 수락(pa)
@@ -8008,8 +8034,8 @@ const NET = (() => {
       if (dn) { if (!r.dead && !r.gone) { r.dead = 1; const f = foxes.find(q => q.uid === uid && !q.dead && !q.gone); if (f && !guestMob(f)) { f.gone = true; if (hero.target === f) hero.target = null; } } continue; }
       if (o.pr.z === 'isle' + z && !(performance.now() - (r.own || -1e9) < 3000)) { r.hp = Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)); r.i = i | 0; r.j = j | 0; } } }
   // ----- v128 운영자: 서명이 맞는 운영자는 목록·화면에서 빠짐 (확인 중에도 숨김 · 'p'(준비 중) 표시는 15초까지만 인정)
-  const admOK = new Map(), admPend = new Map(), admSeen = new Map(), arSeen = new Set(); let ADMS = [], arOut = [], admTok = null, admBusy = false;
-  function admFilter() { ADMS = []; OTH = OTH.filter(o => { const a = o.pr.adm; if (!a || !a.s) return true;
+  const admOK = new Map(), admPend = new Map(), admSeen = new Map(), arSeen = new Set(); let ADMS = [], BHS = [], arOut = [], admTok = null, admBusy = false;   // BHS: 11/1 봇 호스트 접속(presence bh) — 운영자처럼 접속자 목록(OTH)에서 빼서 안 보이고·못 때리고·안 세지만, 지역 호스트는 됨
+  function admFilter() { ADMS = []; BHS = []; OTH = OTH.filter(o => { if (o.pr.bh) { BHS.push(o); return false; } const a = o.pr.adm; if (!a || !a.s) return true;
       if (a.s === 'p') { const t0 = admPend.get(o.peer) || (admPend.set(o.peer, Date.now()), Date.now()); return Date.now() - t0 > 15000; }
       const k = o.peer + '|' + a.t; let v = admOK.get(k); if (v === undefined) { admOK.set(k, 'wait'); admVerifyC(`adm|${o.peer}|${a.t}`, a.s, a.c).then(ok => admOK.set(k, !!ok)); v = 'wait'; }
       if (v === false) return true; if (v === true) ADMS.push(o); return false; });
@@ -8028,18 +8054,20 @@ const NET = (() => {
     for (const o of OTH) { const rv = o.pr.rv; if (rv && rv.to === myPeer && rvSeen.get(o.peer) !== rv.s) { rvSeen.set(o.peer, rv.s); if (DEATH) { const nm = nmOf(o.pr), s0 = rv.s, p0 = o.peer;
           INV.askYesNo(`${nm}님이 부활 주문서를 사용했습니다.`, '부활하시겠습니까? (그 자리에서 HP·MP 50%로 부활 · 경험치 손실 없음 · 골드 5% 손실)', () => { if (!DEATH) return; raOut = { to: p0, s: s0, ok: 1, at: Date.now() }; sendT = 0; reviveHere(nm); }, () => { raOut = { to: p0, s: s0, ok: 0, at: Date.now() }; sendT = 0; }); } }
       const ra = o.pr.ra; if (rvOut && ra && ra.to === myPeer && ra.s === rvOut.s && rvOut.to === o.peer) { rvOut = null; if (ra.ok) { INV.take('revive_scroll'); INV.render(); say(`${nmOf(o.pr)}님이 부활했습니다. (부활 주문서 1개 사용)`, '#ffd86a'); } else say(`${nmOf(o.pr)}님이 부활을 거절했습니다. (주문서는 그대로)`, '#9c9682'); } } }
-  function mobsOut() { const pos = [[hero.x, hero.z], ...watchersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
+  function mobsOut() { const pos = [...(BOTHOST.on() ? [] : [[hero.x, hero.z]]), ...watchersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
       L.push([f.uid, KINDS.indexOf(f.kind), Math.round(f.x * 10), Math.round(f.z * 10), f.row, Math.max(0, Math.round(f.hp / f.max * 100)), (f.dead ? 1 : 0) | (f.atkT != null ? 2 : 0) | (f.t < 1 ? 4 : 0) | (f.stunT > 0 ? 8 : 0) | (f.slowT > 0 ? 16 : 0) | (f.enraged ? 32 : 0) | (f.regenOn ? 64 : 0) | (f.fb ? (f.fbBf & 7) << 7 : 0)]); }   // 11/1: 필드 봇 버프 (리덕션 128 · 솔리드 256 · 카운터 512)
     const dn = r => Math.min(...pos.map(([x, z]) => Math.max(Math.abs(r[2] / 10 - x), Math.abs(r[3] / 10 - z)))); return L.sort((a, b) => dn(a) - dn(b)); }
-  function groundOut() { const pos = [[hero.x, hero.z], ...watchersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
+  function groundOut() { const pos = [...(BOTHOST.on() ? [] : [[hero.x, hero.z]]), ...watchersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
     for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
+  const BH_KEEP = new Set(['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'bk', 'an', 'fbx']);   // 봇 호스트 presence에 남기는 칸 (게스트가 받아야 하는 호스트 데이터 + 지역·이름)
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
       e: eqIds(), eg: glowOut(), xp: xpOut(), wq: wqOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; if (ADMIN.cert()) P.adm.c = ADMIN.cert(); P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
+    if (BOTHOST.on()) for (const k in P) if (!BH_KEEP.has(k)) delete P[k];   // 11/1 봇 호스트: 사람 표시용 칸(장비·변신·인형·버프·채팅·세션)은 빼고 호스트 데이터만
     const sz = () => TE.encode(JSON.stringify(P)).length, CAP = window.__bigNet ? 60000 : 3900;   /* v185: 전용 서버는 60KB까지 (공용 MQTT·아티팩트는 3.9KB) */
     if (P.tw && sz() > CAP) { P.tw = Object.assign({}, P.tw, { fx: (P.tw.fx || []).slice(-4) }); if (sz() > CAP) P.tw.fx = []; }
     if (P.fbx && sz() > CAP) { P.fbx = Object.assign({}, P.fbx, { L: (P.fbx.L || []).slice(-3) }); if (sz() > CAP) P.fbx = null; }   // v191: 필드 봇 연출도 먼저 줄이고 몬스터·봇 목록은 지킴   // 수호탑 대전: 패킷이 넘치면 연출부터 줄이고 봇·수호탑 목록은 지킴
@@ -8110,6 +8138,7 @@ const NET = (() => {
     if (pr.ch && pr.ch.i !== v.chI) { v.chI = pr.ch.i; let ct = String(pr.ch.t || '').slice(0, 80); const all = ct[0] === '!' && ct.length > 1; if (all) ct = ct.slice(1).trim(); v.chat = { t: ct, until: time + 5 }; const pm = !!(pr.pt && pr.pt === partyId), same = pr.z === zk();
       if (all) say(`[전체] ${nmOf(pr)}: ${ct}`, '#ffd28a', 1); else if (pm) say(`[파티]${same ? '' : '(' + zoneTitle(pr.z) + ')'} ${nmOf(pr)}: ${ct}`, PCOL, 1); else say(`${nmOf(pr)}${same ? '' : '(' + zoneTitle(pr.z) + ')'}: ${ct}`, RCOL, 1); }
     return v; }
+  function applyAn(o) { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) { if (typeof x[2] === 'string' && x[2].startsWith('fb:')) FBOT.onAlert(String(x[1] || ''), x[2]); else { GLOG.mute = 1; try { announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } finally { GLOG.mute = 0; } } } } }
   function tick(dt) { if (!room) return;
     OTH = others(); admFilter(); const ids = new Set(OTH.map(o => o.peer));
     for (const o of OTH) if (!known.has(o.peer)) { known.add(o.peer); seenHit.set(o.peer, maxSeq(o.pr.h)); spUsed.set(o.peer, o.pr.sp || 0); seenSu.set(o.peer, maxSeq(o.pr.su)); seenPk.set(o.peer, maxSeq(o.pr.pk)); seenWd.set(o.peer, maxSeq(o.pr.wd)); seenEf.set(o.peer, maxSeq(o.pr.ef)); seenInv.set(o.peer, o.pr.pi ? o.pr.pi.s : 0); seenAns.set(o.peer, o.pr.pa ? o.pr.pa.id + ':' + o.pr.pa.s : ''); if (ready) { const nm = nmOf(o.pr), back = (goneAt.get(nm) || 0) > Date.now() - 60000; if (!initDone && performance.now() - roomAt < 4000) initL.push(nm); else if (back) say(`[접속] ${nm}님이 다시 연결되었습니다.`, '#9c9682'); else announce(`${nm}님이 접속했습니다. (${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1})`, PCOL); } }
@@ -8120,7 +8149,8 @@ const NET = (() => {
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt * Math.min(3, Math.max(0.5, +o.pr.hs || 1)); if (v.atkT > 0.75 / GSPD) v.atkT = null; }
       petFollow(o, v, dt); applyPv(o); applyWd(o);
-      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) { if (typeof x[2] === 'string' && x[2].startsWith('fb:')) FBOT.onAlert(String(x[1] || ''), x[2]); else { GLOG.mute = 1; try { announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } finally { GLOG.mute = 0; } } } } } }   /* v191: 필드 봇 전투 알림은 채팅에만 */
+      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); applyAn(o); }   /* v191: 필드 봇 전투 알림은 채팅에만 */
+    for (const o of BHS) { applyRewards(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); applyAn(o); }   // 11/1 봇 호스트: 접속자가 아니라 숨겨 두지만, 호스트가 주는 것(전리품 분배·사신·보스 기록·전체 알림)은 받음
     if (!initDone && performance.now() - roomAt >= 4000) { initDone = true; say(initL.length ? `[월드] 지금 ${initL.length + 1}명이 접속 중이에요: ${initL.join(', ')}` : '[월드] 지금은 혼자 접속 중이에요.', PCOL); }
     reviveTick(); partyTick(); PARTY.length = 0; for (const o of members()) { if (o.pr.z !== zk()) continue; const v = peers.get(o.peer); if (v) PARTY.push({ x: v.x, z: v.z, name: nmOf(o.pr) }); }   // 미니맵 초록 점
     if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } rpEnsure(); }
@@ -8128,7 +8158,7 @@ const NET = (() => {
     if (hero.atk && hero.atk !== lastAtk) { atkSeq++; myAct = performance.now(); } lastAtk = hero.atk;
     uiT -= dt; if (uiT <= 0) { uiT = 0.25; renderParty(); }
     if (ADMIN.on() && myPeer && (!admTok || admTok.p !== myPeer) && !admBusy) { admBusy = true; const t = Date.now(), p = myPeer; ADMIN.sign(`adm|${p}|${t}`).then(s => { admTok = { t, s, p }; admBusy = false; sendT = 0; }).catch(() => { admBusy = false; }); }
-    sendT -= dt; if (sendT <= 0) { sendT = 0.1; try { room.presence(payload()).catch(() => {}); } catch (e) {} } }
+    sendT -= dt; if (sendT <= 0) { sendT = BOTHOST.on() && !watchersInZone().length ? 0.5 : 0.1; try { room.presence(payload()).catch(() => {}); } catch (e) {} } }   // 봇 호스트: 지역에 보는 사람이 없으면 초당 2번만
   // ----- 파티 창 (화면 왼쪽): 파티원 HP·MP
   const myBuffs = () => { const o = {}; let n = 0; for (const k in BUFF) if (BUFF[k] > 0 && BUFF_DEF[k]) { o[k] = Math.ceil(BUFF[k]); n++; } return n ? o : null; };
   const icoC = {}, ico = k => icoC[k] || (icoC[k] = ICON(k));
@@ -8173,7 +8203,7 @@ const NET = (() => {
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, hitRaw, distribute, assignLoot, gahoGive, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
     zoneHost: () => isHost(), guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : FBOT.ownerName(p) || nmOf(prOf(p)), stunRaw, lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, partyOk(o) { return !!(o && o.pr && partyId && o.pr.pt === partyId && o.pr.z === zk()); }, peerObj(peer) { return OTH.find(q => q.peer === peer) || null; }, hoverParty() { if (SELF_CAST) return null; if (FORCE_PM) return FORCE_PM; const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
-    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t, k) { anSeq++; anText = String(t).slice(0, 90); anL.push(k ? [anSeq, anText, String(k).slice(0, 12)] : [anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
+    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t, k) { anSeq++; anText = String(t).slice(0, 90); anL.push(k ? [anSeq, anText, String(k).slice(0, 12)] : [anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, bhs: () => BHS, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
 })();
 // ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
 // 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지 · 캐릭터 복사 코드(11/1 · 테스트 페이지에 붙여 넣는 코드)
@@ -9238,12 +9268,13 @@ const FBOT = (() => {
   const cloudOn = () => { try { return !DBG.noCloud && CLOUD.on() && !!CLOUD.uid(); } catch (e) { return false; } };
   const isAdm = o => !!(o.pr && o.pr.adm && o.pr.adm.t);
   // 11/1 밤: 봇 호스트 서버 계정(presence bh:1 · 서버 모드는 다른 작업) — cp 후보에서 빼고 · worldbot_chars에 안 쓰고 · 접속해 있으면 사진 작성자
-  const isBh = o => !!(o.pr && o.pr.bh), meBh = () => !!(DBG.bh || (NET.extraOf && NET.extraOf('bh'))), bhOn = () => NET.others().some(o => isBh(o) && !isAdm(o));
+  const isBh = o => !!(o.pr && o.pr.bh), meBh = () => !!(DBG.bh || (NET.extraOf && NET.extraOf('bh'))), bhOn = () => NET.bhs().length > 0 || NET.others().some(o => isBh(o) && !isAdm(o));   // 11/1 봇 호스트 모드: NET이 bh 접속을 따로 둠(bhs)
   let netAt = 0;
   function amTop() { if (ADMIN.on() || !window.__gameOn || !NET.me() || meBh()) return false; const me = NET.me(), my = myCP().total || 0;   // 접속자 중 내 전투력이 1등인지 (같으면 peer 이름순 — 실시간 기준과 같은 순서) · 봇 호스트 계정은 빼고
     for (const o of NET.others()) { if (isAdm(o) || isBh(o)) continue; const c = +o.pr.cp || 0; if (c > my || (c === my && o.peer < me)) return false; } return true; }
   // 사진 작성자: 봇 호스트가 접속해 있으면 그것 · 없으면 cp 1등 PC · (봇 호스트가 있는데 두 번 읽어도(약 2분) 사진이 없으면 1등 PC가 대신 — 호스트의 목록 읽기가 막혔을 때)
-  const amWriter = () => meBh() || (amTop() && (!bhOn() || SN.tries >= 2));
+  const bhLead = () => !BOTHOST.on() || !NET.bhs().some(o => String(o.pr.z || '') < zkey());   // 봇 호스트 탭이 여럿이면 지역 열쇠가 가장 작은 탭만 작성자 (목록 읽기 절약)
+  const amWriter = () => (meBh() && bhLead()) || (amTop() && (!bhOn() || SN.tries >= 2));
   // ----- 11/1 밤 프로듀서: "짧은 주기로 실 유저 캐릭터의 모든 정보(봇이 복제하는)를 서버에 저장하고 봇은 그 정보를 2시간마다 따서" — Firestore worldbot_chars/{uid} (계정마다 문서 하나 · 3분마다 바뀌었을 때만 덮어씀 · 약 0.7KB)
   //   사진을 만들 때 worldbot_chars 전부(최대 200)를 읽어 cp 1등을 고름(접속 안 한 유저 포함) · 규칙이 없어 403이면 조용히 예전 방식(접속자 중 1등 = 내 캐릭터)으로 · 5분마다만 다시
   //   규칙(프로듀서가 넣음): match /worldbot_chars/{uid} { allow read: if request.auth != null; allow write: if request.auth != null && request.auth.uid == uid; }
@@ -9321,7 +9352,7 @@ const FBOT = (() => {
   // ----- 봇 몸 (몬스터 목록의 한 종류: fb_k · fb_e · fb_w)
   function tag(f) { if (f.uid == null || !isUid(f.uid)) return false; const b = roster().by.get(f.uid); if (!b) return false; const st = statFor(b); K_.gearOf(b); f.bot = b; f.fb = true;
     const k = f.max ? f.hp / f.max : 1; if (f.max !== st.hp) { f.max = st.hp; f.hp = Math.max(f.dead ? 0 : 1, Math.round(st.hp * k)); } f.dispName = b.name; return true; }
-  const playersPos = () => { const P = []; if (SCENE === 'field' && !ADMIN.on()) P.push([hero.x, hero.z]); for (const o of NET.others()) if (o.pr.z === zkey()) P.push([o.pr.x, o.pr.y]); return P; };
+  const playersPos = () => { const P = []; if (SCENE === 'field' && !ADMIN.on() && !BOTHOST.on()) P.push([hero.x, hero.z]); for (const o of NET.others()) if (o.pr.z === zkey()) P.push([o.pr.x, o.pr.y]); return P; };
   function spawnSpot() { const N = MAP, P = playersPos(), por = (ISLE && ISLE.portals) || [];
     for (let t = 0; t < 240; t++) { const i = 2 + Math.floor(Math.random() * (N - 4)), j = 2 + Math.floor(Math.random() * (N - 4)); if (!walkable(i, j) || occ(i, j)) continue;
       if (P.some(([x, z]) => cheb(i, j, Math.floor(x), Math.floor(z)) < 8)) continue; if (por.some(q => cheb(i, j, q.i, q.j) < 4)) continue; return [i, j]; } return null; }
@@ -9346,7 +9377,7 @@ const FBOT = (() => {
   const FORM = [[0, 0], [-1, 1], [1, 1], [-1, -1], [1, -1]], formSpot = (L, f) => { const o = FORM[(f.bot.pk || 0) % FORM.length]; return [L.i + o[0], L.j + o[1]]; };   // 대형: 리더 뒤·옆 (겹치지 않게)
   // ----- 팀 목록 (한 프레임에 한 번): A = 반왕 봇 + 플레이어 · B = 라인 봇
   let TM = null, TMt = -1, OTT = new Set();
-  const heroOk = () => SCENE === 'field' && !DEATH && hero.hp > 0 && !ADMIN.on() && !(BUFF.invis > 0);
+  const heroOk = () => SCENE === 'field' && !DEATH && hero.hp > 0 && !ADMIN.on() && !(BUFF.invis > 0) && !BOTHOST.on();
   function teams() { if (TMt === time && TM) return TM; TMt = time; const T = { A: [], B: [], P: [] };
     for (const f of foxes) if (f.fb && f.bot && live(f)) T[f.bot.team].push(f);
     if (heroOk()) { T.A.push(hero); T.P.push(hero); }
@@ -9700,7 +9731,7 @@ const FBOT = (() => {
   const ownerName = p => { if (typeof p !== 'string' || !p.startsWith('fb:')) return ''; const b = roster().by.get(+p.slice(3)); return b ? `[${b.clan}] ${b.name}` : '봇'; };   // 봇이 잡은 몹의 드랍 주인
   function publish() { const watch = NET.others().some(o => o.pr.z === zkey()); if (!watch || !foxes.some(f => f.fb)) { if (pub) { pub = null; NET.setExtra('fbx', null); } return; }
     const o = { z: zkey(), L: FX.slice(-8) }; if (!pub) { pub = o; NET.setExtra('fbx', pub); } else Object.assign(pub, o); }
-  function guestFx() { if (pub) { pub = null; NET.setExtra('fbx', null); } const h = NET.others().find(o => o.pr.fbx && o.pr.fbx.z === zkey() && o.pr.z === zkey()); if (!h) return; const L = h.pr.fbx.L; if (!Array.isArray(L)) return;
+  function guestFx() { if (pub) { pub = null; NET.setExtra('fbx', null); } const h = NET.others().concat(NET.bhs()).find(o => o.pr.fbx && o.pr.fbx.z === zkey() && o.pr.z === zkey()); if (!h) return; const L = h.pr.fbx.L; if (!Array.isArray(L)) return;
     const last = seenFx.get(h.peer); let mx = last || 0; for (const ev of L) { if (!Array.isArray(ev) || !(ev[0] > (last || 0))) continue; mx = Math.max(mx, ev[0]); if (last != null) play(ev.slice(1), false); } seenFx.set(h.peer, mx); }
   // ----- 지역을 옮기면 예전 지역의 봇은 치움 (호스트가 새로 내보내거나, 게스트는 호스트 목록으로 받음)
   let lastArr = null, lastZ = '', ensT = 0.4, refT = 0, refS = '', live_ = [], snT = 0;
@@ -10343,7 +10374,8 @@ const ACCOUNT = (() => {
     acc = a; chars = r.chars || {}; store.set('aden_acc', a); saveAuto(); $('lg-pw').value = ''; $('lg-pw2').value = ''; $('loginscr').hidden = true; openSel(false); if (r.moved) csMsg('예전 계정을 계정 서버로 옮겼어요. 이제 어느 PC에서든 이어서 할 수 있어요.', true); }
   const csMsg = (t, ok) => { const m = $('cs-msg'); if (m) { m.textContent = t || ''; m.className = 'nm-msg ' + (ok ? 'ok' : 'no'); } };
   // 캐릭터 선택: 직업 카드 3장 (만든 캐릭터는 이름, 없으면 새로 만들기) · 그림은 대기 동작
-  function openSel(fromGame) { $('charsel').hidden = false; $('cs-acc').textContent = acc || '-'; if (!sel) sel = started ? CLASS : (['knight', 'elf', 'wizard'].find(c => chars[c]) || 'knight'); render(); if (!raf) raf = requestAnimationFrame(anim); }
+  function openSel(fromGame) { $('charsel').hidden = false; $('cs-acc').textContent = acc || '-'; if (!sel) sel = started ? CLASS : (['knight', 'elf', 'wizard'].find(c => chars[c]) || 'knight'); render(); if (!raf && !BOTHOST.on()) raf = requestAnimationFrame(anim);
+    if (BOTHOST.on() && !started) { const c = ['knight', 'elf', 'wizard'].find(c => chars[c]); if (c) { sel = c; BOTHOST.phase('load'); setTimeout(start, 50); } else { BOTHOST.fail('nochar'); csMsg('봇 호스트 계정에 캐릭터가 없어요 — 일반 게임에서 이 계정으로 접속해 캐릭터를 먼저 만들어 주세요.', false); } } }   // 11/1 봇 호스트: 캐릭터를 자동으로 골라 바로 시작
   function render() { document.querySelectorAll('#charsel .cs-card').forEach(c => { const cls = c.dataset.cls, ch = chars[cls]; c.classList.toggle('on', sel === cls); c.classList.toggle('new', !ch);
       c.querySelector('.cs-ch').textContent = ch ? ch + (started && CLASS === cls ? ` · Lv.${hero.lv} · 접속 중` : '') : '새 캐릭터 만들기'; });
     const b = $('cs-start'); b.textContent = !chars[sel] ? '캐릭터 만들기' : started && sel === CLASS ? '게임으로 돌아가기' : '게임 시작'; }
@@ -10361,11 +10393,11 @@ const ACCOUNT = (() => {
     if (started && cls === CLASS) { $('charsel').hidden = true; return; }
     if (started) { INV.askYesNo(`${name}(${CLASS_NAME[cls]})(으)로 바꿀까요?`, '지금 캐릭터를 저장한 뒤 게임을 새로 불러옵니다.', async () => { await SAVE.now(true, true);
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
-    const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
+    const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false; if (BOTHOST.on() && (sv === undefined || st === undefined)) BOTHOST.fail('load');
     if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }
     if (st === undefined) { csMsg('서버에서 창고 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // v150: 빈 창고로 시작해서 덮어쓰지 않게
     if (sv && (+sv.ver || 0) > GAME_VER) { csMsg(`이 캐릭터는 더 새 버전(v${sv.ver})에서 저장됐어요. 아이템이 사라지지 않게 먼저 업데이트해 주세요. (지금 v${GAME_VER})`, false); $('charsel').hidden = false; try { UPD.check(); } catch (e) {} return; }   // v150   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
-    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); if (got && sv && sv.pos && !sv.dd) resumePos(sv.pos); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); if (BOTHOST.on()) { saveAuto(); BOTHOST.start(); return; }   /* 11/1 봇 호스트: 저장·접속 표시(sess)·오프라인 정산·업데이트 안내 없이 지역으로 */ SAVE.start(cls, st); if (got && sv && sv.pos && !sv.dd) resumePos(sv.pos); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살 없이도 쏠 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 가까이에서 때리고, 멀리서는 마법으로 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
@@ -11984,10 +12016,10 @@ function frame(now){
   const vw=Math.ceil(W/z), vh=Math.ceil(H/z), pw=Math.ceil(W*DPR), ph=Math.ceil(H*DPR);
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
-  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover) {   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BOTHOST.on()) {   /* 봇 호스트 모드는 화면을 아예 안 그림 */   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); }
-  curZ = z; requestAnimationFrame(frame);
+  curZ = z; if (BOTHOST.on()) BOTHOST.frameDone(dt); else requestAnimationFrame(frame);
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
 const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https://jungkyu9797.github.io/aden-world/';   // 휴대폰 웹 주소 (GitHub Pages)
@@ -11999,7 +12031,7 @@ const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https
   const ua = navigator.userAgent || '', ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), kakao = /KAKAOTALK/i.test(ua), inApp = kakao || /NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua);
   const standalone = () => { try { return matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
   let evt = null;
-  if (web && 'serviceWorker' in navigator) addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  if (web && 'serviceWorker' in navigator && !BOTHOST.on()) addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; sync(); });
   addEventListener('appinstalled', () => { evt = null; sync(); const g = $a('app-guide'); if (g) g.hidden = true; try { say('아덴 월드를 설치했어요! 이제 홈 화면 아이콘으로 바로 들어올 수 있어요.', '#9fd08a'); } catch (e) {} });
   const can = () => web && MOBILE && !standalone();
@@ -12232,6 +12264,6 @@ const MUI = (() => {
   for (const [id, d] of Object.entries(ITEMS)) if (d && (d.doll || d.mat0 || MAT0.has(id) || id.startsWith('gfrag_'))) d.w = 0; }
 // 10/30 프로듀서: 선공 몬스터가 알아채는 거리 +1칸 (모든 선공 몹 · 4~7칸 → 5~8칸)
 for (const k in MOB) { const S = MOB[k]; if (S && S.aggr > 0 && !S.aggr1) { S.aggr += 1; S.aggr1 = true; } }
-requestAnimationFrame(frame);
-setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
+if (BOTHOST.on()) BOTHOST.loop(frame); else requestAnimationFrame(frame);
+if (!BOTHOST.on()) setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();
