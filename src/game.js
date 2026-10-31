@@ -373,9 +373,9 @@ function heroRelease(f){   // 활시위를 놓는 순간 / 마력탄을 쏘는 �
   /* v124: 요정은 화살 없이 활을 쏨 */
   const mage=CLASS==='wizard', [x0,y0]=W2P(hero.x,hero.z), [x1,y1]=W2P(f.x,f.z), d=cheb(f.i,f.j,hero.i,hero.j);
   { const blk=losBlock(hero,f); if (blk){ const [bx,by]=W2P(blk[0]+0.5,blk[1]+0.5), bd=cheb(blk[0],blk[1],hero.i,hero.j);   /* v124: 사이에 지형지물 — 쏘긴 하지만 장애물에 막혀 피해 없음 */
-    arrows.push({ pl:true, kind:mage?'bolt':'arrow', col:mage?['140,100,255','175,185,255','245,240,255']:null, x0:x0+(mage?6:0), y0:y0-(mage?64:42), x1:bx, y1:by-30, t:0, dur:(mage?0.16:0.1)+bd*(mage?0.06:0.05), onHit:()=>{ floatText(bx,by-46,'장애물',{color:'#d8cfb8',size:11}); impact(bx,by-30,'miss','#d8cfb8'); } });
+    const gd=rcGold(); arrows.push({ pl:true, kind:mage?'bolt':'arrow', gold:gd, col:mage?(gd?['255,120,30','255,196,72','255,248,220']:['140,100,255','175,185,255','245,240,255']):null, x0:x0+(mage?6:0), y0:y0-(mage?64:42), x1:bx, y1:by-30, t:0, dur:(mage?0.16:0.1)+bd*(mage?0.06:0.05), onHit:()=>{ floatText(bx,by-46,'장애물',{color:'#d8cfb8',size:11}); impact(bx,by-30,'miss','#d8cfb8'); } });
     if (AC&&SFX_ON&&!mage) MSFX('elf','bow',0.5); return; } }
-  arrows.push({ pl:true, kind:mage?'bolt':'arrow', col:mage?['140,100,255','175,185,255','245,240,255']:null, x0:x0+(mage?6:0), y0:y0-(mage?64:42), x1, y1:y1-headY(f)*0.55, t:0, dur:(mage?0.16:0.1)+d*(mage?0.06:0.05), onHit:()=>{ if (!f.dead) strike(f, mage?'magic':'bow'); } });
+  const gd=rcGold(); arrows.push({ pl:true, kind:mage?'bolt':'arrow', gold:gd, col:mage?(gd?['255,120,30','255,196,72','255,248,220']:['140,100,255','175,185,255','245,240,255']):null, x0:x0+(mage?6:0), y0:y0-(mage?64:42), x1, y1:y1-headY(f)*0.55, t:0, dur:(mage?0.16:0.1)+d*(mage?0.06:0.05), onHit:()=>{ if (!f.dead) strike(f, mage?'magic':'bow'); } });
   if (AC&&SFX_ON){ const t=AC.currentTime; if (mage){ tone(t,'sine',480,980,0.2,0.07); tone(t+0.02,'triangle',1460,1900,0.14,0.03); nz(t,0.22,2400,5200,0.05); } else if (!MSFX('elf','bow',0.5)) { tone(t,'triangle',230,140,0.14,0.09); nz(t,0.14,3000,6500,0.07); } } }
 // v146: 결투장 — 다른 유저 때리기 (몬스터와 같은 공식: 상대 AC·레벨로 명중 · 무기 피해 · 치명타 · 축복 추가 타격) → 상대 화면에서 받는 피해 감소(AC·MR·리덕션 등) 적용
 // v155: 대인전 명중 (결투장·앞으로 PvP 필드 공통) — 몬스터용 공식(방어 1당 −3%)은 유저의 큰 AC(−50~−100)에서 거의 다 빗나가서 따로: 50% + 레벨 차 1당 3% + 힘·민첩·지능 보너스 + 장비 명중 − 상대 방어 1당 0.4% (마력탄은 0.2%) · 20~95%
@@ -393,7 +393,7 @@ function pvpStrike(p, mode){ if (!PVPZ() || !NET.alive(p)) { hero.target = null;
   impact(x, y - 40, 'hit', crit ? '#ffd24a' : '#ffffff'); hitstop = crit ? 0.1 : 0.05; if (mode === 'bow') { if (!MSFX('elf', 'arrowhit', crit ? 0.75 : 0.6)) sfx.hit(crit); } else sfx.hit(crit); hero.lastHitT = time; }
 function strike(f, mode){ if (f && f.isRemote) return pvpStrike(f, mode); if (HW() && f) return hwStrike(f); if (ADMIN.on()) { hero.target=null; return; } const S=MOB[f.kind]; breakInvis(); if (f.bindUntil>time){ bindNo(f); return; } if (!GOD_OHK && Math.random()>(f.bot || f.twr ? TWM.hitP(f, mode) : heroHit(S, mode, f))){ const [mx,my]=W2P(f.x,f.z); floatText(mx+(Math.random()*18-9),my-headY(f)-12,'MISS',{color:'#c8d0d8',size:11}); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); return; } const crit=Math.random()<0.12+INV.cx('crit')/100; const DR=mode==='magic'?magicDmg():INV.dmg(); let d=DR[0]+Math.floor(Math.random()*(DR[1]-DR[0]+1)); { const A=mode!=='magic'&&INV.wAttr(); if (A){ const am=attrMult(A.el,f); d=Math.max(1,d+ATTR_DMG[A.lv]*(am-1)); if (am===2&&Math.random()<0.35){ const [ax,ay]=W2P(f.x,f.z); floatText(ax+16,ay-headY(f)-22,'약점!',{color:ATTR_C[A.el],size:10}); } } } if (ISLE&&ISLE.def.sand) d+=INV.cx('sandDmg'); if (S.undead) d+=INV.cx('undeadDmg'); if (S.dragon) d+=INV.cx('dragonDmg'); if (crit) d=Math.round(d*1.8); if (S.pdr && mode!=='magic') d=Math.max(1,Math.round(d*(1-S.pdr))); { const gd=INV.gaho('dmg'); if (gd) d=Math.floor(d*(1+gd/100)+Math.random()); } if (f.bot || f.twr) d=TWM.inDmg(f, d, mode || 'melee'); if (GOD_OHK) d=Math.max(d,f.hp);
   dmgMob(f, d); if (INV.blessHit()&&f.hp>0&&Math.random()<0.35){ const ex=1+Math.floor(Math.random()*2); dmgMob(f, ex); const [ex1,ey1]=W2P(f.x,f.z); floatText(ex1+10,ey1-headY(f)-18,'추가 타격 '+ex,{color:'#ffd86a',size:11}); } cxProcs(f);
-  if (f.hp>0) MSFX(f.kind,'hit',0.5); f.flash=0.09; mobHitFx(f,crit); if (mode!=='magic'&&mode!=='bow') rcHitFx(f,crit); hero.lastHit=f; hero.lastHitT=time; if (f.tgt&&Math.random()<0.4&&!(PET.sumBal.tank&&f.tgt.sum&&!f.tgt.dead&&S.boss)) f.tgt=null; f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); hitstop=crit?0.12:0.07; if (crit) shake=0.18; if (S.dummy) {} else if (mode==='bow') { if (!MSFX('elf','arrowhit',crit?0.75:0.6)) sfx.hit(crit); } else sfx.hit(crit);   /* v124: 허수아비는 맞는 소리 없음 */
+  if (f.hp>0) MSFX(f.kind,'hit',0.5); f.flash=0.09; mobHitFx(f,crit); rcHitFx(f,crit); hero.lastHit=f; hero.lastHitT=time; if (f.tgt&&Math.random()<0.4&&!(PET.sumBal.tank&&f.tgt.sum&&!f.tgt.dead&&S.boss)) f.tgt=null; f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); hitstop=crit?0.12:0.07; if (crit) shake=0.18; if (S.dummy) {} else if (mode==='bow') { if (!MSFX('elf','arrowhit',crit?0.75:0.6)) sfx.hit(crit); } else sfx.hit(crit);   /* v124: 허수아비는 맞는 소리 없음 */
   { const [fx,fy]=W2P(f.x,f.z), top=fy-headY(f)-4;
     if (crit){ floatText(fx,top-12,'CRITICAL!',{color:'#ffd24a',size:14,big:true,life:1.1,rise:30}); floatText(fx,top+4,String(d),{color:'#ff9a3a',size:16,big:true,life:1.0}); bursts.push({x:fx,y:fy-headY(f)*0.5,t:0}); }
     else floatText(fx+(Math.random()*18-9),top-8,String(d),{color:'#ffffff',size:12}); }
@@ -1914,6 +1914,7 @@ function drawArrows(g) { for (const a of arrows) { if (a.kind === 'fireball' || 
     g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; const k0 = Math.max(0, k - 0.22), [tx, ty] = arrowAt(a, k0), gr = g.createLinearGradient(tx, ty, x, y);
     gr.addColorStop(0, 'rgba(255,220,150,0)'); gr.addColorStop(1, 'rgba(255,230,170,.55)'); g.strokeStyle = gr; g.lineWidth = 3.2; g.beginPath(); g.moveTo(tx, ty); for (let q = 1; q <= 4; q++) { const [qx, qy] = arrowAt(a, k0 + (k - k0) * q / 4); g.lineTo(qx, qy); } g.stroke();
     const hg = g.createRadialGradient(x, y, 0, x, y, 9); hg.addColorStop(0, 'rgba(255,240,200,.5)'); hg.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = hg; g.beginPath(); g.arc(x, y, 9, 0, 7); g.fill(); g.restore();
+    if (a.gold) { g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q <= 5; q++) { const [qx, qy] = arrowAt(a, Math.max(0, k - 0.05 * q)); mxG(g, q ? '255,150,40' : '255,236,170', qx, qy, 14 - q * 1.6, 0.55 - q * 0.08); } g.restore(); mxLight(x, y, 70, 0.5); }   // 11/1 아크 레인저: 금빛 꼬리
     for (const [dk, al] of [[0.1, 0.18], [0.05, 0.32]]) if (k - dk > 0) { const [px, py] = arrowAt(a, k - dk); drawArrowShape(g, px, py, ang, al); }
     drawArrowShape(g, x, y, ang, 1); } }
 // 몬스터 공격·피격 자세: 준비(뒤로 당기며 웅크림) → 돌진(앞으로 늘어남) → 복귀, 맞으면 뒤로 밀리며 찌그러짐·기울어짐
@@ -3192,16 +3193,14 @@ const PCARD = [['goblin', '일반'], ['orc', '일반'], ['dwarf', '일반'], ['o
    변신 카드 뽑기로만 (상점 주문서 없음) · 영웅·전설 뽑기 풀에 들어가 같은 등급 카드끼리 같은 확률 · 카드는 계정 공유로 등록되지만 변신은 그 카드 직업 캐릭터만 (재접속 때 직업이 다르면 풀림)
    그림: 실버 직업 변신 렌더(PMSHEET pm_s*)를 바탕으로 코드에서 색을 새로 입힘 (PM_RC · pmRcFrame — 새 그림 파일 없음) */
 const PM_RC = {
-  sword: { nm: '소드', by: { knight: [0.04, 0.98, 1.35], wizard: [0.28, 1, 1.7], elf: [0.08, 1, 1.5] },   /* 차가운 푸른 강철 · 청록 망토 · 청록 빛 칼날 */
-    metal: [[0, 6, 10, 21], [0.3, 22, 42, 78], [0.55, 50, 90, 145], [0.78, 108, 160, 210], [1, 212, 240, 255]], cloak: [[0, 2, 8, 14], [0.5, 8, 40, 62], [0.8, 16, 82, 110], [1, 48, 150, 178]],
-    robe: [[0, 3, 8, 22], [0.3, 14, 36, 92], [0.55, 30, 82, 160], [0.78, 92, 166, 226], [1, 206, 242, 255]],   /* 마법사 로브: 짙은 남색 → 얼음빛 (갑옷보다 천 느낌) */
-    blade: [[0, 26, 128, 178], [0.5, 90, 230, 255], [1, 217, 255, 255]], halo: '60,215,255', ha: 0.85, em: '120,230,255', pr: 0.07 },
-  arc: { nm: '아크', by: { knight: [0.04, 0.98, 1.2], wizard: [0.28, 1, 1.5], elf: [0.08, 1, 1.35] },   /* 백금·금빛 갑옷 · 보랏빛 망토 · 보랏빛 비전 무기 · 몸 둘레 금빛 불티 */
+  sword: { nm: '소드', by: { knight: [0.04, 0.98, 1.2], wizard: [0.28, 1, 1.5], elf: [0.08, 1, 1.35] },   /* 11/1: 예전 아크 모습을 소드에 — 백금·금빛 갑옷 · 보랏빛 망토 · 보랏빛 비전 무기 · 몸 둘레 금빛 불티 */
     metal: [[0, 16, 10, 3], [0.3, 92, 60, 18], [0.55, 178, 134, 52], [0.78, 236, 205, 122], [1, 255, 251, 228]], cloak: [[0, 8, 2, 18], [0.5, 50, 18, 100], [0.8, 84, 40, 152], [1, 136, 94, 214]],
     robe: [[0, 12, 4, 26], [0.28, 70, 30, 104], [0.5, 162, 104, 92], [0.72, 228, 182, 100], [1, 255, 246, 214]],   /* 마법사 로브: 보랏빛 그림자 → 금빛 (금 조각상처럼 보이지 않게) */
-    blade: [[0, 90, 40, 185], [0.5, 160, 112, 255], [1, 240, 232, 255]], halo: '145,85,255', ha: 1, em: '255,200,90', em2: '200,140,255', pr: 0.17,
-    jobs: { knight: { metal: [[0, 16, 12, 28], [0.3, 70, 64, 92], [0.55, 142, 142, 160], [0.78, 210, 210, 216], [1, 252, 249, 240]],   /* 11/1 아크 나이트: 어두운 은빛 갑옷(밝은 곳은 뼈빛 흰색) · 짙은 남보라 망토 · 금빛 칼날 · 금빛 광원 */
-      cloak: [[0, 6, 3, 18], [0.45, 36, 16, 76], [0.75, 70, 36, 132], [1, 122, 86, 198]], blade: [[0, 150, 80, 10], [0.5, 255, 176, 36], [0.85, 255, 214, 96], [1, 255, 240, 180]], halo: '255,176,40', ha: 1, em: '255,206,96', em2: '255,128,48', pr: 0.2, fx: 'gold' } } } };
+    blade: [[0, 90, 40, 185], [0.5, 160, 112, 255], [1, 240, 232, 255]], halo: '145,85,255', ha: 1, em: '255,200,90', em2: '200,140,255', pr: 0.17 },
+  arc: { nm: '아크', by: { knight: [0.04, 0.98, 1.2], wizard: [0.28, 1, 1.5], elf: [0.08, 1, 1.35] },   /* 11/1 아크 (나이트·메이지·레인저 같음): 어두운 은빛 갑옷(밝은 곳은 뼈빛 흰색) · 짙은 남보라 망토 · 금빛 무기 · 금빛 광원·효과 */
+    metal: [[0, 16, 12, 28], [0.3, 70, 64, 92], [0.55, 142, 142, 160], [0.78, 210, 210, 216], [1, 252, 249, 240]], cloak: [[0, 6, 3, 18], [0.45, 36, 16, 76], [0.75, 70, 36, 132], [1, 122, 86, 198]],
+    robe: [[0, 12, 8, 26], [0.3, 52, 40, 92], [0.55, 112, 104, 150], [0.78, 190, 188, 208], [1, 250, 247, 238]],   /* 마법사 로브: 짙은 남보라 그림자 → 은빛 */
+    blade: [[0, 150, 80, 10], [0.5, 255, 176, 36], [0.85, 255, 214, 96], [1, 255, 240, 180]], halo: '255,176,40', ha: 1, em: '255,206,96', em2: '255,128,48', pr: 0.2, fx: 'gold' } };
 const RCS = {}, rcSpec = (rc, job) => RCS[rc + ':' + job] || (RCS[rc + ':' + job] = Object.assign({}, PM_RC[rc], (PM_RC[rc].jobs || {})[job]));   /* 직업마다 다른 색이 있으면 그것으로 */
 const PM_BASE = { knight: 'pm_sknight', wizard: 'pm_smage', elf: 'pm_sranger' }, PM_JOB = { knight: ['knight', '나이트'], wizard: ['mage', '메이지'], elf: ['ranger', '레인저'] }, PC_CLS_SPD = { 영웅: 10, 전설: 18 };
 [['sword', '영웅', 'knight', { xdmgM: 1 }], ['sword', '영웅', 'wizard', { sp: 1 }], ['sword', '영웅', 'elf', { xdmgR: 1 }],
@@ -3267,34 +3266,38 @@ function pmRcDraw(g, e, M2, x, y, hf) { const s = M2.s; drawSheet(g, e.c, { W: e
   g.imageSmoothingEnabled = true; g.drawImage(e.h, X + e.hx * s, Y + e.hy * s, e.h.width / e.hs * s, e.h.height / e.hs * s); g.restore(); }
 function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
   if (!img || !img.complete || !img.naturalWidth) return false; const RC = P.rc ? pmRcFrame(pk, a, Math.min(7, fr), row) : null; if (P.rc && !RC) return false;   /* 소드·아크: 색 입힌 그림이 아직이면 (빛 판을 불러오는 중) 원래 모습 */
-  const R = P.rc && rcSpec(P.rc, P.job); if (R && R.fx && !nofx) rcGround(g, R, x, y);
+  const R = P.rc && rcSpec(P.rc, P.job), RF = R && R.fx && !nofx && EQFX; if (RF) rcGround(g, R, x, y);
   g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s };
   const af = !pmS && a === 'attack' ? (M.af || 8) : 8, k = af !== 8 ? Math.min(af - 1, Math.floor(Math.min(7, fr) * af / 8)) : Math.min(7, fr);   /* 변신 카드: 공격 그림 장수가 다른 몹(바실리스크 6장 등)은 8장 동작에 맞춰 늘이거나 줄임 */
   if (!pmS && M.tint && !hf) { const c = tintFrame('pc:' + pk, a, img, { ...M2, tint: M.tint }, k, row); g.drawImage(c, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s)); }   /* 몬스터 그림의 물들임(카스파·네크로맨서·와이번 등)도 그대로 */
   else if (RC) pmRcDraw(g, RC, M2, x, y, hf); else drawSheet(g, img, M2, k, row, x, y, 1, hf || (!pmS && M.tint) || null); g.restore();
   if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, k, row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
   else if (gl && pmS) { const wt = gl('weapon') || 0, at = Math.max(0, ...EN_ARMOR.map(sl => gl(sl) || 0)), t = Math.max(wt, at); if (t) layerGlow(g, img, M2, k, row, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s), M2.s, t, 'poly:' + P.sheet + ':' + a, 1.35, true); }   /* v165: 변신 중에도 강화·등급 장비 빛 (평소보다 조금 진하게) */
-  if (R && R.fx && !nofx && a === 'attack') rcSwing(g, R, Math.min(7, fr), row, x, y);
-  const C = P.card, pr = R ? R.pr : C ? (C.g === '전설' ? 0.12 : C.g === '영웅' ? 0.05 : 0) : P.fx ? 0.1 : 0.18;   /* 변신 카드: 영웅(보라)·전설(금빛)만 불티 · 소드는 청록 · 아크는 금빛(가끔 보랏빛) */
+  if (RF) { if (a === 'attack' && P.job !== 'elf') rcSwing(g, R, Math.min(7, fr), row, x, y); else if (a === 'attack' || a === 'cast') rcFlash(g, R, Math.min(7, fr), row, x, y, P.job); }   /* 나이트·메이지 근접 = 금빛 초승달 · 메이지 주문·레인저 활 = 무기 앞 금빛 섬광 */
+  const C = P.card, pr = R ? R.pr : C ? (C.g === '전설' ? 0.12 : C.g === '영웅' ? 0.05 : 0) : P.fx ? 0.1 : 0.18;   /* 변신 카드: 영웅(보라)·전설(금빛)만 불티 · 소드는 금빛(가끔 보랏빛) · 아크는 금빛(가끔 주황) */
   if (!nofx && (EQFX || !P.set) && Math.random() < pr) mxP(x + mxR(R ? -17 : -14, R ? 17 : 14), y - mxR(R ? 4 : 0, R ? 62 : 50), { k: 'ember', c: R ? (R.em2 && Math.random() < 0.3 ? R.em2 : R.em) : C ? (C.g === '전설' ? '255,190,80' : '200,130,255') : P.fx || '255,110,50', s: R ? mxR(1.3, 2) : 1.6, vy: -mxR(20, 50), vx: mxR(-8, 8), life: mxR(0.5, 0.9) });
   return true; }
-// 11/1 아크 나이트 효과 (그림·효과 모두 코드로 직접 그림): 발밑 금빛 광원 · 휘두를 때 금빛 초승달 궤적 · 맞힌 곳에 주황 폭발 + 금빛 불티 · 치명타(또는 4번에 1번)는 하늘에서 금빛 빛기둥
-function rcGround(g, R, x, y) { const p = 0.82 + 0.18 * Math.sin(time * 3.1 + x * 0.01); g.save(); g.globalCompositeOperation = 'lighter'; mxG(g, R.halo, x, y - 4, 46 * p, 0.32, 0.42); mxG(g, '255,236,170', x, y - 4, 18 * p, 0.28, 0.42); mxG(g, R.halo, x, y - 40, 40, 0.07); g.restore(); mxLight(x, y - 30, 120, 0.85); }
+// 11/1 아크 시리즈 효과 (나이트·메이지·레인저 같음 · 그림·효과 모두 코드로 직접): 발밑 금빛 광원 · 근접 = 금빛 초승달 · 주문·활 = 무기 앞 금빛 섬광 · 금빛 화살 · 맞힌 곳에 주황 폭발 + 금빛 불티 (치명타 = 크게 + 바닥 고리) · 장비 이펙트 끄면 모두 꺼짐 · 미리보기 창에서는 세상 빛·불티 없음
+function rcGround(g, R, x, y) { const p = 0.82 + 0.18 * Math.sin(time * 3.1 + x * 0.01); g.save(); g.globalCompositeOperation = 'lighter'; mxG(g, R.halo, x, y - 4, 46 * p, 0.32, 0.42); mxG(g, '255,236,170', x, y - 4, 18 * p, 0.28, 0.42); mxG(g, R.halo, x, y - 40, 40, 0.07); g.restore(); if (g === lc && MXLIT.length < 20) mxLight(x, y - 30, 120, 0.85); }
 function rcSwing(g, R, fr, row, x, y) { if (fr < 2 || fr > 6) return; const d = DIRV[row] || [1, 0], fx = d[0] - d[1], fy = (d[0] + d[1]) * 0.5, L = Math.hypot(fx, fy) || 1, fa = Math.atan2(fy / L, fx / L), k = (fr - 2) / 4;   // k: 0 → 1 (휘두르는 동안 · 공격 2~6번째 그림)
   const cx = x + fx / L * 12, cy = y - 30 + fy / L * 8, rx = 58, ry = 36, head = fa - 1.6 + 2.9 * Math.min(1, k * 1.3), span = 2.1 * (1 - Math.max(0, k - 0.55) / 0.45 * 0.65), fade = k < 0.7 ? 1 : (1 - k) / 0.3, W = 15;   // 금빛 초승달: 앞쪽(머리)은 두껍고 밝게 · 꼬리는 가늘고 흐리게
   const P = (A, r) => [cx + Math.cos(A) * rx * r, cy + Math.sin(A) * ry * r], seg = 18;
   g.save(); g.globalCompositeOperation = 'lighter';
   for (let i = 0; i < seg; i++) { const t0 = i / seg, t1 = (i + 1) / seg, A0 = head - span * (1 - t0), A1 = head - span * (1 - t1), w0 = W * t0 ** 0.8 / rx, w1 = W * t1 ** 0.8 / rx, al = fade * t1 ** 1.4;
-    const q = [P(A0, 1), P(A1, 1), P(A1, 1 - w1), P(A0, 1 - w0)];
     for (const [c, m, ex] of [['255,110,24', 0.35, 0.18], ['255,188,56', 0.75, 0], ['255,246,200', 0.9, -0.55]]) { if (ex < 0 && t1 < 0.45) continue; const sh = ex >= 0 ? ex : 0, cut = ex < 0 ? -ex : 0;
-      g.fillStyle = `rgba(${c},${al * m})`; g.beginPath(); const a = P(A0, 1 + sh * w0 * 2), b = P(A1, 1 + sh * w1 * 2), c2 = P(A1, 1 - w1 * (1 - cut) - sh * w1), d2 = P(A0, 1 - w0 * (1 - cut) - sh * w0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c2[0], c2[1]); g.lineTo(d2[0], d2[1]); g.closePath(); g.fill(); } void q; }
-  const [tx, ty] = P(head, 1 - W * 0.5 / rx); mxG(g, '255,140,40', tx, ty, 34, 0.45 * fade); mxG(g, R.halo, tx, ty, 20, 0.7 * fade); mxG(g, '255,252,230', tx, ty, 8, 0.9 * fade); g.restore(); mxLight(tx, ty, 110, 0.7 * fade);
+      g.fillStyle = `rgba(${c},${al * m})`; g.beginPath(); const a = P(A0, 1 + sh * w0 * 2), b = P(A1, 1 + sh * w1 * 2), c2 = P(A1, 1 - w1 * (1 - cut) - sh * w1), d2 = P(A0, 1 - w0 * (1 - cut) - sh * w0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c2[0], c2[1]); g.lineTo(d2[0], d2[1]); g.closePath(); g.fill(); } }
+  const [tx, ty] = P(head, 1 - W * 0.5 / rx); mxG(g, '255,140,40', tx, ty, 34, 0.45 * fade); mxG(g, R.halo, tx, ty, 20, 0.7 * fade); mxG(g, '255,252,230', tx, ty, 8, 0.9 * fade); g.restore(); if (g !== lc) return; mxLight(tx, ty, 110, 0.7 * fade);
   if (Math.random() < 0.5) mxP(tx, ty, { k: 'ember', c: Math.random() < 0.35 ? R.em2 : R.em, s: mxR(1.3, 2.4), vx: mxR(-40, 40), vy: -mxR(10, 60), life: mxR(0.3, 0.6) }); }
 function rcHitFx(f, crit) { const c = polyCard(), R = c && c.rc && rcSpec(c.rc, c.cls); if (!R || !R.fx || !EQFX) return; const [x, y] = W2P(f.x, f.z), h = mxH(f);
   mxAdd('burst', f, { c: '255,96,24', l: '255,226,140', r: crit ? 36 : 24, n: crit ? 12 : 8, life: crit ? 0.45 : 0.32, hy: h * 0.5 });
   mxBurst(x, y - h * 0.5, crit ? 18 : 9, () => ({ k: 'spark', c: Math.random() < 0.4 ? '255,140,50' : '255,214,110', s: mxR(1.2, 2.2), life: mxR(0.2, 0.42) }), 70, crit ? 220 : 150, 20, 0.7);
-  mxLight(x, y - h * 0.5, crit ? 160 : 110, crit ? 1 : 0.7);
-  if (crit || Math.random() < 0.25) { mxAdd('pillar', f, { c: '255,176,48', l: '255,246,200', w: crit ? 20 : 14, H: 360, life: crit ? 0.6 : 0.45 }); if (crit) mxFlash('255,200,90', 0.12, 0.25); } }
+  mxLight(x, y - h * 0.5, crit ? 160 : 110, crit ? 1 : 0.7); if (crit) mxAdd('ring', f, { gnd: 1, c: '255,176,48', r0: 6, r1: 46, w: 2.5, life: 0.4 }); }   // 11/1: 하늘 빛기둥은 뺌
+// 메이지 주문·레인저 활: 쏘는 순간 무기 앞 금빛 섬광 (근접 초승달 대신)
+function rcFlash(g, R, fr, row, x, y, job) { if (fr < 2 || fr > 6) return; const d = DIRV[row] || [1, 0], fx = d[0] - d[1], fy = (d[0] + d[1]) * 0.5, L = Math.hypot(fx, fy) || 1, ux = fx / L, uy = fy / L, k = 1 - Math.abs(fr - 4) / 2.5;
+  const cx = x + ux * (job === 'elf' ? 20 : 16), cy = y - (job === 'elf' ? 42 : 54) + uy * 8; g.save(); g.globalCompositeOperation = 'lighter'; mxG(g, '255,120,30', cx, cy, 30 * k, 0.4 * k); mxG(g, R.halo, cx, cy, 18 * k, 0.75 * k); mxG(g, '255,252,230', cx, cy, 7 * k, 0.95 * k);
+  g.strokeStyle = `rgba(255,236,170,${0.7 * k})`; g.lineWidth = 1.4; g.beginPath(); g.moveTo(cx - 16 * k, cy); g.lineTo(cx + 16 * k, cy); g.moveTo(cx, cy - 11 * k); g.lineTo(cx, cy + 11 * k); g.stroke(); g.restore(); if (g !== lc) return; mxLight(cx, cy, 90, 0.6 * k);
+  if (Math.random() < 0.3 * k) mxP(cx, cy, { k: 'ember', c: Math.random() < 0.35 ? R.em2 : R.em, s: mxR(1.2, 2.2), vx: mxR(-30, 30) + ux * 30, vy: -mxR(10, 50), life: mxR(0.3, 0.6) }); }
+const rcGold = () => { const c = polyCard(), R = c && c.rc && rcSpec(c.rc, c.cls); return !!(R && R.fx && EQFX); };   // 내가 아크 변신 중 (금빛 화살·마력탄)
 // 데스나이트 세트 효과 (네 부위 모두): AC -3 · 추가 피해 +2 · 불 저항 +20
 const DK_SET_BONUS = { ac: 3, xdmg: 2, fireRes: 20 };
 
