@@ -9271,9 +9271,13 @@ const FBOT = (() => {
   const TAB = {
     A: [['포세이든', 'wizard', 1], ['카드값줘체리', 'wizard', 0.7], ['갤럭시', 'knight', 0.9], ['손오공', 'wizard', 0.7], ['닥터x', 'elf', 0.7], ['x골리앗x', 'wizard', 0.8], ['인범', 'knight', 1], ['가렌', 'elf', 0.7], ['구문룡', 'elf', 1], ['쌈장', 'wizard', 0.8], ['문도', 'wizard', 0.8], ['퉁탕', 'knight', 1], ['오징어게임', 'elf', 0.7], ['거지왕', 'knight', 0.9], ['뿅가', 'elf', 0.9], ['노빤쮸', 'knight', 0.8], ['진격의거인', 'wizard', 0.9], ['막피의왕', 'elf', 0.8]],
     B: [['멸치', 'elf', 0.9], ['안타라스', 'elf', 0.8], ['원큐', 'elf', 1], ['흑기사', 'knight', 0.8], ['천사혼', 'wizard', 0.9], ['킹받쥬', 'elf', 0.7], ['만만이', 'knight', 1], ['원피스', 'wizard', 0.9], ['불타는썽큰', 'wizard', 0.9], ['해골', 'wizard', 1], ['악마혼', 'elf', 0.7], ['루피', 'knight', 0.7], ['조로', 'knight', 0.9], ['간달프', 'elf', 0.9], ['철구', 'knight', 1], ['군터', 'wizard', 0.8], ['이실로테', 'knight', 0.8], ['베르한다실시', 'wizard', 0.7], ['파푸리온', 'knight', 0.7], ['나미', 'wizard', 0.8]] };
+  // 11/1 프로듀서: 봇 세기는 단계마다 구간 — 2시간 구간(slotOf)마다 봇마다 그 안에서 새로 (uid·구간 해시라 모든 PC가 같은 값) · 반왕(아군) 95~100·85~95·75~85·65~75 · 라인(적) 85~95·75~85·65~75·65~75
+  //   표의 1·0.9·0.8·0.7은 '단계'(tier) — 이름 고정·전설 변신(맨 위 단계만)·파티 구성은 단계로 · 능력치·레벨·장비 등급은 실제 비율(pct)로
+  const PCT_R = { A: { 1: [0.95, 1], 0.9: [0.85, 0.95], 0.8: [0.75, 0.85], 0.7: [0.65, 0.75] }, B: { 1: [0.85, 0.95], 0.9: [0.75, 0.85], 0.8: [0.65, 0.75], 0.7: [0.65, 0.75] } };
+  function pctOf(b) { if (b._pct != null) return b._pct; const s = slotOf(Date.now()); if (b._ps !== s) { const r = (PCT_R[b.team] || {})[b.tier] || [b.tier, b.tier], u = (h => { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; })(hsh('pct:' + s + ':' + b.uid)); b._ps = s; b._pv = Math.round((r[0] + (r[1] - r[0]) * u) * 100) / 100; } return b._pv; }
   let RO = null;
   function roster() { if (RO) return RO;
-    const team = t => TAB[t].map(([name, cls, pct], n) => ({ team: t, n, uid: UID0[t] + n, cls, pct, name, lk: hsh('lk' + (UID0[t] + n)), clan: CLAN[t], fb: true }));
+    const team = t => TAB[t].map(([name, cls, tier], n) => { const b = { team: t, n, uid: UID0[t] + n, cls, tier, name, lk: hsh('lk' + (UID0[t] + n)), clan: CLAN[t], fb: true }; Object.defineProperty(b, 'pct', { get() { return pctOf(this); }, set(v) { this._pct = v; }, enumerable: true, configurable: true }); return b; });
     RO = { A: team('A'), B: team('B') }; RO.all = RO.A.concat(RO.B); RO.by = new Map(RO.all.map(b => [b.uid, b]));
     // 11/1 2단계 ②: 파티 — 혈맹마다 PT_N 크기로(섞인 직업: 기사 1·법사 1 먼저, 나머지 무작위) · 리더 = 첫 번째(기사) · pk = 대형 자리 번호 · 명단과 다른 씨앗이라 1단계 명단(이름·직업·비율)은 그대로
     const R2 = K_.rngS(1101 * 7919 + 7); RO.pt = [];
@@ -9379,7 +9383,7 @@ const FBOT = (() => {
   function srcCopy() { if (FORCE) return { cp: FORCE, src: 'test' }; const cur = slotOf(nowMs()); if (SN.cp && SN.slot <= cur && SN.slot >= cur - 1) return { cp: SN.cp, src: SN.slot === cur ? 'cloud' : 'prev' };
     return { cp: liveCopy(), src: 'live' }; }
   function refNow() { if (REF && performance.now() - refAt < 1000) return REF; refAt = performance.now();
-    const S = srcCopy(), c = S.cp || clampCopy({ c: 'knight', lv: hero.lv || 1, cb: approx(hero.lv || 1) }), sig = JSON.stringify([c.c, c.lv, c.cb, c.eq, c.pf, c.dl, c.st]);
+    const S = srcCopy(), c = S.cp || clampCopy({ c: 'knight', lv: hero.lv || 1, cb: approx(hero.lv || 1) }), sig = JSON.stringify([c.c, c.lv, c.cb, c.eq, c.pf, c.dl, c.st, slotOf(Date.now())]);
     if (sig !== refSig || !REF) { refSig = sig; REF = { lv: c.lv, n: c.n, cp: c.cp, copy: c, src: S.src, st: Object.assign({}, c.cb, { lv: c.lv, c: c.c }), eqC: {} }; } else { REF.n = c.n; REF.cp = c.cp; REF.src = S.src; } return REF; }
   // 직업마다 모습 (같은 직업 = 복사한 그대로 · 다른 직업 = 그 직업이 쓸 수 있으면 그대로 · 아니면 같은 출처·등급·레벨의 그 직업 장비 · 없으면 예전 등급 장비)
   const WT = { knight: t => t !== 'bow' && t !== 'staff', elf: t => t === 'bow', wizard: t => t === 'staff' };
@@ -9396,7 +9400,7 @@ const FBOT = (() => {
   function lookFor(R, cls, pct) { const L = R.eqC, key = cls + (pct != null && pct < 1 ? ':h' : ''); if (L[key]) return L[key]; const C = R.copy, o = { m: null, en: 0, pf: polyTier(C, cls, pct == null ? 1 : pct), dl: C.dl || '' };
     if (C.eq) { o.m = {}; for (const s of KLS) { const r = C.eq[s]; if (r) o.m[s] = cls === C.c ? r[0] : eqvOf(r[0], cls); } o.en = C.eq.weapon ? C.eq.weapon[1] : 0; }
     return (L[key] = o); }
-  function looks(b, R) { const o = lookFor(R, b.cls, b.pct); b.pf = o.pf; b.dl = o.dl; if (!o.m) { b.eq = null; b.en = null; K_.gearOf(b); return; }   // 장비를 모르면(옛 버전 presence) 예전 등급 장비
+  function looks(b, R) { const o = lookFor(R, b.cls, b.tier >= 1 ? 1 : b.pct); /* 전설 변신은 맨 위 단계(표의 1)만 */ b.pf = o.pf; b.dl = o.dl; if (!o.m) { b.eq = null; b.en = null; K_.gearOf(b); return; }   // 장비를 모르면(옛 버전 presence) 예전 등급 장비
     const T = K_.gearOf({ cls: b.cls, pct: b.pct, lk: b.lk }), eq = {}; for (const s in o.m) { const id = o.m[s] || T[s]; if (id) eq[s] = id; }
     b.eq = eq; b.en = o.en; if (!b.pf) b.pf = polyOf(s => eq[s] || null) || '';   // 데스나이트 세트처럼 장비로 되는 변신은 먼 봇(간단히 그림)도 같게
   }
@@ -9861,7 +9865,7 @@ const FBOT = (() => {
   function report() { const P = plan(), R = refNow(), Z = zones(), A = roster(), cnt = id => [A.A.filter(b => P.at[b.uid] === id).length, A.B.filter(b => P.at[b.uid] === id).length];
     const users = 1 + NET.others().length, left = Math.max(0, Math.ceil((P.next - Date.now()) / 60000));
     const src = R.src === 'cloud' ? `다음 갱신 ${kHM(slotStart(SN.slot + 1))}${SN.from === 'chars' ? ' · 서버 캐릭터' + (CH.n ? ` ${CH.n}명` : '') + ' 중 1등' : ''}` : R.src === 'prev' ? '지난 사진 · 새 사진 기다리는 중' : R.src === 'test' ? '테스트' : '실시간 기준 · 서버 저장 안 됨';   // v204: 복사한 캐릭터 · 사진 출처
-    say(`[혈맹] 반왕 혈맹: 유저 ${users}명 + 봇 ${NB.A}명 · 라인 혈맹: 봇 ${NB.B}명 · 봇 복사: ${R.n || '나'} Lv.${R.lv} ${CLASS_NAME[R.copy.c] || ''} (${src}) · 봇마다 70~100%`, '#ffd28a', 1);
+    say(`[혈맹] 반왕 혈맹: 유저 ${users}명 + 봇 ${NB.A}명 · 라인 혈맹: 봇 ${NB.B}명 · 봇 복사: ${R.n || '나'} Lv.${R.lv} ${CLASS_NAME[R.copy.c] || ''} (${src}) · 세기 반왕 65~100% · 라인 65~95%`, '#ffd28a', 1);
     const L = Z.map(z => [z, cnt(z.id)]).filter(([, c]) => c[0] + c[1] > 0).map(([z, c]) => `${z.name} ${c[0]}·${c[1]}`); const rest = cnt(0);
     say(`[혈맹] 지금 사냥 중 (반왕·라인): ${L.join(' / ') || '없음'} · 마을 정비 ${rest[0] + rest[1]}명 · ${left}분 뒤 자리 바꿈`, '#ffd28a', 1);
     const pts = A.pt.map(p => `${p.team === 'A' ? '반왕' : '라인'} ${p.uids.map(u => A.by.get(u).name).join('·')}${P.at[p.lead] ? ' @' + ((Z.find(z => z.id === P.at[p.lead]) || {}).name || '') : ' @마을'}`); say(`[혈맹] 파티 ${A.pt.length}개: ${pts.join(' / ')}${VIS.size ? ` · 이 지역 지원군·원정 ${VIS.size}명` : ''}`, '#ffd28a', 1); }   // 11/1 ②
@@ -9877,7 +9881,7 @@ const FBOT = (() => {
     EFN, efMe, castEf: (a, T, id) => castEf(a, a.bx || (a.bx = newX(a)), T, id), applyEf, efBusy, TAB,   // 11/1 밤: 슬로우·정령마법 · 명단 표
     live: () => live_.length > 0, roster, plan, planAt, ref: refNow, setRef(r) { FORCE = !r ? null : r.copy ? clampCopy(Object.assign({ n: 'TEST', cp: 1e9 }, r.copy)) : clampCopy({ n: r.n || 'TEST', c: (r.fb && r.fb.c) || 'knight', lv: r.lv || (r.fb && r.fb.lv) || 1, cp: 1e9, cb: r.fb || approx(r.lv || 1), eq: null }); refAt = -9; PL = null; return refNow(); }, zones, here, host,
     snap: () => SN, snapNow() { SN.next = 0; snapTick(); }, snapReset() { Object.assign(SN, { slot: -1, cp: null, at: 0, by: '', src: '', cur: -1, next: 0, err: '', tries: 0, from: '' }); refAt = -9; try { localStorage.removeItem(LSK); } catch (e) {} },
-    chars: () => CH, charNow() { CH.next = 0; charTick(); }, charReset() { Object.assign(CH, { next: 0, sig: '', writes: 0, lists: 0, err: '', listNext: 0, mode: 'off', top: '', n: 0, at: 0, busy: false }); }, topChar, amWriter, meBh, bhOn, /* 11/1 밤: worldbot_chars 테스트·확인용 */ copy: () => refNow().copy, mine: () => { mineAt = -9; return mine(); }, fbOut, clampCopy, lookFor: (cls, pct) => lookFor(refNow(), cls, pct), slotOf, slotStart, kHM, amTop, stOf(uid) { const b = roster().by.get(uid); if (!b) return null; const st = statFor(b); return { uid, cls: b.cls, pct: b.pct, name: b.name, st: Object.assign({}, st, { fbR: undefined }), eq: Object.assign({}, b.eq || {}), en: b.en, pf: b.pf || '', dl: b.dl || '' }; },
+    chars: () => CH, charNow() { CH.next = 0; charTick(); }, charReset() { Object.assign(CH, { next: 0, sig: '', writes: 0, lists: 0, err: '', listNext: 0, mode: 'off', top: '', n: 0, at: 0, busy: false }); }, topChar, amWriter, meBh, bhOn, /* 11/1 밤: worldbot_chars 테스트·확인용 */ copy: () => refNow().copy, mine: () => { mineAt = -9; return mine(); }, fbOut, clampCopy, lookFor: (cls, pct) => lookFor(refNow(), cls, pct), slotOf, slotStart, kHM, amTop, stOf(uid) { const b = roster().by.get(uid); if (!b) return null; const st = statFor(b); return { uid, cls: b.cls, pct: b.pct, tier: b.tier, name: b.name, st: Object.assign({}, st, { fbR: undefined }), eq: Object.assign({}, b.eq || {}), en: b.en, pf: b.pf || '', dl: b.dl || '' }; },
     bossHit, vis: VIS, parties: () => roster().pt, bossPlans: BH, fight: FT, bossTick, reinfTick, dpsOf, pickGroup: m => pickGroup(m, ISLAND.bossKey(m) || 'x', playerOn(m)), playerOn, callParty, visLeave, edgeSpot, ptLead, ptMembers, bossOk, bossKill: (a, m) => bossKill(a, m), bossUp, bossPlan: (key, at) => bossPlan(key, at),   // 11/1 ② 테스트·확인용
     bots: () => foxes.filter(f => f.fb && !f.gone), stat: () => STAT, spawnTest(uid, i, j) { const b = roster().by.get(uid); if (!b) return null; for (let r = 0; r < 6; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { const a = i + di, c = j + dj; if (Math.max(Math.abs(di), Math.abs(dj)) === r && walkable(a, c) && !occ(a, c)) return spawn(b, [a, c]); } return null; }, away: AWAY, alerts: ALERT };
 })();
