@@ -109,6 +109,8 @@ const REST = ['킹받쥬', '불타는썽큰', 'x골리앗x', '악마혼', '천�
     const e = document.getElementById('chat-in'); e.value = '/혈맹'; __T.CHAT.send(); await new Promise(r => setTimeout(r, 100));
     return { slot: S.slot, cur: S.cur, src: R.src, n: R.n, lv: R.lv, c: R.copy.c, from: S.from, f: doc && doc.f, dn: doc && JSON.parse(doc.d).n, lists: C.lists, cn: C.n, top: C.top, rep: __T.log.map(l => l.t).filter(t => /봇 복사/.test(t)).slice(-1)[0] || '', elfW: F.stOf(F.roster().B.find(b => b.cls === 'elf' && b.tier === 1).uid).eq.weapon }; });
   console.log('⑨ slot', JSON.stringify(r9));
+  { const sv = await p.evaluate(() => __T.log.map(l => l.t).filter(t => /서버 저장\(worldbot_chars\)/.test(t)).slice(-1)[0] || ''); console.log('⑨ /혈맹 저장 줄', sv);
+    ok(/서버 저장\(worldbot_chars\): 됨 \(\d\d:\d\d · \d+번/.test(sv) && /목록 읽기: 2명/.test(sv), '⑨ /혈맹에 내 캐릭터 서버 저장 상태(됨 · 시각 · 횟수)와 목록 읽기 수'); }
   ok(r9.slot === r9.cur && r9.src === 'cloud' && r9.n === 'TOPGUY' && r9.lv === 60 && r9.c === 'elf' && r9.from === 'chars' && r9.f === 'chars' && r9.dn === 'TOPGUY' && r9.lists >= 1 && r9.cn === 2 && r9.elfW === 'lg_bow', `⑨ 새 구간 s${r9.cur}: 서버 캐릭터 목록(내 캐릭터 + TOPGUY · 봇 호스트 문서는 뺌) 중 cp 1등 TOPGUY(Lv60 요정)로 사진 → 요정 봇은 가이아의 격노`);
   ok(/서버 캐릭터 2명 중 1등/.test(r9.rep) && /TOPGUY Lv.60 요정/.test(r9.rep), '⑨ /혈맹: "봇 복사: TOPGUY Lv.60 요정 (다음 갱신 … · 서버 캐릭터 2명 중 1등)" ' + r9.rep);
   const r9b = await p.evaluate(async () => { const F = __FB; __fs.failList = true; F.DBG.toff += 7200e3; F.snapReset(); F.snapNow(); await new Promise(r => setTimeout(r, 500)); const S = F.snap(), R = F.ref(), C = F.chars(), doc = JSON.parse(localStorage.getItem('fakefs:worldbot/s' + S.cur) || 'null'); __fs.failList = false;
