@@ -23,6 +23,9 @@ SHIM = ('<script>/* 테스트 판: 효과음을 페이지 안에서 꺼내 씀 *
   "const F=window.fetch;window.fetch=function(u,o){const k=key(typeof u==='string'?u:u&&u.url);return k?F.call(this,blob(k),o):F.apply(this,arguments);};"
   "const A=window.Audio;const W=function(u){const k=key(u);return k?new A(blob(k)):(arguments.length?new A(u):new A());};W.prototype=A.prototype;window.Audio=W;})();</script>\n")
 s = s.replace('<script>window.DEMO_MODE=true;</script>', SHIM + '<script>window.DEMO_MODE=true;</script>', 1)
+# 11/1 3차: 몽환의 섬 유니콘·정령 렌더 아틀라스(assets/dream/*.webp 4장)도 페이지 안에 넣음 — 파일 수 한도 때문 (게임은 window.DREAM_ASSET 이 있으면 그걸 씀)
+DRA = {os.path.basename(f)[:-5]: 'data:image/webp;base64,' + base64.b64encode(open(f, 'rb').read()).decode() for f in sorted(glob.glob('assets/dream/*.webp'))}
+if DRA: s = s.replace('<script>window.DEMO_MODE=true;</script>', '<script>window.DREAM_ASSET=' + json.dumps(DRA) + ';</script>\n<script>window.DEMO_MODE=true;</script>', 1)
 # 판 번호: 열려 있는 테스트 페이지가 새 판을 알아채고 새로고침 (아티팩트 db tbuild/cur 에 같은 번호를 적으면 다른 판으로 봄)
 import hashlib, datetime
 BUILD = hashlib.sha1(s.encode('utf8')).hexdigest()[:12]
