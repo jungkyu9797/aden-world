@@ -125,7 +125,7 @@ const DN = (() => {
   return { update, draw, seen, isNight, dark: () => dark, label, toggle(){ force = force==null ? (isNight()?0:1) : (force===1?0:1); }, set(v){ force = v == null ? null : v ? 1 : 0; }, left: () => Math.max(0, Math.ceil(((isNight() ? CYC : DAY) - clk()) / 60)) };
 })();
 const nightUp = S => false;   // v197: 언데드만 밤에 공격 1.5배·명중 +10% → 모든 몬스터가 밤에 체력·공격력 +20% (nightK)로 통일
-const NIGHT_K = 1.2, nightK = () => DN.isNight() && SCENE !== 'town' && !(ISLE && ISLE.def && (ISLE.def.arena || ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) ? NIGHT_K : 1, nightR = () => nightK() > 1 ? 1.2 : 1;   // 밤: 보스 포함 모든 몬스터 · 밤 보상(경험치·골드) +20% (던전도 바깥 시각을 따름 · 결투장·콜로세움·수호탑·이벤트 지역은 없음)
+const NIGHT_K = 1.2, nightK = () => DN.isNight() && SCENE !== 'town' && !(ISLE && ISLE.def && (ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) ? NIGHT_K : 1   /* 11/1: 콜로세움(arena)도 밤 효과 (보스가 필드와 같게) */, nightR = () => nightK() > 1 ? 1.2 : 1;   // 밤: 보스 포함 모든 몬스터 · 밤 보상(경험치·골드) +20% (던전도 바깥 시각을 따름 · 결투장·콜로세움·수호탑·이벤트 지역은 없음)
 const ENR_SPD = 1.5, ENR_DMG = 1.2, enrMul = f => (f && f.enraged ? ENR_DMG : 1) * (f && !f.bot && !f.twr && !f.fb ? nightK() : 1);   /* v197: 밤 공격력 +20% (몬스터의 근접·화살·마법·범위 공격 모두 여기를 거침) */   /* v126: 보스 광폭화 */
 const mobDmg = (S, f) => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1) * (S.boss ? 1.5 : 1) * (S.solo ? SOLO_MUL : 1) * (S.atkMul || 1) * enrMul(f));   // v109: 보스 기본 공격 ×1.5 · v112: 단일 보스 ×1.4 더
 const lowLvMul = S => { if (S && S.hwEv) return 1; const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };   // v111: 내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치 −5% (최대 −50%) · 할로윈 이벤트 몹(호박괴물·호박대장)은 없음
@@ -7763,10 +7763,10 @@ const SAVE = (() => {
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
   function snap() { const b = {}; for (const k in BUFF) if (BUFF[k] > 0) b[k] = Math.round(BUFF[k]);
     return { v: 1, ver: GAME_VER, cls: CLASS, name: PNAME(), lv: hero.lv, exp: hero.exp, bhp: hero.baseHP, bmp: hero.baseMP, bp: hero.bonusPts, hp: Math.ceil(hero.hp), mp: Math.floor(hero.mp), coins: Math.floor(coins),
-      learned: [...LEARNED], cu: CODES.dump(), sm: PET.sumOut(), buff: b, pf: selfPoly() || undefined, dd: DEATH && !DEATH.arena && !DEATH.duel && !DEATH.ward ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined, cfg: CFGSYNC.dump(), bk: ISLAND.bossKills(), hw: HWM.dump(), dr: DRM.dump(),
+      learned: [...LEARNED], cu: CODES.dump(), sm: PET.sumOut(), buff: b, pf: selfPoly() || undefined, dd: DEATH && !DEATH.arena && !DEATH.duel && !DEATH.ward ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined, cfg: CFGSYNC.dump(), bk: ISLAND.bossKills(), hw: HWM.dump(), co: COLO.entOut() || undefined, dr: DRM.dump(),
       pos: SCENE === 'town' ? { t: 1, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : ISLE ? { z: ISLE.id, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : null }; }   /* v137: 설정 · 마지막 위치 */
   function apply(s) { if (!s || s.cls !== CLASS) return false;
-    hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1; if (CLASS === 'knight' && (s.ver || 0) < 162 && hero.lv > 1) hero.baseMP = Math.max(hero.baseMP, CLS_DEF.knight.mp + hero.lv - 1);   /* v162: 기사 레벨업 MP 1 고정 소급 */   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0); HWM.load(s.hw); DRM.load(s.dr);
+    hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1; if (CLASS === 'knight' && (s.ver || 0) < 162 && hero.lv > 1) hero.baseMP = Math.max(hero.baseMP, CLS_DEF.knight.mp + hero.lv - 1);   /* v162: 기사 레벨업 MP 1 고정 소급 */   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0); HWM.load(s.hw); COLO.entIn(s.co); DRM.load(s.dr);
     LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0; PCG.charLoad(s.pf);   /* 변신 카드: 변신 칸(계정 문서)의 카드 모습으로 · 예전(1만 골드) 카드 변신은 그 카드를 변신 칸으로 옮김 · 주문서 변신은 남은 시간 그대로 */ setTimeout(() => wizAutoLearn(), 1200);
     INV.load(s.inv); CODES.load(s.cu); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); if (s.cfg) CFGSYNC.load(s.cfg); if (s.sm) try { PET.sumIn(s.sm); } catch (e) {} if (s.bk) try { ISLAND.mergeKills(s.bk, true); } catch (e) {} if (OFFL_HOOK) OFFL_HOOK.load(s.ofl); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); DEATH = null; deathUI();
     if (s.dd) { const P = deathPenalty(false); hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); setTimeout(() => say(`쓰러진 채로 접속을 끊어서 마을에서 부활했어요. (경험치 −${P.ex.toLocaleString()} · 골드 −${P.g.toLocaleString()})`, '#f2e6a8'), 1500); }
@@ -8520,13 +8520,17 @@ const CCOPY = (() => {
 // 상태는 presence td = { id, to, st: req|no|open|lock|ok|done|cancel, v(내 항목 번호), pv(내가 확인한 상대 항목 번호), g, it:[아이템…] }
 // ============================================================ v136: 콜로세움 — 마을 잡화상점 왼쪽 공터의 관리인 · 입장권 10만 골드(계정당 하루 2장)
 // 입장권을 들고 [입장 대기] → 2명 이상 모이면 누구든 [입장] → 대기하던 모두가 함께 들어감 (한 번에 한 팀 · 대기 중에는 채팅만)
-// 1·2라운드: 0·1·2분에 몬스터 15마리씩(지역 순서) · 5분 버티면 생존 클리어 · 다 잡으면 퍼펙트(보상 1.5배 · 바로 다음) · 3라운드: 데스나이트 또는 얼음여왕 (5분)
+// 11/1 리뉴얼(프로듀서): 캐릭터마다 하루 1번 · 혼자도 입장 · 1·2·3라운드에 보스 1·2·3마리(가호를 주는 보스 중 무작위 · 같은 보스 겹칠 수 있음 · 능력치·전리품·밤 효과 필드와 같음)
+//   보스 한 마리를 잡을 때마다 안에 있는 모두에게 그 보스의 가호 완성품 1개 · 라운드 30분 안에 그 라운드 보스를 다 잡으면 클리어 → 바닥에 주홍·맑은 물약 각 50개(1~3개 뭉치) → 10초 뒤 다음 라운드
+//   시간 안에 못 잡거나 모두 쓰러지면 실패(퇴장 버튼) · 3라운드까지 다 잡으면 30초 동안 줍고 자동 퇴장
 // 진행은 그 지역 호스트(같은 지역에서 peer 이름이 가장 앞선 사람)가 맡고 presence(co)로 모두에게 알림 — 호스트가 나가면 다음 사람이 이어받음
 let COLO_LOCK = false;   // 입장 대기 중: 채팅만 가능
 const COLO = (() => {
-  const $ = id => document.getElementById(id), ZID = 14, ZK = 'isle14', PRICE = 100, DAY_MAX = 2;
+  const $ = id => document.getElementById(id), ZID = 14, ZK = 'isle14', PRICE = 100, DAY_MAX = 3;   // DAY_MAX: 계정마다 하루 입장권 (11/1: 캐릭터마다 하루 1번 입장이라 3직업 몫)
   const WAVES = { 1: [[1, 2], [3, 4], [5, 6]], 2: [[7, 8], [9, 10], [11, 12]] }, REG = { 1: '이야기섬', 3: '사막필드', 5: '오크숲', 7: '버그베어밭', 9: '본토던전', 11: '오렌설원' };
-  const WAVE_N = 15, ROUND_T = 300, CD_T = 10, CLEAR_T = 5, END_T = 10, AUTO_OUT = 70, BOSSES = ['deathknight', 'ice_queen'], GATES = [Math.PI, Math.PI * 1.25, Math.PI * 1.5];
+  const WAVE_N = 15, ROUND_T = 1800, CD_T = 10, CLEAR_T = 5, END_T = 0, AUTO_OUT = 60, LOOT_T = 30, ENT_MAX = 1, POT_N = 50, BOSSES = ['deathknight', 'ice_queen'], GATES = [Math.PI, Math.PI * 1.25, Math.PI * 1.5];
+  const POOL = () => Object.keys(ITEMS).filter(k => /^gaho_/.test(k) && ITEMS[k].gaho && MOB[ITEMS[k].gaho] && MOB[ITEMS[k].gaho].boss).map(k => ITEMS[k].gaho);   // 가호를 주는 보스 (셸로브·여왕개미·오우거·바포메트·데스나이트·얼음여왕·드레이크 킹·피닉스 …)
+  let ent = { n: 0, d: '' }; const entToday = () => ent.d === gameDay() ? ent.n : 0;   // 캐릭터마다 오늘 입장 수 (캐릭터 저장)
   let rec = { n: 0, d: '' }, wait = false, pend = null, csOut = null, csClearAt = 0, S = null, lastKey = '', lastW = 0, coRef = null, deadAll = 0, banner = null, cheerT = 0, lockT = 0, uiT = 0, aggT = 0;
   const seenCs = new Set(), esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const dayKey = gameDay;
@@ -8534,7 +8538,7 @@ const COLO = (() => {
   const inArena = () => ARENA() && ISLE.id === ZID;
   const tickets = () => INV.count('col_ticket');
   const fighters = () => NET.others().filter(o => o.pr.z === ZK);
-  const bossName = () => (MOB[BOSSES[S && S.bk || 0]] || {}).name || '보스';
+  const bossName = () => { const L = (S && S.bkL) || []; return L.length ? [...new Set(L)].map(k => (MOB[k] || {}).name || k).join('·') : '보스'; };
   function queued() { const me = NET.me(), L = []; if (wait) L.push({ peer: me || '_me', n: PNAME(), c: CLASS, lv: hero.lv, me: true });
     for (const o of NET.others()) if (o.pr.cq && o.pr.z === 'town') L.push({ peer: o.peer, n: String(o.pr.n || '').slice(0, 12), c: o.pr.c, lv: o.pr.lv }); return L; }
   // ----- 창
@@ -8543,13 +8547,14 @@ const COLO = (() => {
     const bb = $('co-buy'), full = bought() >= DAY_MAX; bb.disabled = full || coins < PRICE; bb.textContent = full ? '오늘은 다 샀어요 (새벽 5시 초기화)' : `입장권 구매 (${PRICE.toLocaleString()} 골드)`;
     let st, cls = '';
     if (busy) { st = `⚔ 지금 ${F.length}명이 콜로세움에서 싸우는 중이에요. 끝나면 들어갈 수 있어요.`; cls = 'busy'; }
+    else if (entToday() >= ENT_MAX && !wait) { st = '오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번 · 새벽 5시 초기화)'; cls = 'busy'; }
     else if (!me) { st = window.DEMO_MODE ? '서버에 연결되지 않았어요. (테스트: [혼자 입장]으로 들어가 볼 수 있어요)' : '서버에 연결되지 않아 다른 사람과 함께 들어갈 수 없어요.'; cls = 'busy'; }
-    else if (wait) { st = pend ? '입장하는 중...' : q.length >= 2 ? `${q.length}명이 모였어요! 누구든 [입장]을 누르면 대기 중인 모두가 함께 들어갑니다.` : '입장 대기 중... 2명 이상 모이면 [입장]이 켜져요. (대기 중에는 채팅만 할 수 있어요)'; cls = 'wait'; }
-    else st = tickets() ? '[입장 대기]를 누르면 대기 명단에 올라가요. 2명 이상 모이면 함께 들어갑니다.' : '입장권이 있어야 대기할 수 있어요.';
+    else if (wait) { st = pend ? '입장하는 중...' : q.length >= 2 ? `${q.length}명이 모였어요! 누구든 [입장]을 누르면 대기 중인 모두가 함께 들어갑니다.` : '입장 대기 중... 혼자서도 [입장]할 수 있고, 다른 사람이 대기하면 함께 들어가요. (대기 중에는 채팅만 할 수 있어요)'; cls = 'wait'; }
+    else st = tickets() ? '[입장 대기]를 누르면 대기 명단에 올라가요. 혼자서도 들어갈 수 있고, 같이 대기한 사람과 함께 들어가요.' : '입장권이 있어야 대기할 수 있어요.';
     const se = $('co-st'); if (se.textContent !== st) se.textContent = st; se.className = 'co-st ' + cls;
     const html = q.length ? q.map(x => `<li${x.me ? ' class="me"' : ''}><b>${esc(x.n)}</b><small>${esc(CLASS_NAME[x.c] || '')} Lv.${x.lv || 1}</small><em>입장 대기중</em></li>`).join('') : '<li class="none">아직 대기하는 사람이 없어요</li>';
     const ql = $('co-ql'); if (ql.dataset.h !== html) { ql.dataset.h = html; ql.innerHTML = html; } $('co-qn').textContent = q.length + '명';
-    const jb = $('co-join'); if (!wait) { jb.textContent = '입장 대기'; jb.disabled = busy || !tickets() || !!DEATH || !me; } else { jb.textContent = q.length >= 2 ? `입장 (${q.length}명)` : '입장 (2명부터)'; jb.disabled = busy || q.length < 2 || !!pend || !me; }
+    const jb = $('co-join'); if (!wait) { jb.textContent = '입장 대기'; jb.disabled = busy || !tickets() || !!DEATH || !me || entToday() >= ENT_MAX; } else { jb.textContent = q.length >= 2 ? `입장 (${q.length}명)` : '입장 (혼자)'; jb.disabled = busy || q.length < 1 || !!pend || !me; }
     $('co-cancel').hidden = !wait; const sb = $('co-solo'); sb.hidden = !window.DEMO_MODE; sb.disabled = busy || !tickets() || !!pend; }
   function badge() { let b = $('colo-badge'); const w = $('colowin'), show = wait && w && w.hidden; if (!show) { if (b) b.hidden = true; return; }
     if (!b) { b = document.createElement('button'); b.type = 'button'; b.id = 'colo-badge'; b.addEventListener('pointerdown', ev => ev.stopPropagation()); b.onclick = () => open(true); document.body.appendChild(b); }
@@ -8560,26 +8565,28 @@ const COLO = (() => {
       coins -= PRICE; rec = { n: bought() + 1, d: dayKey() }; INV.add('col_ticket', 1, true); TELE.ev('buy', { id: 'col_ticket', q: 1, g: PRICE }); say(`콜로세움 입장권을 샀습니다. (-${PRICE.toLocaleString()} 골드 · 오늘 ${rec.n} / ${DAY_MAX}장)`, '#ffd86a'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }); }
   // ----- 입장 대기 · 입장
   function queue() { if (SCENE !== 'town' || wait) return; if (DEATH) { deadSay(); return; } if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
+    if (entToday() >= ENT_MAX) { say('오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번 · 새벽 5시 초기화)', '#f08a7a'); return; }
     if (!tickets()) { say('콜로세움 입장권이 없어요. (관리인에게서 100골드에 살 수 있어요)', '#f08a7a'); return; }
     if (AUTO.on()) AUTO.toggle(); wait = true; COLO_LOCK = true; pend = null; hero.target = null; moveGoal = null; NET.setExtra('cq', 1);
-    say('콜로세움 입장 대기를 시작했습니다. 2명 이상 모이면 누구든 [입장]을 눌러 다 함께 들어가요. (대기 중에는 채팅만 할 수 있어요)', '#ffd86a'); render(); }
+    say('콜로세움 입장 대기를 시작했습니다. 혼자면 바로 [입장], 같이 대기한 사람이 있으면 누구든 [입장]을 눌러 다 함께 들어가요. (대기 중에는 채팅만 할 수 있어요)', '#ffd86a'); render(); }
   function cancel(quiet) { if (!wait) return; wait = false; COLO_LOCK = false; pend = null; NET.setExtra('cq', null); if (!quiet) say('콜로세움 입장 대기를 취소했습니다.', '#9c9682'); render(); badge(); }
-  function start() { const q = queued(), me = NET.me(); if (!wait || q.length < 2 || pend || !me) return; if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
+  function start() { const q = queued(), me = NET.me(); if (!wait || q.length < 1 || pend || !me) return; if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
     csOut = { id: Math.random().toString(36).slice(2, 9), ps: q.map(x => x.me ? me : x.peer).slice(0, 12) }; csClearAt = performance.now() + 6000; NET.setExtra('cs', csOut);
     pend = { t: performance.now(), c: new Map([[me, csOut]]) }; seenCs.add(me + ':' + csOut.id); say('입장 신호를 보냈습니다. 곧 다 함께 들어갑니다...', '#ffd86a'); render(); }
-  function solo() { if (!window.DEMO_MODE || SCENE !== 'town' || DEATH) return; if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; } if (!tickets()) { say('입장권이 없어요.', '#f08a7a'); return; }
+  function solo() { if (!window.DEMO_MODE || SCENE !== 'town' || DEATH || entToday() >= ENT_MAX) return; if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; } if (!tickets()) { say('입장권이 없어요.', '#f08a7a'); return; }
     wait = true; enter('t' + Math.random().toString(36).slice(2, 8), 1); }
   function waitTick() { if (SCENE !== 'town' || DEATH) { cancel(true); return; } COLO_LOCK = true; const me = NET.me();
     for (const o of NET.others()) { const cs = o.pr.cs; if (!cs || !cs.id || !Array.isArray(cs.ps)) continue; const k = o.peer + ':' + cs.id; if (seenCs.has(k)) continue; seenCs.add(k); if (!me || !cs.ps.includes(me)) continue;
       if (!pend) pend = { t: performance.now(), c: new Map() }; pend.c.set(o.peer, cs); }
     if (pend && performance.now() - pend.t > 1500) { const best = [...pend.c.keys()].sort()[0], cs = pend.c.get(best); pend = null; if (cs) enter(cs.id, cs.ps.length); } }   // 동시에 여러 명이 눌렀으면 peer 이름이 가장 앞선 사람의 신호를 따름 (모두 같은 규칙)
-  function enter(sid, n) { if (!wait) return; if (!INV.take('col_ticket')) { say('입장권이 없어 콜로세움에 들어가지 못했습니다.', '#f08a7a'); cancel(true); return; }
+  function enter(sid, n) { if (!wait) return; if (entToday() >= ENT_MAX) { say('오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번)', '#f08a7a'); cancel(true); return; } if (!INV.take('col_ticket')) { say('입장권이 없어 콜로세움에 들어가지 못했습니다.', '#f08a7a'); cancel(true); return; }
+    ent = { n: entToday() + 1, d: gameDay() };
     wait = false; COLO_LOCK = false; pend = null; NET.setExtra('cq', null); if (csOut) csClearAt = performance.now() + 4000;
     { const w = $('colowin'); if (w) w.hidden = true; } badge();
     { const L = GROUND.list(); for (let k = L.length - 1; k >= 0; k--) if (L[k].zone === ZK) L.splice(k, 1); }   // 지난번 바닥 보상 정리
     const C = ISLAND.def(ZID).N / 2, a = Math.random() * 6.283, r = Math.random() * 1.6; TOWN.toZone(ZID, C + Math.cos(a) * r, C + Math.sin(a) * r);
     for (const f of foxes) f.gone = true; foxes.length = 0;
-    S = { s: sid, ph: 'cd', r: 1, t: 0, w: 0, pf: 0, bk: 0, n: 0, bs: 0, why: '', msg: '' }; lastKey = ''; lastW = 0; deadAll = 0; banner = null;
+    S = { s: sid, ph: 'cd', r: 1, t: 0, w: 0, pf: 0, bk: 0, bkL: [], gk: [], n: 0, bs: 0, why: '', msg: '' }; lastKey = ''; lastW = 0; deadAll = 0; banner = null; seenGk.clear();
     say(`***** 콜로세움에 입장했습니다! (도전자 ${n}명) *****`, '#ffd86a'); TELE.ev('colo', { n }); INV.render(); try { SAVE.now(false, true); } catch (e) {} }
   function leave() { S = null; lastKey = ''; banner = null; deadAll = 0; if (coRef) { coRef = null; NET.setExtra('co', null); } exitBtn(false); }
   function exit(auto) { exitBtn(false); if (!inArena()) return; TOWN.goTown(); say(auto ? '콜로세움에서 자동으로 퇴장했습니다.' : '콜로세움에서 퇴장했습니다.', '#ffd86a'); }
@@ -8589,9 +8596,11 @@ const COLO = (() => {
   function spot(near) { const C = ISLE.N / 2; for (let t = 0; t < 80; t++) { const a = (near != null ? near : GATES[Math.floor(Math.random() * GATES.length)]) + (Math.random() * 2 - 1) * 0.42, r = 5.6 + Math.random() * 2.4, i = Math.floor(C + Math.cos(a) * r), j = Math.floor(C + Math.sin(a) * r);
       if (!walkable(i, j) || occ(i, j) || (i === hero.i && j === hero.j)) continue; return [i, j]; }
     for (let t = 0; t < 200; t++) { const i = 2 + Math.floor(Math.random() * (ISLE.N - 4)), j = 2 + Math.floor(Math.random() * (ISLE.N - 4)); if (walkable(i, j) && !occ(i, j)) return [i, j]; } return null; }
-  function addMob(k, p, boss) { const m = mkMob(k, p[0], p[1]); m.uid = boss ? 90900 : cUid(); m.home = [p[0], p[1]]; m.hi = p[0]; m.hj = p[1]; m.aggro = true; m.colo = true; foxes.push(m); return m; }
+  function addMob(k, p, boss) { const m = mkMob(k, p[0], p[1]); m.uid = boss ? 90900 + (S.bkL ? S.bkL.length : 0) + S.r * 10 : cUid(); m.home = [p[0], p[1]]; m.hi = p[0]; m.hj = p[1]; m.aggro = true; m.colo = true; foxes.push(m); return m; }
   function spawnWave() { const pair = WAVES[S.r][S.w] || WAVES[S.r][2], kinds = [...new Set(pair.flatMap(zoneKinds))]; S.w++; if (kinds.length) for (let q = 0; q < WAVE_N; q++) { const p = spot(); if (p) addMob(kinds[Math.floor(Math.random() * kinds.length)], p); } publish(); }
-  function spawnBoss() { const k = BOSSES[Math.floor(Math.random() * BOSSES.length)]; S.bk = BOSSES.indexOf(k); const p = spot(GATES[1]) || [Math.floor(ISLE.N / 2) - 4, Math.floor(ISLE.N / 2) - 4]; const b = addMob(k, p, true); b.coloBoss = true; S.bs = 1; publish(); }
+  function spawnBoss() { const L = POOL(); S.bkL = []; for (let q = 0; q < S.r; q++) { const k = L[Math.floor(Math.random() * L.length)] || BOSSES[q % 2], p = spot(GATES[q % GATES.length]) || [Math.floor(ISLE.N / 2) - 4 + q * 3, Math.floor(ISLE.N / 2) - 4]; const b = addMob(k, p, true); b.coloBoss = true; S.bkL.push(k); } S.bs = S.r; publish(); }   // 라운드 수만큼 보스 (같은 보스 겹칠 수 있음)
+  // 라운드 클리어: 바닥에 주홍·맑은 물약 각 POT_N개를 1~3개 뭉치로 (사람 수와 상관없이 총량 같음)
+  function potions() { const P = freeSpots(); if (!P.length) return; let k = 0; const at = () => P[k++ % P.length]; for (const id of ['orange_potion', 'clear_potion']) { let rem = POT_N; while (rem > 0) { const a = Math.min(rem, 1 + Math.floor(Math.random() * 3)), s = at(); GROUND.drop(id, a, s[0], s[1]); rem -= a; } } S.msg = `${S.r}라운드 클리어 보상: 주홍 물약 ${POT_N}개 · 맑은 물약 ${POT_N}개가 바닥에 흩어졌습니다! 누구나 주울 수 있어요.`; }
   function wipe() { for (const f of foxes) if (!f.dead && !f.gone) f.gone = true; if (hero.target && hero.target.gone) hero.target = null; }
   function freeSpots() { const C = ISLE.N / 2, L = []; for (let j = 0; j < ISLE.N; j++) for (let i = 0; i < ISLE.N; i++) if (Math.hypot(i + 0.5 - C, j + 0.5 - C) <= 7.2 && walkable(i, j)) L.push([i, j]);
     for (let k = L.length - 1; k > 0; k--) { const q = Math.floor(Math.random() * (k + 1)); [L[k], L[q]] = [L[q], L[k]]; } return L; }
@@ -8608,33 +8617,36 @@ const COLO = (() => {
       const dh = meOk ? cheb(f.i, f.j, hero.i, hero.j) : 1e9, rp = NET.nearRemote(f, 40), dr = rp ? cheb(f.i, f.j, rp.i, rp.j) : 1e9; if (dh >= 1e9 && dr >= 1e9) continue; f.aggro = true; f.tgt = dr < dh ? rp : null; } }
   const allDead = () => { if (!DEATH && !ADMIN.on()) return false; return fighters().every(o => o.pr.dd > 0 || !(o.pr.hp > 0)); };
   function setPh(ph) { S.ph = ph; S.t = 0; deadAll = 0; coRef = null; publish(); }
-  function publish() { const o = { s: S.s, ph: S.ph, r: S.r, e: Math.round(S.t * 10) / 10, w: S.w, pf: S.pf, bk: S.bk, n: S.n, bs: S.bs, why: S.why, m: S.msg };
+  function publish() { const o = { s: S.s, ph: S.ph, r: S.r, e: Math.round(S.t * 10) / 10, w: S.w, pf: S.pf, bk: S.bk, bl: S.bkL, cl: S.cl || 0, gk: S.gk || [], n: S.n, bs: S.bs, why: S.why, m: S.msg };
     if (!coRef) { coRef = o; NET.setExtra('co', coRef); } else Object.assign(coRef, o); }
-  function clear(pf) { S.pf = pf ? 1 : 0; wipe(); reward(S.r, S.pf); setPh('clear'); }
-  function win() { wipe(); S.msg = ''; setPh('win'); const nm = [PNAME(), ...fighters().map(o => String(o.pr.n || '').slice(0, 12))].join(', '), t = `콜로세움 클리어! ${bossName()} 처치 — ${nm}`.slice(0, 88); announce(t, '#ffd86a'); NET.announceAll(t); }
+  function clear(pf) { S.pf = pf ? 1 : 0; wipe(); potions(); S.cl = S.r; S.r++; S.w = 0; S.bs = 0; S.bkL = []; setPh('cd'); }   // 클리어 → 물약 → 바로 다음 라운드 10초 카운트
+  function win() { wipe(); potions(); setPh('win'); const nm = [PNAME(), ...fighters().map(o => String(o.pr.n || '').slice(0, 12))].join(', '), t = `콜로세움 3라운드 클리어! 보스 6마리 처치 — ${nm}`.slice(0, 88); announce(t, '#ffd86a'); NET.announceAll(t); }
   function fail(why) { S.why = why; S.msg = ''; setPh('fail'); }
   function hostTick(dt) { S.t += dt; const live = foxes.filter(f => !f.dead && !f.gone); S.n = live.length; if ((aggT -= dt) <= 0) { aggT = 0.4; aggro(live); }
-    if (S.ph === 'cd') { if (S.t >= CD_T) { S.msg = ''; setPh('fight'); if (S.r >= 3) spawnBoss(); else spawnWave(); } }
+    if (S.ph === 'cd') { if (S.t >= CD_T) { S.msg = ''; S.cl = 0; setPh('fight'); spawnBoss(); } }
     else if (S.ph === 'fight') {
-      if (S.r < 3) { if (S.w < 3 && (S.t >= S.w * 60 || (!live.length && S.t > 1.5))) spawnWave(); else if (S.w >= 3 && !live.length) clear(1); else if (S.t >= ROUND_T) clear(0); }   // 무리를 다 잡으면 다음 무리가 바로 나옴
-      else { const boss = foxes.find(f => !f.dead && !f.gone && MOB[f.kind] && MOB[f.kind].boss); if (S.bs && !boss) win(); else if (S.t >= ROUND_T) { wipe(); fail('time'); } }
+      { const boss = foxes.find(f => !f.dead && !f.gone && f.coloBoss); S.n = foxes.filter(f => !f.dead && !f.gone && f.coloBoss).length; if (S.bs && !boss) { if (S.r >= 3) win(); else clear(1); } else if (S.t >= ROUND_T) { wipe(); fail('time'); } }
       if (S.ph === 'fight') { if (allDead()) { deadAll += dt; if (deadAll > 2) { wipe(); fail('dead'); } } else deadAll = 0; } }
     else if (S.ph === 'clear') { if (S.t >= CLEAR_T) { S.r++; S.w = 0; S.bs = 0; S.msg = ''; setPh('cd'); } }
-    else if (S.ph === 'win' || S.ph === 'fail') { if (S.t >= CLEAR_T) setPh('end'); }
+    else if (S.ph === 'fail') { if (S.t >= CLEAR_T) setPh('end'); }
     publish(); }
   function guestTick(dt) { if (coRef) { coRef = null; NET.setExtra('co', null); } let best = null; for (const o of fighters()) if (o.pr.co && o.pr.co.s && (!best || o.peer < best.peer)) best = o;
-    const c = best && best.pr.co; if (c && c.e !== S._e) { S._e = c.e; Object.assign(S, { s: c.s, ph: c.ph, r: c.r, t: c.e, w: c.w, pf: c.pf, bk: c.bk, n: c.n, bs: c.bs, why: c.why || '', msg: c.m || '' }); } else S.t += dt; }
+    const c = best && best.pr.co; if (c && c.e !== S._e) { S._e = c.e; Object.assign(S, { s: c.s, ph: c.ph, r: c.r, t: c.e, w: c.w, pf: c.pf, bk: c.bk, bkL: Array.isArray(c.bl) ? c.bl.slice(0, 3) : [], cl: c.cl || 0, gk: Array.isArray(c.gk) ? c.gk.slice(-9) : [], n: c.n, bs: c.bs, why: c.why || '', msg: c.m || '' }); } else S.t += dt; }
+  // 보스 처치마다 안에 있는 사람 모두 그 보스의 가호 완성품 1개 (호스트 기록 co.gk를 각자 보고 자기 가방에 · 한 번만)
+  const seenGk = new Set();
+  function gotGaho(g) { if (!Array.isArray(g) || !S || !S.s) return; const key = S.s + ':' + g[0] + ':' + g[1]; if (seenGk.has(key)) return; seenGk.add(key); if (ADMIN.on() || BOTHOST_ON()) return; const id = 'gaho_' + g[1]; if (!ITEMS[id]) return; INV.add(id, 1, true); say(`[콜로세움] ${(MOB[g[1]] || {}).name || ''} 처치! ${JOSA(ITEMS[id].name, '이', '가')} 가방에 1개 들어왔어요.`, '#ffd86a'); try { SAVE.now(false, true); } catch (e) {} }
+  const BOTHOST_ON = () => typeof BOTHOST !== 'undefined' && BOTHOST.on();
   function reviveArena() { DEATH = null; hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); deathUI(); try { spellFx('enbless', hero, '#ffd86a'); } catch (e) {} say('라운드가 끝나 그 자리에서 부활했습니다. (HP·MP 50%)', '#ffd86a'); }
   function fan(k) { if (!AC || !SFX_ON) return; const t = AC.currentTime;
     if (k === 'win') [523, 659, 784, 1047].forEach((f, q) => tone(t + q * 0.12, 'triangle', f, f, 0.32, 0.09)); else if (k === 'fail') { tone(t, 'sawtooth', 220, 110, 0.6, 0.12); tone(t + 0.2, 'sawtooth', 165, 82, 0.7, 0.1); }
     else if (k === 'go') { tone(t, 'square', 392, 392, 0.12, 0.08); tone(t + 0.14, 'square', 523, 523, 0.28, 0.08); } else if (k === 'wave') { nz(t, 0.5, 300, 80, 0.3); tone(t, 'sawtooth', 130, 90, 0.45, 0.1); } else if (k === 'beep') tone(t, 'triangle', 660, 660, 0.12, 0.07); }
   function onPhase() { const ph = S.ph, r = S.r;
-    if (ph === 'cd') { banner = null; say(`10초 후에 ${r}라운드${r >= 3 ? '(보스)' : ''}가 시작됩니다!`, '#ffd86a'); }
-    else if (ph === 'fight') { const pair = WAVES[r] && WAVES[r][0]; banner = { t0: time, dur: 2.6, big: r >= 3 ? '3라운드 · 보스!' : `${r}라운드 시작!`, sub: r >= 3 ? `${bossName()}을(를) 5분 안에 쓰러뜨리세요!` : `1웨이브: ${REG[pair[0]]} 몬스터 · 5분 버티기 (모두 잡으면 퍼펙트)`, col: '#ffd86a' }; fan('go'); if (r >= 3) shake = Math.max(shake, 0.6); }
+    if (ph === 'cd') { banner = null; if (S.cl) { banner = { t0: time, dur: 3.2, big: `${S.cl}라운드 클리어!`, sub: '바닥의 주홍·맑은 물약을 주우세요', col: '#ffe070' }; cheerT = 4; fan('win'); if (S.msg) say('[콜로세움] ' + S.msg, '#ffd86a'); } say(`10초 후에 ${r}라운드(보스 ${r}마리)가 시작됩니다!`, '#ffd86a'); }
+    else if (ph === 'fight') { banner = { t0: time, dur: 2.8, big: `${r}라운드 · 보스 ${r}마리!`, sub: `${bossName()} — 30분 안에 모두 쓰러뜨리세요!`, col: '#ffd86a' }; fan('go'); shake = Math.max(shake, 0.4 + 0.15 * r); say(`[콜로세움] ${r}라운드: ${bossName()} 등장! (30분)`, '#ffd86a'); }
     else if (ph === 'clear') { banner = { t0: time, dur: 4.6, big: S.pf ? '퍼펙트 클리어!' : '생존 클리어!', sub: S.pf ? '모든 몬스터 처치 — 보상 1.5배!' : '5분을 버텨 냈습니다!', col: S.pf ? '#ffe070' : '#9fe0ff' }; cheerT = 5; fan('win'); if (S.msg) say('[콜로세움] ' + S.msg, '#ffd86a'); }
-    else if (ph === 'win') { banner = { t0: time, dur: 4.6, big: '콜로세움 클리어!', sub: `${bossName()}을(를) 쓰러뜨렸습니다! 전리품을 주우세요`, col: '#ffe070' }; cheerT = 6; fan('win'); }
-    else if (ph === 'fail') { banner = { t0: time, dur: 4.6, big: '실패!', sub: S.why === 'time' ? `제한 시간 5분 안에 ${bossName()}을(를) 쓰러뜨리지 못했습니다` : '모두 쓰러졌습니다...', col: '#ff6a5a' }; fan('fail'); }
-    else if (ph === 'end') { banner = null; say('콜로세움이 끝났습니다. 10초 뒤 [퇴장] 버튼이 나타납니다. (바닥에 남은 보상은 그 전에 주우세요)', '#ffd86a'); } }
+    else if (ph === 'win') { banner = { t0: time, dur: 4.6, big: '콜로세움 클리어!', sub: `3라운드까지 모두 쓰러뜨렸습니다! ${LOOT_T}초 동안 전리품을 주우세요`, col: '#ffe070' }; cheerT = 6; fan('win'); if (S.msg) say('[콜로세움] ' + S.msg, '#ffd86a'); }
+    else if (ph === 'fail') { banner = { t0: time, dur: 4.6, big: '실패!', sub: S.why === 'time' ? `제한 시간 30분 안에 보스를 모두 쓰러뜨리지 못했습니다` : '모두 쓰러졌습니다...', col: '#ff6a5a' }; fan('fail'); }
+    else if (ph === 'end') { banner = null; say(`콜로세움이 끝났습니다. [퇴장]을 누르세요. (${AUTO_OUT}초 뒤 자동 퇴장)`, '#ffd86a'); } }
   function onWave() { const pair = WAVES[S.r] && WAVES[S.r][S.w - 1]; if (!pair || S.w <= 1) return; banner = { t0: time, dur: 2.4, big: `${S.w}웨이브`, sub: `${REG[pair[0]]} 몬스터가 몰려옵니다!`, col: '#ffb070' }; fan('wave'); say(`[콜로세움] ${S.w}웨이브: ${REG[pair[0]]} 몬스터가 몰려옵니다!`, '#ffb070'); }
   function arenaTick(dt) { if (!S) { S = { s: '', ph: 'end', r: 0, t: END_T, w: 0, pf: 0, bk: 0, n: 0, bs: 0, why: '', msg: '' }; lastKey = '|end|0'; }   // 진행 중이 아닌 콜로세움(운영자 이동 등): 퇴장 버튼만
     if (S.s && NET.zoneHost() && !ADMIN.on()) hostTick(dt); else if (S.s) guestTick(dt); else S.t += dt;
@@ -8642,7 +8654,8 @@ const COLO = (() => {
     if (S.s && S.ph !== 'fight' && DEATH && DEATH.arena) reviveArena();   // 라운드가 끝나면(싸움 중이 아니면) 그 자리에서 부활
     if (S.w !== lastW) { if (S.w > lastW && S.ph === 'fight' && S.r < 3) onWave(); lastW = S.w; }
     if (S.ph === 'cd') { const L = Math.ceil(CD_T - S.t); if (L >= 1 && L <= 3 && L !== S._bp) { S._bp = L; fan('beep'); } }
-    exitBtn(S.ph === 'end' && S.t >= END_T); if (S.ph === 'end' && S.t >= AUTO_OUT) exit(true); }
+    exitBtn(S.ph === 'end' || S.ph === 'win' || S.ph === 'fail'); if ((S.ph === 'end' && S.t >= AUTO_OUT) || (S.ph === 'win' && S.t >= LOOT_T)) exit(true);
+    if (S.gk && S.gk.length) for (const g of S.gk) gotGaho(g); }
   function exitBtn(show) { let b = $('colo-exit'); if (!show) { if (b && !b.hidden) b.hidden = true; return; }
     if (!b) { b = document.createElement('button'); b.type = 'button'; b.id = 'colo-exit'; b.innerHTML = '🏁 퇴장 <small>마을로 돌아가기</small>'; b.addEventListener('pointerdown', ev => ev.stopPropagation()); b.onclick = () => exit(false); document.body.appendChild(b); }
     b.hidden = false; try { const r = cv.getBoundingClientRect(), z = curZ; b.style.left = Math.round(r.left + r.width / 2 - b.offsetWidth / 2) + 'px'; b.style.top = Math.round(r.top + (r.height - PH * z) * 0.8) + 'px'; } catch (e) {} }
@@ -8652,16 +8665,16 @@ const COLO = (() => {
     if (sub) { g.font = '800 15px "Noto Sans KR",sans-serif'; g.lineWidth = 4; g.strokeText(sub, 0, 28); g.fillStyle = '#f2e6c8'; g.fillText(sub, 0, 28); } g.restore(); }
   function draw(g, vw, vh) { if (!S || !inArena()) return; let top = BOSSBAR_LY;
     if (!top) { top = 46; try { const tb = document.querySelector('.topbar'), r = cv.getBoundingClientRect(); if (tb) top = (tb.getBoundingClientRect().bottom - r.top) / curZ + 6; } catch (e) {} }
-    const ph = S.ph, r = S.r, left = Math.max(0, (ph === 'fight' ? ROUND_T : ph === 'cd' ? CD_T : ph === 'end' ? END_T : CLEAR_T) - S.t); let txt;
-    if (ph === 'fight') txt = r >= 3 ? `⚔ 콜로세움 3라운드 · 보스 ${bossName()} · 남은 시간 ${mmss(left)}` : `⚔ 콜로세움 ${r}라운드 · 남은 시간 ${mmss(left)} · 남은 몬스터 ${S.n} · 웨이브 ${S.w}/3${S.w < 3 ? ` (다음 ${mmss(Math.max(0, S.w * 60 - S.t))})` : ''}`;
-    else if (ph === 'cd') txt = `⚔ 콜로세움 · ${r}라운드 준비`; else if (ph === 'clear') txt = `⚔ 콜로세움 · ${r}라운드 클리어`; else if (ph === 'win') txt = '⚔ 콜로세움 클리어!'; else if (ph === 'fail') txt = '⚔ 콜로세움 · 실패';
-    else txt = left > 0 ? `⚔ 콜로세움 종료 · ${Math.ceil(left)}초 후 퇴장` : `⚔ 콜로세움 종료 · [퇴장]을 누르세요${S.t < AUTO_OUT ? ` (${Math.ceil(AUTO_OUT - S.t)}초 뒤 자동 퇴장)` : ''}`;
+    const ph = S.ph, r = S.r, left = Math.max(0, (ph === 'fight' ? ROUND_T : ph === 'cd' ? CD_T : ph === 'win' ? LOOT_T : ph === 'end' ? END_T : CLEAR_T) - S.t); let txt;
+    if (ph === 'fight') txt = `⚔ 콜로세움 ${r}라운드 · 보스 ${S.n}/${S.bs || r} (${bossName()}) · 남은 시간 ${mmss(left)}`;
+    else if (ph === 'cd') txt = `⚔ 콜로세움 · ${r}라운드(보스 ${r}마리) 준비`; else if (ph === 'clear') txt = `⚔ 콜로세움 · ${r}라운드 클리어`; else if (ph === 'win') txt = `⚔ 콜로세움 클리어! · ${Math.ceil(left)}초 뒤 자동 퇴장 (전리품을 주우세요)`; else if (ph === 'fail') txt = '⚔ 콜로세움 · 실패 · [퇴장]을 누르세요';
+    else txt = `⚔ 콜로세움 종료 · [퇴장]을 누르세요${S.t < AUTO_OUT ? ` (${Math.ceil(AUTO_OUT - S.t)}초 뒤 자동 퇴장)` : ''}`;
     g.save(); g.font = '800 12px "Noto Sans KR",sans-serif'; const w = Math.min(vw - 30, g.measureText(txt).width + 28), x = Math.round(vw / 2 - w / 2), y = Math.round(top);
     g.fillStyle = 'rgba(14,9,6,.74)'; g.fillRect(x, y, w, 22); g.strokeStyle = ph === 'fight' && left < 30 ? `rgba(255,90,60,${0.6 + 0.4 * Math.sin(time * 8)})` : 'rgba(210,170,90,.7)'; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, w - 1, 21);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.9)'; g.strokeText(txt, vw / 2, y + 11.5); g.fillStyle = '#ffe2a0'; g.fillText(txt, vw / 2, y + 11.5); g.restore();
     try { const rr = cv.getBoundingClientRect(); BOSSBAR_B = Math.max(BOSSBAR_B, rr.top + (y + 26) * curZ); } catch (e) {}
     const cy = Math.round(vh * 0.3);
-    if (ph === 'cd' || (ph === 'end' && left > 0 && S.s)) { const n = Math.ceil(left), big = ph === 'cd' ? (n <= 3 ? String(n) : (r >= 3 ? '3라운드 · 보스' : r + '라운드')) : '콜로세움 종료', sub = ph === 'cd' ? `${n}초후에 ${r}라운드가 시작됩니다` : `${n}초후 퇴장`;
+    if ((ph === 'cd' && !(banner && S.cl)) || (ph === 'end' && left > 0 && S.s)) { const n = Math.ceil(left), big = ph === 'cd' ? (n <= 3 ? String(n) : `${r}라운드 · 보스 ${r}마리`) : '콜로세움 종료', sub = ph === 'cd' ? `${n}초후에 ${r}라운드가 시작됩니다` : `${n}초후 퇴장`;
       bigText(g, vw / 2, cy, big, sub, ph === 'cd' ? '#ffd86a' : '#e8d8b0', ph === 'cd' && n <= 3 ? 1 + 0.3 * (n - left) : 1, 1); }
     else if (banner) { const k = (time - banner.t0) / banner.dur; if (k >= 1 || k < 0) banner = null; else bigText(g, vw / 2, cy, banner.big, banner.sub, banner.col, k < 0.1 ? 0.6 + k / 0.1 * 0.4 : 1, k > 0.8 ? (1 - k) / 0.2 : 1); } }
   function tick(dt) { if (wait) waitTick(); if ((uiT -= dt) <= 0) { uiT = 0.25; render(); badge(); }
@@ -8669,7 +8682,8 @@ const COLO = (() => {
     if (inArena()) arenaTick(dt); else if (S) leave(); if (cheerT > 0) cheerT -= dt; }
   { const b = id => $(id); if (b('colowin')) { b('co-buy').onclick = buy; b('co-join').onclick = () => wait ? start() : queue(); b('co-cancel').onclick = () => cancel(); b('co-solo').onclick = solo; b('co-x').onclick = () => { $('colowin').hidden = true; badge(); }; } }
   return { open, tick, draw, inArena, cancel, lockSay() { if (time - lockT < 4) return; lockT = time; say('콜로세움 입장 대기 중에는 채팅만 할 수 있어요. (대기 취소는 콜로세움 창에서)', '#f0c080'); },
-    bossDown() { if (S && S.s && S.ph === 'fight' && S.r >= 3 && NET.zoneHost() && !ADMIN.on()) win(); }, busyN: () => fighters().length, cheer: () => cheerT > 0, dbg: () => S,
+    bossDown(f) { if (!S || !S.s || S.ph !== 'fight' || !f || !f.coloBoss || !NET.zoneHost() || ADMIN.on()) return; S.gk = (S.gk || []).concat([[f.uid, f.kind]]).slice(-9); publish(); },   // 보스 처치 기록 → 안에 있는 모두가 그 보스 가호 완성품 1개 (gotGaho)
+    entOut: () => entToday() > 0 ? { n: ent.n, d: ent.d } : null, entIn(o) { ent = o && o.d ? { n: Math.max(0, +o.n | 0), d: String(o.d) } : { n: 0, d: '' }; }, entLeft: () => Math.max(0, ENT_MAX - entToday()), busyN: () => fighters().length, cheer: () => cheerT > 0, dbg: () => S,
     recOut: () => bought() > 0 ? [{ id: 'col_buy', n: rec.n, d: rec.d }] : [], recIn(e) { rec = e && e.d ? { n: Math.max(0, Math.min(DAY_MAX, +e.n | 0)), d: String(e.d) } : { n: 0, d: '' }; } };
 })();
 window.__COLO = COLO;
