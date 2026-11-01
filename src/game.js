@@ -818,7 +818,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 212;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 213;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -9450,6 +9450,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 213, items: ["자동사냥이 마을에 다녀온 뒤(물약 정비·자동판매·사망 등) 자동사냥을 켠 그 자리 근처(4칸 안 빈 칸)로 돌아가요. 전에는 그 지역 아무 데나 도착해서, 몽환의 섬처럼 넓은 곳에서는 다른 속성 지역에서 사냥하기도 했어요.", "몽환의 섬에서 자동사냥 중 오늘 이용 시간을 다 쓰면 마을에서 자동사냥이 멈춰요.", "전설 재뽑기: 같은 전설 카드가 여러 장이고 장마다 재뽑기 횟수가 다르면, 재뽑기 칸에 횟수별로 따로 보여요. 재뽑기를 안 한 장은 300만 골드부터 고를 수 있어요. (전에는 횟수가 가장 많은 장으로만 계산돼서, 안 한 카드도 600만 골드가 들었어요)"] },
     { v: 212, items: ["속성 무기·마법으로 같은 속성 몬스터를 때려도 피해가 줄지 않아요. (예: 불 속성 3단 무기로 불 몬스터를 때리면 일반 몬스터와 같은 피해 · 전에는 속성 추가 피해가 0이 됐어요)", "같은 속성 공격 마법도 피해가 줄지 않아요. (예: 물 몬스터에게 콘 오브 콜드 · 전에는 절반)", "몽환의 섬 정령도 같은 속성 피해를 절반만 받던 것이 없어졌어요. 반대 속성(불↔물 · 땅↔바람)으로 때리면 지금처럼 더 아파요."] },
     { v: 211, items: ["절전 화면에 지금 위치(사냥터 이름 · 좌표)가 크게 보여요. 몽환의 섬에서는 가운데 광장인지, 동쪽 불·서쪽 물·남쪽 땅·북쪽 바람 지역인지도 나와요.", "할로윈 호박밭·몽환의 섬처럼 이용 시간이 정해진 곳에서는 절전 화면에 오늘 남은 시간이 보여요. 콜로세움에서는 라운드와 남은 시간이 보여요.", "보스와 싸우는 중이면 절전 화면에 어떤 보스와 전투 중인지와 그 보스의 남은 HP가 막대로 보여요. (최대 3마리)", "절전 화면의 [처치] 수가 혼자 사냥할 때 늘지 않던 문제를 고쳤어요. 마을에 다녀와도 처치 수·획득 아이템은 그대로 이어져요.", "절전 중에 [지금 업데이트]를 누르면, 업데이트 뒤 다시 절전 모드로 들어가고 그동안의 처치·경험치·획득 아이템도 이어서 보여요."] },
     { v: 210, items: ["콜로세움이 새로워졌어요! 입장권 없이 캐릭터마다 하루 1번(새벽 5시 초기화), 혼자서도 들어갈 수 있어요. 1라운드에 보스 1마리, 2라운드 2마리, 3라운드 3마리가 나와요. (가호를 주는 보스 중 무작위 · 같은 보스가 겹칠 수도 있어요 · 능력치·전리품·소환·밤 효과는 필드 보스와 같아요)", "콜로세움에서 보스를 한 마리 잡을 때마다 안에 있는 모두에게 그 보스의 가호 완성품이 1개씩 들어가요. 라운드마다 30분 안에 보스를 모두 잡으면 클리어 — 바닥에 주홍·맑은 물약이 50개씩 흩어지고 10초 뒤 다음 라운드가 시작돼요.", "콜로세움 바닥의 전리품·물약은 시간이 지나도 사라지지 않고, 판이 끝나 퇴장할 때 정리돼요.", "시간 안에 못 잡거나 모두 쓰러지면 실패예요. 3라운드까지 모두 잡으면 30초 동안 전리품을 줍고 자동으로 퇴장해요.", "이제 콜로세움 입장권은 쓰지 않아요. 가지고 있던 입장권은 상점에 팔 수 있어요."] },
@@ -9832,7 +9833,11 @@ const AUTO = (() => {
     say(`자동판매(아덴상단): 장비 ${n}개를 팔아 ${tot.toLocaleString()} 골드를 받았습니다. (가방 무게 ${w0}% → ${wpc()}%)`, '#9fe0a0');
     if (AC && SFX_ON) { const t = AC.currentTime; tone(t, 'triangle', 1200, 1600, 0.08, 0.05); tone(t + 0.07, 'triangle', 1600, 2200, 0.1, 0.05); } }
   const inZ1 = () => SCENE === 'field' && ISLE && ISLE.def && (ISLE.def.tier === 1 || ISLE.def.tier === 2 || !!ISLE.def.hw);   // 모든 지역의 1·2구간에서 자동사냥 가능
-  let home = '이야기섬', homeId = 1;   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
+  let home = '이야기섬', homeId = 1, anchor = null;   // anchor: 11/1 프로듀서 — 자동사냥을 켠 자리 {z, i, j} (마을 다녀온 뒤 그 지역 그 좌표 4칸 안 빈 칸으로 복귀)
+  const ANCHOR_R = 4;
+  function setAnchor() { anchor = SCENE !== 'town' && ISLE ? { z: ISLE.id, i: hero.i, j: hero.j } : null; }
+  function anchorSpot(A) { for (let r = 0; r <= ANCHOR_R; r++) { let best = null, bd = 1e9; for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) { if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue; const i = A.i + di, j = A.j + dj; if (!walkable(i, j)) continue; const o = occ(i, j); if (o && o !== hero) continue; const d = di * di + dj * dj; if (d < bd) { bd = d; best = [i, j]; } } if (best) return best; } return null; }   // 그 자리가 몬스터로 막혀 있으면 가까운 빈 칸 (4칸 안)
+  function backToHunt() { const A = anchor && ISLAND.def(anchor.z) ? anchor : null, id = A ? A.z : homeId; TOWN.toZone(id); if (SCENE === 'town' || !ISLE || ISLE.id !== id || !A) return; const p = anchorSpot(A); if (p) { TOWN.placeAt(p[0] + 0.5, p[1] + 0.5); say(`자동사냥: 처음 켠 자리(${A.i}, ${A.j}) 근처로 돌아왔습니다.`, '#9fd0e8'); } }   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
   function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
@@ -9868,7 +9873,7 @@ const AUTO = (() => {
     if (state === 'hunting') {
       if (SCENE === 'town') { if (died) { died = false; if (C.deathBack) { state = 'town'; bought = false; wait = 0; say('자동사냥: 사망 — 회복 후 다시 사냥터로 갑니다.', '#9fd0e8'); } else { state = 'off'; say('자동사냥을 멈췄습니다.', '#9c9682'); } } else { state = 'off'; say('자동사냥을 멈췄습니다. (마을로 이동)', '#9c9682'); } return; }
       if (!inZ1()) { state = 'off'; say('자동사냥은 각 지역의 1·2구간에서만 됩니다. 멈췄습니다.', '#f08a7a'); return; }
-      home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id;
+      home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; if (!anchor || anchor.z !== ISLE.id) setAnchor();
       if (pct() <= C.retHp) { goHome(`HP ${pct()}%`); return; }
       if (C.healFirst && !HW()) healFirstTry();   // v114: 힐 마법 먼저 — 자동 물약 기준보다 HP 10% 높을 때 MP로 회복
       if (C.lowPot && !HW() && lowCount() <= C.lowN) { goHome('물약 부족'); return; }   // 할로윈: 빨간 물약을 못 쓰므로 물약 부족·변신 주문서 정비로는 안 나감
@@ -9890,11 +9895,12 @@ const AUTO = (() => {
       if (SCENE !== 'town') { if (!inZ1()) { state = 'off'; } return; }
       if (!bought) { bought = true; if (C.sell && (sellGo || wpc() >= C.sellPct)) autoSell(); sellGo = false; buyAll(); }
       hero.hp = Math.min(hero.max, hero.hp + hero.max * 0.05 * dt); hero.mp = Math.min(hero.maxmp, hero.mp + hero.maxmp * 0.05 * dt);
-      if (homeId === HWC.ZID && (INV.hwHat() < 0 || HWM.left() <= 0)) { state = 'off'; say(INV.hwHat() < 0 ? '자동사냥: 할로윈 모자가 없어 호박밭으로 돌아가지 않아요. 멈췄습니다.' : '자동사냥: 오늘 할로윈 이용 시간을 다 써서 멈췄습니다.', '#f0a060'); return; }
-      if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; TOWN.toZone(homeId); } } }
+      if (anchor && anchor.z === DREAM.ZID && DRM.left() <= 0) { state = 'off'; say('자동사냥: 오늘 몽환의 섬 이용 시간을 다 써서 멈췄습니다.', '#c8a0ff'); return; }
+      if ((anchor ? anchor.z : homeId) === HWC.ZID && (INV.hwHat() < 0 || HWM.left() <= 0)) { state = 'off'; say(INV.hwHat() < 0 ? '자동사냥: 할로윈 모자가 없어 호박밭으로 돌아가지 않아요. 멈췄습니다.' : '자동사냥: 오늘 할로윈 이용 시간을 다 써서 멈췄습니다.', '#f0a060'); return; }
+      if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(anchor ? anchor.z : homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; backToHunt(); } } }
     } }
   function toggle() { if (state === 'off' && ADMIN.on()) { say('운영자는 자동사냥을 쓸 수 없어요.', '#ff86e0'); return; } if (state === 'off' && DUEL()) { say('결투장에서는 자동사냥을 쓸 수 없어요.', '#f08a7a'); return; } if (state !== 'off') { state = 'off'; hero.target = null; muteOff(); say('자동사냥을 껐습니다.', '#9c9682'); return; }
-    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; state = 'hunting'; died = false; say('자동사냥을 켰습니다.', '#f2e6a8'); muteOn(); }
+    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; setAnchor(); state = 'hunting'; died = false; say(`자동사냥을 켰습니다. (마을에 다녀오면 이 자리(${hero.i}, ${hero.j}) 근처로 돌아와요)`, '#f2e6a8'); muteOn(); }
   function status() { if (state === 'off') return inZ1() ? '이 구간에서 사용 가능' : '각 지역 1·2구간 전용'; if (state === 'hunting') return '사냥 중' + (hero.target && !hero.target.dead ? ' · ' + (hero.target.dispName || MOB[hero.target.kind].name) : ''); return `마을 대기 · HP ${pct()}% / ${C.backHp}%`; }
   const $h = id => document.getElementById(id);
   function sync() { const w = $h('huntwin'); if (!w) return;
@@ -9908,7 +9914,7 @@ const AUTO = (() => {
     w.querySelectorAll('[data-buff]').forEach(el => { el.onchange = () => { INV.setAutoBuff(el.dataset.buff, el.checked); sync(); }; });
     const qv = el => Math.max(0, Math.min(+el.max || 500, Math.floor(+el.value || 0))); w.querySelectorAll('[data-bq]').forEach(el => { el.oninput = () => { C.buyQ[el.dataset.bq] = qv(el); }; el.onchange = () => { C.buyQ[el.dataset.bq] = qv(el); sync(); }; }); w.querySelectorAll('[data-hq]').forEach(el => { el.oninput = () => { C.hasteQ[el.dataset.hq] = qv(el); }; el.onchange = () => { C.hasteQ[el.dataset.hq] = qv(el); sync(); }; }); w.querySelectorAll('[data-pq]').forEach(el => { el.oninput = () => { C.polyQ[el.dataset.pq] = qv(el); }; el.onchange = () => { C.polyQ[el.dataset.pq] = qv(el); sync(); }; });
     w.querySelectorAll('select,input').forEach(el => { el.onkeydown = ev => ev.stopPropagation(); }); }
-  return { tick, toggle, openSet, status, wantLoot, buyAll, home: () => home, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o) lmFix(!o.lootM);   /* 줍기 표: 예전 저장(등급·종류 따로)은 그대로 옮김 */ for (const q of [C.buyQ, C.hasteQ]) for (const id in q) if (REMOVED_ITEMS[id] || !ITEMS[id]) delete q[id]; if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; }
+  return { tick, toggle, openSet, status, wantLoot, buyAll, home: () => home, anchor: () => anchor, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o) lmFix(!o.lootM);   /* 줍기 표: 예전 저장(등급·종류 따로)은 그대로 옮김 */ for (const q of [C.buyQ, C.hasteQ]) for (const id in q) if (REMOVED_ITEMS[id] || !ITEMS[id]) delete q[id]; if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; }
       if (o && !o.buyQ && o.buyId && o.buyId in C.buyQ) { for (const id in C.buyQ) C.buyQ[id] = id === o.buyId ? Math.max(1, +o.buyN || 30) : 0; }   /* v125: 예전 저장(물약 1종) → 종류별 개수 */
       if (o && !o.hasteQ && o.hasteId && o.hasteId in C.hasteQ) { for (const id in C.hasteQ) C.hasteQ[id] = id === o.hasteId ? Math.max(1, +o.hasteN || 5) : 0; } } };
 })();
@@ -10887,28 +10893,31 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   function rrL(id) { return (D.rr[id] || []).filter(v => v > 0).sort((a, b) => b - a); }
   function rrTry(id) { return rrL(id)[0] || 0; }
   function rrFix(id) { const L = rrL(id).slice(0, D.cards[id] || 0); if (L.length) D.rr[id] = L; else delete D.rr[id]; }
-  function rrTake(id) { const t = rrTry(id), L = rrL(id); if (t > 0) L.splice(L.indexOf(t), 1); D.rr[id] = L; sub(id); rrFix(id); return t; }
+  // 11/1 프로듀서: 같은 카드가 여러 장이면 장마다 횟수가 달라도 고를 수 있게 — rrCounts = 장마다 횟수(0 포함) · 재뽑기 칸에 횟수별로 따로 · rrTake는 고른 횟수의 장을 뺌
+  function rrCounts(id) { const L = rrL(id), n = D.cards[id] || 0; return L.concat(Array(Math.max(0, n - L.length)).fill(0)); }
+  const rrOk = (id, t) => rrCounts(id).includes(t);
+  function rrTake(id, t0) { const t = t0 == null ? rrTry(id) : t0, L = rrL(id); if (t > 0) { const k = L.indexOf(t); if (k >= 0) L.splice(k, 1); } D.rr[id] = L; sub(id); rrFix(id); return t; }
   function rrPut(id, t) { add(id); if (t > 0) { const L = rrL(id); L.push(Math.min(RR_MAX, t)); D.rr[id] = L; } rrFix(id); }
   function rrWhy(c) { return bad ? '변신 카드 정보를 읽지 못해서 지금은 재뽑기할 수 없어요.' : busy ? '결과 화면을 닫은 뒤에 할 수 있어요.' : DEATH ? '쓰러진 상태에서는 재뽑기할 수 없어요.' : !c || c.g !== '전설' ? '전설 카드만 재뽑기할 수 있어요.'
     : !has(c.id) ? `[${c.name}] 카드가 없어요.` : free(c.id) <= 0 ? `[${c.name}] 카드가 변신 칸에 있어요. 변신 칸에서 뺀 뒤에 재뽑기할 수 있어요.` : ''; }
   const man = n => n >= 1e4 && n % 1e4 === 0 ? (n / 1e4).toLocaleString() + '만' : fmt(n);
-  function rrGo(id) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = rrTry(id);
+  function rrGo(id, t0) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = t0 == null ? rrTry(id) : t0; if (!rrOk(id, t)) return null;
     if (t >= RR_MAX) { rrMode = { k: 'pick', id }; renderWin(); return 'pick'; }
     const cost = RR_COST[t]; if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
-    INV.askYesNo(`[전설] ${c.name} 카드를 다시 뽑을까요? (${t + 1}번째 · ${fmt(cost)} 골드)`, `전설 ${POOL['전설'].length}종 중 1장이 무작위로 나와요 (같은 카드가 나올 수도 있어요) · 이 카드로 ${RR_MAX}번 하면 그다음엔 원하는 전설을 무료로 골라요 · 보유 ${fmt(coins)} 골드`, () => rrDo(id)); return 'ask'; }
-  function rrDo(id) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = rrTry(id); if (t >= RR_MAX) return null; const cost = RR_COST[t];
+    INV.askYesNo(`[전설] ${c.name} 카드를 다시 뽑을까요? (${t + 1}번째 · ${fmt(cost)} 골드)`, `전설 ${POOL['전설'].length}종 중 1장이 무작위로 나와요 (같은 카드가 나올 수도 있어요) · 이 카드로 ${RR_MAX}번 하면 그다음엔 원하는 전설을 무료로 골라요 · 보유 ${fmt(coins)} 골드`, () => rrDo(id, t)); return 'ask'; }
+  function rrDo(id, t0) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = t0 == null ? rrTry(id) : t0; if (t >= RR_MAX || !rrOk(id, t)) return null; const cost = RR_COST[t];
     if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
-    const nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; rrTake(id); rrPut(nc.id, n2); try { TELE.ev('pcrr', { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {}
+    const nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; rrTake(id, t); rrPut(nc.id, n2); try { TELE.ev('pcrr', { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {}
     saveNow(); try { INV.render(); } catch (e) {} rrMode = null; sel = nc.id; const r = { c: nc, isNew, tag: '재뽑기' }, nx = n2 >= RR_MAX ? '이 카드는 다음에 <b>원하는 전설을 무료로</b> 고를 수 있어요' : `이 카드의 다음 재뽑기 <b>${man(RR_COST[n2])} 골드</b>`;
     lastRes = { k: 'draw', t: `전설 재뽑기 ${n2}번째 · ${c.name} →`, L: [r], hide: !skip }; refresh();
     afterOne([r], `전설 재뽑기 ${n2}번째`, '전설 재뽑기', `[전설] ${esc(c.name)} → <b>[전설] ${esc(nc.name)}</b>${isNew ? ' (새 카드!)' : ''} · 재뽑기 <b>${n2} / ${RR_MAX}</b> · ${nx}`); return r; }
   function rrPick(id, to) { const c = PC_BY[id], n = PC_BY[to], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } if (!n || n.g !== '전설' || to === id || rrTry(id) < RR_MAX) return null;
     INV.askYesNo(`[전설] ${c.name} 카드를 [전설] ${n.name} 카드로 바꿀까요? (무료)`, `재뽑기를 ${RR_MAX}번 한 카드라 원하는 전설을 무료로 골라요 · 바꾼 카드의 재뽑기는 처음(1번째 ${man(RR_COST[0])} 골드)부터예요`, () => rrPickDo(id, to)); return 'ask'; }
   function rrPickDo(id, to) { const c = PC_BY[id], n = PC_BY[to]; if (rrWhy(c) || !n || n.g !== '전설' || to === id || rrTry(id) < RR_MAX) return null; const isNew = !has(to);
-    rrTake(id); rrPut(to, 0); try { TELE.ev('pcrrpick', { from: id, to }); } catch (e) {} saveNow(); rrMode = null; sel = to;
+    rrTake(id, RR_MAX); rrPut(to, 0); try { TELE.ev('pcrrpick', { from: id, to }); } catch (e) {} saveNow(); rrMode = null; sel = to;
     lastRes = { k: 'draw', t: '전설 재뽑기 · 원하는 카드로', L: [{ c: n, isNew, tag: '선택' }], hide: false }; say(`[변신 카드] 전설 재뽑기: [전설] ${c.name} → [전설] ${n.name} (원하는 카드로 바꿨어요)`, '#e0c8ff'); snd('legend'); refresh(); return n; }
   // 11/1 프로듀서: [전설 재뽑기] 버튼에 비용 — 가진 전설(변신 칸 것 빼고)마다 다음 비용을 모아 '300만 골드' · '300만~600만 골드' · 3번 다 한 카드가 있으면 '무료 고르기'(돈 드는 카드도 있으면 아랫줄 '+ 무료 고르기') · 전설이 없으면 300만~1,200만 · 골드가 모자라면 빨갛게
-  function rrBtnCost() { const cs = new Set(); for (const c of POOL['전설']) if (has(c.id) && free(c.id) > 0) { const t = rrTry(c.id); cs.add(t >= RR_MAX ? 0 : RR_COST[t]); }
+  function rrBtnCost() { const cs = new Set(); for (const c of POOL['전설']) if (has(c.id) && free(c.id) > 0) for (const t of new Set(rrCounts(c.id))) cs.add(t >= RR_MAX ? 0 : RR_COST[t]);
     if (!cs.size) return { t: `${man(RR_COST[0])}~${man(RR_COST[RR_MAX - 1])} 골드`, fr: false, short: false };   // t: 골드 비용 (없으면 무료 고르기만) · fr: 무료 고르기 있음
     const L = [...cs].filter(v => v > 0).sort((a, b) => a - b), fr = cs.has(0), tx = !L.length ? '' : L.length === 1 ? `${man(L[0])} 골드` : `${man(L[0])}~${man(L[L.length - 1])} 골드`;
     return { t: tx, fr, short: !!L.length && coins < L[0] }; }
@@ -10916,8 +10925,9 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     if (rrMode.k === 'pick') { const c = PC_BY[rrMode.id]; return `<div class="pcg-rrh"><span>[전설] <b>${esc(c.name)}</b> 재뽑기 ${RR_MAX}번 완료! 바꿀 전설을 고르세요 <b class="pcg-rrok">(무료)</b></span><button type="button" class="inv-sort" data-rx="list">뒤로</button></div>`
       + L.filter(x => x.id !== c.id).map(x => cardB(x, `data-to="${x.id}"`, `${x.cls ? `<b class="pcg-jt">${jobTxt(x)}</b> · ` : ''}+${x.pct}%${x.opt.length ? ' · ' + x.opt.map(esc).join(' · ') : ''}`)).join(''); }
     const mine = L.filter(c => has(c.id));
-    return `<div class="pcg-rrh"><span>전설 재뽑기 — 다시 뽑을 전설 카드를 고르세요<small>1번째 ${man(RR_COST[0])} · 2번째 ${man(RR_COST[1])} · 3번째 ${man(RR_COST[2])} 골드 · 그다음은 원하는 전설 무료 (횟수는 카드를 따라가요)</small></span><button type="button" class="inv-sort" data-rx="close">닫기</button></div>`
-      + (mine.length ? mine.map(c => { const t = rrTry(c.id), fr = free(c.id) > 0; return cardB(c, `data-rr="${c.id}"`, !fr ? '변신 칸에 있음' : t >= RR_MAX ? '<b class="pcg-rrok">원하는 전설 고르기 (무료)</b>' : `재뽑기 ${t} / ${RR_MAX} · 다음 <b>${man(RR_COST[t])}</b>`, !fr); }).join('')
+    return `<div class="pcg-rrh"><span>전설 재뽑기 — 다시 뽑을 전설 카드를 고르세요<small>1번째 ${man(RR_COST[0])} · 2번째 ${man(RR_COST[1])} · 3번째 ${man(RR_COST[2])} 골드 · 그다음은 원하는 전설 무료 (횟수는 장마다 따로 · 같은 카드도 횟수가 다르면 따로 보여요)</small></span><button type="button" class="inv-sort" data-rx="close">닫기</button></div>`
+      + (mine.length ? mine.map(c => { const fr = free(c.id) > 0; if (!fr) return cardB(c, `data-rr="${c.id}"`, '변신 칸에 있음', true);   // 같은 카드라도 횟수가 다른 장은 따로 (안 한 장은 300만부터)
+          const cn = rrCounts(c.id), ts = [...new Set(cn)].sort((a, b) => a - b); return ts.map(t => { const k = cn.filter(v => v === t).length; return cardB(c, `data-rr="${c.id}" data-rrt="${t}"`, (t >= RR_MAX ? '<b class="pcg-rrok">원하는 전설 고르기 (무료)</b>' : `재뽑기 ${t} / ${RR_MAX} · 다음 <b>${man(RR_COST[t])}</b>`) + (ts.length > 1 ? ` · ${k}장` : ''), false); }).join(''); }).join('')
         : '<p class="pcg-rrn">가진 전설 카드가 없어요. 뽑기 · 영웅→전설 합성 · 마일리지 1,000점으로 얻을 수 있어요.</p>'); }
   // ----- 합성 (같은 등급 4장 → 1번)
   function synWhy() { return bad ? '변신 카드 정보를 읽지 못해서 지금은 합성할 수 없어요.' : busy ? '결과 화면을 닫은 뒤에 합성할 수 있어요.' : DEATH ? '쓰러진 상태에서는 합성할 수 없어요.' : ''; }
@@ -11254,7 +11264,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     $('pw-sel').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || !sel) return; if (b.dataset.a === 'put') setSlot(sel); else if (b.dataset.a === 'lock') setLock(sel, !locked(sel)); });
     $('pw-again').onclick = () => { rrMode = rrMode ? null : { k: 'list' }; renderWin(); }; for (const b of w.querySelectorAll('.pw-db[data-k]')) b.onclick = () => draw(b.dataset.k === 'free' ? 'free' : +b.dataset.k);
     $('pw-mb').onclick = () => mileGet();
-    $('pw-pick').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; const d = b.dataset; if (d.rx === 'close') { rrMode = null; renderWin(); } else if (d.rx === 'list') { rrMode = { k: 'list' }; renderWin(); } else if (d.rr) rrGo(d.rr); else if (d.to && rrMode && rrMode.id) rrPick(rrMode.id, d.to); });
+    $('pw-pick').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; const d = b.dataset; if (d.rx === 'close') { rrMode = null; renderWin(); } else if (d.rx === 'list') { rrMode = { k: 'list' }; renderWin(); } else if (d.rr) rrGo(d.rr, d.rrt != null ? +d.rrt : undefined); else if (d.to && rrMode && rrMode.id) rrPick(rrMode.id, d.to); });
     const lk = $('pw-look'); if (lk) lk.onclick = () => { prow = (prow + 1) % 8; };
     const sk = $('pw-skip'); if (sk) sk.onchange = () => setSkip(sk.checked); const au = $('pw-auto'); if (au) au.onchange = () => { setAuto(au.checked); if (!au.checked) { autoWhy = '자동 뽑기를 껐어요.'; optUpd(); } };
     // Space = 다시 뽑기 (창이 열려 있고 결과 화면이 없을 때 · 글 쓰는 칸 제외) — 버튼에 포커스가 있어도 한 번만

@@ -42,12 +42,21 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   ok('⑤ 무료로 아크 나이트 → 데스나이트 · 횟수 처음부터', c0 === await coins() && !s.cards.arc_knight && s.cards.deathknight === 1 && JSON.stringify(s.rr) === '{}' && /무료/.test(q2));
   // ⑥ 장마다 따로 · 변신 칸 카드는 안 됨 · 골드 부족
   await setS({ cards: { deathknight: 1, wyvern: 2 }, rr: { wyvern: [2] } }); await p.evaluate(() => { PCG.setSlot('deathknight'); PCG.renderWin(); }); await p.click('#pw-again').catch(() => {}); await p.waitForTimeout(150); if (await p.evaluate(() => document.getElementById('pw-pick').hidden)) { await p.click('#pw-again'); await p.waitForTimeout(150); }
-  const pan2 = await p.evaluate(() => ({ dk: (document.querySelector('#pw-pick [data-rr="deathknight"]') || {}).textContent, dkDis: (document.querySelector('#pw-pick [data-rr="deathknight"]') || {}).disabled, wy: (document.querySelector('#pw-pick [data-rr="wyvern"]') || {}).textContent })); console.log(JSON.stringify(pan2));
+  const pan2 = await p.evaluate(() => ({ dk: (document.querySelector('#pw-pick [data-rr="deathknight"]') || {}).textContent, dkDis: (document.querySelector('#pw-pick [data-rr="deathknight"]') || {}).disabled, wy: [...document.querySelectorAll('#pw-pick [data-rr="wyvern"]')].map(b => b.dataset.rrt + ':' + b.textContent) })); console.log(JSON.stringify(pan2));
   ok('⑥ 변신 칸의 카드(1장뿐)는 재뽑기 막힘', pan2.dkDis && /변신 칸에 있음/.test(pan2.dk));
-  ok('⑥ 와이번 2장: 2번 한 장 → 다음 1,200만 (큰 횟수부터)', /재뽑기 2 \/ 3/.test(pan2.wy) && /1,200만/.test(pan2.wy));
+  ok('⑥ 와이번 2장(0번·2번): 횟수별로 따로 — 안 한 장 300만 · 2번 한 장 1,200만', pan2.wy.length === 2 && /^0:.*재뽑기 0 \/ 3.*300만.*1장/.test(pan2.wy[0]) && /^2:.*재뽑기 2 \/ 3.*1,200만.*1장/.test(pan2.wy[1]));
   c0 = await coins(); await p.evaluate(() => { PCG._force(['kaspar']); PCG.rrDo('wyvern'); }); await p.waitForTimeout(400); await p.evaluate(() => PCG.close()); s = await S();
   ok('⑥ 2장 중 1장만 바뀜 (와이번 1장 0번 남음 · 카스파 3번)', c0 - await coins() === 12000000 && s.cards.wyvern === 1 && s.cards.kaspar === 1 && JSON.stringify(s.rr) === '{"kaspar":[3]}');
-  await p.evaluate(() => __T.setCoins(1000000)); c0 = await coins(); const r0 = await p.evaluate(() => PCG.rrGo('wyvern')); ok('⑥ 골드 모자라면 안 됨', r0 === null && c0 === await coins() && /골드가 부족/.test(await lastLog()));
+  // ⑥b 프로듀서 사례: 와이번(안 함) 있는데 데스나이트 재뽑기 → 와이번 → 와이번 2장(0번·1번)이 따로 · 안 한 장은 300만으로
+  await setS({ cards: { deathknight: 1, wyvern: 1 } }); c0 = await coins(); await p.evaluate(() => { PCG._force(['wyvern']); PCG.rrDo('deathknight'); }); await p.waitForTimeout(400); await p.evaluate(() => PCG.close()); s = await S();
+  await p.evaluate(() => PCG.renderWin()); await p.click('#pw-again').catch(() => {}); await p.waitForTimeout(150); if (await p.evaluate(() => document.getElementById('pw-pick').hidden)) { await p.click('#pw-again'); await p.waitForTimeout(150); }
+  const pan3 = await p.evaluate(() => [...document.querySelectorAll('#pw-pick [data-rr="wyvern"]')].map(b => b.dataset.rrt + ':' + b.textContent)); console.log('⑥b', JSON.stringify({ cards: s.cards, rr: s.rr, pan3 }));
+  ok('⑥b 데스나이트→와이번: 와이번 2장 · 칸에 0번(300만)·1번(600만) 따로', s.cards.wyvern === 2 && JSON.stringify(s.rr) === '{"wyvern":[1]}' && pan3.length === 2 && /^0:.*300만/.test(pan3[0]) && /^1:.*600만/.test(pan3[1]));
+  c0 = await coins(); await p.evaluate(() => PCG._force(['kaspar'])); await p.click('#pw-pick [data-rr="wyvern"][data-rrt="0"]'); const q6 = await yes(); await p.evaluate(() => PCG.close()); s = await S();
+  ok('⑥b 안 한 와이번을 골라 300만 → 카스파(1번) · 1번 한 와이번은 그대로', c0 - await coins() === 3000000 && /1번째/.test(q6) && s.cards.wyvern === 1 && s.cards.kaspar === 1 && JSON.stringify(s.rr) === '{"wyvern":[1],"kaspar":[1]}');
+  c0 = await coins(); await p.evaluate(() => { PCG._force(['arc_mage']); PCG.rrDo('wyvern', 1); }); await p.waitForTimeout(400); await p.evaluate(() => PCG.close()); s = await S();
+  ok('⑥b 1번 한 와이번은 600만 (2번째)', c0 - await coins() === 6000000 && !s.cards.wyvern && s.cards.arc_mage === 1 && JSON.stringify(s.rr) === '{"kaspar":[1],"arc_mage":[2]}');
+  await setS({ cards: { deathknight: 1, wyvern: 1, kaspar: 1 } }); await p.evaluate(() => __T.setCoins(1000000)); c0 = await coins(); const r0 = await p.evaluate(() => PCG.rrGo('wyvern')); ok('⑥ 골드 모자라면 안 됨', r0 === null && c0 === await coins() && /골드가 부족/.test(await lastLog()));
   await p.evaluate(() => __T.setCoins(50000000));
   // ⑦ 저장·불러오기 (횟수 · 장수보다 많은 기록은 잘림 · 잘못된 값)
   const ld = await p.evaluate(() => { const raw = JSON.parse(PCG.raw()); raw.rr = { kaspar: [3, 2, 'x'], wyvern: [9], nope: 'bad' }; PCG.load(JSON.stringify(raw)); const r = JSON.parse(JSON.stringify(PCG.state().rr)); return r; }); console.log('load', JSON.stringify(ld));
