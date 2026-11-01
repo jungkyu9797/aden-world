@@ -10890,28 +10890,31 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   function rrL(id) { return (D.rr[id] || []).filter(v => v > 0).sort((a, b) => b - a); }
   function rrTry(id) { return rrL(id)[0] || 0; }
   function rrFix(id) { const L = rrL(id).slice(0, D.cards[id] || 0); if (L.length) D.rr[id] = L; else delete D.rr[id]; }
-  function rrTake(id) { const t = rrTry(id), L = rrL(id); if (t > 0) L.splice(L.indexOf(t), 1); D.rr[id] = L; sub(id); rrFix(id); return t; }
+  // 11/1 프로듀서: 같은 카드가 여러 장이면 장마다 횟수가 달라도 고를 수 있게 — rrCounts = 장마다 횟수(0 포함) · 재뽑기 칸에 횟수별로 따로 · rrTake는 고른 횟수의 장을 뺌
+  function rrCounts(id) { const L = rrL(id), n = D.cards[id] || 0; return L.concat(Array(Math.max(0, n - L.length)).fill(0)); }
+  const rrOk = (id, t) => rrCounts(id).includes(t);
+  function rrTake(id, t0) { const t = t0 == null ? rrTry(id) : t0, L = rrL(id); if (t > 0) { const k = L.indexOf(t); if (k >= 0) L.splice(k, 1); } D.rr[id] = L; sub(id); rrFix(id); return t; }
   function rrPut(id, t) { add(id); if (t > 0) { const L = rrL(id); L.push(Math.min(RR_MAX, t)); D.rr[id] = L; } rrFix(id); }
   function rrWhy(c) { return bad ? '변신 카드 정보를 읽지 못해서 지금은 재뽑기할 수 없어요.' : busy ? '결과 화면을 닫은 뒤에 할 수 있어요.' : DEATH ? '쓰러진 상태에서는 재뽑기할 수 없어요.' : !c || c.g !== '전설' ? '전설 카드만 재뽑기할 수 있어요.'
     : !has(c.id) ? `[${c.name}] 카드가 없어요.` : free(c.id) <= 0 ? `[${c.name}] 카드가 변신 칸에 있어요. 변신 칸에서 뺀 뒤에 재뽑기할 수 있어요.` : ''; }
   const man = n => n >= 1e4 && n % 1e4 === 0 ? (n / 1e4).toLocaleString() + '만' : fmt(n);
-  function rrGo(id) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = rrTry(id);
+  function rrGo(id, t0) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = t0 == null ? rrTry(id) : t0; if (!rrOk(id, t)) return null;
     if (t >= RR_MAX) { rrMode = { k: 'pick', id }; renderWin(); return 'pick'; }
     const cost = RR_COST[t]; if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
-    INV.askYesNo(`[전설] ${c.name} 카드를 다시 뽑을까요? (${t + 1}번째 · ${fmt(cost)} 골드)`, `전설 ${POOL['전설'].length}종 중 1장이 무작위로 나와요 (같은 카드가 나올 수도 있어요) · 이 카드로 ${RR_MAX}번 하면 그다음엔 원하는 전설을 무료로 골라요 · 보유 ${fmt(coins)} 골드`, () => rrDo(id)); return 'ask'; }
-  function rrDo(id) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = rrTry(id); if (t >= RR_MAX) return null; const cost = RR_COST[t];
+    INV.askYesNo(`[전설] ${c.name} 카드를 다시 뽑을까요? (${t + 1}번째 · ${fmt(cost)} 골드)`, `전설 ${POOL['전설'].length}종 중 1장이 무작위로 나와요 (같은 카드가 나올 수도 있어요) · 이 카드로 ${RR_MAX}번 하면 그다음엔 원하는 전설을 무료로 골라요 · 보유 ${fmt(coins)} 골드`, () => rrDo(id, t)); return 'ask'; }
+  function rrDo(id, t0) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = t0 == null ? rrTry(id) : t0; if (t >= RR_MAX || !rrOk(id, t)) return null; const cost = RR_COST[t];
     if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
-    const nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; rrTake(id); rrPut(nc.id, n2); try { TELE.ev('pcrr', { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {}
+    const nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; rrTake(id, t); rrPut(nc.id, n2); try { TELE.ev('pcrr', { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {}
     saveNow(); try { INV.render(); } catch (e) {} rrMode = null; sel = nc.id; const r = { c: nc, isNew, tag: '재뽑기' }, nx = n2 >= RR_MAX ? '이 카드는 다음에 <b>원하는 전설을 무료로</b> 고를 수 있어요' : `이 카드의 다음 재뽑기 <b>${man(RR_COST[n2])} 골드</b>`;
     lastRes = { k: 'draw', t: `전설 재뽑기 ${n2}번째 · ${c.name} →`, L: [r], hide: !skip }; refresh();
     afterOne([r], `전설 재뽑기 ${n2}번째`, '전설 재뽑기', `[전설] ${esc(c.name)} → <b>[전설] ${esc(nc.name)}</b>${isNew ? ' (새 카드!)' : ''} · 재뽑기 <b>${n2} / ${RR_MAX}</b> · ${nx}`); return r; }
   function rrPick(id, to) { const c = PC_BY[id], n = PC_BY[to], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } if (!n || n.g !== '전설' || to === id || rrTry(id) < RR_MAX) return null;
     INV.askYesNo(`[전설] ${c.name} 카드를 [전설] ${n.name} 카드로 바꿀까요? (무료)`, `재뽑기를 ${RR_MAX}번 한 카드라 원하는 전설을 무료로 골라요 · 바꾼 카드의 재뽑기는 처음(1번째 ${man(RR_COST[0])} 골드)부터예요`, () => rrPickDo(id, to)); return 'ask'; }
   function rrPickDo(id, to) { const c = PC_BY[id], n = PC_BY[to]; if (rrWhy(c) || !n || n.g !== '전설' || to === id || rrTry(id) < RR_MAX) return null; const isNew = !has(to);
-    rrTake(id); rrPut(to, 0); try { TELE.ev('pcrrpick', { from: id, to }); } catch (e) {} saveNow(); rrMode = null; sel = to;
+    rrTake(id, RR_MAX); rrPut(to, 0); try { TELE.ev('pcrrpick', { from: id, to }); } catch (e) {} saveNow(); rrMode = null; sel = to;
     lastRes = { k: 'draw', t: '전설 재뽑기 · 원하는 카드로', L: [{ c: n, isNew, tag: '선택' }], hide: false }; say(`[변신 카드] 전설 재뽑기: [전설] ${c.name} → [전설] ${n.name} (원하는 카드로 바꿨어요)`, '#e0c8ff'); snd('legend'); refresh(); return n; }
   // 11/1 프로듀서: [전설 재뽑기] 버튼에 비용 — 가진 전설(변신 칸 것 빼고)마다 다음 비용을 모아 '300만 골드' · '300만~600만 골드' · 3번 다 한 카드가 있으면 '무료 고르기'(돈 드는 카드도 있으면 아랫줄 '+ 무료 고르기') · 전설이 없으면 300만~1,200만 · 골드가 모자라면 빨갛게
-  function rrBtnCost() { const cs = new Set(); for (const c of POOL['전설']) if (has(c.id) && free(c.id) > 0) { const t = rrTry(c.id); cs.add(t >= RR_MAX ? 0 : RR_COST[t]); }
+  function rrBtnCost() { const cs = new Set(); for (const c of POOL['전설']) if (has(c.id) && free(c.id) > 0) for (const t of new Set(rrCounts(c.id))) cs.add(t >= RR_MAX ? 0 : RR_COST[t]);
     if (!cs.size) return { t: `${man(RR_COST[0])}~${man(RR_COST[RR_MAX - 1])} 골드`, fr: false, short: false };   // t: 골드 비용 (없으면 무료 고르기만) · fr: 무료 고르기 있음
     const L = [...cs].filter(v => v > 0).sort((a, b) => a - b), fr = cs.has(0), tx = !L.length ? '' : L.length === 1 ? `${man(L[0])} 골드` : `${man(L[0])}~${man(L[L.length - 1])} 골드`;
     return { t: tx, fr, short: !!L.length && coins < L[0] }; }
@@ -10919,8 +10922,9 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     if (rrMode.k === 'pick') { const c = PC_BY[rrMode.id]; return `<div class="pcg-rrh"><span>[전설] <b>${esc(c.name)}</b> 재뽑기 ${RR_MAX}번 완료! 바꿀 전설을 고르세요 <b class="pcg-rrok">(무료)</b></span><button type="button" class="inv-sort" data-rx="list">뒤로</button></div>`
       + L.filter(x => x.id !== c.id).map(x => cardB(x, `data-to="${x.id}"`, `${x.cls ? `<b class="pcg-jt">${jobTxt(x)}</b> · ` : ''}+${x.pct}%${x.opt.length ? ' · ' + x.opt.map(esc).join(' · ') : ''}`)).join(''); }
     const mine = L.filter(c => has(c.id));
-    return `<div class="pcg-rrh"><span>전설 재뽑기 — 다시 뽑을 전설 카드를 고르세요<small>1번째 ${man(RR_COST[0])} · 2번째 ${man(RR_COST[1])} · 3번째 ${man(RR_COST[2])} 골드 · 그다음은 원하는 전설 무료 (횟수는 카드를 따라가요)</small></span><button type="button" class="inv-sort" data-rx="close">닫기</button></div>`
-      + (mine.length ? mine.map(c => { const t = rrTry(c.id), fr = free(c.id) > 0; return cardB(c, `data-rr="${c.id}"`, !fr ? '변신 칸에 있음' : t >= RR_MAX ? '<b class="pcg-rrok">원하는 전설 고르기 (무료)</b>' : `재뽑기 ${t} / ${RR_MAX} · 다음 <b>${man(RR_COST[t])}</b>`, !fr); }).join('')
+    return `<div class="pcg-rrh"><span>전설 재뽑기 — 다시 뽑을 전설 카드를 고르세요<small>1번째 ${man(RR_COST[0])} · 2번째 ${man(RR_COST[1])} · 3번째 ${man(RR_COST[2])} 골드 · 그다음은 원하는 전설 무료 (횟수는 장마다 따로 · 같은 카드도 횟수가 다르면 따로 보여요)</small></span><button type="button" class="inv-sort" data-rx="close">닫기</button></div>`
+      + (mine.length ? mine.map(c => { const fr = free(c.id) > 0; if (!fr) return cardB(c, `data-rr="${c.id}"`, '변신 칸에 있음', true);   // 같은 카드라도 횟수가 다른 장은 따로 (안 한 장은 300만부터)
+          const cn = rrCounts(c.id), ts = [...new Set(cn)].sort((a, b) => a - b); return ts.map(t => { const k = cn.filter(v => v === t).length; return cardB(c, `data-rr="${c.id}" data-rrt="${t}"`, (t >= RR_MAX ? '<b class="pcg-rrok">원하는 전설 고르기 (무료)</b>' : `재뽑기 ${t} / ${RR_MAX} · 다음 <b>${man(RR_COST[t])}</b>`) + (ts.length > 1 ? ` · ${k}장` : ''), false); }).join(''); }).join('')
         : '<p class="pcg-rrn">가진 전설 카드가 없어요. 뽑기 · 영웅→전설 합성 · 마일리지 1,000점으로 얻을 수 있어요.</p>'); }
   // ----- 합성 (같은 등급 4장 → 1번)
   function synWhy() { return bad ? '변신 카드 정보를 읽지 못해서 지금은 합성할 수 없어요.' : busy ? '결과 화면을 닫은 뒤에 합성할 수 있어요.' : DEATH ? '쓰러진 상태에서는 합성할 수 없어요.' : ''; }
@@ -11257,7 +11261,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
     $('pw-sel').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || !sel) return; if (b.dataset.a === 'put') setSlot(sel); else if (b.dataset.a === 'lock') setLock(sel, !locked(sel)); });
     $('pw-again').onclick = () => { rrMode = rrMode ? null : { k: 'list' }; renderWin(); }; for (const b of w.querySelectorAll('.pw-db[data-k]')) b.onclick = () => draw(b.dataset.k === 'free' ? 'free' : +b.dataset.k);
     $('pw-mb').onclick = () => mileGet();
-    $('pw-pick').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; const d = b.dataset; if (d.rx === 'close') { rrMode = null; renderWin(); } else if (d.rx === 'list') { rrMode = { k: 'list' }; renderWin(); } else if (d.rr) rrGo(d.rr); else if (d.to && rrMode && rrMode.id) rrPick(rrMode.id, d.to); });
+    $('pw-pick').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; const d = b.dataset; if (d.rx === 'close') { rrMode = null; renderWin(); } else if (d.rx === 'list') { rrMode = { k: 'list' }; renderWin(); } else if (d.rr) rrGo(d.rr, d.rrt != null ? +d.rrt : undefined); else if (d.to && rrMode && rrMode.id) rrPick(rrMode.id, d.to); });
     const lk = $('pw-look'); if (lk) lk.onclick = () => { prow = (prow + 1) % 8; };
     const sk = $('pw-skip'); if (sk) sk.onchange = () => setSkip(sk.checked); const au = $('pw-auto'); if (au) au.onchange = () => { setAuto(au.checked); if (!au.checked) { autoWhy = '자동 뽑기를 껐어요.'; optUpd(); } };
     // Space = 다시 뽑기 (창이 열려 있고 결과 화면이 없을 때 · 글 쓰는 칸 제외) — 버튼에 포커스가 있어도 한 번만
