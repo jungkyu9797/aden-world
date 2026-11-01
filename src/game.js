@@ -818,7 +818,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 213;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 214;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2455,6 +2455,10 @@ const TELE = (() => { const N = () => (window.native && native.logAppend) ? nati
   return { ev, flush, on: () => !!N(), kill: k => { kills[k] = (kills[k] || 0) + 1; }, use: id => { uses[id] = (uses[id] || 0) + 1; }, hurt: (k, d) => { taken[k] = (taken[k] || 0) + Math.round(d); }, xp: n => { xp += n; }, shot: () => { const n = N(); return n && n.logShot ? n.logShot() : Promise.resolve(false); } }; })();
 // 전체 공지: 게임 화면 위쪽 가운데에 큰 글씨로 6초간 (보스 등장·토벌, 영웅 아이템 획득, 고강화 성공) — 채팅창에도 남김
 const PNAME = () => hero.pname || (() => { try { return localStorage.getItem('aden_pname'); } catch (e) { return null; } })() || '용사';
+// 11/1 프로듀서: 화면 가운데 큰 안내 (잠깐 떴다가 사라짐 · 클릭은 통과) — 예: 자동사냥 시작
+function centerNote(big, sub, c = '#9fe0ff', ms = 4000) { let el = document.getElementById('cnote'); if (!el) { el = document.createElement('div'); el.id = 'cnote'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+  el.innerHTML = `<b></b>${sub ? '<small></small>' : ''}`; el.querySelector('b').textContent = big; if (sub) el.querySelector('small').textContent = sub; el.style.setProperty('--cn', c);
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), ms); }
 function announce(t, c = '#ffd86a', kind = '') {
   say('[공지] ' + t, c); try { GLOG.add(t, c); } catch (e) {}
   let box = document.getElementById('announce');
@@ -9450,6 +9454,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 214, items: ["자동사냥을 켜면 화면 가운데에 \"현재 위치에서 자동사냥을 시작합니다 · 자동 복귀도 현재 위치로 진행합니다\" 안내가 4초 동안 크게 떠요."] },
     { v: 213, items: ["자동사냥이 마을에 다녀온 뒤(물약 정비·자동판매·사망 등) 자동사냥을 켠 그 자리 근처(4칸 안 빈 칸)로 돌아가요. 전에는 그 지역 아무 데나 도착해서, 몽환의 섬처럼 넓은 곳에서는 다른 속성 지역에서 사냥하기도 했어요.", "몽환의 섬에서 자동사냥 중 오늘 이용 시간을 다 쓰면 마을에서 자동사냥이 멈춰요.", "전설 재뽑기: 같은 전설 카드가 여러 장이고 장마다 재뽑기 횟수가 다르면, 재뽑기 칸에 횟수별로 따로 보여요. 재뽑기를 안 한 장은 300만 골드부터 고를 수 있어요. (전에는 횟수가 가장 많은 장으로만 계산돼서, 안 한 카드도 600만 골드가 들었어요)"] },
     { v: 212, items: ["속성 무기·마법으로 같은 속성 몬스터를 때려도 피해가 줄지 않아요. (예: 불 속성 3단 무기로 불 몬스터를 때리면 일반 몬스터와 같은 피해 · 전에는 속성 추가 피해가 0이 됐어요)", "같은 속성 공격 마법도 피해가 줄지 않아요. (예: 물 몬스터에게 콘 오브 콜드 · 전에는 절반)", "몽환의 섬 정령도 같은 속성 피해를 절반만 받던 것이 없어졌어요. 반대 속성(불↔물 · 땅↔바람)으로 때리면 지금처럼 더 아파요."] },
     { v: 211, items: ["절전 화면에 지금 위치(사냥터 이름 · 좌표)가 크게 보여요. 몽환의 섬에서는 가운데 광장인지, 동쪽 불·서쪽 물·남쪽 땅·북쪽 바람 지역인지도 나와요.", "할로윈 호박밭·몽환의 섬처럼 이용 시간이 정해진 곳에서는 절전 화면에 오늘 남은 시간이 보여요. 콜로세움에서는 라운드와 남은 시간이 보여요.", "보스와 싸우는 중이면 절전 화면에 어떤 보스와 전투 중인지와 그 보스의 남은 HP가 막대로 보여요. (최대 3마리)", "절전 화면의 [처치] 수가 혼자 사냥할 때 늘지 않던 문제를 고쳤어요. 마을에 다녀와도 처치 수·획득 아이템은 그대로 이어져요.", "절전 중에 [지금 업데이트]를 누르면, 업데이트 뒤 다시 절전 모드로 들어가고 그동안의 처치·경험치·획득 아이템도 이어서 보여요."] },
@@ -9900,7 +9905,7 @@ const AUTO = (() => {
       if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(anchor ? anchor.z : homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; backToHunt(); } } }
     } }
   function toggle() { if (state === 'off' && ADMIN.on()) { say('운영자는 자동사냥을 쓸 수 없어요.', '#ff86e0'); return; } if (state === 'off' && DUEL()) { say('결투장에서는 자동사냥을 쓸 수 없어요.', '#f08a7a'); return; } if (state !== 'off') { state = 'off'; hero.target = null; muteOff(); say('자동사냥을 껐습니다.', '#9c9682'); return; }
-    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; setAnchor(); state = 'hunting'; died = false; say(`자동사냥을 켰습니다. (마을에 다녀오면 이 자리(${hero.i}, ${hero.j}) 근처로 돌아와요)`, '#f2e6a8'); muteOn(); }
+    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; setAnchor(); state = 'hunting'; died = false; say(`자동사냥을 켰습니다. (마을에 다녀오면 이 자리(${hero.i}, ${hero.j}) 근처로 돌아와요)`, '#f2e6a8'); centerNote('현재 위치에서 자동사냥을 시작합니다', `자동 복귀도 현재 위치(${hero.i}, ${hero.j})로 진행합니다`, '#9fe0ff', 4000); muteOn(); }
   function status() { if (state === 'off') return inZ1() ? '이 구간에서 사용 가능' : '각 지역 1·2구간 전용'; if (state === 'hunting') return '사냥 중' + (hero.target && !hero.target.dead ? ' · ' + (hero.target.dispName || MOB[hero.target.kind].name) : ''); return `마을 대기 · HP ${pct()}% / ${C.backHp}%`; }
   const $h = id => document.getElementById(id);
   function sync() { const w = $h('huntwin'); if (!w) return;
