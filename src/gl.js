@@ -761,10 +761,11 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
       ...(cz ? ['', '2D 묶음 (프레임당 · 누가):', ...cz.runs, '그림 올림 (프레임당 · 누가):', ...cz.ups, '2D로 간 이유/프레임: ' + cz.why] : []), '', '(아무 곳이나 누르면 닫힘)'].join('\n');
     box.onclick = () => box.remove(); return { on: on_, off: off_, info: I }; }
 
-  // ---------------------------------------------------------------- 테스트 페이지(DEMO) ESC 메뉴 버튼 [새 그래픽(시험)]
-  function syncBtn() { const b = document.getElementById('esc-gl'); if (!b) return; b.textContent = '새 그래픽(시험): ' + (on() ? '켬' : FAILED || LOST ? '못 씀 (원래 그래픽)' : '끔'); b.setAttribute('aria-pressed', on() ? 'true' : 'false'); }
-  function addBtn() { if (!window.DEMO_MODE || document.getElementById('esc-gl')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
-    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-gl'; b.title = 'WebGL로 화면을 그리는 시험 기능 (테스트 페이지 전용)'; b.onclick = () => { set(!WANT); }; ref.parentNode.insertBefore(b, ref.nextSibling);
+  // ---------------------------------------------------------------- ESC 메뉴 버튼 [새 그래픽(베타)] — 11/2 프로듀서: 본서버도 설정에서 켜고 끄기 (기본은 끔) · [진단]은 테스트 페이지에만
+  function syncBtn() { const b = document.getElementById('esc-gl'); if (!b) return; b.textContent = '새 그래픽(베타): ' + (on() ? '켬' : FAILED || LOST ? '못 씀 (원래 그래픽)' : '끔'); b.setAttribute('aria-pressed', on() ? 'true' : 'false'); }
+  function addBtn() { if (document.getElementById('esc-gl')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
+    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-gl'; b.title = '그래픽카드(WebGL)로 화면을 그려 더 부드럽게 · 빛 번짐·불꽃 효과 · 문제가 있으면 끄면 원래 그래픽'; b.onclick = () => { set(!WANT); }; ref.parentNode.insertBefore(b, ref.nextSibling);
+    if (!window.DEMO_MODE) { syncBtn(); return; }
     const d = document.createElement('button'); d.type = 'button'; d.id = 'esc-gldiag'; d.textContent = '새 그래픽 진단 (13초)'; d.title = '새 그래픽 켬/끔 속도를 재서 보여 줌'; d.onclick = () => { diag(); }; b.parentNode.insertBefore(d, b.nextSibling); syncBtn(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBtn); else addBtn();
   patchRec();   // 무늬·그라데이션 기록은 늘 (게임 도중에 켜도 바닥 무늬 등을 GL로)
