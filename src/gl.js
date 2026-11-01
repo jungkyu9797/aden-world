@@ -327,6 +327,35 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     while (C.stack.length) CTX.restore(); V.restore(); C.st = Y.st; C.stack = Y.stack; C.vd = true; ppRe(); PK.k = 0;
     PW = Y.PW; PH = Y.PH; G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, PW, PH); for (const pr of PR) { G.useProgram(pr.p); G.uniform2f(pr.uR, PW, PH); } curProg = null; ST.layer = (ST.layer || 0) + 1; return Y.L.obj; }
 
+
+  // ---------------------------------------------------------------- 11/2: GL 혼합으로 못 하는 합성(soft-light 등)으로 단색 사각형 칠하기 — 화면을 복사해(블릿) 셰이더가 아래 색을 읽어 계산
+  //   (사막필드 노을빛 soft-light: 예전엔 화면 전체를 2D로 그려 대충 맞춰서 색이 11% 달랐음)
+  const DBM = { 'soft-light': 0, overlay: 1, 'hard-light': 2, darken: 3, lighten: 4, difference: 5, exclusion: 6, 'color-dodge': 7, 'color-burn': 8 };
+  const DBK = { pr: null, vao: null, fb: null, tex: null, w: 0, h: 0, u: {} };
+  function dbInit() { if (DBK.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
+      const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
+void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); gl_Position=vec4(p*2.-1.,0.,1.); }`));
+      G.attachShader(p, sh(G.FRAGMENT_SHADER, `#version 300 es
+precision highp float; uniform sampler2D uD; uniform vec4 uC; uniform int uMd; uniform vec2 uR; out vec4 o;
+float D(float x){ return x<=.25?((16.*x-12.)*x+4.)*x:sqrt(x); }
+float B(float cb, float cs){ if(uMd==0) return cs<=.5?cb-(1.-2.*cs)*cb*(1.-cb):cb+(2.*cs-1.)*(D(cb)-cb); if(uMd==1) return cb<=.5?2.*cs*cb:1.-2.*(1.-cs)*(1.-cb);
+  if(uMd==2) return cs<=.5?2.*cs*cb:1.-2.*(1.-cs)*(1.-cb); if(uMd==3) return min(cb,cs); if(uMd==4) return max(cb,cs); if(uMd==5) return abs(cb-cs); if(uMd==6) return cb+cs-2.*cb*cs;
+  if(uMd==7) return cb<=0.?0.:(cs>=1.?1.:min(1.,cb/(1.-cs))); return cb>=1.?1.:(cs<=0.?0.:1.-min(1.,(1.-cb)/cs)); }
+void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mix(b,vec3(B(b.r,s.r),B(b.g,s.g),B(b.b,s.b)),uC.a),1.); }`));
+      G.linkProgram(p); if (!G.getProgramParameter(p, G.LINK_STATUS)) throw new Error(G.getProgramInfoLog(p));
+      DBK.pr = p; for (const k of ['uD', 'uC', 'uMd', 'uR']) DBK.u[k] = G.getUniformLocation(p, k); DBK.vao = G.createVertexArray(); DBK.fb = G.createFramebuffer(); return true;
+    } catch (e) { note('dstblend:' + String(e && e.message || e).slice(0, 60)); DBK.pr = false; return false; } }
+  // 기기 좌표 사각형 [x0,y0,x1,y1] · 색(0~1, 미리 안 곱함) · 투명도 a · 모드 번호 → true면 그렸음
+  function dstBlend(x0, y0, x1, y1, c, a, md) { if (LYC || DBK.pr === false || !dbInit()) return false; x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(PW, Math.ceil(x1)); y1 = Math.min(PH, Math.ceil(y1)); if (x1 <= x0 || y1 <= y0) return true;
+    runFlush(); shFlush(); flush(); const G = gl;
+    if (DBK.w !== PW || DBK.h !== PH) { if (DBK.tex) G.deleteTexture(DBK.tex); DBK.tex = G.createTexture(); bindTex(DBK.tex); G.texStorage2D(G.TEXTURE_2D, 1, G.RGB8, PW, PH); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MIN_FILTER, G.NEAREST); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MAG_FILTER, G.NEAREST);
+      G.bindFramebuffer(G.FRAMEBUFFER, DBK.fb); G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, DBK.tex, 0); G.bindFramebuffer(G.FRAMEBUFFER, null); DBK.w = PW; DBK.h = PH; }
+    const by0 = PH - y1, by1 = PH - y0;   // GL은 아래가 0
+    G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, DBK.fb); G.blitFramebuffer(x0, by0, x1, by1, x0, by0, x1, by1, G.COLOR_BUFFER_BIT, G.NEAREST); G.bindFramebuffer(G.FRAMEBUFFER, null);
+    if (G.getError() !== G.NO_ERROR) { note('dstblend:blit'); DBK.pr = false; return false; }
+    G.useProgram(DBK.pr); curProg = null; G.bindVertexArray(DBK.vao); actTex(0); bindTex(DBK.tex); smpB(0, null); G.uniform1i(DBK.u.uD, 0); G.uniform4f(DBK.u.uC, c[0], c[1], c[2], a); G.uniform1i(DBK.u.uMd, md); G.uniform2f(DBK.u.uR, PW, PH);
+    blendSet(8); G.enable(G.SCISSOR_TEST); G.scissor(x0, by0, x1 - x0, by1 - by0); if (!DBG.nodraw) G.drawArrays(G.TRIANGLES, 0, 3); G.disable(G.SCISSOR_TEST); G.bindVertexArray(vao); ST.dstb = (ST.dstb || 0) + 1; return true; }
+
   // ---------------------------------------------------------------- 배치
   const BL = { 'source-over': 0, lighter: 1, multiply: 2, screen: 3, 'destination-out': 4, 'source-atop': 5, 'destination-over': 6, clear: 7, copy: 8 };
   let nQ = 0, slots = [], nS = 0, rr = 0, cBl = 0, cF = null, curBl = -1;   // slots: 칸 번호 = 텍스처 단위 (빈칸 있음 · 이미 그 단위에 묶인 텍스처는 그 칸에 → 다시 안 묶음)
@@ -581,9 +610,22 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     isPointInPath(...a) { vs(); return V.isPointInPath(...a); } isPointInStroke(...a) { vs(); return V.isPointInStroke(...a); }
     // ---- 사각형
     fillRect(x, y, w, h) { if (!w || !h) return; const st = C.st;
+      if (st.bl < 0 && DBM[st.op] !== undefined && !st.clip && !st.sh && !st.F && st.m[1] === 0 && st.m[2] === 0 && typeof V.fillStyle === 'string') { const c = parseColor(V.fillStyle);   // soft-light 등: 화면을 읽어 셰이더로
+        if (c) { tx4(st.m, x, y, w, h, QX); if (dstBlend(Math.min(QX[0], QX[4]), Math.min(QX[1], QX[5]), Math.max(QX[0], QX[4]), Math.max(QX[1], QX[5]), c, c[3] * st.a, DBM[st.op])) return; } }
       if (glOK() && !st.F) { const P = paint(V.fillStyle, true); if (P === 'skip') return; if (P) { tx4(st.m, x, y, w, h, QX); if (fillQuad(P)) { ST.rect++; return; } } }
       ST.rectR++; const q = bb(tx4(st.m, x, y, w, h, Q8)), fx = rOpen(q[0], q[1], q[2], q[3]); V.fillRect(x, y, w, h); rClose(fx); }
-    strokeRect(x, y, w, h) { ST.rectR++; const m = C.st.m, k = V.lineWidth * Math.max(Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3])) + 2, q = bb(tx4(m, x, y, w, h, Q8)); const fx = rOpen(q[0] - k, q[1] - k, q[2] + k, q[3] + k); V.strokeRect(x, y, w, h); rClose(fx); }
+    strokeRect(x, y, w, h) { const st = C.st;   // 11/2: 사각형 테두리도 GL (보스 막대 등 · 예전엔 늘 2D라 주변 글자까지 2D 묶음으로 끌려감) — 지금 경로는 건드리지 않음
+      if (glOK() && !st.F && !st.dash && w && h && !DBG.nopath) { const P = paint(V.strokeStyle, false); if (P === 'skip') return;
+        if (P && P.pa < 2 && st.m[1] === 0 && st.m[2] === 0) { const m = st.m, hx = V.lineWidth * Math.abs(m[0]) / 2, hy = V.lineWidth * Math.abs(m[3]) / 2;   // 축에 맞는 사각형: 겹치지 않는 네 띠 (반투명이어도 모서리가 두 번 칠해지지 않음)
+          const ax = m[0] * x + m[4], bx = m[0] * (x + w) + m[4], ay = m[3] * y + m[5], by = m[3] * (y + h) + m[5], X0 = Math.min(ax, bx), X1 = Math.max(ax, bx), Y0 = Math.min(ay, by), Y1 = Math.max(ay, by);
+          if (X1 + hx < 0 || Y1 + hy < 0 || X0 - hx > PW || Y0 - hy > PH) return; if (!gOpen(X0 - hx, Y0 - hy, X1 + hx, Y1 + hy)) {
+            const B = Y1 - Y0 > 2 * hy ? [[X0 - hx, Y0 - hy, X1 + hx, Y0 + hy], [X0 - hx, Y1 - hy, X1 + hx, Y1 + hy], [X0 - hx, Y0 + hy, X0 + hx, Y1 - hy], [X1 - hx, Y0 + hy, X1 + hx, Y1 - hy]] : [[X0 - hx, Y0 - hy, X1 + hx, Y1 + hy]];
+            for (const q of B) { if (q[2] <= q[0] || q[3] <= q[1]) continue; QX[0] = q[0]; QX[1] = q[1]; QX[2] = q[2]; QX[3] = q[1]; QX[4] = q[2]; QX[5] = q[3]; QX[6] = q[0]; QX[7] = q[3]; uvRect(0, 0, 1, 1); if (P.pa && !gradCoords(P)) continue; emit(P.t, P.s, st.bl, null, P.pa << 2, P.r, P.g, P.b, P.a, P.p0, P.p1, P.p2, 0); }
+            ST.rect++; return; } }
+        else if (P && P.pa < 2) { const m = st.m, sc = Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])), sv = { s: PP.s, cur: PP.cur, bad: PP.bad, n: PP.n }; PP.s = []; PP.cur = null; PP.bad = false; PP.n = 0;
+          ppM(dvX(x, y), dvY(x, y)); ppL(dvX(x + w, y), dvY(x + w, y)); ppL(dvX(x + w, y + h), dvY(x + w, y + h)); ppL(dvX(x, y + h), dvY(x, y + h)); PP.cur.c = true;
+          const j0 = V.lineJoin; let ok; try { ok = ppStroke(P, V.lineWidth * sc / 2); } finally { PP.s = sv.s; PP.cur = sv.cur; PP.bad = sv.bad; PP.n = sv.n; } if (ok) { ST.rect++; return; } } }
+      ST.rectR++; const m = C.st.m, k = V.lineWidth * Math.max(Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3])) + 2, q = bb(tx4(m, x, y, w, h, Q8)); const fx = rOpen(q[0] - k, q[1] - k, q[2] + k, q[3] + k); V.strokeRect(x, y, w, h); rClose(fx); }
     clearRect(x, y, w, h) { const st = C.st; if (st.clip) { const q = bb(tx4(st.m, x, y, w, h, Q8)), fx = rOpen(q[0], q[1], q[2], q[3]); V.clearRect(x, y, w, h); rClose(fx); return; }
       tx4(st.m, x, y, w, h, QX); gOpenNo(Math.min(QX[0], QX[2], QX[4], QX[6]), Math.min(QX[1], QX[3], QX[5], QX[7]), Math.max(QX[0], QX[2], QX[4], QX[6]), Math.max(QX[1], QX[3], QX[5], QX[7])); uvRect(0, 0, 1, 1); emit(white, 0, 7, null, 0, 0, 0, 0, 0, 0, 0, 0, 0); }
     // ---- 글자: 같은 모양은 아틀라스에 한 번만 그림
@@ -602,7 +644,7 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
             e = { x: p[0], y: p[1], w, h, ox, oy }; if (TA.m.size > 6000) taReset(); TA.m.set(key, e); } }
         if (e) { const X = ix - e.ox, Y = iy - e.oy, S = TA.S, A = st.a; QX[0] = X; QX[1] = Y; QX[2] = X + e.w; QX[3] = Y; QX[4] = X + e.w; QX[5] = Y + e.h; QX[6] = X; QX[7] = Y + e.h;
           if (!gOpen(X, Y, X + e.w, Y + e.h)) { ST.txt++; uvRect(e.x / S, e.y / S, (e.x + e.w) / S, (e.y + e.h) / S); emit(TA.tex, 0, st.bl, st.F, 0, A, A, A, A, 0, 0, 0, 0); return; } } }
-      ST.txtR++; note('text'); const s = Math.max(Math.hypot(m[0], m[1]), 1), M = V.measureText(t), w = (Math.max(M.width, (M.actualBoundingBoxRight || 0) + (M.actualBoundingBoxLeft || 0)) + 40) * s, hh = 60 * s;
+      ST.txtR++; note('text:' + (!glOK() ? 'state' : !(m[1] === 0 && m[2] === 0 && m[0] > 0 && Math.abs(m[0] - m[3]) < 1e-6) ? 'xf' : typeof sty !== 'string' ? 'paint' : mw !== undefined ? 'mw' : 'big/run')); const s = Math.max(Math.hypot(m[0], m[1]), 1), M = V.measureText(t), w = (Math.max(M.width, (M.actualBoundingBoxRight || 0) + (M.actualBoundingBoxLeft || 0)) + 40) * s, hh = 60 * s;
       const X = m[0] * x + m[2] * y + m[4], Y = m[1] * x + m[3] * y + m[5]; const fx_ = rOpen(X - w, Y - hh, X + w, Y + hh); if (sk) { if (mw !== undefined) V.strokeText(t, x, y, mw); else V.strokeText(t, x, y); } else { if (mw !== undefined) V.fillText(t, x, y, mw); else V.fillText(t, x, y); } rClose(fx_); }
     measureText(t) { return V.measureText(t); }
     // ---- 그림
