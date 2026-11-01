@@ -4432,13 +4432,13 @@ function regionDrop(f) { const b = REGION_BOSS[f.kind], T = b && DROP_TABLE[b]; 
   const tot = pool.reduce((a, r) => a + r[1], 0); let x = Math.random() * tot; const row = pool.find(r => (x -= r[1]) < 0) || pool[0];
   GROUND.drop(row[0], 1, f.i, f.j); if (!lowRar(row[0]) && !FB_QUIET) say(`${rarTag(row[0])}${JOSA(ITEMS[row[0]].name, '이', '가')} 떨어졌습니다!`, rarC(row[0])); return true; }
 const GROUND = (() => {
-  const L = [], IMG = {}, LIFE = 600, CAP = 50;   // 10/30: 바닥 아이템은 떨어진 지 10분 뒤 사라짐 · 지역당 50개(넘으면 가장 오래된 것부터 사라짐) (아이템마다 따로 · 마지막 30초는 깜빡임 · 타이머 없이 떨어진 뒤 흐른 시간 t만 매 프레임 확인)
+  const L = [], IMG = {}, LIFE = 600, CAP = 50, KEEPZ = z => z === 'isle14', capOf = z => KEEPZ(z) ? 400 : CAP;   // 11/1: 콜로세움(isle14) 바닥은 시간으로 안 사라지고 400개까지 (판이 끝나 나갈 때 COLO가 정리) · 10/30: 바닥 아이템은 떨어진 지 10분 뒤 사라짐 · 지역당 50개(넘으면 가장 오래된 것부터 사라짐) (아이템마다 따로 · 마지막 30초는 깜빡임 · 타이머 없이 떨어진 뒤 흐른 시간 t만 매 프레임 확인)
   let want = null, hov = null, tipOn = false, cap = null, SH = null;   // SH: 게스트일 때 호스트가 보내 준 바닥 아이템 (같은 지역)
   const now = () => performance.now(), newGid = () => 1 + Math.floor(Math.random() * 2e9);
   const prio = d => !d.owner || !(d.until > now()) ? 0 : d.owner === NET.me() ? 1 : 2;   // 0 없음 · 1 내 우선권 · 2 남의 우선권   // 바닥 아이템은 떨어진 지 10분 뒤 사라짐 (마을·다른 맵에 다녀와도 시간은 흐름), 지역당 최대 50개
   const zk = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
   function img(k, bl) { const key = k + (bl ? '|b' : ''); let m = IMG[key]; if (!m) { m = IMG[key] = new Image(); m.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(ICON(k, bl).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" ')); } return m; }
-  function drop(id, n, i, j) { if (!ITEMS[id]) return; { const z = zk(), mine = L.filter(d => d.zone === z); if (mine.length >= CAP) L.splice(L.indexOf(mine[0]), 1); } const d = { gid: ARENA() ? 1 + Math.max(1000, ...L.filter(x => x.zone === zk() && x.gid < 1e6).map(x => x.gid)) : newGid(), id, n: n || 1, i, j, x: i + 0.5, z: j + 0.5, zone: zk(), t: 0, ph: Math.random() * 6.28, owner: null, until: 0 }; L.push(d); if (cap) cap.push(d); img(ITEMS[id].icon); return d; }
+  function drop(id, n, i, j) { if (!ITEMS[id]) return; { const z = zk(), mine = L.filter(d => d.zone === z); if (mine.length >= capOf(z)) { const v = (KEEPZ(z) && mine.find(d => /potion/.test(d.id))) || mine[0]; L.splice(L.indexOf(v), 1); } } const d = { gid: ARENA() ? 1 + Math.max(1000, ...L.filter(x => x.zone === zk() && x.gid < 1e6).map(x => x.gid)) : newGid(), id, n: n || 1, i, j, x: i + 0.5, z: j + 0.5, zone: zk(), t: 0, ph: Math.random() * 6.28, owner: null, until: 0 }; L.push(d); if (cap) cap.push(d); img(ITEMS[id].icon); return d; }
   function spots(ci, cj, k) { const out = [], used = new Set(L.filter(d => d.zone === zk()).map(d => d.j * 1000 + d.i));
     for (let r = 0; r <= 3 && out.length < k; r++) { const ring = [];
       for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) if (Math.max(Math.abs(di), Math.abs(dj)) === r) ring.push([ci + di, cj + dj]);
@@ -4485,10 +4485,10 @@ const GROUND = (() => {
   function hoverAt(sx, sy, cx, cy) { const d = at(sx, sy); setTip(d, cx, cy); return d; }
   function tick(dt) { if ((nearT -= dt) <= 0) { nearT = 0.25; const au = AUTO.on(); if ((NEAR_PICK || au) && SCENE !== 'town') pickNear(au && !NEAR_PICK ? AUTO.wantLoot : null, NEAR_PICK ? 1 : 0); }
     if (SH) for (const d of SH.list) d.t += dt;   // 게스트도 남은 시간 깜빡임 (사라지는 건 호스트가 정함)
-    for (let k = L.length - 1; k >= 0; k--) { L[k].t += dt; if (L[k].t > LIFE) { if (L[k] === hov) setTip(null); L.splice(k, 1); } }
+    for (let k = L.length - 1; k >= 0; k--) { L[k].t += dt; if (L[k].t > LIFE && !KEEPZ(L[k].zone)) { if (L[k] === hov) setTip(null); L.splice(k, 1); } }
     if (want) { if (!here().includes(want)) want = null; else if (hero.t >= 1 && !hero.atk && cheb(hero.i, hero.j, want.i, want.j) <= 1) pick(want); else if (!moveGoal && !hero.target && hero.t >= 1) want = null; } }
   function draw(g) { for (const d of here()) { if (!DN.seen(d.i, d.j)) continue; const it = ITEMS[d.id], m = img(it.icon, d.blessed), rc = rarC(d.id);
-      const left = LIFE - d.t; if (left < 30 && Math.floor(time * 4) % 2) continue;
+      const left = LIFE - d.t; if (left < 30 && !KEEPZ(d.zone) && Math.floor(time * 4) % 2) continue;
       const [x0, y0] = W2P(d.x, d.z), [x, y] = pos(d), on = d === hov, pulse = 0.55 + 0.25 * Math.sin(time * 3 + d.ph);
       g.save(); g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(x0, y0, 0, x0, y0, on ? 17 : 14); gr.addColorStop(0, rc); gr.addColorStop(1, 'rgba(0,0,0,0)');
       g.globalAlpha = (on ? 0.75 : 0.45) * pulse; g.fillStyle = gr; g.beginPath(); g.ellipse(x0, y0, on ? 17 : 14, on ? 8 : 6.5, 0, 0, 7); g.fill();
@@ -5640,7 +5640,7 @@ for (const [o, n] of Object.entries(ITEM_MERGE)) { const a = ITEMS[o], d = ITEMS
   const c = ITEMS.snow_cloak; if (c) Object.assign(c, { lv: 45, ac: 3, mr: 10, codex: true, grp: '망토', optTxt: ['물 저항 +20'], src: '얼음여왕', desc: '얼음여왕의 눈보라를 견딘 흰 털 망토.' });   /* v127: 설원의 망토 상향 */
   if (ITEMS.scroll_acc) ITEMS.scroll_acc.sellFix = 250; }   /* v127: 장신구 마법 주문서 되팔기 250골드 (데이·젤 교환 차익 막기) */
 // v136: 콜로세움 입장권 · 골드 뭉치 (ITEMS 맨 뒤 — 네트워크 아이템 번호가 밀리지 않게)
-ITEMS.col_ticket = { name: '콜로세움 입장권', icon: 'ticket', w: 0.1, stack: true, rar: '희귀', desc: '마을 잡화상점 옆 콜로세움 관리인에게서 삽니다(100골드 · 계정당 하루 2장 · 새벽 5시 초기화). 입장할 때 1장 사용.' };
+ITEMS.col_ticket = { name: '콜로세움 입장권', icon: 'ticket', w: 0.1, stack: true, rar: '희귀', sellFix: 100, desc: '예전 콜로세움 입장권. 11/1부터 콜로세움은 입장권 없이 캐릭터마다 하루 1번 들어갈 수 있어서 더 이상 쓰지 않아요. 상점에 산 값(100골드)에 팔 수 있어요.' };
 // v138: 귀환 부적 — 귀환 주문서 대신 (사용 비용 없음 · 사라지지 않음 · 버리기·팔기·맡기기·교환 불가 · 캐릭터마다 1개)
 ITEMS.return_charm = { name: '귀환 부적', icon: 'charm_home', use: 'home', free: true, bound: true, w: 0, rar: '희귀', desc: '사용하면 언제든 바로 마을로 돌아갑니다. 사용 비용이 없고 사라지지 않아요. (버리기·팔기·창고·교환 불가)' };
 CXI.charm_home = '<path d="M10 3 L24 3 L24 30 L17 27 L10 30 Z" fill="#f0d66a" stroke="#8a6418" stroke-width=".9"/><rect x="11.6" y="5.2" width="10.8" height="19.6" fill="none" stroke="#c0281c" stroke-width="1"/><path d="M17 7.6 L21.4 11.6 L20.2 11.6 L20.2 15.2 L13.8 15.2 L13.8 11.6 L12.6 11.6 Z" fill="#c0281c"/><path d="M14 18 L20 18 M14.8 20.6 L19.2 20.6 M17 16.6 L17 23.2" stroke="#c0281c" stroke-width="1.1" stroke-linecap="round"/><circle cx="17" cy="3.4" r="1.7" fill="#8a6418"/><path d="M17 3.4 L15 0.6 M17 3.4 L19 0.6" stroke="#c0281c" stroke-width=".9"/>';
@@ -8099,7 +8099,8 @@ const NET = (() => {
       L.push([f.uid, KINDS.indexOf(f.kind), Math.round(f.x * 10), Math.round(f.z * 10), f.row, Math.max(0, Math.round(f.hp / f.max * 100)), (f.dead ? 1 : 0) | (f.atkT != null ? 2 : 0) | (f.t < 1 ? 4 : 0) | (f.stunT > 0 ? 8 : 0) | (f.slowT > 0 ? 16 : 0) | (f.enraged ? 32 : 0) | (f.regenOn ? 64 : 0) | (f.fb ? (f.fbBf & 7) << 7 : 0)]); }   // 11/1: 필드 봇 버프 (리덕션 128 · 솔리드 256 · 카운터 512)
     const dn = r => Math.min(...pos.map(([x, z]) => Math.max(Math.abs(r[2] / 10 - x), Math.abs(r[3] / 10 - z)))); return L.sort((a, b) => dn(a) - dn(b)); }
   function groundOut() { const pos = [...(BOTHOST.on() ? [] : [[hero.x, hero.z]]), ...watchersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
-    for (const d of GROUND.here()) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
+    const G0 = GROUND.here(), GL = ARENA() ? G0.filter(d => !/potion/.test(d.id)).concat(G0.filter(d => /potion/.test(d.id))) : G0;   // 11/1: 콜로세움은 보스 전리품을 먼저 (물약 뭉치가 많아도 전리품이 게스트 화면에서 안 빠지게)
+    for (const d of GL) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
   const BH_KEEP = new Set(['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'bk', 'an', 'fbx']);   // 봇 호스트 presence에 남기는 칸 (게스트가 받아야 하는 호스트 데이터 + 지역·이름)
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
@@ -8520,7 +8521,7 @@ const CCOPY = (() => {
 // 상태는 presence td = { id, to, st: req|no|open|lock|ok|done|cancel, v(내 항목 번호), pv(내가 확인한 상대 항목 번호), g, it:[아이템…] }
 // ============================================================ v136: 콜로세움 — 마을 잡화상점 왼쪽 공터의 관리인 · 입장권 10만 골드(계정당 하루 2장)
 // 입장권을 들고 [입장 대기] → 2명 이상 모이면 누구든 [입장] → 대기하던 모두가 함께 들어감 (한 번에 한 팀 · 대기 중에는 채팅만)
-// 11/1 리뉴얼(프로듀서): 캐릭터마다 하루 1번 · 혼자도 입장 · 1·2·3라운드에 보스 1·2·3마리(가호를 주는 보스 중 무작위 · 같은 보스 겹칠 수 있음 · 능력치·전리품·밤 효과 필드와 같음)
+// 11/1 리뉴얼(프로듀서): 입장권 없음 · 캐릭터마다 하루 1번 · 혼자도 입장 · 1·2·3라운드에 보스 1·2·3마리(가호를 주는 보스 중 무작위 · 같은 보스 겹칠 수 있음 · 능력치·전리품·밤 효과 필드와 같음)
 //   보스 한 마리를 잡을 때마다 안에 있는 모두에게 그 보스의 가호 완성품 1개 · 라운드 30분 안에 그 라운드 보스를 다 잡으면 클리어 → 바닥에 주홍·맑은 물약 각 50개(1~3개 뭉치) → 10초 뒤 다음 라운드
 //   시간 안에 못 잡거나 모두 쓰러지면 실패(퇴장 버튼) · 3라운드까지 다 잡으면 30초 동안 줍고 자동 퇴장
 // 진행은 그 지역 호스트(같은 지역에서 peer 이름이 가장 앞선 사람)가 맡고 presence(co)로 모두에게 알림 — 호스트가 나가면 다음 사람이 이어받음
@@ -8543,43 +8544,41 @@ const COLO = (() => {
     for (const o of NET.others()) if (o.pr.cq && o.pr.z === 'town') L.push({ peer: o.peer, n: String(o.pr.n || '').slice(0, 12), c: o.pr.c, lv: o.pr.lv }); return L; }
   // ----- 창
   function render() { const w = $('colowin'); if (!w || w.hidden) return; const q = queued(), F = fighters(), busy = F.length > 0, me = NET.me();
-    $('co-tn').textContent = tickets(); $('co-day').textContent = `${bought()} / ${DAY_MAX}`;
-    const bb = $('co-buy'), full = bought() >= DAY_MAX; bb.disabled = full || coins < PRICE; bb.textContent = full ? '오늘은 다 샀어요 (새벽 5시 초기화)' : `입장권 구매 (${PRICE.toLocaleString()} 골드)`;
+    { const el = $('co-left'); if (el) el.textContent = entToday() >= ENT_MAX ? '오늘 입장 완료' : `오늘 ${ENT_MAX - entToday()}번 입장 가능`; }   // 11/1: 입장권 없이 캐릭터마다 하루 1번
     let st, cls = '';
     if (busy) { st = `⚔ 지금 ${F.length}명이 콜로세움에서 싸우는 중이에요. 끝나면 들어갈 수 있어요.`; cls = 'busy'; }
     else if (entToday() >= ENT_MAX && !wait) { st = '오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번 · 새벽 5시 초기화)'; cls = 'busy'; }
     else if (!me) { st = window.DEMO_MODE ? '서버에 연결되지 않았어요. (테스트: [혼자 입장]으로 들어가 볼 수 있어요)' : '서버에 연결되지 않아 다른 사람과 함께 들어갈 수 없어요.'; cls = 'busy'; }
     else if (wait) { st = pend ? '입장하는 중...' : q.length >= 2 ? `${q.length}명이 모였어요! 누구든 [입장]을 누르면 대기 중인 모두가 함께 들어갑니다.` : '입장 대기 중... 혼자서도 [입장]할 수 있고, 다른 사람이 대기하면 함께 들어가요. (대기 중에는 채팅만 할 수 있어요)'; cls = 'wait'; }
-    else st = tickets() ? '[입장 대기]를 누르면 대기 명단에 올라가요. 혼자서도 들어갈 수 있고, 같이 대기한 사람과 함께 들어가요.' : '입장권이 있어야 대기할 수 있어요.';
+    else st = '[입장 대기]를 누르면 대기 명단에 올라가요. 혼자서도 들어갈 수 있고, 같이 대기한 사람과 함께 들어가요. (캐릭터마다 하루 1번 · 입장권 없음)';
     const se = $('co-st'); if (se.textContent !== st) se.textContent = st; se.className = 'co-st ' + cls;
     const html = q.length ? q.map(x => `<li${x.me ? ' class="me"' : ''}><b>${esc(x.n)}</b><small>${esc(CLASS_NAME[x.c] || '')} Lv.${x.lv || 1}</small><em>입장 대기중</em></li>`).join('') : '<li class="none">아직 대기하는 사람이 없어요</li>';
     const ql = $('co-ql'); if (ql.dataset.h !== html) { ql.dataset.h = html; ql.innerHTML = html; } $('co-qn').textContent = q.length + '명';
-    const jb = $('co-join'); if (!wait) { jb.textContent = '입장 대기'; jb.disabled = busy || !tickets() || !!DEATH || !me || entToday() >= ENT_MAX; } else { jb.textContent = q.length >= 2 ? `입장 (${q.length}명)` : '입장 (혼자)'; jb.disabled = busy || q.length < 1 || !!pend || !me; }
-    $('co-cancel').hidden = !wait; const sb = $('co-solo'); sb.hidden = !window.DEMO_MODE; sb.disabled = busy || !tickets() || !!pend; }
+    const jb = $('co-join'); if (!wait) { jb.textContent = '입장 대기'; jb.disabled = busy || !!DEATH || !me || entToday() >= ENT_MAX; } else { jb.textContent = q.length >= 2 ? `입장 (${q.length}명)` : '입장 (혼자)'; jb.disabled = busy || q.length < 1 || !!pend || !me; }
+    $('co-cancel').hidden = !wait; const sb = $('co-solo'); sb.hidden = !window.DEMO_MODE; sb.disabled = busy || !!pend || entToday() >= ENT_MAX; }
   function badge() { let b = $('colo-badge'); const w = $('colowin'), show = wait && w && w.hidden; if (!show) { if (b) b.hidden = true; return; }
     if (!b) { b = document.createElement('button'); b.type = 'button'; b.id = 'colo-badge'; b.addEventListener('pointerdown', ev => ev.stopPropagation()); b.onclick = () => open(true); document.body.appendChild(b); }
     const t = `⚔ 콜로세움 입장 대기중 (${queued().length}명) — 눌러서 열기`; if (b.textContent !== t) b.textContent = t; b.hidden = false; }
-  function open(quiet) { const w = $('colowin'); if (!w) return; w.hidden = false; render(); badge(); if (!quiet) say('콜로세움 관리인 로물루스: 모래 위에서 끝까지 버틴 자만이 보물을 가져가지! 입장권을 들고 함께 싸울 동료를 모으게.', '#ffc870'); }
+  function open(quiet) { const w = $('colowin'); if (!w) return; w.hidden = false; render(); badge(); if (!quiet) say('콜로세움 관리인 로물루스: 모래 위에서 보스를 쓰러뜨린 자만이 가호를 얻지! 입장권은 필요 없네 — 하루에 한 번, 혼자든 동료와 함께든 들어오게.', '#ffc870'); }
   function buy() { if (bought() >= DAY_MAX) { say(`입장권은 계정마다 하루 ${DAY_MAX}장까지만 살 수 있어요. (매일 새벽 5시 초기화)`, '#f08a7a'); return; } if (coins < PRICE) { say(`골드가 모자라요. (입장권 ${PRICE.toLocaleString()} 골드)`, '#f08a7a'); return; }
     INV.askYesNo('콜로세움 입장권을 사시겠습니까?', `${PRICE.toLocaleString()} 골드 · 오늘 ${bought()} / ${DAY_MAX}장 샀어요 (계정마다 하루 ${DAY_MAX}장)`, () => { if (bought() >= DAY_MAX || coins < PRICE) return;
       coins -= PRICE; rec = { n: bought() + 1, d: dayKey() }; INV.add('col_ticket', 1, true); TELE.ev('buy', { id: 'col_ticket', q: 1, g: PRICE }); say(`콜로세움 입장권을 샀습니다. (-${PRICE.toLocaleString()} 골드 · 오늘 ${rec.n} / ${DAY_MAX}장)`, '#ffd86a'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }); }
   // ----- 입장 대기 · 입장
   function queue() { if (SCENE !== 'town' || wait) return; if (DEATH) { deadSay(); return; } if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
     if (entToday() >= ENT_MAX) { say('오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번 · 새벽 5시 초기화)', '#f08a7a'); return; }
-    if (!tickets()) { say('콜로세움 입장권이 없어요. (관리인에게서 100골드에 살 수 있어요)', '#f08a7a'); return; }
     if (AUTO.on()) AUTO.toggle(); wait = true; COLO_LOCK = true; pend = null; hero.target = null; moveGoal = null; NET.setExtra('cq', 1);
     say('콜로세움 입장 대기를 시작했습니다. 혼자면 바로 [입장], 같이 대기한 사람이 있으면 누구든 [입장]을 눌러 다 함께 들어가요. (대기 중에는 채팅만 할 수 있어요)', '#ffd86a'); render(); }
   function cancel(quiet) { if (!wait) return; wait = false; COLO_LOCK = false; pend = null; NET.setExtra('cq', null); if (!quiet) say('콜로세움 입장 대기를 취소했습니다.', '#9c9682'); render(); badge(); }
   function start() { const q = queued(), me = NET.me(); if (!wait || q.length < 1 || pend || !me) return; if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
     csOut = { id: Math.random().toString(36).slice(2, 9), ps: q.map(x => x.me ? me : x.peer).slice(0, 12) }; csClearAt = performance.now() + 6000; NET.setExtra('cs', csOut);
     pend = { t: performance.now(), c: new Map([[me, csOut]]) }; seenCs.add(me + ':' + csOut.id); say('입장 신호를 보냈습니다. 곧 다 함께 들어갑니다...', '#ffd86a'); render(); }
-  function solo() { if (!window.DEMO_MODE || SCENE !== 'town' || DEATH || entToday() >= ENT_MAX) return; if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; } if (!tickets()) { say('입장권이 없어요.', '#f08a7a'); return; }
+  function solo() { if (!window.DEMO_MODE || SCENE !== 'town' || DEATH || entToday() >= ENT_MAX) return; if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
     wait = true; enter('t' + Math.random().toString(36).slice(2, 8), 1); }
   function waitTick() { if (SCENE !== 'town' || DEATH) { cancel(true); return; } COLO_LOCK = true; const me = NET.me();
     for (const o of NET.others()) { const cs = o.pr.cs; if (!cs || !cs.id || !Array.isArray(cs.ps)) continue; const k = o.peer + ':' + cs.id; if (seenCs.has(k)) continue; seenCs.add(k); if (!me || !cs.ps.includes(me)) continue;
       if (!pend) pend = { t: performance.now(), c: new Map() }; pend.c.set(o.peer, cs); }
     if (pend && performance.now() - pend.t > 1500) { const best = [...pend.c.keys()].sort()[0], cs = pend.c.get(best); pend = null; if (cs) enter(cs.id, cs.ps.length); } }   // 동시에 여러 명이 눌렀으면 peer 이름이 가장 앞선 사람의 신호를 따름 (모두 같은 규칙)
-  function enter(sid, n) { if (!wait) return; if (entToday() >= ENT_MAX) { say('오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번)', '#f08a7a'); cancel(true); return; } if (!INV.take('col_ticket')) { say('입장권이 없어 콜로세움에 들어가지 못했습니다.', '#f08a7a'); cancel(true); return; }
+  function enter(sid, n) { if (!wait) return; if (entToday() >= ENT_MAX) { say('오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번)', '#f08a7a'); cancel(true); return; } 
     ent = { n: entToday() + 1, d: gameDay() };
     wait = false; COLO_LOCK = false; pend = null; NET.setExtra('cq', null); if (csOut) csClearAt = performance.now() + 4000;
     { const w = $('colowin'); if (w) w.hidden = true; } badge();
@@ -8588,7 +8587,8 @@ const COLO = (() => {
     for (const f of foxes) f.gone = true; foxes.length = 0;
     S = { s: sid, ph: 'cd', r: 1, t: 0, w: 0, pf: 0, bk: 0, bkL: [], gk: [], n: 0, bs: 0, why: '', msg: '' }; lastKey = ''; lastW = 0; deadAll = 0; banner = null; seenGk.clear();
     say(`***** 콜로세움에 입장했습니다! (도전자 ${n}명) *****`, '#ffd86a'); TELE.ev('colo', { n }); INV.render(); try { SAVE.now(false, true); } catch (e) {} }
-  function leave() { S = null; lastKey = ''; banner = null; deadAll = 0; if (coRef) { coRef = null; NET.setExtra('co', null); } exitBtn(false); }
+  function leave() { { const L = GROUND.list(); for (let k = L.length - 1; k >= 0; k--) if (L[k].zone === ZK) L.splice(k, 1); }   // 11/1: 콜로세움 바닥 아이템은 판이 끝나 나갈 때만 정리 (3라운드 클리어 뒤 퇴장 · 전멸·시간 초과 뒤 퇴장)
+    S = null; lastKey = ''; banner = null; deadAll = 0; if (coRef) { coRef = null; NET.setExtra('co', null); } exitBtn(false); }
   function exit(auto) { exitBtn(false); if (!inArena()) return; TOWN.goTown(); say(auto ? '콜로세움에서 자동으로 퇴장했습니다.' : '콜로세움에서 퇴장했습니다.', '#ffd86a'); }
   // ----- 콜로세움 안
   function zoneKinds(z) { const d = ISLAND.def(z); if (!d) return []; const ks = new Set(); (d.mobs || []).forEach(([k]) => ks.add(k)); (d.groups || []).forEach(([k, mem]) => { ks.add(k); (mem || []).forEach(([m]) => ks.add(m)); }); return [...ks].filter(k => MOB[k] && !MOB[k].boss && !MOB[k].dummy); }
@@ -8680,7 +8680,7 @@ const COLO = (() => {
   function tick(dt) { if (wait) waitTick(); if ((uiT -= dt) <= 0) { uiT = 0.25; render(); badge(); }
     if (csOut && !wait && performance.now() > csClearAt) { csOut = null; NET.setExtra('cs', null); }
     if (inArena()) arenaTick(dt); else if (S) leave(); if (cheerT > 0) cheerT -= dt; }
-  { const b = id => $(id); if (b('colowin')) { b('co-buy').onclick = buy; b('co-join').onclick = () => wait ? start() : queue(); b('co-cancel').onclick = () => cancel(); b('co-solo').onclick = solo; b('co-x').onclick = () => { $('colowin').hidden = true; badge(); }; } }
+  { const b = id => $(id); if (b('colowin')) { b('co-join').onclick = () => wait ? start() : queue(); b('co-cancel').onclick = () => cancel(); b('co-solo').onclick = solo; b('co-x').onclick = () => { $('colowin').hidden = true; badge(); }; } }
   return { open, tick, draw, inArena, cancel, lockSay() { if (time - lockT < 4) return; lockT = time; say('콜로세움 입장 대기 중에는 채팅만 할 수 있어요. (대기 취소는 콜로세움 창에서)', '#f0c080'); },
     bossDown(f) { if (!S || !S.s || S.ph !== 'fight' || !f || !f.coloBoss || !NET.zoneHost() || ADMIN.on()) return; S.gk = (S.gk || []).concat([[f.uid, f.kind]]).slice(-9); publish(); },   // 보스 처치 기록 → 안에 있는 모두가 그 보스 가호 완성품 1개 (gotGaho)
     entOut: () => entToday() > 0 ? { n: ent.n, d: ent.d } : null, entIn(o) { ent = o && o.d ? { n: Math.max(0, +o.n | 0), d: String(o.d) } : { n: 0, d: '' }; }, entLeft: () => Math.max(0, ENT_MAX - entToday()), busyN: () => fighters().length, cheer: () => cheerT > 0, dbg: () => S,
