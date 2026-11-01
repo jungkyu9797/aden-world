@@ -818,7 +818,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 214;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 215;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -9455,6 +9455,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 215, items: ["게임 창을 최소화하거나 다른 창·탭에 가려져도 사냥·보스 공격이 멈추지 않고 계속돼요. (전에는 화면이 안 보이면 게임이 거의 멈췄어요 · 그동안 화면은 그리지 않아서 컴퓨터는 덜 일해요)", "지역 호스트(그 지역 몬스터를 계산하는 사람)가 창을 내려도 같은 지역 다른 사람들의 몬스터가 멈추지 않아요."] },
     { v: 214, items: ["자동사냥을 켜면 화면 가운데에 \"현재 위치에서 자동사냥을 시작합니다 · 자동 복귀도 현재 위치로 진행합니다\" 안내가 4초 동안 크게 떠요."] },
     { v: 213, items: ["자동사냥이 마을에 다녀온 뒤(물약 정비·자동판매·사망 등) 자동사냥을 켠 그 자리 근처(4칸 안 빈 칸)로 돌아가요. 전에는 그 지역 아무 데나 도착해서, 몽환의 섬처럼 넓은 곳에서는 다른 속성 지역에서 사냥하기도 했어요.", "몽환의 섬에서 자동사냥 중 오늘 이용 시간을 다 쓰면 마을에서 자동사냥이 멈춰요.", "전설 재뽑기: 같은 전설 카드가 여러 장이고 장마다 재뽑기 횟수가 다르면, 재뽑기 칸에 횟수별로 따로 보여요. 재뽑기를 안 한 장은 300만 골드부터 고를 수 있어요. (전에는 횟수가 가장 많은 장으로만 계산돼서, 안 한 카드도 600만 골드가 들었어요)"] },
     { v: 212, items: ["속성 무기·마법으로 같은 속성 몬스터를 때려도 피해가 줄지 않아요. (예: 불 속성 3단 무기로 불 몬스터를 때리면 일반 몬스터와 같은 피해 · 전에는 속성 추가 피해가 0이 됐어요)", "같은 속성 공격 마법도 피해가 줄지 않아요. (예: 물 몬스터에게 콘 오브 콜드 · 전에는 절반)", "몽환의 섬 정령도 같은 속성 피해를 절반만 받던 것이 없어졌어요. 반대 속성(불↔물 · 땅↔바람)으로 때리면 지금처럼 더 아파요."] },
@@ -11404,8 +11405,15 @@ window.SAVER = (() => {
     buy(o) { if (!on || !S || !o || !(o.q > 0)) return; const k = o.id || '?', v = S.buys.get(k) || { n: 0, g: 0 }; v.n += o.q; v.g += o.g || 0; S.buys.set(k, v); },
     pvpHit(src) { if (!on || !home || SCENE === 'town') return; note('다른 유저에게 공격받아 마을로 귀환했어요.', '#ff8a70'); try { TOWN.goTown(); } catch (e) {} } };
 })();
+// 11/1 프로듀서: 게임 창을 최소화하거나 다른 창·탭에 가려지면 브라우저가 requestAnimationFrame을 멈춰(또는 1초에 한 번) 사냥·보스 공격·지역 호스트 몬스터가 멈추던 것
+//   → 워커 타이머(가려져도 안 느려짐)가 50ms마다 확인: 화면 프레임이 0.15초 넘게 안 왔으면 그리기 없이 게임만 한 걸음(frame · BGRUN) · 다시 보이면 원래대로 화면 프레임이 이어 감 (rAF는 화면 프레임에서만 예약 → 한 줄만 돎)
+let BGRUN = false, frameAt = performance.now(), rafAt = performance.now(), bgSteps = 0;   // rafAt: 마지막 화면 프레임 · frameAt: 마지막 게임 걸음(화면·백그라운드)
+{ const BG_GAP = 150, tick = () => { if (typeof BOTHOST !== 'undefined' && BOTHOST.on && BOTHOST.on()) return; const now = performance.now(); if (now - rafAt < BG_GAP) return;
+    const n = Math.min(w ? 3 : 20, Math.max(1, Math.round((now - frameAt) / 50))); /* 워커를 못 쓰면(일반 타이머는 가려지면 1초에 한 번) 한 번에 최대 1초어치 */ for (let k = 0; k < n; k++) { BGRUN = true; try { frame(now - (n - 1 - k) * 50); bgSteps++; } catch (e) { console.warn('bg frame', e); } finally { BGRUN = false; } } };
+  let w = null; try { w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' }))); w.onmessage = tick; } catch (e) { w = null; }
+  if (!w) setInterval(tick, 50); window.__bgInfo = () => ({ steps: bgSteps, timer: w ? 'worker' : 'interval' }); }
 function frame(now){
-  holdTick(); if (MOBILE) MUI.tick();
+  frameAt = performance.now(); if (!BGRUN) rafAt = frameAt; holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
   if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
@@ -11419,12 +11427,12 @@ function frame(now){
   const vw=Math.ceil(W/z), vh=Math.ceil(H/z), pw=Math.ceil(W*DPR), ph=Math.ceil(H*DPR);
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
-  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover) {   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BGRUN) {   /* BGRUN: 창이 안 보일 때 게임만 진행 (그리기 없음) · v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
   // GL: 새 그래픽(시험 · src/gl.js) — 켜져 있으면 세계는 WebGL2, UI는 지금처럼 2D 캔버스로 그 위에 · 기본은 꺼짐 · 못 쓰거나 실패하면 false → 아래 원래 그리기 그대로
   if (!(window.GLR && GLR.on() && !(typeof BOTHOST !== 'undefined' && BOTHOST && BOTHOST.on && BOTHOST.on()) && GLR.frame(drawWorld, drawUI, lc, ctx, low, cv, pw, ph, z*DPR, !pixel, vw, vh))) {
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); } }
-  curZ = z; requestAnimationFrame(frame);
+  curZ = z; if (!BGRUN) requestAnimationFrame(frame);
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
 const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https://jungkyu9797.github.io/aden-world/';   // 휴대폰 웹 주소 (GitHub Pages)
