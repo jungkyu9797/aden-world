@@ -817,7 +817,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 205;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 206;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2482,6 +2482,8 @@ const GLOG = (() => { const KEY = 'aden_glog', MAX = 200; let L = null; const g 
   const hx = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
   const keyOf = (t, at) => hx(t) + '_' + Math.floor(at / 120000);
   let srv = '', pullAt = 0, pulling = null, lastErr = '';
+  const SEEN = 'aden_glog_at'; let seenAt = 0; try { seenAt = +localStorage.getItem(SEEN) || 0; } catch (e) {}   // 11/1: 서버에서 받은 글 가운데 가장 늦은 시각 — 다음부터는 그보다 새 글만 받음 (예전엔 5분마다 200줄을 다 읽어 하루 5.7만 번 → Firestore 무료 한도 초과로 접속 불가)
+  const seen = at => { at = Math.min(at, Date.now()); if (at > seenAt) { seenAt = at; try { localStorage.setItem(SEEN, String(seenAt)); } catch (e) {} } };   // 시계가 앞선 사람의 글(미래 시각)로 기준이 앞서가지 않게
   const cloudOn = () => { try { return typeof CLOUD !== 'undefined' && CLOUD.on() && typeof CLOUD.query === 'function'; } catch (e) { return false; } };
   function share(x) { if (!cloudOn()) return; try { CLOUD.create('worldlog/' + keyOf(x.t, x.at), { t: x.t, c: x.c || '', at: String(x.at), u: CLOUD.uid() || '' }).then(ok => { if (ok && !srv) srv = 'on'; }).catch(e => { lastErr = String(e && e.message || e).slice(0, 80); }); } catch (e) {} }
   const dup = (x, y) => x.t === y.t && Math.abs(x.at - y.at) < 180000;
@@ -2489,13 +2491,13 @@ const GLOG = (() => { const KEY = 'aden_glog', MAX = 200; let L = null; const g 
     L.sort((a, b) => a.at - b.at); if (L.length > MAX) L.splice(0, L.length - MAX); save(); return n; }
   function pull(force) { if (!cloudOn()) { srv = ''; hdr(); return Promise.resolve(0); } if (pulling) return pulling; if (!force && Date.now() - pullAt < 45000) return Promise.resolve(0); pullAt = Date.now();
     let fill = []; try { fill = (ISLAND.spawnLog && ISLAND.spawnLog()) || []; } catch (e) {}
-    pulling = CLOUD.query('worldlog', 'at', MAX).then(rows => { srv = 'on'; const have = rows.map(r => ({ t: r.t, at: +r.at })); for (const f of fill) if (!have.some(y => dup(f, y))) share(f); const n = merge(rows.concat(fill)); if (isOpen()) render(); else hdr(); return n; })
+    const first = !seenAt || !load().length; pulling = CLOUD.query('worldlog', 'at', first ? 100 : 40, first ? null : String(seenAt - 60000)).then(rows => { srv = 'on'; for (const r of rows) seen(+r.at || 0); const have = rows.map(r => ({ t: r.t, at: +r.at })).concat(load()); for (const f of fill) if (!have.some(y => dup(f, y))) share(f); const n = merge(rows.concat(fill)); if (isOpen()) render(); else hdr(); return n; })   /* 처음(기록 없음)엔 최근 100줄 · 그 뒤엔 새 글만(마지막 시각 1분 전부터 · 시계 차이 여유) 40줄까지 · 이미 가진 글은 다시 안 올림 */
       .catch(e => { srv = 'off'; lastErr = String(e && e.message || e).slice(0, 80); merge(fill); hdr(); return 0; }).finally(() => { pulling = null; });
     return pulling; }
   function hdr() { const s = g('glog-src'); if (!s) return; s.textContent = srv === 'on' ? '서버 기록 · 모든 사람 공지가 모여요' : srv === 'off' ? '이 기기 기록 (서버에 닿지 않아요)' : '이 기기 기록'; s.dataset.st = srv || 'local'; }
   function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); const x = { at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }; L.push(x); if (L.length > MAX) L.splice(0, L.length - MAX); if (isOpen()) render(true); save(); if (!GLOG.mute) share(x); }
   function open(v) { const w = g('logwin'); if (!w) return; w.hidden = v === undefined ? !w.hidden : !v; if (!w.hidden) { render(); hdr(); const b = g('glog-list'); if (b) b.scrollTop = 0; pull(); } }
-  setTimeout(function tk() { if (window.__gameOn) pull(); setTimeout(tk, 5 * 60000); }, 20000);   // 게임을 켜고 20초 뒤 · 그 뒤 5분마다 서버 기록 받아 오기
+  setTimeout(function tk() { if (window.__gameOn && !document.hidden) pull(); setTimeout(tk, 10 * 60000); }, 20000);   // 게임을 켜고 20초 뒤 · 그 뒤 10분마다(화면이 보일 때만) 새 글만 받아 오기 — 11/1 읽기 수 ≈ 하루 150번
   { const b = g('btn-glog'); if (b) b.onclick = () => open(); }
   return { add, open, render, pull, mute: 0, src: () => srv, err: () => lastErr, list: () => load().slice() }; })();
 hero.lv = 1; hero.exp = 0; hero.baseHP = 16; hero.baseMP = 2; hero.hp = hero.max = 16; hero.mp = hero.maxmp = 2; hero.bonusPts = 0; let coins = 100, potions = 20, potCd = 0;
@@ -7651,7 +7653,8 @@ const CLOUD = (() => {
   async function del(path) { const r = await fetch(FS + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await token() } }); return r.ok; }
   // 창을 닫을 때: 응답을 기다릴 수 없어서 keepalive로 한 번 보냄 (토큰이 아직 유효할 때만, 64KB 이하)
   function beacon(path, o, merge, pre) { if (!S || Date.now() > S.exp) return false; const body = JSON.stringify(enc(o)); if (body.length > 60000) return false; const q = [merge ? mask(o) : '', pre ? 'currentDocument.updateTime=' + encodeURIComponent(pre) : ''].filter(Boolean).join('&'); try { fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.tok }, body }); return true; } catch (e) { return false; } }
-  async function query(col, ord, n) { const r = await fetch(FS.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], orderBy: [{ field: { fieldPath: ord }, direction: 'DESCENDING' }], limit: n } }) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(Array.isArray(j) ? j[0] : j, r.status); return (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => dec(x.document)); }   // 11/1: 월드 게임 기록 (worldlog) 최신순
+  async function query(col, ord, n, gt) { const sq = { from: [{ collectionId: col }], orderBy: [{ field: { fieldPath: ord }, direction: 'DESCENDING' }], limit: n }; if (gt != null) sq.where = { fieldFilter: { field: { fieldPath: ord }, op: 'GREATER_THAN', value: { stringValue: String(gt) } } };   /* 11/1: gt = 그 값보다 큰 문서만 (새 글만 받아 읽기 수를 줄임 — Firestore 무료 한도) */
+    const r = await fetch(FS.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify({ structuredQuery: sq }) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(Array.isArray(j) ? j[0] : j, r.status); return (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => dec(x.document)); }   // 11/1: 월드 게임 기록 (worldlog) 최신순
   return { ping, signUp, signIn, get, set, create, del, beacon, query, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
 })();
 // ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
@@ -9371,6 +9374,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 206, items: ["접속이 안 되던 문제를 고쳤어요. 게임 기록(서버 공지)을 5분마다 200줄씩 통째로 받아 와 서버 읽기 한도를 넘겼던 것을, 10분마다 새 글만 받도록 바꿨어요."] },
     { v: 205, items: ["전설 변신 카드(데스나이트·와이번·카스파·아크나이트·아크메이지·아크레인저)의 레벨 제한이 없어졌어요. 1레벨부터 변신할 수 있어요.", "요정은 1레벨부터 펫을 3마리까지 데리고 다닐 수 있어요. (40레벨이 되어도 3마리 그대로 · 다른 직업은 1마리, 40레벨부터 2마리)", "변신 창 [전설 재뽑기] 버튼에 재뽑기 비용이 보여요. (가진 전설 카드의 다음 비용 · 3번 다 한 카드는 [무료 고르기] · 골드가 모자라면 빨간 글자)"] },
     { v: 204, items: ["전설 무기의 가방·장비 칸 바탕이 깊은 파란색에서 황금빛 그라데이션으로 바뀌었어요.", "전설 무기의 가방·창고 칸 줄임말이 [집행] · [격노] · [수결]로 보여요. (다른 직업 전설 무기도 줄임말과 착용 직업이 함께 보여요)", "화룡의 둥지에서 아스타지오·이프리트 같은 큰 몬스터를 때리거나 대상으로 고르면 화면이 뚝뚝 끊기던 렉을 크게 줄였어요.", "채팅 기록이 길게 쌓였을 때 화면이 느려지던 것도 고쳤어요."] },
     { v: 203, items: ["변신 뽑기 결과 화면의 [다시 뽑기] 버튼에 이번에 쓸 골드와 지금 가진 골드가 보여요. (골드가 모자라면 빨간 글자)"] },

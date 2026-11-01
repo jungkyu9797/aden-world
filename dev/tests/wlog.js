@@ -8,7 +8,7 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   await p.evaluate(() => { const C = __T.CLOUD, now = Date.now(); window.__FS = new Map(); window.__FAIL = false;
     C.on = () => true; C.uid = () => 'uidA';
     C.create = async (path, o) => { if (window.__FAIL) throw new Error('PERMISSION_DENIED'); if (window.__FS.has(path)) return false; window.__FS.set(path, Object.assign({}, o)); return true; };
-    C.query = async (col, ord, n) => { if (window.__FAIL) throw new Error('PERMISSION_DENIED'); return [...window.__FS.entries()].filter(([k]) => k.startsWith(col + '/')).map(([, v]) => v).sort((a, b) => +b.at - +a.at).slice(0, n); };
+    C.query = async (col, ord, n, gt) => { if (window.__FAIL) throw new Error('PERMISSION_DENIED'); window.__QN = (window.__QN || 0) + 1; window.__QGT = gt; return [...window.__FS.entries()].filter(([k]) => k.startsWith(col + '/')).map(([, v]) => v).filter(v => gt == null || String(v[ord]) > String(gt)).sort((a, b) => +b.at - +a.at).slice(0, n); };
     localStorage.removeItem('aden_glog');
     // 내가 꺼져 있던 동안 친구가 올린 기록 2줄
     window.__FS.set('worldlog/x1', { t: '법사다님이 화룡의 둥지 1구역에서 영웅 아이템 이프리트의 심장을 획득했습니다!', c: '#c77dff', at: String(now - 3 * 3600e3), u: 'uidB' });
@@ -36,5 +36,8 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   console.log('hdr', h1, '|', h2); ok('⑥ 창에 서버 기록 / 이 기기 기록 표시', /서버 기록/.test(h1) && /이 기기 기록/.test(h2));
   ok('⑥ 서버가 막혀도 이 기기 기록은 그대로', await p.evaluate(() => __T.GLOG_.list().length >= 4));
   await p.evaluate(() => { window.__FAIL = false; return __T.GLOG_.pull(true); }); await p.waitForTimeout(300); await p.screenshot({ path: 'dev/out/wlog.png' });
+  // 11/1: 두 번째 받기부터는 '새 글만'(gt = 마지막 시각) · 받은 줄 수 작음 (Firestore 읽기 절약)
+  { const r = await p.evaluate(async () => { const n0 = (window.__FS.size); window.__FS.set('worldlog/new1', { t: '새 글 하나', c: '', at: String(Date.now()), u: 'x' }); await __T.GLOG_.pull(true); return { gt: window.__QGT, has: __T.GLOG_.list().some(x => x.t === '새 글 하나'), seen: +localStorage.getItem('aden_glog_at') }; });
+    console.log('incremental', JSON.stringify(r)); ok('⑦ 두 번째 받기는 마지막 시각 이후 새 글만 (gt 있음) · 새 글 받음 · 마지막 시각 저장', !!r.gt && r.has && r.seen > 0); }
   } catch (e) { console.log('TEST ERROR', e.message); R['테스트 끝까지'] = false; }
   console.log(errs.join('\n') || 'no errors'); const bad = Object.entries(R).filter(([, v]) => !v); console.log(bad.length || errs.length ? 'FAIL ' + bad.map(x => x[0]).join(', ') : '모두 통과'); await b.close(); })();
