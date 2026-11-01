@@ -9,3 +9,4 @@
 | 강화 연출 음악·"빵빵" 효과음 (`assets/sound/enh_slide.mp3`, `enh_bang.mp3`) | 프로듀서가 준 파일 | 사용 허락 확인 필요 | 2026-10-29 추가 |
 | 마을 배경음악 "Village Market Day" | 프로듀서가 Suno로 만듦 | — | |
 | 몽환의 섬 정령 효과음 16개 (`assets/sound/sfx/dr_<속성>_<attack·hit·death·cast>.mp3`) | 코드로 직접 합성 — 외부 음원 없음 (`dev/sfx_dream.py` · 잡음·사인파 + 필터) | — (직접 만듦) | 2026-11-01 추가 |
+| 몽환의 섬 유니콘·정령 그림 (`assets/dream/{unicorn,spirits_a,spirits_b,auras}.webp`) | dev/render_dream.py로 직접 만든 3D 렌더 — 외부 모델·그림 없음 (numpy SDF·볼륨 렌더 · 털 가닥·불꽃·물·바위·바람 모두 코드) | — (직접 만듦) | 2026-11-01 추가 |
