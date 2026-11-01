@@ -11,10 +11,12 @@
   'use strict';
   const LSG = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const QS = location.search;
-  let WANT = /[?&]gl=1\b/.test(QS) ? true : /[?&]gl=0\b/.test(QS) ? false : LSG('aden_gl') === '1';
+  // 'force': 소프트웨어 GL(SwiftShader 등 · 그래픽카드 없음)에서도 켬 — 시험용 (헤드리스 테스트). 보통은 소프트웨어 GL이면 켜지 않고 원래 그래픽.
+  const FORCE = /[?&]gl=force\b/.test(QS) || (!/[?&]gl=/.test(QS) && LSG('aden_gl') === 'force');
+  let WANT = /[?&]gl=(1|force)\b/.test(QS) ? true : /[?&]gl=0\b/.test(QS) ? false : /^(1|force)$/.test(LSG('aden_gl') || '');
   let FAILED = false, LOST = false, why = '';
   // ---------------------------------------------------------------- 통계 (한 프레임)
-  const ZST = () => ({ abs: 0, img: 0, imgR: 0, txt: 0, txtR: 0, txtNew: 0, rect: 0, rectR: 0, ell: 0, seg: 0, grad: 0, path: 0, other: 0, runs: 0, runPx: 0, defer: 0, batches: 0, quads: 0, up: 0, upPx: 0, approx: 0, ms: 0 });
+  const ZST = () => ({ tUp: 0, tRun: 0, tTxt: 0, abs: 0, img: 0, imgR: 0, txt: 0, txtR: 0, txtNew: 0, rect: 0, rectR: 0, ell: 0, seg: 0, grad: 0, path: 0, other: 0, runs: 0, runPx: 0, defer: 0, batches: 0, quads: 0, up: 0, upPx: 0, approx: 0, ms: 0 });
   let ST = ZST(), LAST = ZST();
   const why_ = {};   // 그림이 GL 대신 2D로 간 이유 (누적 · 개발용)
   const note = k => { why_[k] = (why_[k] || 0) + 1; };
@@ -104,8 +106,9 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
   const RAMP = { tex: null, m: new Map(), n: 0, H: 256, c: null, g: null };
   function init() { if (gl || FAILED) return !!gl;
     try { cvs = document.createElement('canvas'); cvs.id = 'glcv'; cvs.setAttribute('aria-hidden', 'true'); cvs.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;z-index:-1;pointer-events:none;display:none';
-      gl = cvs.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
-      if (!gl) throw new Error('WebGL2 없음');
+      gl = cvs.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: !FORCE });
+      if (!gl) throw new Error('WebGL2 없음 (또는 그래픽카드 없이 소프트웨어로만 돌아감)');
+      if (!FORCE) { let rn = ''; try { const d = gl.getExtension('WEBGL_debug_renderer_info'); rn = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : ''; } catch (e) {} if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(rn)) throw new Error('소프트웨어 GL (' + rn + ')'); }
       MAXT = Math.min(8192, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096); NS = Math.max(1, Math.min(+LSG('aden_gl_ns') || 15, 15, (gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) || 8) - 1));   // 한 배치 텍스처 수 (시험: localStorage aden_gl_ns)
       const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error('셰이더: ' + gl.getShaderInfoLog(o)); return o; };
       const vsh = sh(gl.VERTEX_SHADER, VS);
@@ -123,7 +126,7 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
       SMP = [mk(gl.NEAREST, gl.NEAREST, CE), mk(gl.LINEAR, gl.LINEAR, CE), mk(gl.LINEAR_MIPMAP_LINEAR, gl.LINEAR, CE), mk(gl.NEAREST, gl.NEAREST, RP), mk(gl.LINEAR, gl.LINEAR, RP)];
       white = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, white); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
       RAMP.tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + NS); gl.bindTexture(gl.TEXTURE_2D, RAMP.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, RAMP.H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); gl.bindSampler(NS, SMP[1]); gl.activeTexture(gl.TEXTURE0);
-      RAMP.c = document.createElement('canvas'); RAMP.c.width = 256; RAMP.c.height = 1; RAMP.g = RAMP.c.getContext('2d');
+      RAMP.c = document.createElement('canvas'); RAMP.c.width = 256; RAMP.c.height = 1; RAMP.g = RAMP.c.getContext('2d', { willReadFrequently: true });
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.enable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
       cvs.addEventListener('webglcontextlost', ev => { LOST = true; why = '컨텍스트 잃음'; hide(); try { console.warn('[GL] WebGL 컨텍스트를 잃어서 원래 그래픽으로 돌아갑니다'); } catch (e) {} });
       document.body.insertBefore(cvs, document.body.firstChild); patch(); return true;
@@ -141,7 +144,8 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
     if (e && e.b === bid) flush();
     if (!e) { e = { w: 0, h: 0, v: -1, t: null, ups: 0, mip: false, f: frameNo, b: 0, by: 0 }; TX.set(s, e); }
     upload(e, s, w, h, v, isC); e.f = frameNo; return e; }
-  function upload(e, s, w, h, v, isC) { const same = e.t && e.w === w && e.h === h; e.ups++; const mip = !isC || e.ups <= 2;   // 자주 바뀌는 캔버스는 밉맵 안 만듦
+  function upload(e, s, w, h, v, isC) { const t0 = performance.now(); try { upload_(e, s, w, h, v, isC); } finally { ST.tUp += performance.now() - t0; } }
+  function upload_(e, s, w, h, v, isC) { const same = e.t && e.w === w && e.h === h; e.ups++; const mip = !isC || e.ups <= 2;   // 자주 바뀌는 캔버스는 밉맵 안 만듦
     if (!same) { if (e.t) for (const q of e.t) gl.deleteTexture(q.tex); e.t = []; tAll -= e.by; e.by = 0;
       for (let y = 0; y < h; y += MAXT) for (let x = 0; x < w; x += MAXT) { const tw = Math.min(MAXT, w - x), th = Math.min(MAXT, h - y); e.t.push({ x, y, w: tw, h: th, tex: gl.createTexture() }); } }
     for (const q of e.t) { gl.bindTexture(gl.TEXTURE_2D, q.tex); gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, q.x); gl.pixelStorei(gl.UNPACK_SKIP_ROWS, q.y);
@@ -156,7 +160,7 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
   function rampRow(r) { if (!r.key) r.key = r.st.join('|'); let row = RAMP.m.get(r.key); if (row !== undefined) return row;
     if (RAMP.n >= RAMP.H) { flush(); RAMP.m.clear(); RAMP.n = 0; } row = RAMP.n++; const g = RAMP.g; g.clearRect(0, 0, 256, 1);
     const gr = g.createLinearGradient(0.5, 0, 255.5, 0); for (let i = 0; i < r.st.length; i += 2) gr.addColorStop(r.st[i], r.st[i + 1]); g.fillStyle = gr; g.fillRect(0, 0, 256, 1);
-    gl.activeTexture(gl.TEXTURE0 + NS); gl.bindTexture(gl.TEXTURE_2D, RAMP.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, 256, 1, gl.RGBA, gl.UNSIGNED_BYTE, RAMP.c); gl.activeTexture(gl.TEXTURE0);
+    gl.activeTexture(gl.TEXTURE0 + NS); gl.bindTexture(gl.TEXTURE_2D, RAMP.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, 256, 1, gl.RGBA, gl.UNSIGNED_BYTE, g.getImageData(0, 0, 256, 1).data); gl.activeTexture(gl.TEXTURE0);
     RAMP.m.set(r.key, row); return row; }
 
   // ---------------------------------------------------------------- 배치
@@ -197,8 +201,7 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
   function runFlush() { if (!RUN.open) return; RUN.open = false;
     const x0 = Math.max(0, Math.floor(RUN.x0)), y0 = Math.max(0, Math.floor(RUN.y0)), x1 = Math.min(PW, Math.ceil(RUN.x1)), y1 = Math.min(PH, Math.ceil(RUN.y1)); if (x1 <= x0 || y1 <= y0) return;
     const w = x1 - x0, h = y1 - y0; flush();
-    gl.bindTexture(gl.TEXTURE_2D, layer); gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0); gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y0);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, y0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, Vc); gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0); gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    const t0 = performance.now(); gl.bindTexture(gl.TEXTURE_2D, layer); gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, y0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, V.getImageData(x0, y0, w, h).data); ST.tRun += performance.now() - t0;   // 그 부분만 읽어서 올림 (캔버스 통째 복사 안 함)
     QX[0] = x0; QX[1] = y0; QX[2] = x1; QX[3] = y0; QX[4] = x1; QX[5] = y1; QX[6] = x0; QX[7] = y1; uvRect(x0 / layerW, y0 / layerH, x1 / layerW, y1 / layerH);
     emit(layer, 0, RUN.bl, null, 0, 1, 1, 1, 1, 0, 0, 0, 0); flush();
     if (DBG.on) (ST.rl || (ST.rl = [])).push([RUN.who, RUN.n, w, h, RUN.bl]);
@@ -218,7 +221,7 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
   function rOpen(x0, y0, x1, y1) { const st = C.st; let bl = BL[st.op]; if (bl === undefined || bl > 6) { bl = 0; ST.approx++; note('op:' + st.op); }
     if (RUN.open && RUN.bl !== bl && !st.clip) runFlush();
     if (!RUN.open) { RUN.open = true; RUN.bl = bl; RUN.x0 = 1e9; RUN.y0 = 1e9; RUN.x1 = -1e9; RUN.y1 = -1e9; RUN.n = 0; if (DBG.on) RUN.who = String(new Error().stack).split('\n').slice(3, 7).map(s => (/at (\S+)/.exec(s) || [])[1]).join('<'); }
-    RUN.n++;
+    RUN.n++; if (DBG.on) { const w = String(new Error().stack).split('\n').slice(3, 5).map(s => (/at (\S+)/.exec(s) || [])[1]).join('<'); (ST.rw || (ST.rw = {}))[w] = (ST.rw[w] || 0) + 1; }
     if (st.sh) { const k = Math.abs(V.shadowBlur) * 2 + Math.max(Math.abs(V.shadowOffsetX), Math.abs(V.shadowOffsetY)) * Math.max(Math.abs(st.m[0]), Math.abs(st.m[3]), 1) + 2; x0 -= k; y0 -= k; x1 += k; y1 += k; }
     if (st.F === false) { x0 -= 40; y0 -= 40; x1 += 40; y1 += 40; }   // 흐림·그림자 필터는 둘레로 번짐
     if (x0 < RUN.x0) RUN.x0 = x0; if (y0 < RUN.y0) RUN.y0 = y0; if (x1 > RUN.x1) RUN.x1 = x1; if (y1 > RUN.y1) RUN.y1 = y1;
@@ -337,15 +340,15 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
     fillText(t, x, y, mw) { this._t(0, t, x, y, mw); } strokeText(t, x, y, mw) { this._t(1, t, x, y, mw); }
     _t(sk, t, x, y, mw) { t = String(t); if (!t) return; const st = C.st, m = st.m, sty = sk ? V.strokeStyle : V.fillStyle;
       if (glOK() && m[1] === 0 && m[2] === 0 && m[0] > 0 && Math.abs(m[0] - m[3]) < 1e-6 && typeof sty === 'string' && mw === undefined) {
-        const s = m[0], dx = m[0] * x + m[4], dy = m[3] * y + m[5]; let ix = Math.floor(dx), iy = Math.floor(dy), fx = Math.round((dx - ix) * 4) / 4, fy = Math.round((dy - iy) * 4) / 4; if (fx >= 1) { ix++; fx = 0; } if (fy >= 1) { iy++; fy = 0; }
-        const key = (sk ? 'S' + V.lineWidth + V.lineJoin : 'F') + '|' + V.font + '|' + V.textAlign + V.textBaseline + '|' + sty + '|' + s.toFixed(3) + '|' + fx + ',' + fy + '|' + t;
+        const s = m[0], ix = Math.round(m[0] * x + m[4]), iy = Math.round(m[3] * y + m[5]), fx = 0, fy = 0;   // 글자는 기기 픽셀에 맞춰 찍음 (올라가는 피해 숫자가 프레임마다 새로 그려지지 않게 · 2D와 0.5px 안 차이)
+        const key = (sk ? 'S' + V.lineWidth + V.lineJoin : 'F') + '|' + V.font + '|' + V.textAlign + V.textBaseline + '|' + sty + '|' + s.toFixed(3) + '|' + t;
         let e = TA.m.get(key);
         if (!e) { const M = V.measureText(t), pad = Math.ceil((sk ? V.lineWidth / 2 : 0) * s + 2), L = M.actualBoundingBoxLeft || 0, R = M.actualBoundingBoxRight || 0, A = M.actualBoundingBoxAscent || 0, D = M.actualBoundingBoxDescent || 0;
           const ox = Math.ceil(pad + L * s), oy = Math.ceil(pad + A * s), w = ox + Math.ceil(R * s + pad) + 1, h = oy + Math.ceil(D * s + pad) + 1;
           const fits = w > 0 && h > 0 && w <= 1024 && h <= 512; let p = fits ? taPut(w, h) : null; if (!p && fits) { taReset(); p = taPut(w, h); }
           if (p) { const g = TA.g; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w + 2, h + 2); g.setTransform(s, 0, 0, s, ox + fx, oy + fy); g.font = V.font; g.textAlign = V.textAlign; g.textBaseline = V.textBaseline;
             if (sk) { g.lineWidth = V.lineWidth; g.lineJoin = V.lineJoin; g.miterLimit = V.miterLimit; g.strokeStyle = sty; g.strokeText(t, 0, 0); } else { g.fillStyle = sty; g.fillText(t, 0, 0); }
-            gl.bindTexture(gl.TEXTURE_2D, TA.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, p[0], p[1], w, h, gl.RGBA, gl.UNSIGNED_BYTE, TA.c); ST.txtNew++;
+            const t0 = performance.now(); gl.bindTexture(gl.TEXTURE_2D, TA.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, p[0], p[1], w, h, gl.RGBA, gl.UNSIGNED_BYTE, g.getImageData(0, 0, w, h).data); ST.txtNew++; ST.tTxt += performance.now() - t0;
             e = { x: p[0], y: p[1], w, h, ox, oy }; if (TA.m.size > 6000) taReset(); TA.m.set(key, e); } }
         if (e) { const X = ix - e.ox, Y = iy - e.oy, S = TA.S, A = st.a; QX[0] = X; QX[1] = Y; QX[2] = X + e.w; QX[3] = Y; QX[4] = X + e.w; QX[5] = Y + e.h; QX[6] = X; QX[7] = Y + e.h;
           if (!gOpen(X, Y, X + e.w, Y + e.h)) { ST.txt++; uvRect(e.x / S, e.y / S, (e.x + e.w) / S, (e.y + e.h) / S); emit(TA.tex, 0, st.bl, st.F, 0, A, A, A, A, 0, 0, 0, 0); return; } } }
@@ -395,8 +398,8 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
   function begin(pw, ph, s, smooth, cv) {
     if (cvs.width !== pw || cvs.height !== ph) { cvs.width = pw; cvs.height = ph; }
     if (layerW !== pw || layerH !== ph) { if (layer) gl.deleteTexture(layer); layer = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, layer); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, pw, ph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); layerW = pw; layerH = ph; }
-    if (!V || Vc.width !== pw || Vc.height !== ph) { if (!Vc) Vc = document.createElement('canvas'); Vc.width = pw; Vc.height = ph; V = Vc.getContext('2d'); }
-    if (!TA.tex) { TA.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, TA.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TA.S, TA.S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); TA.c = document.createElement('canvas'); TA.c.width = 1026; TA.c.height = 514; TA.g = TA.c.getContext('2d'); }
+    if (!V || Vc.width !== pw || Vc.height !== ph) { if (!Vc) Vc = document.createElement('canvas'); Vc.width = pw; Vc.height = ph; V = Vc.getContext('2d', { willReadFrequently: true }); }   // 보조 캔버스: 작은 부분만 자주 읽으므로 CPU 캔버스
+    if (!TA.tex) { TA.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, TA.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TA.S, TA.S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); TA.c = document.createElement('canvas'); TA.c.width = 1026; TA.c.height = 514; TA.g = TA.c.getContext('2d', { willReadFrequently: true }); }
     if (frameNo - cssAt > 30 || cssKey !== pw + 'x' + ph) { cssAt = frameNo; cssKey = pw + 'x' + ph; const r = cv.getBoundingClientRect(), S = cvs.style; S.left = r.left + 'px'; S.top = r.top + 'px'; S.width = r.width + 'px'; S.height = r.height + 'px'; }
     if (cvs.style.display !== 'block') cvs.style.display = 'block';
     PW = pw; PH = ph; ST = ZST(); ST.t0 = performance.now();
@@ -418,10 +421,11 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
     if (!on() || !init()) return false; LA = arguments;
     try { drawWorld(begin(pw, ph, s, smooth, cv), vw, vh); end(); }
     catch (e) { FAILED = true; why = String(e && e.stack || e); hide(); try { console.warn('[GL] 그리다 오류가 나서 원래 그래픽으로 돌아갑니다:', e); } catch (x) {} return false; }
-    lc.setTransform(1, 0, 0, 1, 0, 0); lc.clearRect(0, 0, low.width, low.height); lc.setTransform(s, 0, 0, s, 0, 0);
-    drawUI(lc, vw, vh); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(low, 0, 0); return true; }
+    // UI(아래 칸·HUD)는 화면 캔버스에 바로 2D로 (투명 바탕 · GL 화면 위에 겹침) — 2D 판처럼 low에 그려 통째로 복사하지 않음
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.setTransform(s, 0, 0, s, 0, 0); ctx.imageSmoothingEnabled = smooth; ctx.imageSmoothingQuality = 'high';
+    try { drawUI(ctx, vw, vh); } finally { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none'; } return true; }
   function on() { return WANT && !FAILED && !LOST; }
-  function set(v) { WANT = !!v; try { localStorage.setItem('aden_gl', WANT ? '1' : '0'); } catch (e) {} if (!WANT) hide(); syncBtn(); return on(); }
+  function set(v) { WANT = !!v; try { localStorage.setItem('aden_gl', WANT ? (FORCE ? 'force' : '1') : '0'); } catch (e) {} if (!WANT) hide(); syncBtn(); return on(); }
   // 시험용: 멈춘 장면을 GL 켬/끔으로 다시 한 번 그림 (dev/tests/gl_parity.js)
   function redraw(useGL) { const A = LA; if (!A) return 'GL 프레임이 아직 없음'; const [dw, du, lc, ctx, low, , , , s, smooth, vw, vh] = A;
     if (useGL) { const w0 = WANT; WANT = true; const ok = frame(...A); WANT = w0; return ok ? { ...LAST } : 'fail: ' + why; }

@@ -1,17 +1,24 @@
 // 새 그래픽(WebGL) 시험용 장면 — gl_bench.js · gl_parity.js 공용
 //   화룡의 둥지 2구역(23) · 나 + '다른 유저 대역' 29명(같은 페이지 안 BroadcastChannel로 접속 정보를 흉내 · ?mp=bc) + 몹(시트 그림 몹 위주) + 계속 나는 타격 효과(피해 숫자·번쩍임·마법 타격)
 //   다른 유저 대역: 직업 섞음 · 장비 무작위 · 일부는 걸어 다니고 1.2~2초마다 공격 동작
-const login = require('../tq.js');
+// 로그인 (dev/tq.js와 같은 순서 · 페이지 주소만 바꿀 수 있게: 비교용 main 판은 dev/out/mainref/_kt2.html)
+async function login(p, { cls = 'knight', name, page = '/_kt2.html', q = '?mp=bc' } = {}) {
+  await p.goto('http://127.0.0.1:' + (process.env.KT_PORT || 8766) + page + q);
+  await p.waitForSelector('#lg-mode', { state: 'visible' }); await p.click('#lg-mode');
+  const acc = 't' + Date.now() % 1e7; await p.fill('#lg-acc', acc); await p.fill('#lg-pw', 'abcd'); await p.fill('#lg-pw2', 'abcd'); await p.click('#lg-go');
+  await p.waitForSelector(`.cs-card[data-cls="${cls}"]`, { state: 'visible', timeout: 30000 }); await p.click(`.cs-card[data-cls="${cls}"]`); await p.click('#cs-start');
+  await p.waitForSelector('#nm-in', { state: 'visible' }); await p.fill('#nm-in', name || 'n' + Date.now() % 1e5); await p.click('#nm-go');
+  await p.waitForFunction(() => window.__gameOn && window.__T && __T.SCENE === 'town', null, { timeout: 30000 }); await p.waitForTimeout(300); return p; }
+exports.login = login;
 exports.ARGS = [];   // 헤드리스 기본값으로도 WebGL2가 SwiftShader(소프트웨어 GL)로 켜짐 · --ignore-gpu-blocklist 등을 주면 2D 캔버스까지 SwiftShader로 가속돼 프레임이 수십 초가 됨(11/1 실측) — 그래서 안 줌
-exports.setup = async function setup(p, { chars = 30, mobs = 30, fx = true, zone = 23, still = false } = {}) {
-  await login(p, { cls: 'knight', name: 'glB', mp: true });
+exports.setup = async function setup(p, { chars = 30, mobs = 30, fx = true, zone = 23, still = false, page } = {}) {
+  await login(p, { cls: 'knight', name: 'glB', page });
   await p.evaluate(() => { __T.GOD_INV = true; __T.hero.lv = 60; document.querySelectorAll('.gw').forEach(w => w.hidden = true); });
   await p.evaluate(z => __T.TOWN.toZone(z), zone); await p.waitForFunction(z => __T.ISLE && __T.ISLE.id === z && __T.SCENE === 'field', zone, { timeout: 60000 });
-  await p.waitForTimeout(2500);
+  await p.waitForFunction(() => { const I = __T.ISLE, G = I && I.ground; return G && (G.baked || !(I.def.hills && I.def.hills.length)); }, null, { timeout: 90000, polling: 500 }).catch(() => console.log('  (바닥 굽기 기다림 시간 넘김)'));   // 언덕 바닥 굽기(배경 작업)가 끝난 뒤에 잼
+  await p.waitForTimeout(1000);
   const info = await p.evaluate(({ chars, mobs, still }) => { const T = __T, H = T.hero, I = T.ISLE, N = I.N;
-    // 나: 지역 가운데 근처 걸을 수 있는 칸
-    let at = null; for (let r = 0; r < 20 && !at; r++) for (let di = -r; di <= r && !at; di++) for (let dj = -r; dj <= r && !at; dj++) { const i = Math.floor(N / 2) + di, j = Math.floor(N / 2) + dj; if (I.walk && I.walk[j] && I.walk[j][i] === 0) continue; at = [i, j]; }
-    T.TOWN.placeAt(N / 2 + 0.5, N / 2 + 0.5);
+    T.TOWN.placeAt(N / 2 + 0.5, N / 2 + 0.5);   // 나: 지역 가운데
     for (let q = T.foxes.length - 1; q >= 0; q--) if (!T.MOB[T.foxes[q].kind].boss) T.foxes.splice(q, 1);   // 원래 몹은 치우고 (보스는 둠)
     const K = ['fn_warrior', 'fn_archer', 'fn_golem', 'fn_salamander', 'fn_hcerberus', 'fn_warrior', 'fn_archer', 'fn_fly'], arts = {};
     for (let n = 0; n < mobs; n++) { const k = K[n % K.length], a = n / mobs * Math.PI * 2 + 0.3, rr = 3.2 + (n % 3) * 1.6; const m = T.mkMob(k, Math.round(H.x + Math.cos(a) * rr * 1.3), Math.round(H.z + Math.sin(a) * rr));
