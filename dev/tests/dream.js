@@ -77,7 +77,7 @@ const Z = 24;
   const ag = await p.evaluate(() => { const T = __T, M = T.MOB; return { sp: !M.dr_fire.aggr, gr: M.dr_gfire.aggr >= 6, uni: !M.unicorn.aggr, same: T.dreamElMul(M.dr_fire, 'fire'), opp: T.dreamElMul(M.dr_fire, 'water'), other: T.dreamElMul(M.dr_fire, 'earth'), none: T.dreamElMul(M.fn_salamander, 'water'), w: T.dreamElMul(M.dr_gwind, 'earth'), hp: [M.dr_fire.hp, M.dr_gfire.hp, M.unicorn.hp], dmg: [M.dr_fire.dmg, M.dr_gfire.dmg], exp: [M.dr_fire.exp, M.dr_gfire.exp], sc: [M.dr_fire.sc, M.dr_gfire.sc] }; });
   console.log('mob', JSON.stringify(ag));
   ok(ag.sp && ag.gr && ag.uni, '정령 비선공 · 대정령 선공 6칸 · 유니콘 비선공');
-  ok(ag.same === 0.5 && ag.opp === 1.3 && ag.other === 1 && ag.none === 1 && ag.w === 1.3, `속성 배율 같은 0.5 · 반대 1.3 · 다른 1 (${ag.same} ${ag.opp} ${ag.other})`);
+  ok(ag.same === 1 && ag.opp === 1.3 && ag.other === 1 && ag.none === 1 && ag.w === 1.3, `속성 배율 같은 1(11/1부터 안 줄어듦) · 반대 1.3 · 다른 1 (${ag.same} ${ag.opp} ${ag.other})`);
   ok(ag.hp[0] === 9000 && ag.hp[1] === 13500 && ag.hp[2] === 300000 && ag.exp[0] === 42450 && ag.exp[1] === 84900 && ag.sc[1] === 1.5, '수치: 정령 HP 9000 · 대정령 13500 · 유니콘 300000 · 경험치 ×3/×6 · 대정령 1.5배');
   // 근접 속성 추가 피해: 정령을 바로 옆에 두고 때리게 → 'elem' 피해가 따로 들어옴 (무적 끔 · HP 넉넉히)
   const melee = await p.evaluate(async () => { const T = __T, H = T.hero; T.GOD_INV = false; H.baseHP = 20000; T.INV.render(); H.hp = H.max; const f = T.foxes.find(m => m.kind === 'dr_fire' && !m.dead); const at = [H.i + 1, H.j]; f.i = f.fi = at[0]; f.j = f.fj = at[1]; f.x = at[0] + .5; f.z = at[1] + .5; f.t = 1; f.home = at; f.aggro = true; f.cool = 0;
