@@ -12,7 +12,7 @@
   const LSG = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const QS = location.search;
   // 'force': 소프트웨어 GL(SwiftShader 등 · 그래픽카드 없음)에서도 켬 — 시험용 (헤드리스 테스트). 보통은 소프트웨어 GL이면 켜지 않고 원래 그래픽.
-  const FORCE = /[?&]gl=force\b/.test(QS) || (!/[?&]gl=/.test(QS) && LSG('aden_gl') === 'force');
+  const FORCE = /[?&]gl=force\b/.test(QS) || (!/[?&]gl=/.test(QS) && LSG('aden_gl') === 'force') || LSG('aden_gl_force') === '1';   // aden_gl_force: 시험용 (꺼진 채 시작해서 나중에 켜기)
   let WANT = /[?&]gl=(1|force)\b/.test(QS) ? true : /[?&]gl=0\b/.test(QS) ? false : /^(1|force)$/.test(LSG('aden_gl') || '');
   let FAILED = false, LOST = false, why = '';
   // ---------------------------------------------------------------- 통계 (한 프레임)
@@ -30,6 +30,12 @@
         P[k] = function () { bump(this.canvas); return o.apply(this, arguments); }; } }
     for (const Cn of [window.HTMLCanvasElement, window.OffscreenCanvas]) { if (!Cn) continue; for (const k of ['width', 'height']) { const d = Object.getOwnPropertyDescriptor(Cn.prototype, k); if (!d || !d.set) continue;
       Object.defineProperty(Cn.prototype, k, { configurable: true, enumerable: d.enumerable, get: d.get, set(v) { this.__glv = (this.__glv | 0) + 1; d.set.call(this, v); } }); } }
+  }
+
+  // 11/1 고침: 그라데이션·무늬 기록은 페이지를 열 때 항상 설치 (게임 도중에 새 그래픽을 켜면 그 전에 만들어 둔 바닥 무늬 등을 몰라서 화면 전체를 2D로 그려 올리느라 프레임이 1/5로 떨어졌음)
+  //   가벼움: 만들 때 WeakMap에 한 줄 적는 것뿐 · 그림은 그대로 (새 그래픽 꺼짐이면 쓰지 않음)
+  let recd = false;
+  function patchRec() { if (recd) return; recd = true;
     // 그라데이션·무늬: 어느 캔버스에서 만들었든 만든 값을 기억 (진짜 CanvasGradient/CanvasPattern 그대로 · GL로 칠할 때 씀)
     const GP = window.CanvasGradient && CanvasGradient.prototype, PP = window.CanvasPattern && CanvasPattern.prototype;
     if (GP) { const add = GP.addColorStop; GP.addColorStop = function (o, c) { add.call(this, o, c); const r = GREC.get(this); if (r) { r.st.push(+o, String(c)); r.key = null; } }; }
@@ -38,7 +44,8 @@
       const cl = P.createLinearGradient, cr = P.createRadialGradient, cp = P.createPattern;
       P.createLinearGradient = function (x0, y0, x1, y1) { const g = cl.call(this, x0, y0, x1, y1); GREC.set(g, { type: 'L', a: [x0, y0, x1, y1], st: [], key: null }); return g; };
       P.createRadialGradient = function (x0, y0, r0, x1, y1, r1) { const g = cr.call(this, x0, y0, r0, x1, y1, r1); GREC.set(g, { type: 'R', a: [x0, y0, r0, x1, y1, r1], st: [], key: null }); return g; };
-      P.createPattern = function (img, rep) { const p = cp.call(this, img, rep); if (p) PREC.set(p, { img, rep: rep || 'repeat', xf: false }); return p; }; } }
+      P.createPattern = function (img, rep) { const p = cp.call(this, img, rep); if (p) PREC.set(p, { img, rep: rep || 'repeat', xf: false }); return p; }; }
+  }
 
   // ---------------------------------------------------------------- 색 필터 → 색 행렬 (CSS Filter Effects 규격 그대로 · 단계마다 0~1로 자름 = 크롬과 같음)
   const FPC = new Map();
@@ -498,7 +505,12 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     lineTo(x, y) { vs(); V.lineTo(x, y); pt(x, y); const m = C.st.m, X = m[0] * x + m[2] * y + m[4], Y = m[1] * x + m[3] * y + m[5]; ppL(X, Y);
       if (PK.k === 0) { if (PK.mv) { PK.k = 3; PK.cx = PK.mx; PK.cy = PK.my; PK.ax = X; PK.ay = Y; } else { PK.mv = true; PK.mx = X; PK.my = Y; } } else PK.k = -1; }
     rect(x, y, w, h) { vs(); V.rect(x, y, w, h); box(x, y, x + w, y + h); ppM(dvX(x, y), dvY(x, y)); ppL(dvX(x + w, y), dvY(x + w, y)); ppL(dvX(x + w, y + h), dvY(x + w, y + h)); ppL(dvX(x, y + h), dvY(x, y + h)); PP.cur.c = true; ppM(dvX(x, y), dvY(x, y)); if (PK.k === 0) { PK.k = 2; tx4(C.st.m, x, y, w, h, PK.q); } else PK.k = -1; }
-    roundRect(x, y, w, h, r) { vs(); V.roundRect(x, y, w, h, r); box(x, y, x + w, y + h); PK.k = -1; PP.bad = true; }
+    roundRect(x, y, w, h, r) { vs(); V.roundRect(x, y, w, h, r); box(x, y, x + w, y + h); PK.k = -1; this._rr(x, y, w, h, r); }
+    _rr(x, y, w, h, r) { let R = Array.isArray(r) ? r : [r === undefined ? 0 : r]; if (R.some(v => typeof v !== 'number' || !(v >= 0)) || R.length < 1 || R.length > 4 || !w || !h) { PP.bad = true; return; }   // 둥근 사각형도 점 목록으로 (말풍선 등)
+      const C4 = R.length === 1 ? [R[0], R[0], R[0], R[0]] : R.length === 2 ? [R[0], R[1], R[0], R[1]] : R.length === 3 ? [R[0], R[1], R[2], R[1]] : R; if (w < 0 || h < 0) { PP.bad = true; return; }
+      const k = Math.min(1, w / Math.max(1e-9, C4[0] + C4[1]), w / Math.max(1e-9, C4[3] + C4[2]), h / Math.max(1e-9, C4[0] + C4[3]), h / Math.max(1e-9, C4[1] + C4[2])), [a, b, c, d] = C4.map(v => v * k), m = C.st.m;
+      const arc = (cx, cy, rr, a0) => { if (rr > 0) ppArc(dvX(cx, cy), dvY(cx, cy), m[0] * rr, m[1] * rr, m[2] * rr, m[3] * rr, a0, a0 + Math.PI / 2, false); else ppL(dvX(cx, cy), dvY(cx, cy)); };
+      ppM(dvX(x + a, y), dvY(x + a, y)); arc(x + w - b, y + b, b, -Math.PI / 2); arc(x + w - c, y + h - c, c, 0); arc(x + d, y + h - d, d, Math.PI / 2); arc(x + a, y + a, a, Math.PI); PP.cur.c = true; ppM(dvX(x, y), dvY(x, y)); }
     arc(x, y, r, a0, a1, ccw) { vs(); V.arc(x, y, r, a0, a1, ccw); box(x - r, y - r, x + r, y + r); { const m = C.st.m; ppArc(dvX(x, y), dvY(x, y), m[0] * r, m[1] * r, m[2] * r, m[3] * r, a0, a1, ccw); } this._ell(x, y, r, r, 0, a0, a1); }
     ellipse(x, y, rx, ry, rot, a0, a1, ccw) { vs(); V.ellipse(x, y, rx, ry, rot, a0, a1, ccw); const R = Math.max(Math.abs(rx), Math.abs(ry)); box(x - R, y - R, x + R, y + R); { const m = C.st.m, cs = Math.cos(rot), sn = Math.sin(rot), ux = rx * cs, uy = rx * sn, vx = -ry * sn, vy = ry * cs; ppArc(dvX(x, y), dvY(x, y), m[0] * ux + m[2] * uy, m[1] * ux + m[3] * uy, m[0] * vx + m[2] * vy, m[1] * vx + m[3] * vy, a0, a1, ccw); } this._ell(x, y, rx, ry, rot, a0, a1); }
     _ell(x, y, rx, ry, rot, a0, a1) { if (PK.k !== 0 || !(Math.abs(a1 - a0) >= 6.28) || !(rx > 0) || !(ry > 0)) { PK.k = -1; return; }
@@ -617,7 +629,7 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     V.font = '10px sans-serif'; V.textAlign = 'start'; V.textBaseline = 'alphabetic'; V.beginPath();
     return CTX; }
   function end() { if (C.stack.length) { while (C.stack.length) CTX.restore(); note('unbalanced'); }
-    runFlush(); shFlush(); flush(); if (BLM.on && BLM.w) bloomEnd(); ST.ms = performance.now() - ST.t0; if (DBG.fin) { const t = performance.now(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, DBG.px || (DBG.px = new Uint8Array(4))); ST.gpu = performance.now() - t; } LAST = ST; frameNo++; if (frameNo % 60 === 0) sweep(); return true; }
+    runFlush(); shFlush(); flush(); if (BLM.on && BLM.w) bloomEnd(); if (DG.run) fenceTick(); ST.ms = performance.now() - ST.t0; if (DBG.fin) { const t = performance.now(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, DBG.px || (DBG.px = new Uint8Array(4))); ST.gpu = performance.now() - t; } LAST = ST; frameNo++; if (frameNo % 60 === 0) sweep(); return true; }
 
   // ---------------------------------------------------------------- 게임이 부르는 것 (game.js의 frame 한 군데: // GL:)
   let LA = null;   // 마지막 프레임 인자 (시험용 _redraw)
@@ -638,14 +650,39 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
   // 시험용: 마지막 프레임 크기로 fn(가짜 컨텍스트)만 그려 봄 (dev/tests/gl_shadow.js) → 그 프레임 통계
   function frameWith(fn) { const A = LA; if (!A || !init()) return 'GL 프레임이 아직 없음'; const cv = A[5], pw = A[6], ph = A[7], s = A[8], smooth = A[9]; const g = begin(pw, ph, s, smooth, cv); g.setTransform(1, 0, 0, 1, 0, 0); fn(g); end(); return { ...LAST, pw, ph }; }
 
+
+  // ---------------------------------------------------------------- 진단 (테스트 페이지 ESC [새 그래픽 진단]) — 11/1 프로듀서 PC에서 켜면 끊김 → 실제 PC 숫자를 보려고
+  //   새 그래픽 켬 5초 → 끔 5초 동안 화면 갱신 간격(초당 프레임·고르기)·GL 그리기 CPU 시간·그래픽카드가 밀렸는지(펜스)·올린 그림 양을 재서 화면에 표로 띄움
+  const DG = { run: false, fence: null, fN: 0, fBusy: 0 };
+  function fenceTick() { if (!DG.run || !gl) return; try { if (DG.fence) { DG.fN++; if (gl.getSyncParameter(DG.fence, gl.SYNC_STATUS) !== gl.SIGNALED) DG.fBusy++; gl.deleteSync(DG.fence); } DG.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); gl.flush(); } catch (e) {} }
+  async function diag() { if (DG.run) return; DG.run = true; try { if (window.escMenu) window.escMenu(false); } catch (e) {}
+    const box = document.createElement('div'); box.id = 'gl-diag'; box.style.cssText = 'position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:99999;background:rgba(10,8,4,.92);color:#f0e0b0;font:12px/1.5 monospace;padding:10px 14px;border:1px solid #c8a050;border-radius:6px;white-space:pre;max-width:94vw;overflow:auto';
+    box.textContent = '새 그래픽 진단 중… (10초 · 움직이지 말고 기다려 주세요)'; document.body.appendChild(box);
+    const w0 = WANT, measure = ms => new Promise(res => { const iv = [], cpu = [], up = [], rn = [], bt = [], sh = []; let last = 0; DG.fN = 0; DG.fBusy = 0; const t0 = performance.now();
+      const tick = t => { if (last) iv.push(t - last); last = t; if (on() && LAST) { cpu.push(LAST.ms || 0); up.push(LAST.upPx || 0); rn.push(LAST.runs || 0); bt.push(LAST.batches || 0); sh.push(LAST.shadow || 0); }
+        if (performance.now() - t0 < ms) requestAnimationFrame(tick); else res({ iv, cpu, up, rn, bt, sh, busy: DG.fN ? DG.fBusy / DG.fN : null }); };
+      requestAnimationFrame(tick); });
+    const sum = r => { const a = r.iv.slice(5).sort((x, y) => x - y), n = a.length, avg = a.reduce((s, x) => s + x, 0) / Math.max(1, n), pct = p => a[Math.min(n - 1, Math.floor(n * p))] || 0, A = k => r[k].length ? r[k].reduce((s, x) => s + x, 0) / r[k].length : 0;
+      return { fps: +(1000 / avg).toFixed(1), p50: +pct(0.5).toFixed(1), p90: +pct(0.9).toFixed(1), max: +(a[n - 1] || 0).toFixed(1), slow: n ? +(a.filter(x => x > 25).length / n * 100).toFixed(0) : 0, cpu: +A('cpu').toFixed(1), upKB: Math.round(A('up') * 4 / 1024), runs: +A('rn').toFixed(1), batches: +A('bt').toFixed(0), busy: r.busy == null ? '-' : Math.round(r.busy * 100) + '%' }; };
+    let on_, off_; try { WANT = true; syncBtn(); await new Promise(r => setTimeout(r, 1200)); on_ = sum(await measure(5000)); WANT = false; hide(); syncBtn(); await new Promise(r => setTimeout(r, 800)); off_ = sum(await measure(5000)); }
+    finally { WANT = w0; if (!WANT) hide(); syncBtn(); DG.run = false; }
+    const I = GLR.info(), L = (k, a, b) => k.padEnd(18) + String(a).padStart(18) + String(b).padStart(18);
+    box.textContent = ['새 그래픽 진단 결과 (이 화면을 찍어서 WebGL 방에 보내 주세요)', '그래픽카드: ' + (I.renderer || '-') + (I.failed || I.lost ? ' · 실패: ' + I.why : ''),
+      '화면: ' + innerWidth + 'x' + innerHeight + ' · 배율 ' + devicePixelRatio + ' · GL 캔버스 ' + PW + 'x' + PH + ' · MSAA ' + ((gl && gl.getContextAttributes().antialias) ? '켬' : '끔') + ' · 빛 번짐 ' + (BLM.on ? BLM.k : '끔'),
+      '', L('', '새 그래픽', '원래'), L('초당 프레임', on_.fps, off_.fps), L('간격 중간/90%/최악 ms', on_.p50 + '/' + on_.p90 + '/' + on_.max, off_.p50 + '/' + off_.p90 + '/' + off_.max), L('25ms 넘은 프레임', on_.slow + '%', off_.slow + '%'),
+      L('GL 그리기 CPU ms', on_.cpu, '-'), L('그래픽카드 밀림', on_.busy, '-'), L('그림 올림 KB/프레임', on_.upKB, '-'), L('2D 묶음/프레임', on_.runs, '-'), L('배치/프레임', on_.batches, '-'), L('텍스처 MB', I.texMB + ' (' + I.tex + '장)', '-'), '', '(아무 곳이나 누르면 닫힘)'].join('\n');
+    box.onclick = () => box.remove(); return { on: on_, off: off_, info: I }; }
+
   // ---------------------------------------------------------------- 테스트 페이지(DEMO) ESC 메뉴 버튼 [새 그래픽(시험)]
   function syncBtn() { const b = document.getElementById('esc-gl'); if (!b) return; b.textContent = '새 그래픽(시험): ' + (on() ? '켬' : FAILED || LOST ? '못 씀 (원래 그래픽)' : '끔'); b.setAttribute('aria-pressed', on() ? 'true' : 'false'); }
   function addBtn() { if (!window.DEMO_MODE || document.getElementById('esc-gl')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
-    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-gl'; b.title = 'WebGL로 화면을 그리는 시험 기능 (테스트 페이지 전용)'; b.onclick = () => { set(!WANT); }; ref.parentNode.insertBefore(b, ref.nextSibling); syncBtn(); }
+    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-gl'; b.title = 'WebGL로 화면을 그리는 시험 기능 (테스트 페이지 전용)'; b.onclick = () => { set(!WANT); }; ref.parentNode.insertBefore(b, ref.nextSibling);
+    const d = document.createElement('button'); d.type = 'button'; d.id = 'esc-gldiag'; d.textContent = '새 그래픽 진단 (10초)'; d.title = '새 그래픽 켬/끔 속도를 재서 보여 줌'; d.onclick = () => { diag(); }; b.parentNode.insertBefore(d, b.nextSibling); syncBtn(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBtn); else addBtn();
+  patchRec();   // 무늬·그라데이션 기록은 늘 (게임 도중에 켜도 바닥 무늬 등을 GL로)
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();
