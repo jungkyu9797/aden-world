@@ -4,7 +4,7 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
 (async () => { const b = await chromium.launch(); const errs = []; try {
   const ctx = await b.newContext({ viewport: { width: 1000, height: 700 } }); const pg = [];
   for (const nm of ['coA', 'coB']) { const q = await ctx.newPage(); q.on('pageerror', e => errs.push(nm + ': ' + e.message)); await login(q, { cls: 'knight', name: nm, mp: true }); pg.push(q); }
-  for (const q of pg) await q.evaluate(() => { const T = __T; T.GOD_INV = true; T.hero.lv = 60; T.INV.load({ bag: [{ id: 'lg_sword', n: 1, en: 5, on: 'weapon' }, { id: 'col_ticket', n: 1 }], bonus: { str: 30, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); window.__COLO.open(true); });
+  for (const q of pg) await q.evaluate(() => { const T = __T; T.GOD_INV = true; T.hero.lv = 60; T.INV.load({ bag: [{ id: 'lg_sword', n: 1, en: 5, on: 'weapon' }], bonus: { str: 30, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); window.__COLO.open(true); });
   await pg[0].waitForTimeout(1500);
   for (const q of pg) await q.evaluate(() => document.getElementById('co-join').click()); await pg[0].waitForTimeout(2500);
   await pg[0].evaluate(() => document.getElementById('co-join').click()); await pg[0].waitForTimeout(5000);
@@ -12,13 +12,19 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   const hi = (await Promise.all(pg.map(q => q.evaluate(() => __T.NET.hostHere())))).indexOf(true), H = pg[hi], G = pg[1 - hi]; ok('호스트 1명', hi >= 0);
   await H.evaluate(() => { const G = __T.GROUND, o = G.drop.bind(G); window.__DR = []; G.drop = (id, n, i, j) => { if (/potion/.test(id)) window.__DR.push([id, n]); return o(id, n, i, j); }; });
   const gah = q => q.evaluate(() => __T.INV.bag().filter(e => /^gaho_/.test(e.id)).reduce((a, e) => a + (e.n || 1), 0));
+  await H.evaluate(() => { const I = __T.ITEMS; window.__GH = {}; for (const k of Object.keys(I)) if (/^gaho_/.test(k) && I[k].gaho && k !== 'gaho_queen_ant') { window.__GH[k] = I[k].gaho; delete I[k].gaho; } });   // 1라운드 여왕개미 고정 → 소환
   await H.evaluate(() => { window.__COLO.dbg().t = 9.9; }); await H.waitForTimeout(2500);
+  await H.evaluate(() => { const I = __T.ITEMS; for (const [k, v] of Object.entries(window.__GH)) I[k].gaho = v; });
+  { let su = []; for (let q = 0; q < 30 && !su.length; q++) { await H.waitForTimeout(500); su = await H.evaluate(() => __T.foxes.filter(m => m.summoned && !m.dead && !m.gone).map(m => m.uid)); } await G.waitForTimeout(1500);
+    const gs = await G.evaluate(u => __T.foxes.filter(m => u.includes(m.uid) && !m.gone).length, su); console.log('summons', su.length, 'guest sees', gs); ok('여왕개미 일개미 소환 · 게스트 화면에도 보임', su.length > 0 && gs > 0); }
   const g0 = await Promise.all([gah(H), gah(G)]);
   await H.evaluate(async () => { const T = __T; for (let t = 0; t < 1500; t++) { const L = T.foxes.filter(f => f.coloBoss && !f.dead && !f.gone); if (!L.length) return; for (const f of L) { if (f.ashT > 0) { f.ashT = Math.min(f.ashT, 0.05); continue; } f.hp = 1; T.strike(f); } await new Promise(r => setTimeout(r, 30)); } });
   await H.waitForTimeout(4000); const g1 = await Promise.all([gah(H), gah(G)]); console.log('gaho', g0, g1);
   ok('보스 1마리 처치 → 호스트·게스트 모두 가호 완성품 +1', g1[0] - g0[0] === 1 && g1[1] - g0[1] === 1);
   const dr = await H.evaluate(() => { const L = window.__DR; return { o: L.filter(d => d[0] === 'orange_potion').reduce((a, d) => a + d[1], 0), c: L.filter(d => d[0] === 'clear_potion').reduce((a, d) => a + d[1], 0) }; }); console.log('pots', JSON.stringify(dr));
   ok('두 명이어도 물약은 각 50개', dr.o === 50 && dr.c === 50);
+  await G.waitForTimeout(1500); const gl = await Promise.all([H, G].map(q => q.evaluate(() => { const L = __T.GROUND.here(); return { all: L.length, loot: L.filter(d => !/potion/.test(d.id)).length }; }))); console.log('ground H/G', JSON.stringify(gl));
+  ok('보스 전리품이 물약과 함께 바닥에 남음 · 게스트 화면에도', gl[0].loot > 0 && gl[1].loot === gl[0].loot);
   const ph = await G.evaluate(() => { const S = window.__COLO.dbg(); return S && [S.ph, S.r]; }); ok('게스트 화면도 2라운드 준비', ph && ph[0] === 'cd' && ph[1] === 2);
   } catch (e) { console.log('TEST ERROR', e.message); R['테스트 끝까지'] = false; }
   console.log(errs.join('\n') || 'no errors'); const bad = Object.entries(R).filter(([, v]) => !v); console.log(bad.length || errs.length ? 'FAIL ' + bad.map(x => x[0]).join(', ') : '모두 통과'); await b.close(); })();
