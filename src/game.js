@@ -11358,8 +11358,10 @@ function frame(now){
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
   SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover) {   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  // GL: 새 그래픽(시험 · src/gl.js) — 켜져 있으면 세계는 WebGL2, UI는 지금처럼 2D 캔버스로 그 위에 · 기본은 꺼짐 · 못 쓰거나 실패하면 false → 아래 원래 그리기 그대로
+  if (!(window.GLR && GLR.on() && !(typeof BOTHOST !== 'undefined' && BOTHOST && BOTHOST.on && BOTHOST.on()) && GLR.frame(drawWorld, drawUI, lc, ctx, low, cv, pw, ph, z*DPR, !pixel, vw, vh))) {
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
-  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); }
+  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); } }
   curZ = z; requestAnimationFrame(frame);
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
