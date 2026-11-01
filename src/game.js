@@ -2165,10 +2165,11 @@ const GFOG = (() => { const c = document.createElement('canvas'); c.width = 512;
   return c; })();
 let GORE_C = null;
 function goreFx(g, vw, vh, ox, oy) { if (!ISLE || !ISLE.def.gore) return; g.save();
-  { if (!GORE_C) GORE_C = document.createElement('canvas'); if (GORE_C.width !== vw || GORE_C.height !== vh) { GORE_C.width = vw; GORE_C.height = vh; } const c = GORE_C.getContext('2d'); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, vw, vh); c.fillStyle = ISLE.def.fire ? 'rgba(206,96,56,.42)' : ISLE.def.valley ? 'rgba(186,108,72,.4)' : 'rgba(150,104,96,.42)'; c.fillRect(0, 0, vw, vh);
+  { const GLL = window.GLR && g === GLR.ctx && GLR.layer;   // GL: 새 그래픽이면 안개를 캔버스 대신 GL 층에 (매 프레임 캔버스 통째 올리기 없앰)
+    if (!GLL) { if (!GORE_C) GORE_C = document.createElement('canvas'); if (GORE_C.width !== vw || GORE_C.height !== vh) { GORE_C.width = vw; GORE_C.height = vh; } } const c = GLL ? GLR.layer('gore', vw, vh) : GORE_C.getContext('2d'); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, vw, vh); c.fillStyle = ISLE.def.fire ? 'rgba(206,96,56,.42)' : ISLE.def.valley ? 'rgba(186,108,72,.4)' : 'rgba(150,104,96,.42)'; c.fillRect(0, 0, vw, vh);
     c.globalCompositeOperation = 'destination-out'; const lit = (wx, wz, hh, hw) => { const [px, py] = W2P(wx, wz), X0 = px + ox, Y0 = py + oy - hh * 0.48, rx = hw + 18, ry = hh * 0.62 + 16; if (X0 < -rx || Y0 < -ry || X0 > vw + rx || Y0 > vh + ry) return; c.save(); c.translate(X0, Y0); c.scale(1, ry / rx); const lg = c.createRadialGradient(0, 0, rx * 0.2, 0, 0, rx); lg.addColorStop(0, 'rgba(0,0,0,.95)'); lg.addColorStop(0.7, 'rgba(0,0,0,.6)'); lg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = lg; c.beginPath(); c.arc(0, 0, rx, 0, 7); c.fill(); c.restore(); };
     for (const f of foxes) { if (f.dead || f.gone || !DN.seen(f.i, f.j)) continue; const S = MOB[f.kind]; lit(f.x, f.z, S.hh || Math.round(62 * S.sc), S.hw || Math.round(14 * S.sc + 6)); } lit(hero.x, hero.z, 74, 24);
-    g.globalCompositeOperation = 'multiply'; g.drawImage(GORE_C, 0, 0); }   // 안개 색: 보이는 몬스터·나 자리는 구멍
+    const gsrc = GLL ? GLR.layerEnd() : GORE_C; g.globalCompositeOperation = 'multiply'; g.drawImage(gsrc, 0, 0); }   // 안개 색: 보이는 몬스터·나 자리는 구멍
   g.globalCompositeOperation = 'source-over'; for (let q = 0; q < 4; q++) { const sp = 9 + q * 4, W = GFOG.width * (2.2 + q * 0.4), Hh = GFOG.height * (1.6 + q * 0.3), x = ((q * 331 + time * sp - cam[0] * 0.15) % (vw + W)) - W * 0.6, y = (q * 0.27 * vh + Math.sin(time * 0.2 + q) * 30 - cam[1] * 0.08) % vh;
     g.globalAlpha = 0.28 + 0.14 * Math.sin(time * 0.3 + q * 1.7); g.drawImage(GFOG, x, y - Hh * 0.3, W, Hh); g.drawImage(GFOG, x - vw - W * 0.4, y + vh * 0.35, W, Hh); }
   g.globalAlpha = 1; g.fillStyle = '#0a0806';

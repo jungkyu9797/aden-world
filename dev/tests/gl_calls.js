@@ -1,0 +1,7 @@
+// 새 그래픽(WebGL) 프레임당 GL 명령 수 (그래픽카드로 보내는 호출이 많으면 CPU가 먹힘) — KT_PORT=8769 bash dev/runkt.sh dev/tests/gl_calls.js
+const { chromium } = require('playwright'); const S = require('./gl_scene.js');
+(async () => { const b = await chromium.launch({ args: S.ARGS }); const p = await (await b.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
+  await p.addInitScript(() => { try { localStorage.setItem('aden_gl', 'force'); } catch (e) {} const P = WebGL2RenderingContext.prototype, C = window.__glc = {}; for (const k of Object.getOwnPropertyNames(P)) { const d = Object.getOwnPropertyDescriptor(P, k); if (!d || typeof d.value !== 'function') continue; const o = d.value; P[k] = function () { C[k] = (C[k] || 0) + 1; return o.apply(this, arguments); }; } });
+  await S.setup(p, { chars: 30, mobs: 30 }); await p.waitForFunction(() => { const s = GLR.stats(); return GLR.info().frame > 30 && s.upPx < 5e5; }, null, { timeout: 120000, polling: 1000 }).catch(() => {});
+  const r = await p.evaluate(() => new Promise(res => { const f0 = GLR.info().frame; for (const k in __glc) __glc[k] = 0; setTimeout(() => { const n = GLR.info().frame - f0, o = {}; let tot = 0; for (const k in __glc) { tot += __glc[k]; if (__glc[k] / n >= 1) o[k] = +(__glc[k] / n).toFixed(1); } res({ frames: n, perFrame: +(tot / n).toFixed(0), top: Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 14), batches: GLR.stats().batches }); }, 5000); }));
+  console.log(JSON.stringify(r)); await b.close(); })();
