@@ -11,7 +11,7 @@ t = re.sub(r'<link rel="manifest".*?</head><body>', '</head><body>', t, count=1,
 k = '</style></head><body>'; assert t.count(k) == 1, 'head 끝을 못 찾음'
 t = t.replace(k, '</style>' + PWA + '</head><body>').replace('<title>클래식 사냥터</title>', '<title>아덴 월드</title>', 1)
 open('index.html', 'w', encoding='utf8').write(t)
-files = ['index.html', 'src/game.js', 'src/map_data.js', 'main.js', 'preload.js', 'update.json', 'manifest.webmanifest', 'sw.js']
+files = ['index.html', 'src/game.js', 'src/gl.js', 'src/map_data.js', 'main.js', 'preload.js', 'update.json', 'manifest.webmanifest', 'sw.js']
 for dp, dn, fn in os.walk('assets'):
     for f in fn: files.append(os.path.join(dp, f).replace(os.sep, '/'))
 assert (json.load(open('update.json')).get('base') or '').strip(), 'update.json base 비어 있음'
