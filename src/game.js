@@ -11401,8 +11401,15 @@ window.SAVER = (() => {
     buy(o) { if (!on || !S || !o || !(o.q > 0)) return; const k = o.id || '?', v = S.buys.get(k) || { n: 0, g: 0 }; v.n += o.q; v.g += o.g || 0; S.buys.set(k, v); },
     pvpHit(src) { if (!on || !home || SCENE === 'town') return; note('다른 유저에게 공격받아 마을로 귀환했어요.', '#ff8a70'); try { TOWN.goTown(); } catch (e) {} } };
 })();
+// 11/1 프로듀서: 게임 창을 최소화하거나 다른 창·탭에 가려지면 브라우저가 requestAnimationFrame을 멈춰(또는 1초에 한 번) 사냥·보스 공격·지역 호스트 몬스터가 멈추던 것
+//   → 워커 타이머(가려져도 안 느려짐)가 50ms마다 확인: 화면 프레임이 0.15초 넘게 안 왔으면 그리기 없이 게임만 한 걸음(frame · BGRUN) · 다시 보이면 원래대로 화면 프레임이 이어 감 (rAF는 화면 프레임에서만 예약 → 한 줄만 돎)
+let BGRUN = false, frameAt = performance.now(), rafAt = performance.now(), bgSteps = 0;   // rafAt: 마지막 화면 프레임 · frameAt: 마지막 게임 걸음(화면·백그라운드)
+{ const BG_GAP = 150, tick = () => { if (typeof BOTHOST !== 'undefined' && BOTHOST.on && BOTHOST.on()) return; const now = performance.now(); if (now - rafAt < BG_GAP) return;
+    const n = Math.min(w ? 3 : 20, Math.max(1, Math.round((now - frameAt) / 50))); /* 워커를 못 쓰면(일반 타이머는 가려지면 1초에 한 번) 한 번에 최대 1초어치 */ for (let k = 0; k < n; k++) { BGRUN = true; try { frame(now - (n - 1 - k) * 50); bgSteps++; } catch (e) { console.warn('bg frame', e); } finally { BGRUN = false; } } };
+  let w = null; try { w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' }))); w.onmessage = tick; } catch (e) { w = null; }
+  if (!w) setInterval(tick, 50); window.__bgInfo = () => ({ steps: bgSteps, timer: w ? 'worker' : 'interval' }); }
 function frame(now){
-  holdTick(); if (MOBILE) MUI.tick();
+  frameAt = performance.now(); if (!BGRUN) rafAt = frameAt; holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
   if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
@@ -11416,10 +11423,10 @@ function frame(now){
   const vw=Math.ceil(W/z), vh=Math.ceil(H/z), pw=Math.ceil(W*DPR), ph=Math.ceil(H*DPR);
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
-  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover) {   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BGRUN) {   /* BGRUN: 창이 안 보일 때 게임만 진행 (그리기 없음) · v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); }
-  curZ = z; requestAnimationFrame(frame);
+  curZ = z; if (!BGRUN) requestAnimationFrame(frame);
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
 const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https://jungkyu9797.github.io/aden-world/';   // 휴대폰 웹 주소 (GitHub Pages)
