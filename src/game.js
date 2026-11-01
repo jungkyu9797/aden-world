@@ -24,6 +24,31 @@ const META = window.MAP_META, IMG = {
  "knight_attack": "assets/classic/knight_attack.webp",
  "knight_attack2": "assets/classic/knight_attack2.webp"
 };
+// ============================================================ 11/1 봇 호스트 모드 (24시간 봇 서버 · dev/rooms/bothost.md) — URL ?bothost=1&zone=N (또는 localStorage aden_bothost=1 · aden_bothost_zone)
+//   서버(헤드리스 크로뮴)에서 돌리는 '보이지 않는 접속자': 그림·바닥 캔버스·그리기·소리·서비스워커 없이 게임 논리(몬스터·필드 봇·NET)만 돌리고, 그 지역의 호스트가 되어 필드 봇을 24시간 계산
+//   · 다른 유저에게 안 보이고 공격 못 받음(presence bh:1 → 받는 쪽이 접속자 목록에서 뺌) · 저장 안 함 · 루프는 rAF 대신 50ms 타이머 · 상태는 window.__BH (러너 server/bothost/run.js 가 읽음)
+const BOTHOST = (() => {
+  let on = false, zone = 0, started = false; const S = { ok: false, zone: 0, host: false, bots: 0, mobs: 0, fps: 0, since: Date.now(), ver: 0, err: '', mem: null, peers: 0, phase: 'boot', tick: 0, errN: 0, frames: 0, timer: '' };
+  try { const q = new URLSearchParams(location.search); on = q.get('bothost') === '1' || localStorage.getItem('aden_bothost') === '1'; zone = +(q.get('zone') || localStorage.getItem('aden_bothost_zone') || 0) | 0; } catch (e) {}
+  if (on) { S.zone = zone; window.__BH = S; try { document.querySelectorAll('audio').forEach(a => { a.pause(); a.removeAttribute('src'); a.preload = 'none'; a.load(); }); } catch (e) {}   // 배경음 미리 받기 취소
+    // 그림을 아예 안 불러옴: Image를 빈 껍데기로 (complete=false · naturalWidth=0 → 게임의 모든 '그림이 준비됐나' 검사가 '아직'으로 떨어져 폴백 · decode()는 바로 실패) — 바닥 캔버스(buildGround)도 im.ground.complete 가 false 라 안 만듦
+    window.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; this.naturalHeight = 0; this.width = 0; this.height = 0; this.onload = null; this.onerror = null; this.decoding = ''; this.crossOrigin = null; this._s = ''; } get src() { return this._s; } set src(v) { this._s = String(v || ''); } decode() { const p = Promise.reject(new Error('bothost')); p.catch(() => {}); return p; } addEventListener() {} removeEventListener() {} setAttribute() {} getAttribute() { return null; } }; }
+  let fr = 0, fpsAt = 0, logAt = 0;
+  function frameDone(dt) { fr++; const now = performance.now(); if (now - fpsAt < 1000) return; S.fps = Math.round(fr * 1000 / (now - fpsAt)); fr = 0; fpsAt = now; S.frames++;
+    try { S.host = started && !!NET.zoneHost(); S.peers = Math.max(0, NET.count() - 1); S.bots = FBOT.bots().filter(f => !f.dead).length; S.mobs = foxes.filter(f => !f.dead && !f.gone && !f.fb).length; S.zoneNow = SCENE === 'field' && ISLE ? ISLE.id : 0;
+      S.ok = started && S.zoneNow === zone && !!window.__gameOn; S.ver = GAME_VER; S.tick = Date.now(); S.mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null; S.net = !!NET.me();
+      if (started) { BUFF.invis = Math.max(BUFF.invis, 1e6); GOD_INV = true; hero.hp = hero.max; hero.mp = hero.maxmp; if (hero.target || moveGoal) { hero.target = null; moveGoal = null; } } } catch (e) { S.err = String(e && e.message || e).slice(0, 80); }
+    if (!logAt || now - logAt >= 60000) { logAt = now; try { console.log('[BH] ' + JSON.stringify({ ok: S.ok, zone, z: S.zoneNow, host: S.host, bots: S.bots, mobs: S.mobs, fps: S.fps, peers: S.peers, net: S.net, mem: S.mem, up: Math.round((Date.now() - S.since) / 60000), v: S.ver, err: S.err, errN: S.errN, phase: S.phase })); } catch (e) {} } }
+  // 루프: 헤드리스에서 requestAnimationFrame이 느려지거나 멈추는 탭이 있어서 50ms 타이머로 frame()을 돌림 (밀렸으면 50ms 단위로 2~3번 연속 · dt 상한 0.05는 frame 안에서 그대로)
+  function loop(frame) { let last = performance.now(); const tick = () => { const now = performance.now(); const n = Math.min(3, Math.max(1, Math.round((now - last) / 50))); for (let k = 1; k <= n; k++) { const t = k === n ? now : last + 50 * k; try { frame(t); } catch (e) { S.errN++; S.err = String(e && e.message || e).slice(0, 80); } } last = now; };
+    let w = null; try { w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' }))); w.onmessage = tick; S.timer = 'worker'; } catch (e) { w = null; }   // 워커 타이머는 탭이 가려져도 느려지지 않음
+    if (!w) { setInterval(tick, 50); S.timer = 'interval'; } }
+  // 캐릭터 선택 뒤(ACCOUNT.begin · 마을에 선 상태)에서: 보이지 않게(투명 · 무적) · presence bh:1 · 그 지역으로 바로 들어가 가만히 섬 (저장·귀환·텔레포트 없음)
+  function start() { if (started) return; started = true; S.phase = 'zone'; try { NET.setExtra('bh', 1); GOD_INV = true; BUFF.invis = 1e9; const d = zone && ISLAND.def(zone); if (!d) { S.err = 'badzone ' + zone; S.phase = 'badzone'; return; }
+      TOWN.toZone(zone); { const z = ISLE; if (z) { let p = null; for (let r = 1; r <= 6 && !p; r++) for (let dj = -r; dj <= r && !p; dj++) for (let di = -r; di <= r && !p; di++) { const i = hero.i + di, j = hero.j + dj; if (i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && walkable(i, j) && !occ(i, j) && !z.portals.some(q => Math.max(Math.abs(q.i - i), Math.abs(q.j - j)) < 2)) p = [i, j]; } if (p) TOWN.placeAt(p[0] + 0.5, p[1] + 0.5); } }   // 포털 칸을 밟고 서 있지 않게 옆 칸으로
+      hero.target = null; moveGoal = null; S.phase = 'run'; } catch (e) { S.err = String(e && e.message || e).slice(0, 80); S.phase = 'fail'; } }
+  return { on: () => on, zone: () => zone, started: () => started, S, frameDone, loop, start, fail(w) { S.err = String(w || '').slice(0, 80); S.phase = 'fail'; }, phase(p) { S.phase = p; } };
+})();
 const im = {}; for (const k in IMG){ const i = new Image(); i.src = IMG[k]; im[k] = i;
   // 나무·바위·덤불: 렌더 칸 경계에서 잘린 그림자가 네모로 보이지 않게 가장자리를 부드럽게 지움
   if (/^(tree|rock|bush)\d$/.test(k)) i.onload = () => { const w = i.naturalWidth, h = i.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.drawImage(i, 0, 0);
@@ -155,7 +180,7 @@ const rowFor = (dx,dz) => { let b=0,bd=-9; DIRV.forEach((d,i)=>{ const s=d[0]*dx
 
 // ---------- audio ----------
 let AC=null, master;
-function initAudio(){ if (!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.gain.value=SFX_ON?0.4*SND.sfxK():0; master.connect(AC.destination); } if (AC.state==='suspended') AC.resume(); }
+function initAudio(){ if (BOTHOST.on()) return; if (!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.gain.value=SFX_ON?0.4*SND.sfxK():0; master.connect(AC.destination); } if (AC.state==='suspended') AC.resume(); }
 function tone(t,type,f0,f1,dur,peak){ const o=AC.createOscillator(); o.type=type; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur); const g=AC.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(peak,t+0.004); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.05); }
 let NZB=null; function nzBuf(){ if (!NZB||NZB.sampleRate!==AC.sampleRate){ NZB=AC.createBuffer(1,AC.sampleRate*2|0,AC.sampleRate); const d=NZB.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; } return NZB; }   /* v124: 잡음 버퍼를 한 번만 만들고 재사용 (매번 새로 만들면 끊김) */
 function nz(t,dur,f0,f1,peak){ const b=nzBuf(); const s=AC.createBufferSource(); s.buffer=b; s.loop=dur>1.9; const f=AC.createBiquadFilter(); f.type='bandpass'; f.frequency.setValueAtTime(f0,t); f.frequency.exponentialRampToValueAtTime(f1,t+dur); const g=AC.createGain(); g.gain.setValueAtTime(peak,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()*Math.max(0, 1.95-Math.min(dur,1.9)), dur>1.9?undefined:dur+0.02); if (dur>1.9) s.stop(t+dur+0.02); }
@@ -189,7 +214,12 @@ const hero = mk('hero', META.spawn[0], META.spawn[1]); hero.row = 1;
 let foxes = []; const FIELD_FOXES = foxes;
 let PETS_HERE = [];   // 지금 지역에 나와 있는 내 펫 (PET 모듈이 매 프레임 갱신)
 let PEER_OCC = null;   // 다른 플레이어가 서 있는 칸 (NET 이 채움)
-const SWAPB = o => !!(o && o.bot && o.bot.team === 'A' && !o.dead);   // 수호탑 대전: 아군 봇은 길을 막지 않음 (나와 자리를 바꿈)
+const SWAPB = o => !!(o && o.bot && o.bot.team === 'A' && !o.dead);   // 수호탑 대전: 아군 봇은 길을 막지 않음 (나와 자리를 바꿈) · v191: 필드의 반왕 혈맹 봇도
+// v191(10/30): 혈맹 이름표 — [혈맹] 이름 (혈맹 표시는 조금 작게 · 색으로 아군(반왕)·적군(라인) 구분)
+const CLAN_C = { A: '#7cc8ff', B: '#ff6a5a' };
+function clanName(g, x, y, tag, tc, name, nc) { const F1 = '800 9.5px "Noto Sans KR",sans-serif', F2 = '800 11px "Noto Sans KR",sans-serif'; g.font = F1; const tw = g.measureText(tag).width + 3; g.font = F2; const x0 = x - (tw + g.measureText(name).width) / 2;
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.lineJoin = 'round'; g.strokeStyle = 'rgba(0,0,0,.85)'; g.font = F1; g.strokeText(tag, x0, y); g.fillStyle = tc; g.fillText(tag, x0, y);
+  g.font = F2; g.strokeText(name, x0 + tw, y); g.fillStyle = nc; g.fillText(name, x0 + tw, y); g.textAlign = 'center'; }
 function occ(i,j){ if (hero.i===i&&hero.j===j) return hero; for (const f of foxes) if (!f.dead&&f.i===i&&f.j===j) return f; for (const p of PETS_HERE) if (!p.dead&&p.i===i&&p.j===j) return p; if (PEER_OCC) { const o=PEER_OCC(i,j); if (o) return o; } return null; }
 function freeTile(minD){ for (let t=0;t<400;t++){ const i=2+Math.floor(Math.random()*(MAP-4)), j=2+Math.floor(Math.random()*(MAP-4)); if (walkable(i,j)&&!occ(i,j)&&Math.max(Math.abs(i-hero.i),Math.abs(j-hero.j))>=minD) return [i,j]; } return [3,3]; }
 for (let k=0;k<7;k++){ const [i,j]=freeTile(5); foxes.push(mk('fox',i,j)); }
@@ -222,7 +252,7 @@ let UI_TOUCH_T = 0, UI_DOWN = 0; const UI_TOUCH = () => MOBILE && (UI_DOWN > 0 |
 if (MOBILE) { const inW = ev => ev.target && ev.target.closest && ev.target.closest('.gw'); addEventListener('pointerdown', ev => { if (inW(ev)) { UI_DOWN++; UI_TOUCH_T = performance.now(); } }, true); for (const t of ['pointerup', 'pointercancel']) addEventListener(t, ev => { if (UI_DOWN > 0) { UI_DOWN--; UI_TOUCH_T = performance.now(); } }, true); }
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d'); let W=0,H=0,DPR=1;
 const low=document.createElement('canvas'), lc=low.getContext('2d');
-function resize(){ DPR=Math.min(MOBILE&&MOB_LOWQ?1:2,devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }
+function resize(){ if (BOTHOST.on()) { DPR=1; W=H=1; cv.width=cv.height=1; return; } DPR=Math.min(MOBILE&&MOB_LOWQ?1:2,devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }   // 봇 호스트: 캔버스 1×1 · DPR 1
 addEventListener('resize',resize); resize();
 let curZ=2, zoom=2, zoomT=2, pixel=true, cam=W2P(hero.x,hero.z), moveGoal=null, holding=false, hover=null;
 const mobZ = () => MOB_ZS || Math.max(1, Math.min(2, Math.floor(Math.min(W, H) / 330)));   // v168: 폰 = 1배 (화면에 더 넓게) · 태블릿 = 2배
@@ -297,6 +327,7 @@ function mobStatus(f){ const S=MOB[f.kind], L=[];
   if (S.undead) L.push({ k:'undead', n:'언데드 — 턴 언데드 가능', ty:'info' });
   if (f.stunT>0) L.push(f.bindUntil>time ? { k:'bind', n:'어스 바인드 — 바위에 묶여 움직이지도 공격하지도 못함', t:f.stunT, ty:'de', ic:'sk_earth_bind' } : { k:'stun', n:'스턴 — 움직이지도 공격하지도 못함', t:f.stunT, ty:'de', ic:'sk_stun' });
   if (f.slowT>0) L.push({ k:'slow', n:'슬로우 — 이동·공격 1.3배 느림', t:f.slowT, ty:'de', ic:'sk_slow' });
+  if (f.wslowT>0) L.push({ k:'wslow', n:'슬로우 — 이동·공격 속도 25% 감소', t:f.wslowT, ty:'de', ic:'sk_slow' });   // 11/1 밤: 봇 법사의 슬로우에 걸린 봇
   if (f.galeUntil>time) L.push({ k:'gale', n:'스트라이커 게일 — 이 대상에게 쏘는 활 명중 +50%', t:f.galeUntil-time, ty:'de', ic:'sk_striker_gale' });
   if (f.pollUntil>time) L.push({ k:'poll', n:'폴루트 워터 — 받는 회복 50% 감소', t:f.pollUntil-time, ty:'de', ic:'sk_pollute_water' });
   if (f.bleed) L.push({ k:'bleed', psn:f.bleed.psn, n:`${f.bleed.psn ? '독' : '출혈'} — 초당 ${f.bleed.dps} 피해`, t:f.bleed.t, ty:'de' });
@@ -398,6 +429,7 @@ function strike(f, mode){ if (f && f.isRemote) return pvpStrike(f, mode); if (HW
     if (crit){ floatText(fx,top-12,'CRITICAL!',{color:'#ffd24a',size:14,big:true,life:1.1,rise:30}); floatText(fx,top+4,String(d),{color:'#ff9a3a',size:16,big:true,life:1.0}); bursts.push({x:fx,y:fy-headY(f)*0.5,t:0}); }
     else floatText(fx+(Math.random()*18-9),top-8,String(d),{color:'#ffffff',size:12}); }
   const [x,y]=W2P(f.x,f.z), hy=(S.hh||62*S.sc)*0.45; for (let k=0;k<(crit?16:9);k++){ const a=Math.random()*6.28, s=60+Math.random()*90; parts.push({x,y:y-hy,vx:Math.cos(a)*s,vy:Math.sin(a)*s*0.6-30,life:0.3,max:0.3,crit}); }
+  if (window.GLR) GLR.spark(x, y-hy, crit?30:14, crit?{c:'#ffd070',sp:190,life:0.5}:{c:'#fff0c8',sp:140,life:0.38});   // GL: 새 그래픽이 켜져 있을 때만 GPU 불티 (꺼져 있으면 아무것도 안 함)
   killCheck(f); }
 // ===== 강화 결과 대형 연출: 캐릭터를 중심으로 빛줄기·충격파·반짝이·화면 번쩍임 + 큰 결과 글씨 (화면 좌표로 그림)
 const BIGFX = [];
@@ -429,14 +461,14 @@ function drawBigFx(g, vw, vh, ox, oy) { if (!BIGFX.length) return; const [hx, hy
       tg.addColorStop(0, cc[0]); tg.addColorStop(1, cc[1]); g.fillStyle = tg; g.fillText(f.text, 0, 0); }
     g.restore(); } }
 // 경험치는 각자 가한 피해만큼 나눠 먹음 (나 vs 펫, 넘친 피해는 안 셈)
-function addDmg(f, who, d){ if (!f||d<=0) return; if (who && who.sum) who = hero; if (f.bot || f.twr) TWM.onDmg(f, who, d);   /* v144: 소환수가 준 피해는 내 것 */ if (MOB[f.kind] && MOB[f.kind].dummy){ (f.dlog||(f.dlog=[])).push([time, d]); if (MOB[f.kind].real && !f.ttk0) f.ttk0=time; } f.lastDmgAt=Date.now(); f.regenAt=0; f.regenOn=false; (f.dmgBy||(f.dmgBy=new Map())).set(who,(f.dmgBy.get(who)||0)+d); }
+function addDmg(f, who, d){ if (!f||d<=0) return; if (who && who.sum) who = hero; if (f.fb) FBOT.onDmg(f, who, d); else if (f.bot || f.twr) TWM.onDmg(f, who, d); else if (MOB[f.kind] && (MOB[f.kind].boss || MOB[f.kind].midb)) FBOT.bossHit(f, who);   /* 11/1 2단계 ②: 누가 보스를 치면 전체 알림(젠마다 한 번) · 라인 봇 뒷치기 */   /* v144: 소환수가 준 피해는 내 것 */ if (MOB[f.kind] && MOB[f.kind].dummy){ (f.dlog||(f.dlog=[])).push([time, d]); if (MOB[f.kind].real && !f.ttk0) f.ttk0=time; } f.lastDmgAt=Date.now(); f.regenAt=0; f.regenOn=false; (f.dmgBy||(f.dmgBy=new Map())).set(who,(f.dmgBy.get(who)||0)+d); }
 function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.values()) tot+=v; const hd=M?(M.get(hero)||0):0; const heroExp=gahoExp(Math.round((tot>0?S.exp*hd/tot:S.exp)*lowLvMul(S)*nightR())); const parts=[];
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot*nightR()); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
-function killCheck(f){ if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
+function killCheck(f){ if (f && f.fb) { if (f.hp <= 0 && !f.dead) FBOT.down(f); return; } if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
   const D=NET.distribute(f,S); if (!D){ if (window.SAVER && (!f.dmgBy || [...f.dmgBy.keys()].some(w => w === hero || (w && w.isPet)))) SAVER.kill();   /* 11/1: 혼자 잡은 몹도 절전 [처치]에 셈 (전에는 같은 지역에 다른 사람이 있을 때만 셈) */ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=Math.round(rint(S.coin)*coinX()); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
+  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, FB_KILLER || (D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()), !!FB_KILLER); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 const KNIGHT_PVE = 1.25;   // 11/1: 기사 — 몬스터에게 주는 피해 +25% (법사와 사냥 속도 맞춤 · 대인전 제외)
@@ -446,7 +478,7 @@ function mobHurt(f,d,color,src,crit){ if (!f||f.dead) return; if (f.ashT>0) retu
   else floatText(fx,fy-headY(f)-4,String(d),{color:color||'#ffffff',size:12}); if (f.hp>0) MSFX(f.kind,'hit',0.4); killCheck(f); return d; }   // 10/31: 실제로 넣은 피해를 돌려줌 (전설 [심판])
 // 가속: 1단(초록 물약) 1.2배, 2단(용기의 물약) 1.4배 — 이동·공격·마법 시전 속도 모두. 두 개 함께면 1.2×1.4배
 const GSPD = 0.7;   // 기본 속도 배율 (이동·공격 30% 느리게)
-const BUFF = { hwexp: 0, advsp: 0, abar: 0, mlock: 0, haste1: 0, haste2: 0, root: 0, slow: 0, poison: 0, reduction: 0, bounce: 0, solid: 0, counter: 0, shieldm: 0, light: 0, enchant: 0, mana: 0, rmagic: 0, relem: 0, cmind: 0, decwt: 0, medit: 0, counterm: 0, immune: 0, windshot: 0, stormshot: 0, esight: 0, poly: 0 };
+const BUFF = { hwexp: 0, advsp: 0, abar: 0, mlock: 0, haste1: 0, haste2: 0, root: 0, slow: 0, wslow: 0, gale: 0, poison: 0, reduction: 0, bounce: 0, solid: 0, counter: 0, shieldm: 0, light: 0, enchant: 0, mana: 0, rmagic: 0, relem: 0, cmind: 0, decwt: 0, medit: 0, counterm: 0, immune: 0, windshot: 0, stormshot: 0, esight: 0, poly: 0 };
 const BUFF_DEF = { hwexp: { name: '호박 사탕', get desc() { return `몬스터 경험치 +${HWC.CANDY_EXP}%`; }, icon: 'hw_candy', dur: 1800, c: '#ffa040' }, poly: { get name() { const p = POLY_ON && POLY[POLY_ON]; return p ? (p.card ? `변신 카드 (${p.name})` : `변신 (${p.name})`) : '변신'; }, get desc() { const p = POLY_ON && POLY[POLY_ON], b = p ? polyPct(POLY_ON) : 5; return `공격 속도 +${b}% · 이동 속도 +${b}%` + (p && p.card && p.card.opt.length ? ' · ' + p.card.opt.join(' · ') : ''); }, get inf() { const p = POLY_ON && POLY[POLY_ON]; return !!(p && p.card); }, icon: 'scr_poly', dur: 1800, c: '#e0a8ff' },
   haste1: { name: '1단 가속 (초록 물약)', desc: '이동·공격·마법 시전 속도 1.2배', icon: 'pot_gr', dur: 1800, c: '#a8f08a' },
                    haste2: { name: '2단 가속 (용기의 물약)', desc: '이동·공격·마법 시전 속도 1.4배', icon: 'pot_br', dur: 1800, c: '#f2c060' },
@@ -474,16 +506,18 @@ const BUFF_DEF = { hwexp: { name: '호박 사탕', get desc() { return `몬스�
                    advsp: { name: '어드밴스 스피릿', desc: '최대 HP·MP +20%', icon: 'sk_advspirit', dur: 1800, c: '#9fe8c0' },
                    abar: { name: '앱솔루트 배리어', desc: '모든 피해 무효 · 이동과 귀환만 가능', icon: 'sk_abarrier', dur: 5, c: '#f4f8ff' },
                    poll: { name: '폴루트 워터', desc: '받는 회복(힐·물약) 50% 감소', icon: 'sk_pollute_water', dur: 8, c: '#a8c070', bad: true }, ebind: { name: '어스 바인드', desc: '움직이지도·공격·마법·물약 사용도 못하지만 어떤 피해도 받지 않음', icon: 'sk_earth_bind', dur: 5, c: '#ffd870', bad: true },
-                   mlock: { name: '마법 봉인', desc: '마법을 쓸 수 없음 (앱솔루트 배리어 뒤 · 물약·주문서는 가능)', icon: 'sk_abarrier', dur: 12, c: '#a8b0c8', bad: true } };
+                   mlock: { name: '마법 봉인', desc: '마법을 쓸 수 없음 (앱솔루트 배리어 뒤 · 물약·주문서는 가능)', icon: 'sk_abarrier', dur: 12, c: '#a8b0c8', bad: true },
+                   // 11/1 밤: 필드 봇 법사의 슬로우(유저 슬로우 마법과 별개 · 대인전 규칙: 걸려 있는 동안 안 겹침 · 풀린 뒤 3초 면역) · 요정 봇의 스트라이커 게일(나에게 쏘는 활 명중 +50%)
+                   wslow: { name: '슬로우', desc: '이동·공격 속도 25% 감소 (풀린 뒤 3초는 다시 안 걸림)', icon: 'sk_slow', dur: 6, c: '#c9a0ff', bad: true }, gale: { name: '스트라이커 게일', desc: '나에게 쏘는 활 명중 +50%', icon: 'sk_striker_gale', dur: 12, c: '#ff8a7a', bad: true } };
 const BUFFRECT = [], PETRECT = [];
 const hasWard = () => { try { return INV.count('immortal_ward') > 0; } catch (e) { return false; } };   // v172: 불멸의 가호 표시 (버프·디버프 줄 맨 앞)
 const WARD_TIP = k => k === '_night' ? ['[디버프] 밤', '모든 몬스터(보스 포함)의 체력·공격력 +20%', `대신 잡으면 경험치·골드 +20% · ${DN.left()}분 뒤 낮`] : k === '_ward' ? ['불멸의 가호', '가호의 보호를 받고 있습니다 · 사망 패널티 없음', `쓰러지면 가호 1개가 대신 타요 (남은 가호 ${INV.count('immortal_ward')}개)`] : ['[디버프] 불멸의 가호 없음', '가호의 보호를 받지 못하고 있습니다', '사망 패널티: 경험치 −5% · 골드 −10%'];
 const HEALK = () => BUFF.poll > 0 ? 0.5 : 1;   // 폴루트 워터: 받는 회복 50%
 let BIND_IMM = 0;   // 어스 바인드가 풀린 뒤 6초는 다시 안 걸림
-let STUN_IMM = 0; const STUN_IMM_SEC = 3;   // 대인전 스턴: 기절 중엔 안 겹치고 풀린 뒤 3초는 면역 (유저·수호탑 봇 · 몬스터가 거는 스턴은 그대로)
-const heroSpd = () => (BUFF.haste1 > 0 ? 1.2 : 1) * (BUFF.haste2 > 0 ? 1.4 : 1) * (BUFF.slow > 0 ? 0.6 : 1);
+let STUN_IMM = 0, WSLOW_IMM = 0; const STUN_IMM_SEC = 3;   // WSLOW_IMM: 11/1 밤 봇 슬로우가 풀린 뒤 3초 면역   // 대인전 스턴: 기절 중엔 안 겹치고 풀린 뒤 3초는 면역 (유저·수호탑 봇 · 몬스터가 거는 스턴은 그대로)
+const heroSpd = () => (BUFF.haste1 > 0 ? 1.2 : 1) * (BUFF.haste2 > 0 ? 1.4 : 1) * (BUFF.slow > 0 ? 0.6 : 1) * (BUFF.wslow > 0 ? 0.75 : 1);   // 11/1 밤: 봇 슬로우 25%
 function buffMsg(key, nm, from){ const D = BUFF_DEF[key]; if (!D) return; const t = BUFF[key] > 0 ? BUFF[key] : D.dur, tt = t >= 60 ? `${Math.round(t / 60)}분` : `${Math.round(t)}초`; say(`${from ? from + '님의 ' : ''}${nm || D.name}${from ? '' : '!'} (${tt} · ${D.desc})`, '#cfe4ff'); }   /* v124: 버프 효과 설명 */
-function buffTick(dt){ if (BUFF.abar > 0) { BUFF.stun = 0; BUFF.root = 0; BUFF.slow = 0; BUFF.poison = 0; } for (const k in BUFF) if (BUFF[k] > 0){ if (k === 'poly' && polyCard()) { BUFF.poly = PC_INF; continue; }   /* 변신 카드: 시간 제한 없음 */ BUFF[k] -= dt; if (BUFF[k] <= 0 && k === 'advsp') setTimeout(() => { try { INV.render(); } catch (e) {} }, 0); if (BUFF[k] <= 0 && !BUFF_DEF[k].bad && !k.startsWith('haste')){ BUFF[k] = 0; say(`${BUFF_DEF[k].name} 효과가 끝났습니다.`, '#9c9682'); continue; } if (BUFF[k] <= 0 && !BUFF_DEF[k].bad){ BUFF[k] = 0; say(k === 'haste1' ? '1단 가속(초록 물약) 효과가 끝났습니다.' : '2단 가속(용기의 물약) 효과가 끝났습니다.', '#9c9682'); } } }
+function buffTick(dt){ if (BUFF.abar > 0) { BUFF.stun = 0; BUFF.root = 0; BUFF.slow = 0; BUFF.wslow = 0; BUFF.poison = 0; } for (const k in BUFF) if (BUFF[k] > 0){ if (k === 'poly' && polyCard()) { BUFF.poly = PC_INF; continue; }   /* 변신 카드: 시간 제한 없음 */ BUFF[k] -= dt; if (BUFF[k] <= 0 && k === 'advsp') setTimeout(() => { try { INV.render(); } catch (e) {} }, 0); if (BUFF[k] <= 0 && !BUFF_DEF[k].bad && !k.startsWith('haste')){ BUFF[k] = 0; say(`${BUFF_DEF[k].name} 효과가 끝났습니다.`, '#9c9682'); continue; } if (BUFF[k] <= 0 && !BUFF_DEF[k].bad){ BUFF[k] = 0; say(k === 'haste1' ? '1단 가속(초록 물약) 효과가 끝났습니다.' : '2단 가속(용기의 물약) 효과가 끝났습니다.', '#9c9682'); } } }
 // 가방 무게: 80% 이상이면 이동 20% 느림, 100% 이상이면 절반 — 넘을 때 경고, 내려가면 알림
 let heavyLv = -1;
 const heavyK = () => heavyLv === 2 ? 0.5 : heavyLv === 1 ? 0.8 : 1;
@@ -551,6 +585,7 @@ function soulDown(f, S, D) { const r = rpOf(f); if (r) { r.dead = 1; r.t = Date.
 const REAPER_NOW = () => { if (!GOD) return; if (SCENE !== 'field' || !ISLE || !REAPER_OF[ISLE.id]) { say('감시자 리퍼는 사냥터 2구간·2구역(본토던전은 1·2층)에서만 나타나요.', '#f08a7a'); return; } spawnReaper(hero.i + 2, hero.j); };   // 갓 모드 테스트
 function updateFox(f,dt){
   if (NET.guestMob(f)) { NET.follow(f, dt); return; }
+  if (f.fb) { FBOT.mobTick(f, dt); return; }   // v191: 필드 상주 봇 (반왕·라인 혈맹)
   if (f.bot || f.twr) { TWM.mobTick(f, dt); return; }   // v183: 수호탑 대전 봇·수호탑
   if (f.hitT>0) f.hitT=Math.max(0,f.hitT-dt);
   const S=MOB[f.kind];
@@ -571,9 +606,9 @@ function updateFox(f,dt){
   if (f.stunT>0){ f.stunT-=dt; f.flash=Math.max(0,f.flash-dt); f.lunge=0; f.atkT=null; f.dingT=(f.dingT||0)-dt; if (f.dingT<=0&&f.stunT>0.05){ f.dingT=0.45; stunDing(f); } return; }
   f.flash=Math.max(0,f.flash-dt); f.cool=Math.max(0,f.cool-dt*(f.slowT>0?1/1.3:1)); if (f.atkT!=null){ f.atkT+=dt; if (f.atkT>=ATK_T) f.atkT=null; }
   stepMove(f,dt,(f.aggro?S.run:S.walk)*GSPD*(f.slowT>0?1/1.3:1));
-  if (f.tgt && (f.tgt.dead || !(PETS_HERE.includes(f.tgt) || (f.tgt.isRemote && NET.alive(f.tgt))))) f.tgt=null;
+  if (f.tgt && (f.tgt.dead || !(PETS_HERE.includes(f.tgt) || (f.tgt.isRemote && NET.alive(f.tgt)) || (f.tgt.fb && !f.tgt.gone)))) { if (f.tgt.fb) f.aggro=false; f.tgt=null; }   // v191: 필드 봇과 싸우던 몹은 봇이 사라지면 멈춤 (나에게 달려오지 않게)
   const TG=f.tgt||hero;   // 펫에게 어그로가 옮겨가면 펫을 노림
-  if (f.lunge>0){ const was=f.lunge; f.lunge-=dt; const LT=f.lt||hero; if (was>0.15&&f.lunge<=0.15&&!(LT.dead)&&cheb(f.i,f.j,LT.i,LT.j)===1){ if (LT===hero){ f.hitMeT=time; if (!(BUFF.invis>0) && Math.random()<mobHit(S)-(f.hitDn>0?0.03*(f.hitDnV||2):0)){ hurtHero(mobDmg(S, f), f, 'melee'); if (S.elAdd&&hero.hp>0&&!DEATH) hurtHero(Math.round(rint(S.elAdd)*(S.atkMul||1)*enrMul(f)), f, 'elem');   /* 몽환의 섬 정령: 속성 추가 피해 (MR·속성 저항으로 줄어듦) */ if (S.poison&&!GOD_INV&&Math.random()<S.poison){ if (!(BUFF.poison>0)) say(JOSA(S.name,'에게','에게')+' 할퀴어 독에 걸렸습니다! (큐어 포이즌·해독제로 치료)','#9ae06a'); BUFF.poison=BUFF_DEF.poison.dur; } if (S.lavaSlow&&!GOD_INV&&Math.random()<S.lavaSlow){ BUFF.slow=Math.max(BUFF.slow,2); say('용암 주먹에 맞아 몸이 무거워집니다!','#ffab6a'); } if (S.chill&&!GOD_INV&&Math.random()<S.chill){ BUFF.slow=Math.max(BUFF.slow,2.5); say('얼음 주먹에 맞아 몸이 얼어붙습니다!','#a8e8ff'); } if (S.web&&!GOD_INV&&Math.random()<S.web){ BUFF.slow=Math.max(BUFF.slow,2); say('끈적한 거미줄에 걸려 몸이 둔해집니다!','#c9a0ff'); } if (S.burn&&Math.random()<0.35*Math.max(0.2,1-elemRes('fire')/50)&&!GOD_INV){ hero.burnT=3; say(JOSA(S.name,'에게','에게')+' 물려 화상을 입었습니다!','#ff9a5a'); } } else heroMiss(); } else if (LT.isRemote) NET.hitRemote(LT, f, S); else PET.hurtBy(LT, f, S); } }
+  if (f.lunge>0){ const was=f.lunge; f.lunge-=dt; const LT=f.lt||hero; if (was>0.15&&f.lunge<=0.15&&!(LT.dead)&&cheb(f.i,f.j,LT.i,LT.j)===1){ if (LT===hero){ f.hitMeT=time; if (!(BUFF.invis>0) && Math.random()<mobHit(S)-(f.hitDn>0?0.03*(f.hitDnV||2):0)){ hurtHero(mobDmg(S, f), f, 'melee'); if (S.elAdd&&hero.hp>0&&!DEATH) hurtHero(Math.round(rint(S.elAdd)*(S.atkMul||1)*enrMul(f)), f, 'elem');   /* 몽환의 섬 정령: 속성 추가 피해 (MR·속성 저항으로 줄어듦) */ if (S.poison&&!GOD_INV&&Math.random()<S.poison){ if (!(BUFF.poison>0)) say(JOSA(S.name,'에게','에게')+' 할퀴어 독에 걸렸습니다! (큐어 포이즌·해독제로 치료)','#9ae06a'); BUFF.poison=BUFF_DEF.poison.dur; } if (S.lavaSlow&&!GOD_INV&&Math.random()<S.lavaSlow){ BUFF.slow=Math.max(BUFF.slow,2); say('용암 주먹에 맞아 몸이 무거워집니다!','#ffab6a'); } if (S.chill&&!GOD_INV&&Math.random()<S.chill){ BUFF.slow=Math.max(BUFF.slow,2.5); say('얼음 주먹에 맞아 몸이 얼어붙습니다!','#a8e8ff'); } if (S.web&&!GOD_INV&&Math.random()<S.web){ BUFF.slow=Math.max(BUFF.slow,2); say('끈적한 거미줄에 걸려 몸이 둔해집니다!','#c9a0ff'); } if (S.burn&&Math.random()<0.35*Math.max(0.2,1-elemRes('fire')/50)&&!GOD_INV){ hero.burnT=3; say(JOSA(S.name,'에게','에게')+' 물려 화상을 입었습니다!','#ff9a5a'); } } else heroMiss(); } else if (LT.isRemote) NET.hitRemote(LT, f, S); else if (LT.fb) FBOT.mobHit(LT, f, S); else PET.hurtBy(LT, f, S); } }
   if (S.boss) bossTalkTick(f, S, dt);
   if ((S.boss || S.skills) && bossSkills(f,S,dt)) return;
   if (f.t<1) return;
@@ -582,7 +617,8 @@ function updateFox(f,dt){
   if ((BUFF.invis>0 || DEATH) && f.aggro && !f.tgt) f.aggro=false;   // 투명: 나를 노리던 몬스터가 놓침
   if (!f.aggro && S.aggr && !(BUFF.invis>0) && dh>S.aggr){ const rp=NET.nearRemote(f, S.aggr); if (rp){ f.aggro=true; f.tgt=rp; } }
   if (!f.aggro && S.aggr && dh<=S.aggr && !(BUFF.invis>0) && !DEATH && DGLOS(f, hero)){ f.aggro=true; if (S.boss) say(JOSA(S.name,'이','가')+' 당신을 노려봅니다!','#ff8070'); }
-  if (f.aggro){ if (dh>14 && !(f.tgt && f.tgt.isRemote && dt_<=14)){ f.aggro=false; f.tgt=null; return; }
+  if (!f.aggro && S.aggr && !S.boss && FBOT.live()){ const fb=FBOT.nearBot(f, Math.min(S.aggr, 6)); if (fb && DGLOS(f, fb)){ f.aggro=true; f.tgt=fb; } }   // v191: 선공 몬스터는 근처 필드 봇도 노림
+  if (f.aggro){ if ((dh>14 && !(f.tgt && (f.tgt.isRemote || f.tgt.fb) && dt_<=14)) || (f.tgt && f.tgt.fb && dt_>14)){ f.aggro=false; f.tgt=null; return; }
     if (S.range && dt_>1 && dt_<=S.range && DGLOS(f, TG)){ face(f,TG); if (f.cool<=0){ f.cool=S.cd/GSPD/(f.enraged?ENR_SPD:1); f.atkT=0; MSFX(f.kind,'attack',0.5); if (S.spell) mobCast(f,S,TG); else shoot(f,S,TG); } return; }
     if (dt_===1){ face(f,TG); if (f.cool<=0){ f.cool=S.cd/GSPD/(f.enraged?ENR_SPD:1); f.lunge=0.3/GSPD; f.lt=TG; f.atkT=0; MSFX(f.kind,'attack',0.5); } return; }
     if (S.still) return;   // 폭탄꽃: 제자리
@@ -610,9 +646,10 @@ function aoeTick(dt) { for (let n = AOES.length - 1; n >= 0; n--) { const a = AO
       else { impact(ax, ay - 4, 'hit', '#9af06a'); if (AC && SFX_ON) { nz(AC.currentTime, 0.35, 1800, 600, 0.25); tone(AC.currentTime, 'sine', 300, 120, 0.3, 0.08); } }
       const g0 = a.grp ? AOES.filter(b => b.grp === a.grp) : [a], first = g0.every(b => b === a || !b.landed), hitAny = hero.hp > 0 && g0.some(b => Math.hypot(hero.x - b.x, hero.z - b.z) <= b.r);   // 산성 분사는 한 묶음으로 한 번만 판정
       if (a.fire && !a.nofx) fireBurst(ax, ay - 10);
-      if (first) { if (hitAny && a.bomb && phxGuard()) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 84, '막음', { color: '#ffc070', size: 11 }); if (!(time - (hero._phxBomb || -99) < 30)) { hero._phxBomb = time; say('피닉스의 가호가 화산탄을 막았습니다!', '#ffc070'); } } else if (hitAny) { const cm0 = BUFF.counterm > 0; { let dd = Math.round(rint(a.dmg) * BOSS_MAGIC * (a.mul || 1)); if (a.res) dd = Math.max(1, Math.round(dd * (1 - resCut(a.res, HIZ())))); hurtHero(dd, null, 'aoe'); } if (a.src && a.src.kind !== 'shelob' && !a.nostun && !(cm0 && !(BUFF.counterm > 0))) heroStunTry(a.src); if (a.slow && !GOD_INV) BUFF.slow = Math.max(BUFF.slow, a.slow); if (!a.quiet) say(a.msg ? a.msg[0] : a.kind === 'slam' ? '땅 울림에 휩쓸렸습니다!' : '산성액을 뒤집어썼습니다!', '#ff9a7a'); if (a.fire && !GOD_INV && Math.random() < 0.5 * Math.max(0.2, 1 - elemRes('fire') / 50)) { hero.burnT = 3; if (!a.quiet) say('지옥불에 화상을 입었습니다!', '#ff9a5a'); } } else if (hero.hp > 0 && !a.quiet) say(a.msg ? a.msg[1] : a.kind === 'slam' ? '땅 울림을 피했습니다.' : '산성액을 피했습니다.', '#9fd0e8'); }
+      if (first && FBOT.live()) FBOT.aoe(a, g0);   // 11/1: 범위 안의 필드 봇도 맞음 (지역 호스트만)
+      if (first) { if (hitAny && a.bomb && phxGuard()) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 84, '막음', { color: '#ffc070', size: 11 }); if (!(time - (hero._phxBomb || -99) < 30)) { hero._phxBomb = time; say('피닉스의 가호가 화산탄을 막았습니다!', '#ffc070'); } } else if (hitAny) { const cm0 = BUFF.counterm > 0; { let dd = Math.round(rint(a.dmg) * BOSS_MAGIC * (a.mul || 1)); if (a.res) dd = Math.max(1, Math.round(dd * (1 - resCut(a.res, HIZ())))); hurtHero(dd, null, 'aoe'); } if (a.src && a.src.kind !== 'shelob' && !a.nostun && !(cm0 && !(BUFF.counterm > 0))) heroStunTry(a.src); if (a.slow && !GOD_INV) BUFF.slow = Math.max(BUFF.slow, a.slow); if (!a.quiet) say(a.msg ? a.msg[0] : a.kind === 'slam' ? '땅 울림에 휩쓸렸습니다!' : '산성액을 뒤집어썼습니다!', '#ff9a7a'); if (a.fire && !GOD_INV && Math.random() < 0.5 * Math.max(0.2, 1 - elemRes('fire') / 50)) { hero.burnT = 3; if (!a.quiet) say('지옥불에 화상을 입었습니다!', '#ff9a5a'); } } else if (hero.hp > 0 && !a.quiet && !a.fbT) say(a.msg ? a.msg[1] : a.kind === 'slam' ? '땅 울림을 피했습니다.' : '산성액을 피했습니다.', '#9fd0e8'); }
       for (const pt of PETS_HERE) if (!pt.dead && inR(pt)) PET.hurt(pt, Math.round(rint(a.dmg) * BOSS_MAGIC * (a.mul || 1)), null); }
-    if (a.landed && a.dot && a.t < a.life) { if (a.dotSlow && hero.hp > 0 && inR(hero) && !GOD_INV) BUFF.slow = Math.max(BUFF.slow, 0.6); a.acc = (a.acc || 0) + dt; if (a.acc >= 1) { a.acc = 0; if (hero.hp > 0 && inR(hero)) hurtHero(Math.round(a.dot * BOSS_MAGIC * (a.mul || 1))); for (const pt of PETS_HERE) if (!pt.dead && inR(pt)) PET.hurt(pt, Math.round(a.dot * BOSS_MAGIC * (a.mul || 1)), null); } }
+    if (a.landed && a.dot && a.t < a.life) { if (a.dotSlow && hero.hp > 0 && inR(hero) && !GOD_INV) BUFF.slow = Math.max(BUFF.slow, 0.6); a.acc = (a.acc || 0) + dt; if (a.acc >= 1) { a.acc = 0; if (hero.hp > 0 && inR(hero)) hurtHero(Math.round(a.dot * BOSS_MAGIC * (a.mul || 1))); for (const pt of PETS_HERE) if (!pt.dead && inR(pt)) PET.hurt(pt, Math.round(a.dot * BOSS_MAGIC * (a.mul || 1)), null); if (FBOT.live()) FBOT.aoe(a, [a], a.dot); } }
     if (a.t >= a.life) AOES.splice(n, 1); }
   if (SCENE === 'town' && AOES.length) AOES.length = 0; }
 function drawAoes(g) { for (const a of AOES) { const [x, y] = W2P(a.x, a.z), rx = a.r * K * 1.42, ry = rx * 0.5; g.save();
@@ -728,13 +765,14 @@ function breathFx(f, ux, uz, len) { const [x0, y0] = W2P(f.x + ux * 0.45, f.z + 
   mxAdd('scorch', mxAt(f.x + ux * len * 0.6, f.z + uz * len * 0.6, 0), { gnd: 1, r: len * K * 0.9, life: 2.5 });
   if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.7, 900, 200, 0.28); tone(t0, 'sawtooth', 130, 55, 0.6, 0.07); } }
 // v139: 보스 기술 대상 — 다른 플레이어를 노리고 있으면 그 사람 (내가 없어도 씀) · 아니면 나 · 아니면 가까운 다른 플레이어
-function bossTarget(f) { const T = f.tgt; if (T && T.isRemote && NET.alive(T)) return T; if (T && T.sum && !T.dead && PET.sumBal.tank && MOB[f.kind] && MOB[f.kind].boss) return T;   /* v189: 보스가 소환수를 노리는 동안엔 범위 기술도 소환수 쪽으로 */ if (hero.hp > 0 && SCENE !== 'town' && !(BUFF.invis > 0) && !DEATH) return hero; return NET.nearRemote(f, 10); }
+function bossTarget(f) { const T = f.tgt; if (T && T.isRemote && NET.alive(T)) return T; if (T && T.fb && !T.dead && !T.gone) return T;   /* 11/1: 필드 봇과 싸우는 몹은 그 봇에게 기술 */ if (T && T.sum && !T.dead && PET.sumBal.tank && MOB[f.kind] && MOB[f.kind].boss) return T;   /* v189: 보스가 소환수를 노리는 동안엔 범위 기술도 소환수 쪽으로 */ if (hero.hp > 0 && SCENE !== 'town' && !(BUFF.invis > 0) && !DEATH) return hero; return NET.nearRemote(f, 10); }
 function bossSkills(f, S, dt){
-  const list = BOSS_SKILL[f.kind]; if (!list || f.dead || !f.aggro) return false;
-  f.sk = f.sk || {}; if (f.casting){ f.casting.t -= dt; const C = f.casting, CT = C.tg && (C.tg === hero ? hero.hp > 0 && !DEATH : C.tg.sum ? !C.tg.dead : NET.alive(C.tg)) ? C.tg : bossTarget(f); face(f, CT || hero);
+  const list = BOSS_SKILL[f.kind]; if (!list || f.dead || !f.aggro) return false;   // 11/1: 필드 봇과 싸우는 몹도 기술을 씀 (범위 기술은 옆 유저도 맞을 수 있음 — 리니지처럼 · v191에서 막았던 것을 풂)
+  f.sk = f.sk || {}; if (f.casting){ f.casting.t -= dt; const C = f.casting, CT = C.tg && (C.tg === hero ? hero.hp > 0 && !DEATH : C.tg.sum ? !C.tg.dead : C.tg.fb ? !C.tg.dead && !C.tg.gone : NET.alive(C.tg)) ? C.tg : bossTarget(f); face(f, CT || hero);
     if (C.t <= 0){ const k = C.k; f.casting = null; if (!CT) return true; const a0 = AOES.length, seed = (Math.random() * 2147483646 + 1) | 0, R = Math.random, mul = (S && S.solo ? SOLO_MUL : 1) * ((S && S.atkMul) || 1) * enrMul(f);
-      BT = CT; Math.random = AO_RNG(seed); try { k.use(f); } finally { Math.random = R; BT = null; }   // 같은 씨앗으로 → 다른 사람 화면에서도 같은 자리에 범위가 그려짐
-      for (let q = a0; q < AOES.length; q++) { AOES[q].mul = mul; AOES[q].src = f; } /* v118: 범위 공격에 보스 표시 (기절 판정) · 공격력 배율 */
+      BT = CT; const n0 = foxes.length; Math.random = AO_RNG(seed); try { k.use(f); } finally { Math.random = R; BT = null; }   // 같은 씨앗으로 → 다른 사람 화면에서도 같은 자리에 범위가 그려짐
+      for (let q = a0; q < AOES.length; q++) { AOES[q].mul = mul; AOES[q].src = f; if (CT.fb) AOES[q].fbT = 1; } /* v118: 범위 공격에 보스 표시 (기절 판정) · 공격력 배율 · 11/1 fbT: 봇을 노린 범위 (피했다는 알림은 안 띄움) */
+      if (CT.fb) for (let q = n0; q < foxes.length; q++) { const m = foxes[q]; if (m.summoned && m.sumBy === f && !m.tgt) m.tgt = CT; }   // 11/1: 봇과 싸우며 부른 부하는 그 봇에게 (나에게 달려오지 않게)
       NET.bossCast(f, list.indexOf(k), CT, mul, seed); } return true; }
   const BTg = bossTarget(f), dh = BTg ? cheb(f.i, f.j, BTg.i, BTg.j) : 99;
   for (const k of list){ if (f.sk[k.id] == null) f.sk[k.id] = 2 + Math.random() * 3; f.sk[k.id] -= dt; }
@@ -964,7 +1002,7 @@ function castSkill0(id, onto){ const k = SK[id]; if (!k) return; if (BUFF.stun >
     BUFF[k.buff] = BUFF_DEF[k.buff].dur; mxSelf(id, hero); NET.mx(id, hero); spellSfx(id); floatText(hx, hy - 100, k.name, { color: BUFF_DEF[k.buff].c, size: 13 }); say(`${k.name}! (10분 · ${BUFF_DEF[k.buff].desc})`, '#cfe4ff'); return; }
   if (id === 'striker_gale' || id === 'earth_bind' || id === 'pollute_water') { if (!spellTgt(8)) return; const S = MOB[T.kind], [fx, fy] = W2P(T.x, T.z);
     if (id === 'earth_bind' && (T.bindImm || 0) > time) { say('어스 바인드: 방금 풀린 대상이라 잠시 다시 걸리지 않아요.', '#9c9682'); return; }
-    spend(); mxCast(id, hero); T.aggro = true; const ms_ = INV.cx('magicSucc') / 100, ch = Math.max(0.1, Math.min(0.9 + ms_, 0.5 + ms_ + 0.05 * (hero.lv - S.lv) - (S.boss || S.midb ? 0.25 : 0)));
+    spend(); mxCast(id, hero); T.aggro = true; const ms_ = INV.cx('magicSucc') / 100, ch = Math.max(0.1, Math.min(0.9 + ms_, 0.5 + ms_ + 0.05 * (hero.lv - (T.fb && T.bot && T.bot.st ? T.bot.st.lv : S.lv)) - (S.boss || S.midb ? 0.25 : 0)));   // 11/1 밤: 필드 봇은 그 봇의 레벨로
     const okE = Math.random() < ch; mLog(T, okE, k.name); if (!okE) { floatText(fx, fy - headY(T) - 12, `${k.name} 실패`, { color: '#c8d0d8', size: 11 }); spellSfx('stunfail'); return; }
     if (id === 'striker_gale') { T.galeUntil = time + 12; mxSelf(id, T); NET.mx(id, T); floatText(fx, fy - headY(T) - 14, '스트라이커 게일! 12초', { color: '#ff8a7a', size: 14, big: true }); spellSfx(id); }
     else if (id === 'earth_bind') { const t = 1 + Math.random() * 4; T.stunT = Math.max(T.stunT || 0, t); T.stunMax = T.stunT; T.dingT = 99; T.bindUntil = time + t; T.bindImm = time + t + 6; if (NET.guestMob(T)) NET.status(T, t, 0, t); mxSelf(id, T); NET.mx(id, T, t); floatText(fx, fy - headY(T) - 14, `어스 바인드! ${t.toFixed(1)}초`, { color: '#ffd870', size: 16, big: true, life: 1.3 }); spellSfx(id); shake = Math.max(shake, 0.1); }
@@ -1204,13 +1242,13 @@ const slowChance = S => { const ms = INV.cx('magicSucc') / 100; return Math.max(
 function spellExtra(m, P) { if (!m || m.dead || m.hp <= 0) return; const S = MOB[m.kind] || {};
   if (P.stun && !S.boss && !S.midb && Math.random() < P.stun) { m.stunT = Math.max(m.stunT || 0, 1); m.stunMax = m.stunT; m.dingT = 0.18; if (NET.guestMob(m)) NET.status(m, 1, 0); const [x, y] = W2P(m.x, m.z); floatText(x, y - headY(m) - 14, '감전!', { color: '#bfe4ff', size: 12 }); }
   if (P.slow) { const ok = Math.random() < slowChance(S); if (S.magic) mLog(m, ok, '블리자드 슬로우'); if (ok) { m.slowT = Math.max(m.slowT || 0, S.boss || S.midb ? 4 : 10); if (NET.guestMob(m)) NET.status(m, 0, m.slowT); } } }
-function cleanseMe() { let n = 0; for (const k of ['slow', 'root', 'poison', 'stun']) if (BUFF[k] > 0) { BUFF[k] = 0; n++; } return n; }   // v149: 리무브 커스
+function cleanseMe() { let n = 0; for (const k of ['slow', 'wslow', 'root', 'poison', 'stun']) if (BUFF[k] > 0) { BUFF[k] = 0; n++; } return n; }   // v149: 리무브 커스
 let abSayT = -9;
 const abSay = t => { if (time - abSayT > 1) { abSayT = time; say(t, '#cfd8e8'); } };
 
 function skillFxTick(dt){ for (const id in SKCD) SKCD[id] = Math.max(0, SKCD[id] - dt); mxTick(dt);
   for (let n = BOLTS.length - 1; n >= 0; n--) { const b = BOLTS[n]; b.t += dt; if (b.t >= b.dur) { BOLTS.splice(n, 1); MXLITE = !!b.lite; try { mxHit(b.id || 'ebolt', b.f); if (b.id === 'fball' && !b.lite) mxFbZone(b.f); } finally { MXLITE = false; } if (b.onHit) b.onHit(); if (!b.cos && !b.f.dead) spellHit(b.f, b.id || 'ebolt'); } else mxBoltTrail(b, dt); }
-  for (let n = SKYFX.length - 1; n >= 0; n--) { const q = SKYFX[n]; q.t += dt; if (q.kind === 'sunc' && !q.done && q.t >= q.dur) { q.done = true; mxHit('sunburst', q.f); if (!q.cos && !q.f.dead) spellHit(q.f, 'sunburst'); } if (q.kind === 'aoe' && !q.done && q.t >= q.dur) { q.done = true; if (!(SPELL[q.id] || {}).self) mxHit(q.id, q.f); if (!q.cos && !q.f.dead) spellHit(q.f, q.id); } if (q.t >= q.dur + (q.kind === 'sunc' || q.kind === 'aoe' ? 0.05 : 0)) SKYFX.splice(n, 1); } }
+  for (let n = SKYFX.length - 1; n >= 0; n--) { const q = SKYFX[n]; q.t += dt; if (q.kind === 'sunc' && !q.done && q.t >= q.dur) { q.done = true; MXLITE = !!q.lite; try { mxHit('sunburst', q.f); } finally { MXLITE = false; } if (!q.cos && !q.f.dead) spellHit(q.f, 'sunburst'); } if (q.kind === 'aoe' && !q.done && q.t >= q.dur) { q.done = true; MXLITE = !!q.lite; try { if (!(SPELL[q.id] || {}).self) mxHit(q.id, q.f); } finally { MXLITE = false; } if (!q.cos && !q.f.dead) spellHit(q.f, q.id); }   /* 11/1 lite: 필드 봇 마법은 터질 때도 가볍게 */ if (q.t >= q.dur + (q.kind === 'sunc' || q.kind === 'aoe' ? 0.05 : 0)) SKYFX.splice(n, 1); } }
 function drawMxTop(g){ for (const b of BOLTS) mxBoltDraw(g, b); mxDraw(g, false); }   // 마법은 어둠·안개 위에 (스스로 빛남)
 function elfMarks(g){ for (const f of foxes) { if (f.dead || f.gone) continue; const [x, y] = W2P(f.x, f.z), h = headY(f);   /* v124: 스트라이커 게일 과녁 · 폴루트 워터 물방울 (걸려 있는 동안) */
     if (f.galeUntil > time) { const a = Math.min(1, f.galeUntil - time) * (0.42 + 0.14 * Math.sin(time * 5)), r = Math.max(10, Math.min(26, h * 0.27)); g.save(); g.translate(x, y - h * 0.5); g.rotate(time * 0.9); g.globalAlpha = a; g.strokeStyle = '#ff3a30'; g.lineWidth = 1.8; g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke(); g.lineWidth = 1.2; g.beginPath(); g.arc(0, 0, r * 0.5, 0, 7); g.stroke(); g.beginPath(); for (let i = 0; i < 4; i++) { const an = i * Math.PI / 2; g.moveTo(Math.cos(an) * r * 1.1, Math.sin(an) * r * 1.1); g.lineTo(Math.cos(an) * r * 1.45, Math.sin(an) * r * 1.45); } g.stroke(); g.fillStyle = '#ff3a30'; g.beginPath(); g.arc(0, 0, 2, 0, 7); g.fill(); g.restore(); }
@@ -1769,8 +1807,8 @@ function mxTick(dt) {
 const MX_PROJ = { ebolt: 1, icedagger: 1, farrow: 1, fball: 1 };
 function mxFire(id, src, T, cos, from, lite) { const P = SPELL[id]; if (!P || !T) return; const [hx, hy] = from || W2P(src.x, src.z), d = Math.max(1, Math.hypot(T.x - src.x, T.z - src.z));
   if (MX_PROJ[id]) BOLTS.push({ x0: hx, y0: hy - 52, f: T, t: 0, dur: (0.22 + d * 0.045) * (id === 'fball' ? 1.25 : id === 'icedagger' ? 0.8 : 1), kind: P.fx, id, cos, lite });
-  else if (P.sky) { const F = P.box ? { x: T.x, z: T.z, i: Math.floor(T.x), j: Math.floor(T.z), h0: 60 } : T; SKYFX.push({ kind: 'aoe', id, f: F, t: 0, dur: P.delay, cos }); mxSky(id, F, P.delay); }   // v149: 미티어는 그 자리에 떨어짐
-  else if (id === 'sunburst') { SKYFX.push({ kind: 'sunc', f: T, t: 0, dur: P.delay, cos }); mxSunCharge(T, P.delay); }
+  else if (P.sky) { const F = P.box ? { x: T.x, z: T.z, i: Math.floor(T.x), j: Math.floor(T.z), h0: 60 } : T; SKYFX.push({ kind: 'aoe', id, f: F, t: 0, dur: P.delay, cos, lite }); mxSky(id, F, P.delay); }   // v149: 미티어는 그 자리에 떨어짐
+  else if (id === 'sunburst') { SKYFX.push({ kind: 'sunc', f: T, t: 0, dur: P.delay, cos, lite }); mxSunCharge(T, P.delay); }
   else { mxHit(id, T); if (!cos && !T.dead) spellHit(T, id); } }
 
 // ============================================================ 장비 외형: 속옷만 입은 몸 + 부위별 장비 레이어 (착용한 부위만 그림)
@@ -1853,8 +1891,8 @@ function drawClassLayers(g, cls, anim, fr, row, x, y, hurtF, eqf, gl) { const D 
     g.drawImage(src, k * M.W, row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
     if (gl && L !== 'body') { const t = gl(CL_SLOT[L.replace(/_[lp]$/, '')]); if (t) layerGlow(g, img, M, k, row, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), sc, t, D.pfx + L + ':' + a, CL_SLOT[L.replace(/_[lp]$/, '')] === 'weapon' ? 1 : 0.85); } }
   return true; }
-function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (!EQFX) gl = null;   /* 장비 이펙트 끔 */ if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
-  { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf, gl)) return true; }   // 변신 (데스나이트 세트 등)
+function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf, lite) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (!EQFX) gl = null;   /* 장비 이펙트 끔 */ if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
+  { const pm = (eqf ? (pf && POLY[pf] ? pf : null) : selfPoly()) || polyOf(eqf || INV.equipped); if (pm && drawPoly(g, pm, anim, fr, row, x, y, hf, gl, lite === 2, lite)) return true; }   // 변신 (데스나이트 세트 등)
   if (cls !== 'knight' && CL_DEF[cls] && drawClassLayers(g, cls, anim, fr, row, x, y, hf, eqf, gl)) return true;
   if (cls !== 'knight') { const M = CLSM[cls], a = anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2') ? 'attack' : 'idle', img = M && clsImg(cls, a);
     if (img) { const m = M[a]; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; drawSheet(g, img, { W: m.W, H: m.H, ax: m.ax, ay: m.ay, s: KN.s || 1 }, Math.min(fr, m.n - 1), row, x, y, 1, hf); if (gl) bodyGlow(g, img, { W: m.W, H: m.H, ax: m.ax, ay: m.ay, s: KN.s || 1 }, Math.min(fr, m.n - 1), row, x, y, gl); g.restore(); return true; }
@@ -1902,7 +1940,7 @@ function drawArrowShape(g, x, y, ang, al) { g.save(); g.translate(x, y); g.rotat
   g.fillStyle = '#c0342a'; g.beginPath(); g.moveTo(-17, 0); g.lineTo(-25, -4.2); g.lineTo(-22.5, 0); g.closePath(); g.fill(); g.beginPath(); g.moveTo(-17, 0); g.lineTo(-25, 4.2); g.lineTo(-22.5, 0); g.closePath(); g.fill();
   g.strokeStyle = '#f4ece0'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-18, 0); g.lineTo(-24, -2.6); g.moveTo(-18, 0); g.lineTo(-24, 2.6); g.stroke(); g.restore(); }
 // 불덩이(오크 마법사)·마력탄(마법사) — 곧게 날아가는 빛 구슬 + 꼬리
-function fireBurst(x, y) { impact(x, y, 'bolt', '#ff7a2a'); for (let n = 0; n < 14; n++) { const an = Math.random() * 6.283, sp = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp * 0.6 - 30, life: 0.5, max: 0.5, ember: true }); }
+function fireBurst(x, y) { impact(x, y, 'bolt', '#ff7a2a'); if (window.GLR) GLR.spark(x, y, 26, { c: '#ff8a30', sp: 110, life: 0.8, g: -60, up: 20, sz: 2 });   /* GL: GPU 불티 (새 그래픽 켬일 때만) */ for (let n = 0; n < 14; n++) { const an = Math.random() * 6.283, sp = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp * 0.6 - 30, life: 0.5, max: 0.5, ember: true }); }
   if (AC && SFX_ON) { const t = AC.currentTime; nz(t, 0.25, 900, 300, 0.12); } }
 function drawOrb(g, a) { const k = Math.min(1, a.t / a.dur), P = q => [a.x0 + (a.x1 - a.x0) * q, a.y0 + (a.y1 - a.y0) * q - Math.sin(q * Math.PI) * 6], [x, y] = P(k), fire = a.kind === 'fireball';
   const C = fire ? ['255,120,30', '255,200,90', '255,250,220'] : (a.col || ['150,110,255', '170,200,255', '240,240,255']);
@@ -2233,7 +2271,7 @@ function procLayer(g, f, S, ART, al) { const [draw, FL, ownA] = PROCFX[ART], dea
   const fl0 = f.flash; f.flash = 0; try { draw(x, f); } finally { f.flash = fl0; }
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.filter = filt; g.drawImage(c, 0, 0, bw, bh, x0, y0, bw, bh); g.restore(); return true; }
 function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO.busy = true; try { drawTgtOutline(g, f); } finally { TGO.busy = false; } return; }   /* 고른 대상은 빨간 테두리 (안에서 다시 이 함수를 부름) */
-  if (f.bot || f.twr || (f.kind && f.kind.startsWith('tw_'))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
+  if (f.bot || f.twr || (f.kind && (f.kind.startsWith('tw_') || f.kind.startsWith('fb_')))) { if (f.bot || f.twr) TWM.drawEnt(g, f); return; } const S=MOB[f.kind], [x,y]=W2P(f.x,f.z), moving=f.t<1;
     const sheetAtk = S.art==='sheet' && !f.dead && f.atkT!=null; mobPose(f, sheetAtk?0.5:1);
     const al=f.dead?Math.max(0,1-f.deadT/1.4):1, fl=f.flash>0?'brightness(2.6) saturate(0)':MP.red?'sepia(.55) saturate(2.4) hue-rotate(-38deg) brightness(1.08)':null;
     g.save(); g.translate(Math.round(x+MP.lx), Math.round(y+MP.ly)); if (MP.rot) g.rotate(MP.rot); if (MP.sx!==1||MP.sy!==1) g.scale(MP.sx,MP.sy);
@@ -2311,6 +2349,7 @@ function drawWorld(g, vw, vh){
   for (const p of parts) if (p.dust){ const k=p.life/p.max; g.fillStyle=`rgba(150,128,96,${0.55*k})`; g.beginPath(); g.arc(p.x,p.y,1.4+(1-k)*2.2,0,7); g.fill(); }
   g.globalCompositeOperation='lighter';
   for (const p of parts){ if (p.dust) continue; const k=p.life/p.max; if (p.ember){ g.fillStyle=`rgba(255,${120+k*100},40,${k})`; g.fillRect(p.x,p.y,1.5,1.5); } else { g.strokeStyle=p.crit?`rgba(255,200,90,${k})`:`rgba(255,240,200,${k})`; g.lineWidth=1.2; g.beginPath(); g.moveTo(p.x,p.y); g.lineTo(p.x-p.vx*0.03,p.y-p.vy*0.03); g.stroke(); } }
+  if (window.GLR) GLR.sparks(g);   // GL: GPU 불티 그리기 (g가 새 그래픽 컨텍스트일 때만)
   g.globalCompositeOperation='source-over';
   for (const b of bursts){ const k=b.t/0.35, r=8+k*34; g.save(); g.globalCompositeOperation='lighter'; g.globalAlpha=1-k;
     const gr=g.createRadialGradient(b.x,b.y,0,b.x,b.y,r); gr.addColorStop(0,'rgba(255,240,180,.9)'); gr.addColorStop(0.5,'rgba(255,170,60,.45)'); gr.addColorStop(1,'rgba(255,120,30,0)');
@@ -2328,6 +2367,7 @@ function drawWorld(g, vw, vh){
   PET.drawLabels(g);
   NET.drawTombs(g); if (DEATH) { const [hx, hy] = W2P(hero.x, hero.z); drawTomb(g, hx, hy, PNAME(), deathLeft()); }   // v131: 무덤은 어둠·몬스터 위에 (잘 보이게)
   if (hero.chat && time < hero.chat.until) CHAT.bubble(g, hero);
+  FBOT.drawTalk(g);   // 11/1: 필드 봇 멘트 말풍선
   if (!DEATH) { const [hx,hy]=W2P(hero.x,hero.z); g.fillStyle='#000'; g.fillRect(Math.round(hx)-14,Math.round(hy)-90,28,4); g.fillStyle='#c8302a'; g.fillRect(Math.round(hx)-13,Math.round(hy)-89,Math.round(26*hero.hp/hero.max),2); }
   const tg0 = hover&&!hover.dead ? hover : (T&&!T.dead&&!T.isRemote?T:null), tg = tg0&&DN.seen(tg0.i,tg0.j)?tg0:null;
   if (tg && !tg.bot){ const S=MOB[tg.kind], [x,y]=W2P(tg.x,tg.z), hh=(S.hh||Math.round(62*S.sc))+4, nm=(tg.dispName||S.name)+(tg.reaper?` (${rpLeft(tg)}분)`:S.boss?' (보스)':'')+(tg.enraged?' · 광폭화':''), bw=S.boss?60:30;
@@ -2374,7 +2414,7 @@ function drawBossTalk(g, vw, vh, ox, oy) { if (SCENE !== 'field') return;
 let BOSSBAR_B = 0, BOSSBAR_LY = 0;   // BOSSBAR_LY: 보스 바 아래 끝 (캔버스 좌표 · v136 콜로세움 진행 줄)   // 보스 바 아래 끝 (화면 px) — 사망 안내가 겹치지 않게
 // 고른 캐릭터(수호탑 봇·다른 유저)의 아이디·HP를 화면 위 가운데에 작게 (보스 바의 1/5쯤) · 좌클릭으로 고른 대상, 없으면 우클릭으로 고르는 중인 대상
 function drawTgtPlate(g, vw) { if (SCENE !== 'field') return; const ch = q => !!q && (q.bot || q.isRemote) && !q.dead && !q.gone; let e = hero.target; if (!ch(e)) e = preselOk() && ch(PRESEL.e) ? PRESEL.e : null; if (!e) return;
-  const nm = e.isRemote ? (NET.nameOf(e.peer) || '유저') : e.bot.name, ally = e.bot ? e.bot.team === 'A' : !PVPZ(), p = Math.max(0, Math.min(1, e.hp / (e.max || 1)));
+  const nm = e.isRemote ? (NET.nameOf(e.peer) || '유저') : (e.bot.clan ? '[' + e.bot.clan + '] ' : '') + e.bot.name, ally = e.bot ? e.bot.team === 'A' : !PVPZ(), p = Math.max(0, Math.min(1, e.hp / (e.max || 1)));
   let top = 46; try { const tb = document.querySelector('.topbar'), r = cv.getBoundingClientRect(); if (tb) top = (tb.getBoundingClientRect().bottom - r.top) / curZ + 6; } catch (e_) {}
   const y0 = Math.round(BOSSBAR_LY ? BOSSBAR_LY + 2 : top); g.save(); g.font = '800 9px "Noto Sans KR",sans-serif'; const W = Math.max(68, Math.ceil(g.measureText(nm).width) + 12), X = Math.round(vw / 2 - W / 2);
   g.fillStyle = 'rgba(8,6,6,.62)'; g.fillRect(X, y0, W, 19); g.strokeStyle = 'rgba(200,160,90,.5)'; g.lineWidth = 1; g.strokeRect(X + 0.5, y0 + 0.5, W - 1, 18);
@@ -2929,6 +2969,10 @@ Object.assign(MOB, {   // v183: 수호탑 대전 — AI 봇(기사·요정·마�
   tw_e: { name: '요정', lv: 1, hp: 300, dmg: [1, 2], walk: 2, run: 3, cd: 1, hit: 0.8, mac: 0, sc: 1, hw: 18, hh: 100, art: 'twbot', exp: 0, coin: [0, 0], twb: 1 },
   tw_w: { name: '마법사', lv: 1, hp: 250, dmg: [1, 2], walk: 2, run: 3, cd: 1, hit: 0.8, mac: 0, sc: 1, hw: 18, hh: 100, art: 'twbot', exp: 0, coin: [0, 0], twb: 1 },
   tw_tower: { name: '수호탑', lv: 1, hp: 20000, dmg: [0, 0], walk: 0, run: 0, cd: 9, hit: 0, mac: 10, sc: 1, hw: 40, hh: 205, ring: 48, art: 'twtower', exp: 0, coin: [0, 0], twb: 1 } });
+Object.assign(MOB, {   // v191(10/30): 필드 상주 봇 (반왕·라인 혈맹) — 능력치는 FBOT이 기준 유저 전투력으로 정함 · 그림은 수호탑 봇과 같음 · 몬스터 목록 맨 뒤에 (예전 버전과 번호가 어긋나지 않게)
+  fb_k: { name: '기사', lv: 1, hp: 400, dmg: [1, 2], walk: 2, run: 3, cd: 1, hit: 0.8, mac: 0, sc: 1, hw: 18, hh: 100, art: 'twbot', exp: 0, coin: [0, 0], fbb: 1 },
+  fb_e: { name: '요정', lv: 1, hp: 300, dmg: [1, 2], walk: 2, run: 3, cd: 1, hit: 0.8, mac: 0, sc: 1, hw: 18, hh: 100, art: 'twbot', exp: 0, coin: [0, 0], fbb: 1 },
+  fb_w: { name: '마법사', lv: 1, hp: 250, dmg: [1, 2], walk: 2, run: 3, cd: 1, hit: 0.8, mac: 0, sc: 1, hw: 18, hh: 100, art: 'twbot', exp: 0, coin: [0, 0], fbb: 1 } });
 const AGGR_SC = 1.3; for (const k in MOB) { const S = MOB[k]; if (!S.aggr || S.boss || S.pet) continue; S.sc = (S.sc || 1) * AGGR_SC; if (S.hw) S.hw = Math.round(S.hw * AGGR_SC); if (S.hh) S.hh = Math.round(S.hh * AGGR_SC); const M = MSHEET[k]; if (M) { M.s *= AGGR_SC; if (M.hh) M.hh = Math.round(M.hh * AGGR_SC); if (M.hw) M.hw = Math.round(M.hw * AGGR_SC); } }
 // v107: 본토던전 몬스터가 너무 커서 캐릭터 크기에 맞춤 — [그림 배율, 이름 높이] (화면 키: 기사 81 · 스파토이 88 · 네크로맨서 90 · 킹 버그베어 96 · 켈베로스 76 · 데스나이트 126)
 const SIZE_FIX = { ettin: [0.5, 69], dv_skel: [1, 92], dv_lizard: [0.85, 70], wyvern: [0.55, 62], drake: [0.6, 107], spartoi: [0.473, 85], necromancer: [0.425, 91], dg_kbugbear: [0.706, 82], dg_cerberus: [0.745, 63], deathknight: [1, 136] };
@@ -3036,7 +3080,7 @@ function drawTomb(g, x, y, name, left) { const pu = 0.5 + 0.5 * Math.sin(time * 
   g.font = '800 12px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.9)';
   const n = String(name || ''); g.strokeText(n, x, by - 20); g.fillStyle = '#ffe2d6'; g.fillText(n, x, by - 20);
   const lt = left >= 9999 ? '사망' : `사망 · ${mmss(left || 0)}`; g.strokeText(lt, x, by - 6); g.fillStyle = '#ff5a48'; g.fillText(lt, x, by - 6); g.restore(); }
-function hurtHero(d, src, kind) { if (DEATH) return; if (HW()) { if (src && typeof src === 'object') src.hitMeT = time; if (GOD_INV) return; const d1 = HWC.DMG_IN; hero.hp -= d1; { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 96, String(d1), { color: '#ff5a4a', size: 12 }); } hurt = 0.25; sfx.bite(); if (hero.hp <= 0) heroDie(src, kind, d1); return; }   /* 할로윈: 받는 피해 1 고정 (방어·감소·반사 모두 무시) */ if (src && typeof src === 'object') src.hitMeT = time; if (src && src.isRemote && window.SAVER && SAVER.on()) setTimeout(() => SAVER.pvpHit(src), 0); if (GOD_INV || BUFF.abar > 0 || BUFF.ebind > 0) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 96, BUFF.ebind > 0 ? '바인드' : '무적', { color: '#f2d98a', size: 11 }); return; } const magic = kind === 'magic' || kind === 'elem' || !src, hz = HIZ() && !(src && src.isRemote); let crit = false; if (magic && kind !== 'elem' && BUFF.counterm > 0) { BUFF.counterm = 0; const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 100, '카운터 매직!', { color: '#d8a8ff', size: 14, big: true }); spellFx('aura', hero, '#d8a8ff'); say('카운터 매직이 마법 공격을 막았습니다! (효과 끝)', '#d8a8ff'); return; } if (!magic && hz) { const MS0 = src && MOB[src.kind]; let m = hzAcMul(INV.ac(), MS0 && MS0.boss) * v2Z('P'); if (Math.random() < v2CritP(false)) { m *= DEFMODE.v2CritM; crit = 'p'; } d = Math.max(1, Math.round(d * m)); }   /* 방어 v2(사냥터): AC → 물리 피해 감소 + 물리 강타 */
+function hurtHero(d, src, kind) { if (DEATH) return; if (HW()) { if (src && typeof src === 'object') src.hitMeT = time; if (GOD_INV) return; const d1 = HWC.DMG_IN; hero.hp -= d1; { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 96, String(d1), { color: '#ff5a4a', size: 12 }); } hurt = 0.25; sfx.bite(); if (hero.hp <= 0) heroDie(src, kind, d1); return; }   /* 할로윈: 받는 피해 1 고정 (방어·감소·반사 모두 무시) */ if (src && typeof src === 'object') src.hitMeT = time; if (src && (src.isRemote || src.fb) && window.SAVER && SAVER.on()) setTimeout(() => SAVER.pvpHit(src), 0);   /* 11/1: 라인 혈맹 봇에게 맞아도 절전 귀환 */ if (GOD_INV || BUFF.abar > 0 || BUFF.ebind > 0) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 96, BUFF.ebind > 0 ? '바인드' : '무적', { color: '#f2d98a', size: 11 }); return; } const magic = kind === 'magic' || kind === 'elem' || !src, hz = HIZ() && !(src && (src.isRemote || src.fb));   /* 11/1: 필드 봇에게 맞는 것도 대인전 (사냥터 몬스터 방어 v2 배율·강타 없이 — 유저→봇과 같은 규칙) */ let crit = false; if (magic && kind !== 'elem' && BUFF.counterm > 0) { BUFF.counterm = 0; const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 100, '카운터 매직!', { color: '#d8a8ff', size: 14, big: true }); spellFx('aura', hero, '#d8a8ff'); say('카운터 매직이 마법 공격을 막았습니다! (효과 끝)', '#d8a8ff'); return; } if (!magic && hz) { const MS0 = src && MOB[src.kind]; let m = hzAcMul(INV.ac(), MS0 && MS0.boss) * v2Z('P'); if (Math.random() < v2CritP(false)) { m *= DEFMODE.v2CritM; crit = 'p'; } d = Math.max(1, Math.round(d * m)); }   /* 방어 v2(사냥터): AC → 물리 피해 감소 + 물리 강타 */
   else if (hz && (kind === 'magic' || kind === 'aoe' || kind === 'elem')) { const D = DEFMODE; let m = (D.v2Lo + (D.v2Hi - D.v2Lo) * Math.random()) * v2Z('M'); if (Math.random() < v2CritP(true) && !(time - (hero._hzCrit || -99) < D.v2CritGap)) { m *= D.v2CritM; crit = 'm'; hero._hzCrit = time; } d = Math.max(1, Math.round(d * m)); }   /* 방어 v2(사냥터): 마법·범위 기술 피해 폭 + 마법 강타 */
   else if (!magic) { const A = INV.ac(); if (A < 0 && DEFMODE.drRand) d = Math.max(1, d - Math.floor(Math.random() * (Math.floor(-A / 3) + 1))); if (A < 0 && DEFMODE.drK) d = Math.max(1, Math.round(d * (1 - Math.min(DEFMODE.drCap, -A * DEFMODE.drK / 100))));   /* defbal 실험: AC → 물리 피해 % 감소 (기본 꺼짐) */ } if (BUFF.reduction > 0) d = Math.max(1, Math.round(d * 0.75)); if (BUFF.immune > 0) d = Math.max(1, Math.round(d * 0.7));   // 이뮨 투 함: 30% 감소
     // AC 피해 감소: 0~(−AC÷3) 무작위 (마법은 AC 무시) · 리덕션 아머 25% 감소
@@ -3205,7 +3249,7 @@ function dgStairs(g, x, y, p) { const down = p.stairs === 'down', pulse = 0.5 + 
 
 // ---------- 몬스터 마법 (카스파 패밀리·네크로맨서): 연출은 마법 연출(mx)로, 피해는 맞을 때 (AC 무시 · MR·속성 저항으로 감소)
 function mobSpellHit(f, S, T, mul = 1, extra) { mul *= enrMul(f) * ((S && S.atkMul) || 1); if (T === hero) { if (hero.hp <= 0 || SCENE === 'town') return; if (Math.random() < mobHitM(S)) { hurtHero(Math.round(rint(S.dmg) * mul), f, 'magic'); if (extra) extra(); } else heroMiss(); }
-  else if (T.isRemote) NET.hitRemote(T, f, S); else if (T.isPet && !T.dead) PET.hurt(T, Math.round(rint(S.dmg) * mul), f); }
+  else if (T.isRemote) NET.hitRemote(T, f, S); else if (T.fb) FBOT.mobHit(T, f, S, Math.round(rint(S.dmg) * mul), null, true); else if (T.isPet && !T.dead) PET.hurt(T, Math.round(rint(S.dmg) * mul), f); }
 function mobCast(f, S, T) { T = T || hero; const [x0, y0] = W2P(f.x, f.z), d = Math.max(1, Math.hypot(T.x - f.x, T.z - f.z)), sp = S.spell;
   const bolt = (id, kind, k = 1, onHit) => BOLTS.push({ x0, y0: y0 - Math.min(80, mxH(f) * 0.7), f: T, t: 0, dur: (0.24 + d * 0.05) * k, kind, id, cos: true, onHit });
   if (sp === 'water') bolt('icedagger', 'ice', 0.85, () => mobSpellHit(f, S, T, 1, () => { if (!GOD_INV && Math.random() < 0.3) BUFF.slow = Math.max(BUFF.slow, 1.5); }));
@@ -3303,7 +3347,8 @@ function pmRcLut(rc, job) { const key = rc + ':' + job; if (PMRC_LUT[key]) retur
   const mk = (st, raw) => { const o = new Uint8ClampedArray(768); for (let L = 0; L < 256; L++) { let t = L / 255; if (!raw) t = Math.max(0, Math.min(1, (t - l0) / (l1 - l0))) ** gm; let j = 1; while (j < st.length - 1 && st[j][0] < t) j++;
     const A = st[j - 1], B = st[j], f = Math.max(0, Math.min(1, (t - A[0]) / ((B[0] - A[0]) || 1))); for (let c = 0; c < 3; c++) o[L * 3 + c] = A[c + 1] + (B[c + 1] - A[c + 1]) * f; } return o; };
   return (PMRC_LUT[key] = { m: mk(job === 'wizard' && S.robe || S.metal), c: mk(S.cloak), b: mk(S.blade, true) }); }
-function pmRcFrame(pk, a, k, row) { const key = pk + '|' + a + '|' + k + '|' + row; let e = PMRC.get(key); if (e) { PMRC.delete(key); PMRC.set(key, e); return e; }
+const BOTFX = { t: -1, n: 0 }, botFxOk = () => { if (BOTFX.t !== time) { BOTFX.t = time; BOTFX.n = 2; } return BOTFX.n-- > 0; };   /* v204: 필드 봇(복사한 소드·아크·전설 변신)의 색 입힌 그림·오로라는 프레임당 2장까지만 새로 만듦 (봇이 여럿이면 멈칫하지 않게 · 아직이면 그 프레임은 바탕 그림) */
+function pmRcFrame(pk, a, k, row, lite) { const key = pk + '|' + a + '|' + k + '|' + row; let e = PMRC.get(key); if (e) { PMRC.delete(key); PMRC.set(key, e); return e; } if (lite && !botFxOk()) return null;
   const P = POLY[pk], M = PMSHEET[P.sheet], G = PMGLOW[P.sheet], S = rcSpec(P.rc, P.job), img = pmImg(P.sheet, a), gi = pmGlowImg(P.sheet), ai = G ? G.an.indexOf(a) : -1;
   if (!M || !S || !img || !img.complete || !img.naturalWidth || !gi || ai < 0) return null;
   const W = M.W, H = M.H, n = W * H, mkC = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }, c = mkC(W, H), cg = c.getContext('2d', { willReadFrequently: true });
@@ -3325,12 +3370,12 @@ function pmRcFrame(pk, a, k, row) { const key = pk + '|' + a + '|' + k + '|' + r
 function pmRcDraw(g, e, M2, x, y, hf) { const s = M2.s; drawSheet(g, e.c, { W: e.c.width, H: e.c.height, ax: M2.ax - e.x0, ay: M2.ay - e.y0, s }, 0, 0, x, y, 1, hf);
   if (!e.h) return; const X = x - M2.ax * s, Y = y - M2.ay * s; g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.max(0, Math.min(1, e.ha * (0.72 + 0.28 * Math.sin(time * 4.2 + x * 0.013))));
   g.imageSmoothingEnabled = true; g.drawImage(e.h, X + e.hx * s, Y + e.hy * s, e.h.width / e.hs * s, e.h.height / e.hs * s); g.restore(); }
-function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
-  if (!img || !img.complete || !img.naturalWidth) return false; const RC = P.rc ? pmRcFrame(pk, a, Math.min(7, fr), row) : null; if (P.rc && !RC) return false;   /* 소드·아크: 색 입힌 그림이 아직이면 (빛 판을 불러오는 중) 원래 모습 */
+function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx, lite) { const P = POLY[pk], pmS = PMSHEET[P.sheet], M = pmS || MSHEET[P.sheet], I = pmS ? { idle: pmImg(P.sheet, 'idle'), walk: pmImg(P.sheet, 'walk'), attack: pmImg(P.sheet, 'attack'), cast: pmS.cast ? pmImg(P.sheet, 'cast') : null } : MIMG[P.sheet]; if (!M || !I) return false; const a = anim === 'cast' && I.cast ? 'cast' : anim === 'walk' ? 'walk' : (anim === 'attack' || anim === 'attack2' || anim === 'cast') ? 'attack' : 'idle', img = I[a];
+  if (!img || !img.complete || !img.naturalWidth) return false; const RC = P.rc && lite !== 2 ? pmRcFrame(pk, a, Math.min(7, fr), row, lite) : null; if (P.rc && !RC && !lite) return false;   /* v204 lite(필드 봇): 색 입힌 그림이 아직이거나 먼 봇이면 바탕(실버) 그림 */   /* 소드·아크: 색 입힌 그림이 아직이면 (빛 판을 불러오는 중) 원래 모습 */
   const R = P.rc && rcSpec(P.rc, P.job), RF = R && R.fx && !nofx && EQFX; if (RF) rcGround(g, R, x, y);
   g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; const M2 = { W: M.W, H: M.H, ax: M.ax, ay: M.ay, s: pmS ? (pmS.s || 1) : P.s };
   const af = !pmS && a === 'attack' ? (M.af || 8) : 8, k = af !== 8 ? Math.min(af - 1, Math.floor(Math.min(7, fr) * af / 8)) : Math.min(7, fr);   /* 변신 카드: 공격 그림 장수가 다른 몹(바실리스크 6장 등)은 8장 동작에 맞춰 늘이거나 줄임 */
-  if (P.card && P.card.g === '전설' && EQFX && !hf) { if (RC) polyAura(g, RC.c, { W: RC.c.width, H: RC.c.height }, 0, 0, x - (M2.ax - RC.x0) * M2.s, y - (M2.ay - RC.y0) * M2.s, M2.s, 'rc:' + pk + '|' + a + '|' + Math.min(7, fr) + '|' + row); else polyAura(g, img, M2, k, row, x - M2.ax * M2.s, y - M2.ay * M2.s, M2.s, pk + '|' + a + '|' + k + '|' + row); }   /* 11/1: 전설 카드 변신 = 몸을 두껍게 감싸는 금빛 오로라 (그림 뒤) */
+  if (P.card && P.card.g === '전설' && EQFX && !hf && lite !== 2) { if (RC) polyAura(g, RC.c, { W: RC.c.width, H: RC.c.height }, 0, 0, x - (M2.ax - RC.x0) * M2.s, y - (M2.ay - RC.y0) * M2.s, M2.s, 'rc:' + pk + '|' + a + '|' + Math.min(7, fr) + '|' + row, lite); else polyAura(g, img, M2, k, row, x - M2.ax * M2.s, y - M2.ay * M2.s, M2.s, pk + '|' + a + '|' + k + '|' + row, lite); }   /* 11/1: 전설 카드 변신 = 몸을 두껍게 감싸는 금빛 오로라 (그림 뒤) */
   if (!pmS && M.tint && !hf) { const c = tintFrame('pc:' + pk, a, img, { ...M2, tint: M.tint }, k, row); g.drawImage(c, Math.round(x - M2.ax * M2.s), Math.round(y - M2.ay * M2.s)); }   /* 몬스터 그림의 물들임(카스파·네크로맨서·와이번 등)도 그대로 */
   else if (RC) pmRcDraw(g, RC, M2, x, y, hf); else drawSheet(g, img, M2, k, row, x, y, 1, hf || (!pmS && M.tint) || null); g.restore();
   if (gl && pmS && PMGLOW[P.sheet]) drawPolyGlow(g, P, a, M2, k, row, x, y, gl);   /* v166: 다크·실버 나이트는 부위별 빛 */
@@ -3341,8 +3386,8 @@ function drawPoly(g, pk, anim, fr, row, x, y, hf, gl, nofx) { const P = POLY[pk]
   return true; }
 // 11/1 전설 카드 변신 금빛 오로라: 그 프레임 실루엣을 금빛으로 칠해 넓게 번지게 한 판(절반 크기로 만들어 저장)을 그림 뒤에 더해 그림 · 숨 쉬듯 밝아졌다 어두워짐
 const AURC = new Map();
-function polyAura(g, src, M, k, row, X, Y, sc, key) { const q = 0.5, kk = key + '|' + sc.toFixed(3); let c = AURC.get(kk);
-  if (!c) { if (AURC.size > 240) AURC.clear(); const P = 18, w0 = Math.max(1, Math.ceil(M.W * sc * q)), h0 = Math.max(1, Math.ceil(M.H * sc * q)), sil = document.createElement('canvas'); sil.width = w0 + P * 2; sil.height = h0 + P * 2; const sg = sil.getContext('2d', { willReadFrequently: true });
+function polyAura(g, src, M, k, row, X, Y, sc, key, lite) { const q = 0.5, kk = key + '|' + sc.toFixed(3); let c = AURC.get(kk);
+  if (!c) { if (lite && !botFxOk()) return; if (AURC.size > 240) AURC.clear(); const P = 18, w0 = Math.max(1, Math.ceil(M.W * sc * q)), h0 = Math.max(1, Math.ceil(M.H * sc * q)), sil = document.createElement('canvas'); sil.width = w0 + P * 2; sil.height = h0 + P * 2; const sg = sil.getContext('2d', { willReadFrequently: true });
     sg.imageSmoothingEnabled = true; sg.drawImage(src, k * M.W, row * M.H, M.W, M.H, P, P, w0, h0);
     try { const I = sg.getImageData(0, 0, sil.width, sil.height), D = I.data; for (let o = 0; o < D.length; o += 4) { if (D[o + 3] > 40 && Math.max(D[o], D[o + 1], D[o + 2]) >= 22) { D[o] = 255; D[o + 1] = 196; D[o + 2] = 80; D[o + 3] = 255; } else D[o + 3] = 0; } sg.putImageData(I, 0, 0); }   // 바닥 그림자(거의 검은 점묘)는 빼고 몸만
     catch (e) { sg.globalCompositeOperation = 'source-in'; sg.fillStyle = 'rgb(255,196,80)'; sg.fillRect(0, 0, sil.width, sil.height); }
@@ -4313,13 +4358,16 @@ const ISLAND = (() => {
   function prebake(id) { const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap); }
   return {
     enter, prebake, def: id => DEF[id],
-    bossDown(kind, by) { { const fk = Object.keys(BOSS).find(k => BOSS[k].fam && BOSS[k].fam.includes(kind)); if (fk) { const F = BOSS[fk], left = get(F.zone).mobs.filter(m => F.fam.includes(m.kind) && !m.dead && !m.gone).length;
-        if (left) { say(`${MOB[kind].name}을(를) 쓰러뜨렸습니다! 카스파 패밀리가 아직 ${left}명 남았습니다.`, '#f2e6a8'); return; } kind = fk; } }
-      const B = BOSS[kind || 'shelob']; if (!B) return; TELE.ev('bossdown', { b: kind || 'shelob', by: String(by || PNAME()).slice(0, 12) }); B.ent = null; KILL[kind] = { k: Math.max(killedK(kind), lastSlot(kind)), by: String(by || PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; announce(`${KILL[kind].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); say(`${JOSA(B.title.split(' ').pop(), '을', '를')} 쓰러뜨렸습니다! (${B.againTxt} 다시 나타납니다)`, '#f2e6a8'); },
+    bossDown(kind, by, bot) { { const fk = Object.keys(BOSS).find(k => BOSS[k].fam && BOSS[k].fam.includes(kind)); if (fk) { const F = BOSS[fk], left = get(F.zone).mobs.filter(m => F.fam.includes(m.kind) && !m.dead && !m.gone).length;
+        if (left) { if (!bot) say(`${MOB[kind].name}을(를) 쓰러뜨렸습니다! 카스파 패밀리가 아직 ${left}명 남았습니다.`, '#f2e6a8'); return; } kind = fk; } }
+      const B = BOSS[kind || 'shelob']; if (!B) return; TELE.ev('bossdown', { b: kind || 'shelob', by: String(by || PNAME()).slice(0, 12) }); B.ent = null; KILL[kind] = { k: Math.max(killedK(kind), lastSlot(kind)), by: String(by || PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; announce(`${KILL[kind].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); if (!bot) say(`${JOSA(B.title.split(' ').pop(), '을', '를')} 쓰러뜨렸습니다! (${B.againTxt} 다시 나타납니다)`, '#f2e6a8'); },   // 11/1 2단계 ②: bot = 필드 봇이 잡음 (토벌 공지는 그대로 · 내가 잡은 것처럼 보이는 줄은 없이)
     // 10/30: 중간 보스(이프리트)를 잡으면 조용히 기록만 (공지·채팅 없음) — 기록은 다른 보스처럼 저장·다른 사람과 공유되어 모두 같은 시각에 다시 나타남
-    midDown(f) { const k = Object.keys(BOSS).find(q => BOSS[q].quiet && BOSS[q].kind === f.kind && (BOSS[q].ent === f || f.uid === BUID(q))); if (!k) return; const B = BOSS[k];
-      TELE.ev('bossdown', { b: k, by: String(PNAME()).slice(0, 12) }); B.ent = null; KILL[k] = { k: Math.max(killedK(k), lastSlot(k)), by: String(PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; },
-    bossTimers: () => Object.fromEntries(Object.keys(BOSS).map(k => [k, isAlive(k) ? 'alive' : Math.round(nextAt(k) - nowS())])),
+    midDown(f, by) { const k = Object.keys(BOSS).find(q => BOSS[q].quiet && BOSS[q].kind === f.kind && (BOSS[q].ent === f || f.uid === BUID(q))); if (!k) return; const B = BOSS[k];
+      TELE.ev('bossdown', { b: k, by: String(by || PNAME()).slice(0, 12) }); B.ent = null; KILL[k] = { k: Math.max(killedK(k), lastSlot(k)), by: String(by || PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; },
+    // 11/1 2단계 ② (필드 봇 보스 사냥): 그 지역의 시간표 보스 — k(칸 이름)·kind(실제 몬스터)·ent(지금 몸)·alive·sid(젠 번호)·at(이번 젠 시각, 초)·quiet · bossKey(f) = 젠마다 다른 열쇠 (보스 알림 '젠마다 한 번'·봇 사냥 계획에 씀)
+    bossInfo: zid => Object.keys(BOSS).filter(k => BOSS[k].zone === zid).map(k => { const B = BOSS[k]; return { k, kind: B.kind || k, ent: B.ent, alive: isAlive(k), sid: sidOf(k), at: KT(k) ? respAt(k) : atOf(k, lastSlot(k)), quiet: !!B.quiet, title: B.title }; }),
+    bossKey: f => { if (!f || f.uid == null) return ''; const k = Object.keys(BOSS).find(q => BOSS[q].ent === f || f.uid === BUID(q) || (BOSS[q].fam && f.uid >= BUID(q) + 100 && f.uid < BUID(q) + 110)); return k ? k + ':' + sidOf(k) : ''; },
+    bossTimers: () => Object.fromEntries(Object.keys(BOSS).map(k => [k, isAlive(k) ? 'alive' : Math.round(nextAt(k) - nowS())])), isAlive: k => !!BOSS[k] && isAlive(k),
     bossKills: () => KILL,
     spawnLog: () => { const o = [], now = nowS(); for (const k in BOSS) { const B = BOSS[k]; if (B.quiet || !KT(k) || !isAlive(k)) continue; const at = respAt(k); if (at > now || now - at > 86400) continue; o.push({ at: Math.round(at * 1000), t: `${B.where} 어딘가에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, c: '#ff7a5a' }); } return o; },   // 11/1: 꺼져 있던 동안 나타난 보스 (게임 기록 채우기)
     // 다른 사람이 잡은 소식: 더 최근 구간이면 받아들이고, 내 화면의 보스는 치움 + 토벌 공지
@@ -4331,12 +4379,12 @@ const ISLAND = (() => {
         if (fresh && !B.quiet) announce(`${B.where} 어딘가에 ${JOSA(B.title, '이', '가')} 나타났습니다!`, '#ff7a5a', 'boss'); B.was = alive;   // 모든 PC가 같은 시각에 공지
         if (B.ent && (B.ent.gone || B.ent.dead)) { if (B.ent.gone) B.ent = null; continue; }
         if (alive && !B.ent && !NET.guestIn('isle' + B.zone)) spawnBoss(k, sidOf(k), fresh); else if (!alive && B.ent && !B.ent.dead) removeBoss(k); }
-      for (let k = arrows.length - 1; k >= 0; k--) { const a = arrows[k]; a.t += dt; if (a.t >= a.dur) { arrows.splice(k, 1); if (a.pl) { if (a.onHit) a.onHit(); continue; } if (a.kind === 'fireball') { const [bx, by] = a.tg ? W2P(a.tg.x, a.tg.z) : W2P(hero.x, hero.z); fireBurst(bx, by - (a.tg ? 16 : 30)); } if (a.tg) { if (!a.tg.dead) { const [ix, iy] = W2P(a.tg.x, a.tg.z); if (a.tg.isRemote) { NET.hitRemote(a.tg, a.src, MOB[a.src.kind], a.dmg, a.hit, a.kind === 'fireball'); continue; } if (Math.random() < 0.75) { PET.hurt(a.tg, a.dmg, a.src); impact(ix, iy - 16, 'hit', '#ffd890'); } else impact(ix, iy + 2, 'miss'); } continue; } const [ix, iy] = W2P(hero.x, hero.z); if (Math.random() < a.hit - (BUFF.solid > 0 && a.kind !== 'fireball' ? 0.25 : 0)) { hurtHero(a.dmg, a.src, a.kind === 'fireball' ? 'magic' : 'ranged'); impact(ix, iy - 30, 'hit', a.kind === 'fireball' ? '#ff8a3a' : '#ffd890'); if (a.kind !== 'fireball') MSFX('elf', 'arrowhit', 0.45); if (a.kind === 'fireball' && !GOD_INV && Math.random() < 0.25 * Math.max(0.2, 1 - elemRes('fire') / 50)) { hero.burnT = 3; say('파이어볼에 맞아 화상을 입었습니다!', '#ff9a5a'); } } else { heroMiss(); impact(ix + (Math.random() - 0.5) * 20, iy + 2, 'miss'); } } }
+      for (let k = arrows.length - 1; k >= 0; k--) { const a = arrows[k]; a.t += dt; if (a.t >= a.dur) { arrows.splice(k, 1); if (a.pl) { if (a.onHit) a.onHit(); continue; } if (a.kind === 'fireball') { const [bx, by] = a.tg ? W2P(a.tg.x, a.tg.z) : W2P(hero.x, hero.z); fireBurst(bx, by - (a.tg ? 16 : 30)); } if (a.tg) { if (!a.tg.dead) { const [ix, iy] = W2P(a.tg.x, a.tg.z); if (a.tg.isRemote) { NET.hitRemote(a.tg, a.src, MOB[a.src.kind], a.dmg, a.hit, a.kind === 'fireball'); continue; } if (a.tg.fb) { FBOT.mobHit(a.tg, a.src, MOB[a.src.kind], a.dmg, null, a.kind === 'fireball'); continue; } if (Math.random() < 0.75) { PET.hurt(a.tg, a.dmg, a.src); impact(ix, iy - 16, 'hit', '#ffd890'); } else impact(ix, iy + 2, 'miss'); } continue; } const [ix, iy] = W2P(hero.x, hero.z); if (Math.random() < a.hit - (BUFF.solid > 0 && a.kind !== 'fireball' ? 0.25 : 0)) { hurtHero(a.dmg, a.src, a.kind === 'fireball' ? 'magic' : 'ranged'); impact(ix, iy - 30, 'hit', a.kind === 'fireball' ? '#ff8a3a' : '#ffd890'); if (a.kind !== 'fireball') MSFX('elf', 'arrowhit', 0.45); if (a.kind === 'fireball' && !GOD_INV && Math.random() < 0.25 * Math.max(0.2, 1 - elemRes('fire') / 50)) { hero.burnT = 3; say('파이어볼에 맞아 화상을 입었습니다!', '#ff9a5a'); } } else { heroMiss(); impact(ix + (Math.random() - 0.5) * 20, iy + 2, 'miss'); } } }
       if (!ISLE) return;
       if (!ISLE.ground && im.ground.complete) ISLE.ground = buildGround(ISLE.def);
       if (ISLE.def.fire || ISLE.def.dream) fireTick(dt);
       for (let k = foxes.length - 1; k >= 0; k--) if (foxes[k].gone) foxes.splice(k, 1);
-      if (hero.t >= 1 && !hero.atk && !huntOn()) for (const p of ISLE.portals) if (hero.i === p.i && hero.j === p.j) {   /* v164: 자동사냥 중에는 이동 발판(다른 구역·마을·계단)을 밟아도 넘어가지 않음 */ if (p.to === 'town') { hero.target = null; moveGoal = null; TOWN.goTown(); } else enter(p.to, ISLE.id); break; } },
+      if (hero.t >= 1 && !hero.atk && !huntOn() && !BOTHOST.on()) for (const p of ISLE.portals) if (hero.i === p.i && hero.j === p.j) {   /* v164: 자동사냥 중에는 이동 발판(다른 구역·마을·계단)을 밟아도 넘어가지 않음 */ if (p.to === 'town') { hero.target = null; moveGoal = null; TOWN.goTown(); } else enter(p.to, ISLE.id); break; } },
     addDraw(list, g) { if (ISLE.def.arena || ISLE.def.duel) arenaDraw(list, g); if (ISLE.def.shrine) dreamShrineDraw(list, g); if (ISLE.def.tw) TWM.addDraw(list, g); for (const p of ISLE.portals) { const [x, y] = W2P(p.i + 0.5, p.j + 0.5); list.push({ d: p.i + p.j + (p.stairs ? 0.3 : 0.6), f: () => p.stairs ? dgStairs(g, x, y, p) : portalFx(g, x, y, p.label) }); } },
   };
 })();
@@ -4384,10 +4432,11 @@ const MOB_DROPS = { // 버그베어·킹 버그베어: 갑옷·무기 마법 주
 const REGION_BOSS = { fox: 'shelob', goblin: 'shelob', orc: 'shelob', orc_archer: 'shelob', dwarf: 'shelob', hobgoblin: 'shelob', orc_warrior: 'shelob', werewolf: 'shelob', lizardman: 'queen_ant', giant_ant: 'queen_ant', scorpion: 'queen_ant', basilisk: 'queen_ant', fire_ant: 'queen_ant', roba_orc: 'ogre', dudamara_orc: 'ogre', orc_wizard: 'ogre', dark_elf: 'ogre', atuba_orc: 'ogre', gast: 'ogre', skeleton_archer: 'baphomet', zombie: 'baphomet', bugbear: 'baphomet', cerberus: 'baphomet', king_bugbear: 'baphomet', dg_kbugbear: 'kaspar', ungoliant: 'kaspar', ghoul: 'kaspar', dg_cerberus: 'deathknight', necromancer: 'deathknight', elmore_soldier: 'ice_queen', elmore_warrior: 'ice_queen', elmore_mage: 'ice_queen', ettin: 'ice_queen', ice_golem: 'ice_queen', sabertooth: 'ice_queen', dv_skel: 'drake_king', dv_archer: 'drake_king', dv_lizard: 'drake_king', wyvern: 'drake_king', drake: 'drake_king', lesser_dragon: 'drake_king' };
 Object.assign(REGION_BOSS, { fn_warrior: 'phoenix', fn_archer: 'phoenix', fn_golem: 'phoenix', fn_fly: 'phoenix', fn_bomb: 'phoenix', fn_salamander: 'phoenix', fn_hcerberus: 'phoenix', fn_ashtazio: 'phoenix', fn_egg: 'phoenix' });
 const regionDropP = lv => Math.min(0.12, 0.02 + 0.004 * lv);   // Lv1 2.4% · Lv8 5.2% · Lv14 7.6% · Lv17 8.8%
+let FB_QUIET = false, FB_KILLER = '';   // 11/1: 필드 봇 혼자 잡은 몹의 드랍 — '떨어졌습니다!' 알림 없음 (그 봇이 주워 감) · FB_KILLER: 유저와 봇이 함께 잡은 보스에서 봇 피해가 더 크면 토벌 기록 이름은 그 봇 (2단계 ②)
 function regionDrop(f) { const b = REGION_BOSS[f.kind], T = b && DROP_TABLE[b]; if (!T || Math.random() >= regionDropP(MOB[f.kind].lv || 1)) return false;
   const pool = T.filter(([id]) => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')); if (!pool.length) return false;
   const tot = pool.reduce((a, r) => a + r[1], 0); let x = Math.random() * tot; const row = pool.find(r => (x -= r[1]) < 0) || pool[0];
-  GROUND.drop(row[0], 1, f.i, f.j); if (!lowRar(row[0])) say(`${rarTag(row[0])}${JOSA(ITEMS[row[0]].name, '이', '가')} 떨어졌습니다!`, rarC(row[0])); return true; }
+  GROUND.drop(row[0], 1, f.i, f.j); if (!lowRar(row[0]) && !FB_QUIET) say(`${rarTag(row[0])}${JOSA(ITEMS[row[0]].name, '이', '가')} 떨어졌습니다!`, rarC(row[0])); return true; }
 const GROUND = (() => {
   const L = [], IMG = {}, LIFE = 600, CAP = 50, KEEPZ = z => z === 'isle14', capOf = z => KEEPZ(z) ? 400 : CAP;   // 11/1: 콜로세움(isle14) 바닥은 시간으로 안 사라지고 400개까지 (판이 끝나 나갈 때 COLO가 정리) · 10/30: 바닥 아이템은 떨어진 지 10분 뒤 사라짐 · 지역당 50개(넘으면 가장 오래된 것부터 사라짐) (아이템마다 따로 · 마지막 30초는 깜빡임 · 타이머 없이 떨어진 뒤 흐른 시간 t만 매 프레임 확인)
   let want = null, hov = null, tipOn = false, cap = null, SH = null;   // SH: 게스트일 때 호스트가 보내 준 바닥 아이템 (같은 지역)
@@ -4407,6 +4456,7 @@ const GROUND = (() => {
     /* v179: 가호조각은 바닥에 떨어지지 않고, 기여도 1% 이상인 캐릭터의 가방에 1개씩 바로 들어감 (NET.gahoGive) */
     for (const [id, a, b] of BOSS_FIXED[f.kind] || []) got.push(a === 1 && b === 1 ? [id, 1] : [id, 1, a, b]);   // v153: 드레이크 킹 — 용의 심장 1 · 비늘 5~12 · 발톱 1~3 (반드시)
     const P = spots(f.i, f.j, got.length); got.forEach((row, k) => drop(row[0], row[2] ? row[2] + Math.floor(Math.random() * (row[3] - row[2] + 1)) : 1, P[k][0], P[k][1])); got = got.map(x => x[0]); TELE.ev('boss', { b: f.kind, items: got });
+    if (FB_QUIET) return;   // 11/1 2단계 ②: 필드 봇이 잡은 보스 — 안내는 FBOT.bossKill이 함
     say(`${JOSA(MOB[f.kind].name, '이', '가')} 전리품 ${got.length}개를 떨어뜨렸습니다! (마우스를 올려 확인 · 클릭해서 줍기)`, '#f2e6a8');
     for (const id of got) { const d = ITEMS[id]; if (d.rar === '영웅' || d.rar === '전설') say(`[${d.rar}] ${JOSA(d.name, '이', '가')} 떨어졌습니다!`, RARITY_C[d.rar]); } }
   const here = () => SH && SH.zone === zk() ? SH.list.filter(d => !(d.pend > time)) : L.filter(d => d.zone === zk());
@@ -4422,7 +4472,7 @@ const GROUND = (() => {
   const pos = d => { const [x, y] = W2P(d.x, d.z); const k = Math.min(1, d.t / 0.45), b = d.t < 0.45 ? -30 * (1 - k) * (1 - k) : d.t < 0.7 ? -4 * Math.sin((d.t - 0.45) / 0.25 * Math.PI) : 0; return [x, y - 10 + b + Math.sin(time * 2.4 + d.ph) * 1.1]; };
   function at(sx, sy) { const [px, py] = toWorldPx(sx, sy); let best = null, bd = 1e9;
     for (const d of here()) { if (!DN.seen(d.i, d.j)) continue; const [x, y] = pos(d), dx = px - x, dy = py - y; if (Math.abs(dx) < 13 && dy > -14 && dy < 13) { const q = dx * dx + dy * dy; if (q < bd) { bd = q; best = d; } } } return best; }
-  function pick(d) { if (prio(d) === 2) { const s = Math.ceil((d.until - now()) / 1000); say(`우선권이 ${NET.nameOf(d.owner)}님에게 있어요. (${s}초 뒤 누구나 주울 수 있어요)`, '#f0c080'); want = null; moveGoal = null; d._try = (d._try || 0) + 1; return; }
+  function pick(d) { if (prio(d) === 2) { const s = Math.ceil((d.until - now()) / 1000); say(String(d.owner).startsWith('fb:') ? `${NET.nameOf(d.owner)}님이 잡은 몬스터의 전리품이에요. (그 봇이 주워 가요)` : `우선권이 ${NET.nameOf(d.owner)}님에게 있어요. (${s}초 뒤 누구나 주울 수 있어요)`, '#f0c080'); want = null; moveGoal = null; d._try = (d._try || 0) + 1; return; }
     if (d.shared) { if (d.pend > time) return; d.pend = time + 2.5; want = null; moveGoal = null; if (hov === d) setTip(null); NET.requestPick(d); return; }   // 게스트: 호스트에게 줍기 요청
     const k = L.indexOf(d); if (k < 0) return; L.splice(k, 1); FADE.push({ d, t: 0 }); want = null; moveGoal = null; const it = ITEMS[d.id];
     INV.add(d.id, d.n, true); if (it.rar && it.rar !== '일반') TELE.ev('pick', { id: d.id, n: d.n, r: it.rar, z: zoneTitle() }); if (it.rar === '영웅' || it.rar === '전설') { const m = `${PNAME()}님이 ${zoneTitle()}에서 ${it.rar} 아이템 ${JOSA(it.name, '을', '를')} 획득했습니다!`; announce(m, RARITY_C[it.rar] || '#c77dff'); NET.announceAll(m); } say(d.id === 'gold_pile' ? `골드 ${d.n.toLocaleString()}을(를) 주웠습니다.` : `${rarTag(d.id)}${d.n > 1 ? it.name + ' ' + d.n + '개를' : JOSA(it.name, '을', '를')} 주웠습니다.`, d.id === 'gold_pile' ? '#f2d060' : rarC(d.id));
@@ -5893,7 +5943,7 @@ const LEG_ROWS = [
   Object.assign(LOOK.weapon, { lg_sword: 'sepia(1) hue-rotate(178deg) saturate(2.2) brightness(1.25) contrast(1.1)', lg_bow: 'sepia(1) hue-rotate(50deg) saturate(1.9) brightness(1.05)', lg_staff: 'sepia(1) hue-rotate(160deg) saturate(2.6) brightness(1.3)' }); }
 
 function cxZoneDrop(f) { const L = ISLE && CX_ZONE[ISLE.id]; if (!L || !L.length) return false; let hit = L.filter(() => Math.random() < CX_P.zone); const LR = CX_ZONE_R[ISLE.id], LH = CX_ZONE_H[ISLE.id]; if (!hit.length && LR) hit = LR.filter(() => Math.random() < (CX_RP[ISLE.id] || 0.0003)); if (!hit.length && LH) hit = LH.filter(() => Math.random() < CX_HERO_ZP); if (!hit.length) return false;   // v109: 희귀 — 버그베어밭 2구간 0.03% · 본토던전 0.04% · 오렌설원 0.05% (아이템마다) · 영웅 — 본토던전 2층·오렌설원 2구역 0.002%   // 오크숲 2구간: 희귀(Lv20) 아이템마다 0.03%
-  const id = hit[Math.floor(Math.random() * hit.length)]; GROUND.drop(id, 1, f.i, f.j); if (!lowRar(id)) say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); return true; }
+  const id = hit[Math.floor(Math.random() * hit.length)]; GROUND.drop(id, 1, f.i, f.j); if (!lowRar(id) && !FB_QUIET) say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); return true; }
 const cxClsName = d => d.cls ? d.cls.map(c => CLASS_NAME[c]).join('·') : '공용';
 /* v160: 내가 착용할 수 없는 장비 — 아이템 칸 오른쪽 아래에 작게: 다른 직업 장비면 착용 직업(요정,법사) · 레벨이 모자라면 레벨제한(필요 레벨) (착용 제한 검사와 같은 기준) */
 const CLS_SHORT = { knight: '기사', elf: '요정', wizard: '법사' };
@@ -6450,7 +6500,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
       else if (kind === 'mana') { if (hero.mp / Math.max(1, hero.maxmp) > 0.5 || hero.hp / hero.max < 0.6) continue; }
       else if (kind === 'summon') { if (PET.sumLive() >= PET.sumCap() || PET.sumLocked()) continue; }
       else if (kind === 'barrier') { if (hero.hp / hero.max > 0.3) continue; }
-      else if (kind === 'cleanse') { if (!(BUFF.slow > 0 || BUFF.root > 0 || BUFF.poison > 0)) continue; }
+      else if (kind === 'cleanse') { if (!(BUFF.slow > 0 || BUFF.wslow > 0 || BUFF.root > 0 || BUFF.poison > 0)) continue; }
       else if (kind === 'aoe') { const P = SPELL[id], inB = f => !f.dead && !f.gone && Math.abs(f.x - hero.x) <= P.box && Math.abs(f.z - hero.z) <= P.box && MOB[f.kind] && !MOB[f.kind].dummy; if (foxes.filter(inB).length < 3 && !foxes.some(f => inB(f) && MOB[f.kind].boss)) continue; }
       else { if (id === 'triple_arrow') { const W = INV.equipped('weapon'); if (!(W && ITEMS[W] && ITEMS[W].wtype === 'bow')) continue; } const T = hero.target; if ((hero.atk && !hero.atk.hit) || !T || T.dead || T.isRemote || !foxes.includes(T)) continue;   /* 평타가 들어간 뒤엔 바로 써도 됨 (예전엔 공격 동작 중이면 늘 건너뛰어 연속 공격하는 기사 스턴이 거의 안 나감) */ const dd = cheb(T.i, T.j, hero.i, hero.j); if (id === 'stun' ? dd > 1 || T.stunT > 0 : dd > 8 || !FLOS(hero, T)) continue; if (id === 'turnund' && !(MOB[T.kind] && MOB[T.kind].undead && !MOB[T.kind].boss)) continue;   /* 자동: 언데드 보스(데스나이트 등)에게는 턴 언데드 안 씀 (보스 면역) */ }
       { const cd0 = SKCD[id] || 0, mp0 = hero.mp; castSkill(id, kind === 'attack' ? hero.target : null); if ((SKCD[id] || 0) > cd0 || hero.mp < mp0) return; } } }   // 못 쓴 자동 스킬이 있으면 다음 스킬로 넘어감 (예전엔 한 스킬이 계속 실패하면 뒤의 스턴 같은 스킬이 영영 안 나감)
@@ -7122,7 +7172,7 @@ const TOWN = (() => {
         label(g, '월드맵', x, y - 30, hoverObj === PORTAL ? '#ffffff' : '#bcd4ff'); } }); }
     },
     enter() {
-      if (!ground) buildGround();
+      if (!ground && !BOTHOST.on()) buildGround();
       blockedT = TB; PROPS = TPROPS; foxes = [];
     },
     SPAWN,
@@ -7391,7 +7441,7 @@ const TOWN = (() => {
     return t; }
   function setVol(k, v) {
     if (!AC) return; const t = track(k);
-    if (t.failed) { const a = EL[k]; if (!a) return; if (v > 0) { if (a.paused) { if (k === 'boss') a.currentTime = 0; a.play().catch(() => {}); } a.volume = v; } else if (!a.paused) a.pause(); return; }
+    if (t.failed) { const a = EL[k]; if (!a) return; if (v > 0) { if (a.paused) { if (a.preload !== 'auto') { a.preload = 'auto'; a.load(); } if (k === 'boss') a.currentTime = 0; a.play().catch(() => {}); }   /* 11/1: <audio>는 preload=none (배경음은 fetch로 받으므로 두 번 받지 않게 · 봇 호스트는 안 받게) — 폴백으로 쓸 때만 그때 받음 */ a.volume = v; } else if (!a.paused) a.pause(); return; }
     if (!t.buf) { if (v > 0) t.loading.then(() => { if (curWant === k) setVol(k, v); else if (t.failed) setVol(k, 0); }); return; }
     const now = AC.currentTime;
     if (v > 0 && !t.src) { t.gain = AC.createGain(); t.gain.gain.value = 0; t.gain.connect(AC.destination); t.src = AC.createBufferSource(); t.src.buffer = t.buf; t.src.loop = true; t.src.connect(t.gain); t.src.start(); }
@@ -7466,7 +7516,7 @@ const TOWN = (() => {
         draw(); } } }
   $('btn-bgm').onclick = ev => { muted = !muted; $('btn-bgm').setAttribute('aria-pressed', !muted); syncBGM(); if (ev && ev.isTrusted) SND.set({ bgmOn: !muted }); };   // 직접 누른 것만 저장 (자동사냥 음소거는 저장 안 함)
   $('btn-bgm').setAttribute('aria-pressed', !muted); api.syncBGM = () => syncBGM(); api.setBgm = on => { muted = !on; $('btn-bgm').setAttribute('aria-pressed', !!on); syncBGM(); };
-  api.unlockAudio = () => { if (unlocked) return; unlocked = true; initAudio(); for (const k in SRC) track(k); syncBGM(); };
+  api.unlockAudio = () => { if (unlocked || BOTHOST.on()) return; unlocked = true; initAudio(); for (const k in SRC) track(k); syncBGM(); };
   // 소리는 사용자가 처음 뭔가를 눌러야 켤 수 있음 → 화면 어디를 누르든, 키를 누르든 바로 켜지게
   ['pointerdown', 'keydown'].forEach(t => addEventListener(t, () => { initAudio(); api.unlockAudio(); }, { capture: true }));
   api.bgmTick = () => { if (wantBGM() !== curWant) syncBGM(); };
@@ -7490,10 +7540,11 @@ const TOWN = (() => {
   function scrollHome() { if (SCENE === 'town') return true; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return false; } if (false) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 110, '귀환 주문서 없음', { color: '#ff9a8a', size: 13, big: true, life: 1.6 }); say('귀환 주문서가 없습니다. 1구간의 텔레포트(마을로 가는 포털)를 이용하세요.', '#ff8a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'square', 300, 180, 0.18, 0.05); return false; }
     say('귀환 부적을 사용했습니다.', '#a0c0f2'); toTown(); return true; }
   api.scrollHome = () => scrollHome();
-  api.goTown = () => toTown();
+  api.goTown = () => { if (BOTHOST.started()) return; toTown(); };   // 봇 호스트: 지역에 들어간 뒤로는 귀환 없음
   api.placeAt = (x, z) => { const i = Math.floor(x), j = Math.floor(z); if (walkable(i, j)) place(i, j); };
   api.toZone = (id, x, z) => { ISLAND.enter(id, 'town'); fadeTo(0); syncButtons(); if (x != null) api.placeAt(x, z); };   // 1·2구간 아무 데나 (자동사냥 복귀·업데이트 후 이어하기)
   api.toField = n => toField(n);
+  api.huntZones = () => { const L = []; for (const r in REGION_INFO) REGION_INFO[r].zones.forEach(([id, lab], k) => { const m = /Lv\s*(\d+)\s*~\s*(\d+)/.exec(lab), d = ISLAND.def(id); if (m && d) L.push({ id, lo: +m[1], hi: +m[2], name: d.name, sec: k + 1 }); }); return L; };   // 11/1: sec = 그 사냥터의 몇 번째 구역(1구역·2구역 · 본토던전은 1층·2층)   // v191: 필드 상주 봇 — 사냥터마다 권장 레벨 (월드맵 도감과 같은 값)
   api.start = () => { toTown(); say('상점 건물이나 주민을 클릭해 보세요. 월드맵은 위쪽 버튼이나 마을의 월드맵 포털로.', '#9fd0e8'); };
   return api;
 })();
@@ -7637,7 +7688,8 @@ const CHAT = (() => {
     const L = r.left + (x + 6) * z, T = r.top + (y + h - ih - 5) * z, W = (w - 14) * z, H = ih * z;
     if (e._k !== L + '|' + T + '|' + W) { e._k = L + '|' + T + '|' + W; Object.assign(e.style, { left: L + 'px', top: T + 'px', width: W + 'px', height: H + 'px', fontSize: Math.round(12 * z) + 'px' }); } }
   function send() { const e = el(), t = e.value.trim(); e.value = ''; if (!t) return;
-    if (/^\/운영자\s*(등록)?$/.test(t)) { ADMIN.devRequest(); return; }   // v190: 운영자 기기 등록 요청 (채팅으로 안 보냄)
+    if (/^\/운영자\s*(등록)?$/.test(t)) { ADMIN.devRequest(); return; }
+    if (/^\/혈맹\s*$/.test(t)) { FBOT.report(); return; }   // v191: 혈맹·필드 봇이 어디서 사냥 중인지   // v190: 운영자 기기 등록 요청 (채팅으로 안 보냄)
     const all = t[0] === '!' && t.length > 1, tt = all ? t.slice(1).trim() : t; if (!tt) return; say(`${all ? '[전체] ' : ''}${PNAME()}: ${tt}`, all ? '#ffd28a' : '#ffffff', 1); hero.chat = { t: tt, until: time + 5 }; NET.chat(t); if (logScroll) logScroll = 0; }
   function bubble(g, h) { const [hx, hy] = W2P(h.x, h.z); g.save(); g.font = '700 11px "Noto Sans KR",sans-serif'; const maxW = 170, words = [...h.chat.t], lines = []; let cur = '';
     for (const ch of words) { if (g.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch; if (lines.length === 2) break; } else cur += ch; } if (lines.length < 2 && cur) lines.push(cur); else if (cur && lines.length === 2) lines[1] = lines[1].slice(0, -1) + '…';
@@ -7695,9 +7747,10 @@ const CLOUD = (() => {
   async function del(path) { const r = await fetch(FS + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await token() } }); return r.ok; }
   // 창을 닫을 때: 응답을 기다릴 수 없어서 keepalive로 한 번 보냄 (토큰이 아직 유효할 때만, 64KB 이하)
   function beacon(path, o, merge, pre) { if (!S || Date.now() > S.exp) return false; const body = JSON.stringify(enc(o)); if (body.length > 60000) return false; const q = [merge ? mask(o) : '', pre ? 'currentDocument.updateTime=' + encodeURIComponent(pre) : ''].filter(Boolean).join('&'); try { fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.tok }, body }); return true; } catch (e) { return false; } }
+  async function list(col, n) { const r = await fetch(FS + col + '?pageSize=' + Math.max(1, Math.min(300, n | 0 || 100)), { headers: { Authorization: 'Bearer ' + await token() } }); const j = await r.json().catch(() => null); if (!r.ok) throw err(j, r.status); return ((j && j.documents) || []).map(d => { const o = dec(d); Object.defineProperty(o, '__id', { value: String(d.name || '').split('/').pop(), enumerable: false }); return o; }); }   // 11/1 밤: 컬렉션 문서 전부 (문서 수가 적을 때만 · 최대 300)
   async function query(col, ord, n, gt) { const sq = { from: [{ collectionId: col }], orderBy: [{ field: { fieldPath: ord }, direction: 'DESCENDING' }], limit: n }; if (gt != null) sq.where = { fieldFilter: { field: { fieldPath: ord }, op: 'GREATER_THAN', value: { stringValue: String(gt) } } };   /* 11/1: gt = 그 값보다 큰 문서만 (새 글만 받아 읽기 수를 줄임 — Firestore 무료 한도) */
     const r = await fetch(FS.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify({ structuredQuery: sq }) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(Array.isArray(j) ? j[0] : j, r.status); return (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => dec(x.document)); }   // 11/1: 월드 게임 기록 (worldlog) 최신순
-  return { ping, signUp, signIn, get, set, create, del, beacon, query, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
+  return { ping, signUp, signIn, get, set, create, del, beacon, query, list, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
 })();
 // ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
 // v137: 게임 설정도 캐릭터 저장(계정 서버)에 함께 — 어느 PC에서 접속하든 같은 설정 (상점 고정 수량 · 휠 고정 · 미니맵 · 창 위치 · 소리는 예전부터)
@@ -7888,7 +7941,7 @@ const NET = (() => {
   function pvKills() { for (const o of OTH) { const dead = !(o.pr.hp > 0) || o.pr.dd > 0, was = pvDeadSeen.get(o.peer); pvDeadSeen.set(o.peer, dead); if (dead && was === false && PVPZ() && o.pr.z === zk() && time - (pvLast.get(o.peer) || -99) < 4) { const nm = nmOf(o.pr); say(`[결투장] ${nm}님을 쓰러뜨렸습니다!`, '#ffd86a'); const v = peers.get(o.peer); if (v) { const [x, y] = W2P(v.x, v.z); floatText(x, y - 130, '승리!', { color: '#ffd86a', size: 20, big: true, life: 1.6, rise: 36 }); } } } }
   // v153: 보스 어그로 대상 (보스 HP 바 아래) · 보스 대사 — 호스트가 계산해서 presence(bt · tk)로 같은 지역 사람들에게
   const tkOut = []; let tkSeq = 0; const seenTk = new Map();
-  function aggroInfo(f) { if (!f || f.dead) return null; const T = f.tgt; if (T && T.isRemote) { const pr = prOf(T.peer); return pr ? { n: nmOf(pr), c: CLASS_NAME[pr.c] || '모험가' } : null; }
+  function aggroInfo(f) { if (!f || f.dead) return null; const T = f.tgt; if (T && T.isRemote) { const pr = prOf(T.peer); return pr ? { n: nmOf(pr), c: CLASS_NAME[pr.c] || '모험가' } : null; } if (T && T.fb && T.bot && !T.dead && !T.gone) return { n: `[${T.bot.clan}] ${T.bot.name}`, c: CLASS_NAME[T.bot.cls] || '봇' };   // 11/1 ②: 보스가 필드 봇을 노리면 그 봇 이름
     if (f.aggro && hero.hp > 0 && !DEATH) return { n: PNAME(), c: CLASS_NAME[CLASS] || '모험가' }; return null; }   // 펫·소환수를 노려도 주인(나) 이름
   function aggroName(f) { if (!f || f.dead) return ''; if (room && myPeer && ISLE && !isHost()) return f.netAg || ''; if (!f.aggro) return ''; const a = aggroInfo(f); return a ? a.n : ''; }
   function talkTarget(f) { const C = new Set(), near = (x, z) => Math.max(Math.abs(x - f.x), Math.abs(z - f.z)) <= 10, K = f.dmgBy && f.dmgBy.keys ? [...f.dmgBy.keys()] : [];   // 대사 속 이름: 보스를 직접 때렸거나 근처에 있는 사람(플레이어만 · 펫·소환수 제외) 중 무작위
@@ -7904,7 +7957,7 @@ const NET = (() => {
   function applyAo(o) { const L = o.pr.ao; if (!L || !L.length || !ISLE || o.pr.z !== zk()) return; const last = seenAo.get(o.peer) || 0, fresh = L.filter(x => x[0] > last); if (!fresh.length) return; seenAo.set(o.peer, Math.max(...fresh.map(x => x[0]))); if (last === 0 && fresh.length > 1) fresh.splice(0, fresh.length - 1);
     for (const [, uid, si, tx, tz, mul, seed, tp] of fresh) { const f = foxes.find(q => q.uid === uid); if (!f || f.dead || f.gone) continue; const k = (BOSS_SKILL[f.kind] || [])[si]; if (!k || Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 22) continue;
       const a0 = AOES.length, R = Math.random; BT = { x: tx, z: tz, i: Math.floor(tx), j: Math.floor(tz), me: !!myPeer && tp === myPeer }; AO_SIM = true; Math.random = AO_RNG(seed);
-      try { k.use(f); } catch (e) {} finally { Math.random = R; AO_SIM = false; BT = null; } for (let q = a0; q < AOES.length; q++) { AOES[q].mul = mul; AOES[q].src = f; } f.atkT = 0; } }
+      try { k.use(f); } catch (e) {} finally { Math.random = R; AO_SIM = false; BT = null; } for (let q = a0; q < AOES.length; q++) { AOES[q].mul = mul; AOES[q].src = f; if (!tp) AOES[q].fbT = 1; } f.atkT = 0; } }   // 11/1: 플레이어가 아닌 대상(필드 봇)을 노린 기술은 '피했습니다' 알림 없음
   function mx(id, T, v) { const self = !T || T === hero; mxOut.push([++mxSeq, id, self ? 0 : 1, T ? +T.x.toFixed(2) : 0, T ? +T.z.toFixed(2) : 0, T && !self ? Math.round(mxH(T)) : 0, v ? +(+v).toFixed(2) : 0]); if (mxOut.length > 6) mxOut.splice(0, mxOut.length - 6); sendT = 0; }
   function applyMx(o) { const L = o.pr.mx; if (!L || !L.length) return; const last = seenMx.get(o.peer) || 0, fresh = L.filter(x => x[0] > last); if (!fresh.length) return; seenMx.set(o.peer, Math.max(...fresh.map(x => x[0])));
     if (o.pr.z !== zk() || last === 0 && fresh.length > 2) return; const v = peers.get(o.peer); if (!v) return; const dist = Math.max(Math.abs(v.x - hero.x), Math.abs(v.z - hero.z)); if (dist > 22) return;
@@ -7940,11 +7993,12 @@ const NET = (() => {
   const others = () => { const out = []; if (!room) return out; let L; try { L = room.peers(); } catch (e) { return out; } for (const p of L) { if (p.isMe && p.sameTab) { myPeer = p.peer; continue; } if (p.kind === 'agent') continue; const pr = p.presence || {}; if (!pr.n) continue; out.push({ peer: p.peer, pr }); } return out; };
   const prOf = p => p === myPeer ? null : (OTH.find(o => o.peer === p) || {}).pr;
   // 지역 호스트: 같은 지역에 있는 사람(나 포함) 중 peer 이름이 가장 앞선 사람
-  const hostOf = z => { let h = myPeer && zk() === z && !ADMIN.on() ? myPeer : null; for (const o of OTH) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; return h; };
+  const hostOf = z => { let h = BOTHOST.on() && myPeer && zk() === z ? myPeer : null; for (const o of BHS) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; if (h) return h;   // 11/1 봇 호스트가 그 지역에 있으면 그것이 먼저 (여럿이면 이름순) · 없으면 예전 규칙
+    h = myPeer && zk() === z && !ADMIN.on() && !BOTHOST.on() ? myPeer : null; for (const o of OTH) if (o.pr.z === z && (!h || o.peer < h)) h = o.peer; return h; };
   const isHost = () => !room || !myPeer || hostOf(zk()) === myPeer || (ADMIN.on() && !hostOf(zk()));
   const othersInZone = () => OTH.filter(o => o.pr.z === zk());
   const watchersInZone = () => othersInZone().concat(ADMS.filter(o => o.pr.z === zk()));   // v158: 숨은 운영자도 포함 — 호스트가 몬스터·바닥 아이템·보스 기술·대사를 보내 줌 (보상 분배·파티에는 안 셈)
-  function hostData() { if (!ISLE || isHost()) return null; const h = hostOf(zk()), o = OTH.find(q => q.peer === h); return o && o.pr.m && o.pr.mz === zk() ? o : null; }
+  function hostData() { if (!ISLE || isHost()) return null; const h = hostOf(zk()), o = OTH.find(q => q.peer === h) || BHS.find(q => q.peer === h); return o && o.pr.m && o.pr.mz === zk() ? o : null; }
   const guest = () => !!hostCache;
   function guestMob(f) { return !!hostCache && f && f.uid != null && foxes.includes(f); }
   // ----- 파티: 같은 파티 번호(pt)를 가진 사람끼리 · 초대(pi) → 수락(pa)
@@ -8027,8 +8081,8 @@ const NET = (() => {
       if (dn) { if (!r.dead && !r.gone) { r.dead = 1; const f = foxes.find(q => q.uid === uid && !q.dead && !q.gone); if (f && !guestMob(f)) { f.gone = true; if (hero.target === f) hero.target = null; } } continue; }
       if (o.pr.z === 'isle' + z && !(performance.now() - (r.own || -1e9) < 3000)) { r.hp = Math.max(0.001, Math.min(1, (+hp || 1000) / 1000)); r.i = i | 0; r.j = j | 0; } } }
   // ----- v128 운영자: 서명이 맞는 운영자는 목록·화면에서 빠짐 (확인 중에도 숨김 · 'p'(준비 중) 표시는 15초까지만 인정)
-  const admOK = new Map(), admPend = new Map(), admSeen = new Map(), arSeen = new Set(); let ADMS = [], arOut = [], admTok = null, admBusy = false;
-  function admFilter() { ADMS = []; OTH = OTH.filter(o => { const a = o.pr.adm; if (!a || !a.s) return true;
+  const admOK = new Map(), admPend = new Map(), admSeen = new Map(), arSeen = new Set(); let ADMS = [], BHS = [], arOut = [], admTok = null, admBusy = false;   // BHS: 11/1 봇 호스트 접속(presence bh) — 운영자처럼 접속자 목록(OTH)에서 빼서 안 보이고·못 때리고·안 세지만, 지역 호스트는 됨
+  function admFilter() { ADMS = []; BHS = []; OTH = OTH.filter(o => { if (o.pr.bh) { BHS.push(o); return false; } const a = o.pr.adm; if (!a || !a.s) return true;
       if (a.s === 'p') { const t0 = admPend.get(o.peer) || (admPend.set(o.peer, Date.now()), Date.now()); return Date.now() - t0 > 15000; }
       const k = o.peer + '|' + a.t; let v = admOK.get(k); if (v === undefined) { admOK.set(k, 'wait'); admVerifyC(`adm|${o.peer}|${a.t}`, a.s, a.c).then(ok => admOK.set(k, !!ok)); v = 'wait'; }
       if (v === false) return true; if (v === true) ADMS.push(o); return false; });
@@ -8047,40 +8101,47 @@ const NET = (() => {
     for (const o of OTH) { const rv = o.pr.rv; if (rv && rv.to === myPeer && rvSeen.get(o.peer) !== rv.s) { rvSeen.set(o.peer, rv.s); if (DEATH) { const nm = nmOf(o.pr), s0 = rv.s, p0 = o.peer;
           INV.askYesNo(`${nm}님이 부활 주문서를 사용했습니다.`, '부활하시겠습니까? (그 자리에서 HP·MP 50%로 부활 · 경험치 손실 없음 · 골드 5% 손실)', () => { if (!DEATH) return; raOut = { to: p0, s: s0, ok: 1, at: Date.now() }; sendT = 0; reviveHere(nm); }, () => { raOut = { to: p0, s: s0, ok: 0, at: Date.now() }; sendT = 0; }); } }
       const ra = o.pr.ra; if (rvOut && ra && ra.to === myPeer && ra.s === rvOut.s && rvOut.to === o.peer) { rvOut = null; if (ra.ok) { INV.take('revive_scroll'); INV.render(); say(`${nmOf(o.pr)}님이 부활했습니다. (부활 주문서 1개 사용)`, '#ffd86a'); } else say(`${nmOf(o.pr)}님이 부활을 거절했습니다. (주문서는 그대로)`, '#9c9682'); } } }
-  function mobsOut() { const pos = [[hero.x, hero.z], ...watchersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
-      L.push([f.uid, KINDS.indexOf(f.kind), Math.round(f.x * 10), Math.round(f.z * 10), f.row, Math.max(0, Math.round(f.hp / f.max * 100)), (f.dead ? 1 : 0) | (f.atkT != null ? 2 : 0) | (f.t < 1 ? 4 : 0) | (f.stunT > 0 ? 8 : 0) | (f.slowT > 0 ? 16 : 0) | (f.enraged ? 32 : 0) | (f.regenOn ? 64 : 0)]); }
+  function mobsOut() { const pos = [...(BOTHOST.on() ? [] : [[hero.x, hero.z]]), ...watchersInZone().map(o => [o.pr.x, o.pr.y])], L = []; for (const f of foxes) { if (f.gone || f.uid == null || f.summoned && f.dead) continue; if (!pos.some(([x, z]) => Math.max(Math.abs(f.x - x), Math.abs(f.z - z)) <= 24)) continue;
+      L.push([f.uid, KINDS.indexOf(f.kind), Math.round(f.x * 10), Math.round(f.z * 10), f.row, Math.max(0, Math.round(f.hp / f.max * 100)), (f.dead ? 1 : 0) | (f.atkT != null ? 2 : 0) | (f.t < 1 ? 4 : 0) | (f.stunT > 0 ? 8 : 0) | (f.slowT > 0 ? 16 : 0) | (f.enraged ? 32 : 0) | (f.regenOn ? 64 : 0) | (f.fb ? (f.fbBf & 7) << 7 : 0)]); }   // 11/1: 필드 봇 버프 (리덕션 128 · 솔리드 256 · 카운터 512)
     const dn = r => Math.min(...pos.map(([x, z]) => Math.max(Math.abs(r[2] / 10 - x), Math.abs(r[3] / 10 - z)))); return L.sort((a, b) => dn(a) - dn(b)); }
-  function groundOut() { const pos = [[hero.x, hero.z], ...watchersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
+  function groundOut() { const pos = [...(BOTHOST.on() ? [] : [[hero.x, hero.z]]), ...watchersInZone().map(o => [o.pr.x, o.pr.y])], ow = [], L = [], now = performance.now();
     const G0 = GROUND.here(), GL = ARENA() ? G0.filter(d => !/potion/.test(d.id)).concat(G0.filter(d => /potion/.test(d.id))) : G0;   // 11/1: 콜로세움은 보스 전리품을 먼저 (물약 뭉치가 많아도 전리품이 게스트 화면에서 안 빠지게)
     for (const d of GL) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
+  const BH_KEEP = new Set(['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'bk', 'an', 'fbx']);   // 봇 호스트 presence에 남기는 칸 (게스트가 받아야 하는 호스트 데이터 + 지역·이름)
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
       e: eqIds(), eg: glowOut(), xp: xpOut(), wq: wqOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; if (ADMIN.cert()) P.adm.c = ADMIN.cert(); P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
     Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
+    if (BOTHOST.on()) for (const k in P) if (!BH_KEEP.has(k)) delete P[k];   // 11/1 봇 호스트: 사람 표시용 칸(장비·변신·인형·버프·채팅·세션)은 빼고 호스트 데이터만
     const sz = () => TE.encode(JSON.stringify(P)).length, CAP = window.__bigNet ? 60000 : 3900;   /* v185: 전용 서버는 60KB까지 (공용 MQTT·아티팩트는 3.9KB) */
-    if (P.tw && sz() > CAP) { P.tw = Object.assign({}, P.tw, { fx: (P.tw.fx || []).slice(-4) }); if (sz() > CAP) P.tw.fx = []; }   // 수호탑 대전: 패킷이 넘치면 연출부터 줄이고 봇·수호탑 목록은 지킴
+    if (P.tw && sz() > CAP) { P.tw = Object.assign({}, P.tw, { fx: (P.tw.fx || []).slice(-4) }); if (sz() > CAP) P.tw.fx = []; }
+    if (P.fbx && sz() > CAP) { P.fbx = Object.assign({}, P.fbx, { L: (P.fbx.L || []).slice(-3) }); if (sz() > CAP) P.fbx = null; }   // v191: 필드 봇 연출도 먼저 줄이고 몬스터·봇 목록은 지킴   // 수호탑 대전: 패킷이 넘치면 연출부터 줄이고 봇·수호탑 목록은 지킴
     while (sz() > CAP && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
   // ----- 게스트: 호스트 몬스터·바닥 아이템 반영
   function applyHost(o) { const list = o.pr.m; const seen = new Set(); { const M = new Map(Array.isArray(o.pr.bt) ? o.pr.bt : []); for (const f of foxes) if (f.uid != null && MOB[f.kind] && MOB[f.kind].boss) f.netAg = M.get(f.uid) || ''; } applyTk(o);
     for (const [uid, k, x10, z10, row, pct, fl] of list) { seen.add(uid); let f = foxes.find(q => q.uid === uid);
-      if (!f) { const kind = KINDS[k]; if (!MOB[kind]) continue; f = mkMob(kind, Math.floor(x10 / 10), Math.floor(z10 / 10)); f.uid = uid; f.home = [f.i, f.j]; f.x = x10 / 10; f.z = z10 / 10; f.netNew = true; if (isRpUid(uid)) rpTag(f, REAPERS.get(uid) || null); if (kind.startsWith('tw_')) TWM.tag(f); foxes.push(f); }
+      if (!f) { const kind = KINDS[k]; if (!MOB[kind]) continue; f = mkMob(kind, Math.floor(x10 / 10), Math.floor(z10 / 10)); f.uid = uid; f.home = [f.i, f.j]; f.x = x10 / 10; f.z = z10 / 10; f.netNew = true; if (isRpUid(uid)) rpTag(f, REAPERS.get(uid) || null); if (kind.startsWith('tw_')) TWM.tag(f); else if (kind.startsWith('fb_')) FBOT.tag(f); foxes.push(f); }
       f.nx = x10 / 10; f.nz = z10 / 10; f.row = row; f.netMove = !!(fl & 4); const dead = !!(fl & 1);
       if (dead && !f.dead) netDeath(f); else if (!dead && f.dead) { f.dead = false; f.deadT = 0; f.hp = f.max; f.flash = 0; f.x = f.nx; f.z = f.nz; f.atkT = null; }
       if (!dead) { const hh = Math.max(1, Math.round(f.max * pct / 100)); f.hp = f.predUntil > time ? Math.min(f.hp, hh) : hh; }
       if ((fl & 2) && !f.wasAtk && !dead) { f.atkT = 0; MSFX(f.kind, 'attack', 0.35); } f.wasAtk = !!(fl & 2);
-      if (!dead) { if (fl & 8) f.stunT = Math.max(f.stunT || 0, 0.35); if (fl & 16) f.slowT = Math.max(f.slowT || 0, 0.35); f.enraged = !!(fl & 32); f.regenOn = !!(fl & 64); } }   // v139: 호스트 화면의 스턴·슬로우·광폭화를 게스트 화면에도
+      if (!dead) { if (fl & 8) f.stunT = Math.max(f.stunT || 0, 0.35); if (fl & 16) f.slowT = Math.max(f.slowT || 0, 0.35); f.enraged = !!(fl & 32); f.regenOn = !!(fl & 64); if (f.fb) f.fbBf = (fl >> 7) & 7; } }   // v139: 호스트 화면의 스턴·슬로우·광폭화를 게스트 화면에도
     for (const f of foxes) { if (f.uid == null) continue; if (seen.has(f.uid)) { f.missN = 0; continue; } if (f.dead || Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 20) continue; if ((f.bot || f.twr) && (f.missN = (f.missN || 0) + 1) < 15) continue; f.gone = true; }   // 수호탑 봇·탑: 패킷에서 잠깐 빠져도 1.5초는 그대로 (깜빡임 방지)
     applyAo(o);
     GROUND.setShared((o.pr.gi || []).map(([gid, ii, n, i, j, oi, left, bl]) => ({ gid, id: ik()[ii], n, i, j, owner: oi >= 0 ? (o.pr.go || [])[oi] : null, left, bl })).filter(x => ITEMS[x.id]), zk());
     const d = o.pr.d && myPeer && o.pr.d[myPeer]; if (d) { const last = seenDmg.get(o.peer) || 0; let mx = last;
-      for (const [sq, dmg0, uid, rr, raw, mg] of d) { if (sq <= last) continue; mx = Math.max(mx, sq); if (hero.hp <= 0) continue; const src = foxes.find(q => q.uid === uid) || null, SS = src && MOB[src.kind]; const dmg = raw != null && SS ? (rr < (mg ? mobHitM(SS) : mobHit(SS)) ? raw : 0) : dmg0;   // 새 호스트: 내 AC·레벨로 명중 판정
+      for (const [sq, dmg0, uid, rr, raw, mg, stn, ek, et] of d) { if (sq <= last) continue; mx = Math.max(mx, sq); if (hero.hp <= 0) continue; const src = foxes.find(q => q.uid === uid) || null, SS = src && MOB[src.kind];
+        if (ek != null && et > 0) { const id = FBOT.EFN[ek]; if (id && !DEATH) FBOT.efMe(src && src.bot ? src.bot.name : '라인 혈맹', id, et / 10); continue; }   // 11/1 밤: 봇 슬로우·게일·똥물·어바 (받는 쪽 규칙은 efMe)
+        if (stn > 0) { if (!DEATH && !GOD_INV && !(BUFF.abar > 0)) { const [hx, hy] = W2P(hero.x, hero.z), nm = src && src.bot ? src.bot.name : '라인 혈맹'; if (BUFF.stun > 0 || time < STUN_IMM) floatText(hx, hy - 112, BUFF.stun > 0 ? '이미 기절 중' : '스턴 면역', { color: '#c8d0d8', size: 11 });
+            else { const t = Math.max(0.5, Math.min(4, +stn)); BUFF.stun = Math.max(BUFF.stun || 0, t); STUN_IMM = time + t + STUN_IMM_SEC; hero.atk = null; moveGoal = null; floatText(hx, hy - 118, `스턴! ${t.toFixed(1)}초`, { color: '#ffe066', size: 17, big: true, life: 1.3 }); say(`${nm}님의 스턴에 걸렸습니다! (${t.toFixed(1)}초)`, '#ffe066'); } } continue; }   // 11/1: 필드 봇 스턴 (유저 스턴과 같은 대인전 규칙)
+        const dmg = raw != null && SS ? (rr < (mg ? mobHitM(SS) : mobHit(SS)) ? raw : 0) : dmg0;   // 새 호스트: 내 AC·레벨로 명중 판정
         if (dmg > 0) { if (!(BUFF.invis > 0)) { hurtHero(dmg, src, mg ? 'magic' : 'melee'); const [ix, iy] = W2P(hero.x, hero.z); impact(ix, iy - 30, 'hit', '#ffd890'); } } else { heroMiss(); if (src) src.hitMeT = time; } }
       seenDmg.set(o.peer, mx); } }
   function follow(f, dt) { if (f.dead) { f.deadT += dt; return; }
-    if (f.stunT > 0) { f.stunT -= dt; if (!(f.bindUntil > time)) { f.dingT = (f.dingT || 0) - dt; if (f.dingT <= 0 && f.stunT > 0.05) { f.dingT = 0.45; stunDing(f); } } } if (f.slowT > 0) f.slowT -= dt; if (f.hitDn > 0) f.hitDn -= dt;   // v139: 게스트 화면 상태 시간
+    if (f.stunT > 0) { f.stunT -= dt; if (!(f.bindUntil > time)) { f.dingT = (f.dingT || 0) - dt; if (f.dingT <= 0 && f.stunT > 0.05) { f.dingT = 0.45; stunDing(f); } } } if (f.slowT > 0) f.slowT -= dt; if (f.wslowT > 0) f.wslowT -= dt; if (f.hitDn > 0) f.hitDn -= dt;   // v139: 게스트 화면 상태 시간
     if (f.bleed) { const B = f.bleed; B.t -= dt; B.acc = (B.acc || 0) + dt; if (B.acc >= 1) { B.acc -= 1; dmgMob(f, B.dps); const [bx, by] = W2P(f.x, f.z); floatText(bx + 8, by - headY(f) - 4, String(B.dps), { color: B.psn ? '#9fe070' : '#ff5a5a', size: 11 }); } if (B.t <= 0) f.bleed = null; }
     if (f.nx == null) return; const dx = f.nx - f.x, dz = f.nz - f.z, d = Math.hypot(dx, dz);
     if (d > 3) { f.x = f.nx; f.z = f.nz; } else if (d > 0.01) { const st = Math.min(d, dt * 4.2); f.x += dx / d * st; f.z += dz / d * st; f.dist = (f.dist || 0) + st; }
@@ -8105,6 +8166,8 @@ const NET = (() => {
   function nearRemote(f, r) { let b = null, bd = 1e9; for (const p of proxies.values()) { if (!alive(p)) continue; const d = cheb(f.i, f.j, p.i, p.j); if (d <= r && d < bd) { bd = d; b = p; } } return b; }
   function hitRemote(p, f, S, dmgIn, hitIn, magic) { if (!p || !alive(p) || !f) return; const r = Math.random(), raw = dmgIn || mobDmg(S, f), ok = r < (hitIn != null ? hitIn : magic ? mobHitM(S) : mobHit(S)), dmg = ok ? raw : 0; const L = toRemote[p.peer] || (toRemote[p.peer] = []); L.push([++dmgSeq, dmg, f.uid, Math.round(r * 1000) / 1000, raw, magic ? 1 : 0]); trim(L, 20); sendT = 0;
     const [ix, iy] = W2P(p.x, p.z); if (dmg > 0) { impact(ix, iy - 30, 'hit', '#ffd890'); floatText(ix, iy - 96, String(dmg), { color: '#ff7a6a', size: 11 }); } else impact(ix, iy + 2, 'miss'); }
+  function stunRaw(p, f, st) { if (!p || !alive(p) || !f) return; const L = toRemote[p.peer] || (toRemote[p.peer] = []); L.push([++dmgSeq, 0, f.uid, 0, null, 0, Math.round(st * 10) / 10]); trim(L, 20); sendT = 0; }   // 11/1: 필드 봇 스턴 (피해 0 · 7번째 칸 = 기절 초)
+  function efRaw(p, f, k, t) { if (!p || !alive(p) || !f) return; const L = toRemote[p.peer] || (toRemote[p.peer] = []); L.push([++dmgSeq, 0, f.uid, 0, null, 0, 0, k | 0, Math.round(t * 10)]); trim(L, 20); sendT = 0; }   // 11/1 밤: 필드 봇 슬로우·정령마법 (8번째 칸 = FBOT.EFN 번호 · 9번째 = 지속 0.1초 단위)
   function hitRaw(p, f, dmg, magic) { if (!p || !alive(p) || !f) return; const L = toRemote[p.peer] || (toRemote[p.peer] = []); L.push([++dmgSeq, dmg, f.uid, 0, null, magic ? 1 : 0]); trim(L, 20); sendT = 0;   // v183: 봇이 계산한 피해 그대로 (받는 쪽에서 AC·MR 적용)
     const [ix, iy] = W2P(p.x, p.z); if (dmg > 0) { impact(ix, iy - 30, 'hit', '#ffd890'); floatText(ix, iy - 96, String(dmg), { color: '#ff7a6a', size: 11 }); } else impact(ix, iy + 2, 'miss'); }
   function applyHits(o) { const L = o.pr.h; if (!L || !L.length || !ISLE || o.pr.z !== zk()) return; const last = seenHit.get(o.peer) || 0; let mx = last;
@@ -8115,7 +8178,7 @@ const NET = (() => {
     seenHit.set(o.peer, mx); }
   function applyPicks(o) { const L = o.pr.pk; if (!L || !L.length || o.pr.z !== zk()) return; const last = seenPk.get(o.peer) || 0; let mx = last;
     for (const [sq, gid] of L) { if (sq <= last) continue; mx = Math.max(mx, sq); const r = GROUND.takeFor(gid, o.peer), G = gvOut[o.peer] || (gvOut[o.peer] = []);
-      if (r.ok) G.push([++gvSeq, ik().indexOf(r.id), r.n, gid, 0]); else if (r.err === 'prio') G.push([++gvSeq, -1, r.left, gid, r.owner === myPeer ? PNAME() : nmOf(prOf(r.owner))]); else G.push([++gvSeq, -2, 0, gid, '']); trim(G, 8); }
+      if (r.ok) G.push([++gvSeq, ik().indexOf(r.id), r.n, gid, 0]); else if (r.err === 'prio') G.push([++gvSeq, -1, r.left, gid, r.owner === myPeer ? PNAME() : FBOT.ownerName(r.owner) || nmOf(prOf(r.owner))]); else G.push([++gvSeq, -2, 0, gid, '']); trim(G, 8); }
     seenPk.set(o.peer, mx); sendT = 0; }
   // ----- 다른 플레이어 표시용 상태
   function view(o) { let v = peers.get(o.peer); const pr = o.pr; if (!v) { v = { pl: true, x: pr.x, z: pr.y, dist: 0, as: pr.as, atkT: null, chI: pr.ch ? pr.ch.i : 0, chat: null, zone: pr.z }; peers.set(o.peer, v); }
@@ -8123,6 +8186,7 @@ const NET = (() => {
     if (pr.ch && pr.ch.i !== v.chI) { v.chI = pr.ch.i; let ct = String(pr.ch.t || '').slice(0, 80); const all = ct[0] === '!' && ct.length > 1; if (all) ct = ct.slice(1).trim(); v.chat = { t: ct, until: time + 5 }; const pm = !!(pr.pt && pr.pt === partyId), same = pr.z === zk();
       if (all) say(`[전체] ${nmOf(pr)}: ${ct}`, '#ffd28a', 1); else if (pm) say(`[파티]${same ? '' : '(' + zoneTitle(pr.z) + ')'} ${nmOf(pr)}: ${ct}`, PCOL, 1); else say(`${nmOf(pr)}${same ? '' : '(' + zoneTitle(pr.z) + ')'}: ${ct}`, RCOL, 1); }
     return v; }
+  function applyAn(o) { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) { if (typeof x[2] === 'string' && x[2].startsWith('fb:')) FBOT.onAlert(String(x[1] || ''), x[2]); else { GLOG.mute = 1; try { announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } finally { GLOG.mute = 0; } } } } }
   function tick(dt) { if (!room) return;
     OTH = others(); admFilter(); const ids = new Set(OTH.map(o => o.peer));
     for (const o of OTH) if (!known.has(o.peer)) { known.add(o.peer); seenHit.set(o.peer, maxSeq(o.pr.h)); spUsed.set(o.peer, o.pr.sp || 0); seenSu.set(o.peer, maxSeq(o.pr.su)); seenPk.set(o.peer, maxSeq(o.pr.pk)); seenWd.set(o.peer, maxSeq(o.pr.wd)); seenEf.set(o.peer, maxSeq(o.pr.ef)); seenInv.set(o.peer, o.pr.pi ? o.pr.pi.s : 0); seenAns.set(o.peer, o.pr.pa ? o.pr.pa.id + ':' + o.pr.pa.s : ''); if (ready) { const nm = nmOf(o.pr), back = (goneAt.get(nm) || 0) > Date.now() - 60000; if (!initDone && performance.now() - roomAt < 4000) initL.push(nm); else if (back) say(`[접속] ${nm}님이 다시 연결되었습니다.`, '#9c9682'); else announce(`${nm}님이 접속했습니다. (${CLASS_NAME[o.pr.c] || ''} Lv.${o.pr.lv || 1})`, PCOL); } }
@@ -8133,7 +8197,8 @@ const NET = (() => {
       const dx = o.pr.x - v.x, dz = o.pr.y - v.z, d = Math.hypot(dx, dz); if (d > 4 || o.pr.z !== v.zone) { v.x = o.pr.x; v.z = o.pr.y; v.zone = o.pr.z; } else if (d > 0.005) { const st = Math.min(d, dt * Math.max(4, d * 6)); v.x += dx / d * st; v.z += dz / d * st; v.dist += st; } v.moving = d > 0.04;
       if (v.atkT != null) { v.atkT += dt * Math.min(3, Math.max(0.5, +o.pr.hs || 1)); if (v.atkT > 0.75 / GSPD) v.atkT = null; }
       petFollow(o, v, dt); applyPv(o); applyWd(o);
-      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); { const an = o.pr.an, ai = (an && an.i) || 0, was = anSeen.get(o.peer); anSeen.set(o.peer, ai); if (was !== undefined && ai && was !== ai) { const L = an && Array.isArray(an.L) && an.L.length ? an.L.filter(x => Array.isArray(x) && +x[0] > was) : [[ai, an.t]]; for (const x of L.slice(-5)) { GLOG.mute = 1; try { announce(String(x[1] || '').slice(0, 90), RARITY_C['영웅']); } finally { GLOG.mute = 0; } } } } }
+      applySupport(o); applyRewards(o); applyFx(o); applyMx(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); if (o.pr.mk) MARKET.merge(o.pr.mk); applyAn(o); }   /* v191: 필드 봇 전투 알림은 채팅에만 */
+    for (const o of BHS) { applyRewards(o); rpMerge(o); if (o.pr.bk) ISLAND.mergeKills(o.pr.bk); applyAn(o); }   // 11/1 봇 호스트: 접속자가 아니라 숨겨 두지만, 호스트가 주는 것(전리품 분배·사신·보스 기록·전체 알림)은 받음
     if (!initDone && performance.now() - roomAt >= 4000) { initDone = true; say(initL.length ? `[월드] 지금 ${initL.length + 1}명이 접속 중이에요: ${initL.join(', ')}` : '[월드] 지금은 혼자 접속 중이에요.', PCOL); }
     reviveTick(); partyTick(); PARTY.length = 0; for (const o of members()) { if (o.pr.z !== zk()) continue; const v = peers.get(o.peer); if (v) PARTY.push({ x: v.x, z: v.z, name: nmOf(o.pr) }); }   // 미니맵 초록 점
     if (isHost()) { if (hostCache || wasGuest) { hostCache = null; wasGuest = false; for (const f of foxes) { f.nx = null; f.netNew = false; } GROUND.adoptShared(); } for (const o of OTH) { applyHits(o); applyPicks(o); } rpEnsure(); }
@@ -8141,12 +8206,12 @@ const NET = (() => {
     if (hero.atk && hero.atk !== lastAtk) { atkSeq++; myAct = performance.now(); } lastAtk = hero.atk;
     uiT -= dt; if (uiT <= 0) { uiT = 0.25; renderParty(); }
     if (ADMIN.on() && myPeer && (!admTok || admTok.p !== myPeer) && !admBusy) { admBusy = true; const t = Date.now(), p = myPeer; ADMIN.sign(`adm|${p}|${t}`).then(s => { admTok = { t, s, p }; admBusy = false; sendT = 0; }).catch(() => { admBusy = false; }); }
-    sendT -= dt; if (sendT <= 0) { sendT = 0.1; try { room.presence(payload()).catch(() => {}); } catch (e) {} } }
+    sendT -= dt; if (sendT <= 0) { sendT = BOTHOST.on() && !watchersInZone().length ? 0.5 : 0.1; try { room.presence(payload()).catch(() => {}); } catch (e) {} } }   // 봇 호스트: 지역에 보는 사람이 없으면 초당 2번만
   // ----- 파티 창 (화면 왼쪽): 파티원 HP·MP
   const myBuffs = () => { const o = {}; let n = 0; for (const k in BUFF) if (BUFF[k] > 0 && BUFF_DEF[k]) { o[k] = Math.ceil(BUFF[k]); n++; } return n ? o : null; };
   const icoC = {}, ico = k => icoC[k] || (icoC[k] = ICON(k));
   const tleft = s => s >= PC_INF - 9 ? '∞' : s >= 60 ? Math.ceil(s / 60) + '분' : Math.ceil(s) + '초';
-  const DEBUFF = new Set(['root', 'slow']);
+  const DEBUFF = new Set(['root', 'slow', 'wslow', 'gale', 'poll', 'ebind']);
   const bfRow = bf => { const ks = Object.keys(bf || {}).filter(k => BUFF_DEF[k] && bf[k] > 0); if (!ks.length) return '';
     return '<div class="pb-bf">' + ks.map(k => `<span class="pb-b${DEBUFF.has(k) ? ' bad' : ''}${bf[k] <= 10 ? ' cd' : ''}" title="${esc_(BUFF_DEF[k].name)} · ${tleft(bf[k])} 남음">${ico(BUFF_DEF[k].icon)}${bf[k] <= 10 ? `<i>${Math.ceil(bf[k])}</i>` : `<em>${tleft(bf[k])}</em>`}</span>`).join('') + '</div>'; };
   function renderParty() { const box = document.getElementById('partybox'); if (!box) return; if (!partyId || !room) { if (!box.hidden) box.hidden = true; return; } box.hidden = false;
@@ -8179,14 +8244,14 @@ const NET = (() => {
         let anim = 'idle', fr = Math.floor(time * 6) % 8; if (v.atkT != null) { anim = v.atkV === 'cast' && cls !== 'knight' ? 'cast' : cls === 'knight' && v.atkV === 'attack2' ? 'attack2' : 'attack'; fr = Math.min(7, Math.floor(v.atkT / (0.7 / GSPD) * 8)); } else if (v.moving) { anim = 'walk'; fr = Math.floor(v.dist * 4) % 8; }
         if (hoverPeer === o.peer) { g.save(); g.strokeStyle = pm ? 'rgba(143,224,138,.8)' : 'rgba(168,216,255,.8)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(x, y, 18, 9, 0, 0, 7); g.stroke(); g.restore(); }
         if (pr.dd > 0) {} else { if (pr.dl && window.DOLL) DOLL.remote(o.peer, v.x, v.z, pr.r || 0, pr.dl, pr.iv); if (pr.hp <= 0) g.globalAlpha = 0.45; else if (pr.iv) g.globalAlpha = 0.42; drawHeroSprite(g, anim, fr, pr.r || 0, x, y, null, cls, eqf, sl => (pr.eg && +pr.eg[sl]) || 0, pr.pf); g.globalAlpha = 1; if (pr.au && pr.hp > 0) drawAuras(g, x, y, pr.au & 1, pr.au & 2); }
-        if (!(pr.dd > 0)) { const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top);
+        if (!(pr.dd > 0)) { const top = y - 104, nm = (pm ? '[파티] ' : '') + nmOf(pr); g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; if (FBOT.tagOn()) clanName(g, x, top, '[반왕]', CLAN_C.A, nm, pm ? PCOL : RCOL); else { g.strokeText(nm, x, top); g.fillStyle = pm ? PCOL : RCOL; g.fillText(nm, x, top); }   /* v191: 플레이어는 모두 반왕 혈맹 */
         const w = 34, k = Math.max(0, Math.min(1, (pr.hp || 0) / (pr.hm || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore(); }
         if (v.chat && time < v.chat.until) CHAT.bubble(g, { x: v.x, z: v.z, chat: v.chat, pname: nmOf(pr) }); } }); } }
-  return { dbgPayload: () => payload(), pvp, duelDef, wardDrop, cleansePeer, remotesNear, proxyOf: peer => proxy(peer), duelCount: () => OTH.filter(o => o.pr.z === 'isle15').length + (zk() === 'isle15' ? 1 : 0), mx, bossCast, peersAt, aggroName, aggroInfo, talkOut, talkTarget, hostHere: () => isHost(), setExtra(k, v) { extra[k] = v; sendT = 0; }, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
+  return { dbgPayload: () => payload(), pvp, duelDef, wardDrop, cleansePeer, remotesNear, proxyOf: peer => proxy(peer), duelCount: () => OTH.filter(o => o.pr.z === 'isle15').length + (zk() === 'isle15' ? 1 : 0), mx, bossCast, peersAt, aggroName, aggroInfo, talkOut, talkTarget, hostHere: () => isHost(), setExtra(k, v) { extra[k] = v; sendT = 0; }, extraOf: k => extra[k], efRaw, partyTargets: () => new Set(members().filter(o => o.pr.z === zk() && o.pr.tg != null).map(o => o.pr.tg)), othersTargets() { const S = new Set(); for (const o of othersInZone()) { if (partyId && ptOf(o.peer) === partyId) continue; if (o.pr.tg != null) S.add(o.pr.tg); if (Array.isArray(o.pr.h)) for (const e of o.pr.h) if (e && e[1] != null && e[2] > 0) S.add(e[1]); } return S; }, partyId: () => partyId, setParty(id) { if (!id) return; partyId = id; hadMem = true; ptGrace = Date.now() + 20000; renderParty(); },
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, hitRaw, distribute, assignLoot, gahoGive, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
-    zoneHost: () => isHost(), guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : nmOf(prOf(p)), lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
+    zoneHost: () => isHost(), guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : FBOT.ownerName(p) || nmOf(prOf(p)), stunRaw, lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, partyOk(o) { return !!(o && o.pr && partyId && o.pr.pt === partyId && o.pr.z === zk()); }, peerObj(peer) { return OTH.find(q => q.peer === peer) || null; }, hoverParty() { if (SELF_CAST) return null; if (FORCE_PM) return FORCE_PM; const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
-    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t) { anSeq++; anText = String(t).slice(0, 90); anL.push([anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
+    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t, k) { anSeq++; anText = String(t).slice(0, 90); anL.push(k ? [anSeq, anText, String(k).slice(0, 12)] : [anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, bhs: () => BHS, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
 })();
 // ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
 // 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지 · 캐릭터 복사 코드(11/1 · 테스트 페이지에 붙여 넣는 코드)
@@ -8841,10 +8906,12 @@ const TWM = (() => {
   function inDmg(f, d, mode) { if (f.twr) return mode === 'bow' || mode === 'magic' ? Math.max(1, Math.round(d * 0.5)) : d; const st = f.bot && f.bot.st; if (!st) return d;
     if (mode !== 'magic' && st.ac < 0) d = Math.max(1, d - Math.floor(Math.random() * (Math.floor(-st.ac / 3) + 1)));
     if (mode === 'magic') d = Math.round(d * (1 - Math.min(0.5, (st.mr || 0) / 200)));
-    if (f.bot.cls === 'knight') d = Math.round(d * 0.85);   // 기사: 리덕션 아머
+    if (f.bot.cls === 'knight' && !f.fb) d = Math.round(d * 0.85);   // 기사: 리덕션 아머 (수호탑 봇은 늘 걸린 것으로)
+    if (f.fb && (f.fbBf & 1)) d = Math.round(d * 0.75);   // 11/1 필드 기사 봇: 리덕션 아머가 걸려 있을 때만 (유저와 같은 25% · fbBf는 게스트도 몬스터 목록으로 받음)
     if (f.immT > time) d = Math.round(d * 0.7);   // 이뮨 투 함 (유저와 같이 30%)
+    if (st.dr > 0) d -= st.dr;   // v204: 필드 봇 — 복사한 캐릭터의 받는 피해 감소 (장비·인형·변신 카드) × 비율
     return Math.max(1, d); }
-  function hitP(f, mode) { if (f.twr) return 0.95; const st = f.bot && f.bot.st; return st ? pvpHitP({ lv: st.lv, ac: st.ac }, mode) : 0.8; }
+  function hitP(f, mode) { if (f.twr) return 0.95; const st = f.bot && f.bot.st; return st ? Math.max(0.05, pvpHitP({ lv: st.lv, ac: st.ac }, mode) - (f.fb && mode === 'bow' && (f.fbBf & 2) ? 0.25 : 0)) : 0.8; }   // 11/1: 필드 기사 봇 솔리드 캐리지 — 원거리(활) 회피 +25%
   const near = (e, r) => !SIM && TW() && Math.max(Math.abs(e.x - hero.x), Math.abs(e.z - hero.z)) <= (r || 16);
   function showD(T, d, cr) { if (!near(T)) return; const [x, y] = W2P(T.x, T.z), top = y - headY(T) - 4; floatText(x + (Math.random() * 16 - 8), top - 6, String(d), { color: cr ? '#ffb03a' : '#f2eedf', size: cr ? 14 : 11, big: cr }); }
   function snd(e, k) { if (SIM || !AC || !SFX_ON || !near(e, 11)) return; const now = performance.now(); if (now - sndT > 1000) { sndT = now; sndN = 0; } if (++sndN > 7) return; if (k === 'swing') sfx.swing(); else if (k === 'hit') sfx.hit(false); else if (k === 'bow') MSFX('elf', 'bow', 0.3); else if (k === 'die') sfx.die(); else spellSfx(k); }
@@ -9075,11 +9142,12 @@ const TWM = (() => {
     { const vw = cv.width / curZ, vh = cv.height / curZ; if (x < cam[0] - vw / 2 - 90 || x > cam[0] + vw / 2 + 90 || y < cam[1] - vh / 2 - 30 || y > cam[1] + vh / 2 + 150) return; }   // 화면 밖은 안 그림
     let anim = 'idle', fr = Math.floor(time * 6 + (f.uid % 7)) % 8; if (f.atkT != null && f.atkT < 0.62 && !f.dead && !DBG.idle) { anim = b.cls === 'knight' ? (f.uid % 2 ? 'attack2' : 'attack') : b.cls === 'wizard' ? 'cast' : 'attack'; fr = Math.min(7, Math.floor(f.atkT / (0.7 / GSPD) * 8)); } else if (moving) { anim = 'walk'; fr = Math.floor((f.dist || 0) * 4) % 8; }
     g.save(); g.globalAlpha = al; g.strokeStyle = `rgba(${ally ? TWL.A.c : TWL.B.c},.6)`; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, 15, 7.5, 0, 0, 7); g.stroke();
-    const eq = gearOf(b), en = b.en, far = LOD >= 2 || (LOD >= 1 && Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 6), eqf = far ? (s => s === 'armor' || s === 'weapon' || s === 'helm' ? eq[s] || null : null) : (s => eq[s] || null), glf = s => s === 'weapon' && en >= 7 ? en : 0;   // 프레임이 떨어지면 먼 봇은 갑옷·투구·무기만
-    if (!DBG.noSprite) { LOWQ = true; drawHeroSprite(g, anim, fr, f.row || 0, x, y, f.flash > 0 ? 'brightness(2.2) saturate(.4)' : null, b.cls, eqf, glf, null); LOWQ = false; }
+    const eq = gearOf(b), en = b.en, lod = f.fb ? FBOT.lod() : LOD, far = lod >= 2 || ((lod >= 1 || f.fb) && Math.max(Math.abs(f.x - hero.x), Math.abs(f.z - hero.z)) > 6), eqf = far ? (s => s === 'armor' || s === 'weapon' || s === 'helm' ? eq[s] || null : null) : (s => eq[s] || null), glf = s => s === 'weapon' && en >= 7 && !f.fb ? en : 0;   // 프레임이 떨어지면 먼 봇은 갑옷·투구·무기만
+    if (f.fb && b.dl && !f.dead && lod < 2 && window.DOLL) DOLL.remote('fb' + f.uid, f.x, f.z, f.row || 0, b.dl, 0);   // v204: 복사한 마법인형
+    if (!DBG.noSprite) { LOWQ = true; drawHeroSprite(g, anim, fr, f.row || 0, x, y, f.flash > 0 && !(f.fb && far) ? 'brightness(2.2) saturate(.4)' : null, b.cls, eqf, glf, b.pf || null, f.fb ? (lod >= 2 || (lod >= 1 && far) ? 2 : 1) : 0); LOWQ = false; }   /* v204: 필드 봇은 복사한 변신 (lite 1 = 색 입힌 그림·오로라는 프레임당 2장까지만 새로 · 2 = 프레임이 떨어질 때(LOD) 먼 봇은 색 입히기·오로라·불티 없이 바탕 그림) */   /* v191: 필드 봇은 6칸 밖이면 늘 간단히 (갑옷·투구·무기만 · 맞을 때 번쩍임 없음) · 무기 빛은 안 그림 (빛 그림을 처음 만들 때 프레임이 멈칫해서) */
     if (f.immT > time && !f.dead) { g.globalAlpha = al * (0.55 + 0.2 * Math.sin(time * 3)); g.strokeStyle = 'rgba(130,255,170,.85)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(x, y, 21, 9.5, 0, 0, 7); g.stroke(); g.fillStyle = 'rgba(120,255,170,.12)'; g.fill(); }   // 봇 이뮨은 발밑 초록 고리만 (전신 오라는 너무 밝음)
     g.restore(); if (f.dead || DBG.noLabel) return;
-    const top = y - 104; g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(b.name, x, top); g.fillStyle = ally ? '#9fd8ff' : '#ff8a7a'; g.fillText(b.name, x, top);
+    const top = y - 104; g.save(); g.font = '800 11px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; if (b.clan) clanName(g, x, top, '[' + b.clan + ']', ally ? CLAN_C.A : CLAN_C.B, b.name, ally ? '#9fd8ff' : '#ff8a7a'); else { g.strokeText(b.name, x, top); g.fillStyle = ally ? '#9fd8ff' : '#ff8a7a'; g.fillText(b.name, x, top); }   /* v191: 필드 봇은 [혈맹] 이름 */
     const w = 34, k = Math.max(0, Math.min(1, f.hp / (f.max || 1))); g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(x - w / 2 - 1, top + 3, w + 2, 5); g.fillStyle = ally ? '#3aa84a' : '#c8322a'; g.fillRect(x - w / 2, top + 4, w * k, 3); g.restore(); }
   function drawTower(g, f) { const t = f.twr, [x, y] = W2P(f.x, f.z), c = TWL[t].c, k = Math.max(0, f.hp / (f.max || 1)), dead = f.dead || f.hp <= 0, H = 150, rx = 30, ry = 13;
     g.save(); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(x + 10, y + 4, 62, 26, 0, 0, 7); g.fill();
@@ -9167,9 +9235,663 @@ const TWM = (() => {
     setRef(ref) { if (!S) return; S.ref = ref; for (const f of foxes) if (f.bot) { f.bot.st = null; f.max = 0; tag(f); f.hp = f.max; } },
     simUsers(k, cls) { SIMU = k; if (!S) return; const R = roster(S.seed); for (const n of [18, 19]) { const b = R.A[n]; b.pct = k || b.pct; if (cls) b.cls = cls[n - 18]; b.st = null; b.eq = null; } for (const f of foxes) if (f.bot && f.bot.team === 'A' && f.bot.n >= 18) f.gone = true; },
     bal: o => o ? Object.assign(TWB, o) : TWB, mode: () => Object.assign({}, MODE),
-    DBG, lod: () => LOD, state: () => S, roster: () => S && roster(S.seed), dbg: () => ({ S, pub, FX: FX.length, PEND: PEND.length }) };
+    DBG, lod: () => LOD, state: () => S, roster: () => S && roster(S.seed), dbg: () => ({ S, pub, FX: FX.length, PEND: PEND.length }),
+    kit: { rngS, PCT, COMP, N1, N2, N3, gearOf, statOf, inDmg, myRef, TWB } };   // v191: 필드 상주 봇(FBOT)이 이름·장비·능력치·피해 계산을 같이 씀
 })();
 window.__TW = TWM;
+
+// ============================================================ v191(10/30): 혈맹 + 필드 상주 봇 1단계 (프로듀서 결정 10/30 · dev/rooms/aibot.md)
+// 혈맹 2개: 반왕 혈맹 = 실제 플레이어 전원 + 아군 봇 18 · 라인 혈맹 = 적군 봇 20 (봇 명단은 고정 씨앗 → 모든 PC가 같은 이름·직업·비율)
+// 봇 강함: 접속한 유저 중 전투력(presence cp)이 가장 높은 사람 기준 60~100% (수호탑 대전 TWM의 비율·능력치·장비 계산을 그대로 씀)
+// 사냥터 배치(일과표): 봇 레벨(기준 레벨 × 비율)에 맞는 사냥터(월드맵 도감 권장 레벨)를 20분마다 시각으로 정함 · 사냥터당 최대 8명 · 10%는 마을에서 정비 · 맞는 사냥터(권장 레벨 ±6)가 다 차면 마을에서 정비
+//   → 저장·통신 없이 모든 PC가 같은 결과 · 아무도 없는 사냥터는 '어디서 사냥 중인지'만 계산 (/혈맹 으로 볼 수 있음)
+// 실제 계산: 플레이어가 있는 사냥터에서만 그 지역 호스트 PC가 몬스터처럼 계산하고 몬스터 목록으로 보냄 (추가 접속 없음 · 연출은 presence fbx)
+// 행동: 자기 사냥터에서 몬스터 사냥(플레이어가 노리거나 때린 몹·플레이어 가까운 몹은 건드리지 않음 · 조금 느리게) · 물약·후퇴 · 물약이 떨어지면 귀환 · 죽으면 75~120초 뒤 다시 등장
+//   적 혈맹을 만나면 전투 (봇↔봇 · 라인 봇↔플레이어) · 반왕 봇은 플레이어를 공격한 라인 봇을 도와서 침 · 판단·성격·공격·카이팅·지원 마법은 수호탑 봇과 같은 방식
+const FBOT = (() => {
+  const K_ = TWM.kit, CLAN = { A: '반왕', B: '라인' }, KIND = { knight: 'fb_k', elf: 'fb_e', wizard: 'fb_w' }, UID0 = { A: 72000, B: 72100 }, NB = { A: 18, B: 20 };
+  const isUid = u => (u >= 72000 && u < 72000 + NB.A) || (u >= 72100 && u < 72100 + NB.B);
+  const C = { SLOT: 1200, CAP: 8, REST: 0.1, ALT: 0.25, RESP: [75, 120], ALERT: 180, HUNT: 1.35, SPD: 1.3, VIEW: 12, MOB_R: 10, NEAR_P: 5, DROP_P: 0.3, DROP_CD: 600, FAR: 6,   // 밸런스·규칙 값 (FBOT.cfg로 바꿀 수 있음)
+    // 11/1 2단계 ① 전투를 사람처럼: 물약(빨강·주홍·맑은 비율 · 봇마다 개수 · 먹는 HP% 범위 · 유저와 같은 1.5초) · HP가 없을 때(물약이 남아도 겁먹을 확률 · 귀환 확률 · 다시 오는 초)
+    //   기사(버프가 끝나면 다시 거는 지연 · PvP 스턴을 쓸 확률 · 사냥 몹 스턴 확률) · 법사(공용 대기 3초 · 마법 피해 배율 SPK) · 멘트(봇마다 30초 · 지역마다 8초) · 줍기(1~6초 · 봇 소유 초)
+    POT_W: [35, 35, 30], POT_N: [30, 80], POT_AT: [0.4, 0.65], POT_CD: 1.5, PANIC: 0.25, RET_P: 0.5, RET_BACK: [60, 120], BUF_DL: [0.5, 3], STUN_USE: 0.85, STUN_HUNT: 0.15, MAG_CD: 3, SPK: 2.2, TALK_BOT: 30, TALK_ZONE: 8, LOOT: [1, 6], LOOT_HOLD: 60,
+    // 11/1 2단계 ② 파티·보스·뒷치기·지원군: PT_N 혈맹마다 파티 크기(반왕 3·3 = 18명 중 6 · 라인 4·3 = 20명 중 7 → 약 1/3) · PT_FAR 리더에게서 이 칸 넘게 떨어지면 따라감 · PT_WAIT 리더가 뒤처진 파티원을 기다리는 최대 초
+    //   보스: BOSS_P 봇이 아예 가는 확률 · BOSS_DL 젠 뒤 2~12분 랜덤 지연 · BOSS_SOLO 혼자 잡을 수 있는 예상 시간(초) · BOSS_PARTY 파티로 잡을 수 있는 예상 시간(초) · DPS_K 예상 피해(명중·치명 보정) · 뒷치기: BS_SPAWN 그 젠에 뒷치기가 있을 확률 · (있으면) BS_P 라인 봇마다 가는 확률 · BS_PT 일정표의 라인 파티가 오는 확률
+    //   지원군: REINF_AT 전투가 이 초 넘게 이어지면 · REINF_END 전투 없이 이 초가 지나면 복귀 · REINF_CHK 다시 보는 간격 · ZONE_CAP 지역당 봇 최대
+    PT_N: { A: [3, 3], B: [4, 3] }, PT_FAR: 3, PT_WAIT: 8, BOSS_P: 0.6, BOSS_DL: [120, 720], BOSS_SOLO: 180, BOSS_PARTY: 1500, DPS_K: 0.6, BS_SPAWN: 0.5, BS_P: 0.7, BS_PT: 0.5, REINF_AT: 25, REINF_END: 60, REINF_CHK: 10, ZONE_CAP: 12,
+    // 11/1 밤 법사 봇 슬로우(대인전만): WSLOW_P 행동마다 쓸 확률 · WSLOW_T 지속 초 · WSLOW_CD 재사용 · WSLOW_IMM 풀린 뒤 면역 초 · 요정 봇 정령마법(게일·똥물·어바 골고루): ESP_DL 6~12초마다 · ESP_P 그때 쓸 확률 · 캐릭터 정보 서버 저장: CHAR_T 3분마다(바뀌었을 때만)
+    WSLOW_P: 0.18, WSLOW_T: 6, WSLOW_CD: 15, WSLOW_IMM: 3, ESP_DL: [6, 12], ESP_P: 0.3, CHAR_T: 180 };
+  const KBUF = ['reduction', 'bounce', 'solid', 'counter'], WSP = ['coc', 'eruption', 'sunburst', 'disint'], POTS = ['red_potion', 'orange_potion', 'clear_potion'];   // 기사 버프 · 법사 공격 마법(각 25%) · 물약 (fbx 연출 번호)
+  const EFN = ['striker_gale', 'pollute_water', 'earth_bind', 'wslow'], EFNM = { striker_gale: '스트라이커 게일', pollute_water: '폴루트 워터', earth_bind: '어스 바인드', wslow: '슬로우' };   // 11/1 밤: 요정 정령마법 3 + 법사 슬로우 (fbx 'e' 번호 · 피해 목록 8번째 칸)
+  const rr = a => a[0] + Math.random() * (a[1] - a[0]);
+  const hsh = s => { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
+  const live = f => !!f && !f.dead && !f.gone;
+  const myId = () => NET.me() || 'me';
+  const zkey = () => ISLE ? 'isle' + ISLE.id : '';
+  const jo = (w, a, b) => { const s = String(w), c = s.charCodeAt(s.length - 1); if (c >= 0xAC00 && c <= 0xD7A3) return JOSA(s, a, b); return s + ('013678'.includes(s[s.length - 1]) ? a : b); };   // 이름이 숫자로 끝나면 읽는 소리로 (3 → 삼: 받침 있음) · 영문 끝은 받침 없음
+  let SIM = false;
+  // ----- 명단 (11/1 밤 프로듀서 결정): 이름·직업·비율이 모두 코드에 박힌 표 — 씨앗이 아니라 리터럴이라 코드가 바뀌어도 절대 안 바뀜 (능력치가 갱신돼도 이름은 그대로)
+  //   비율(FBOT 전용 · 수호탑 TWM의 PCT와 별개): 반왕 18 = 100%×4 · 90%×4 · 80%×5 · 70%×5 · 라인 20 = 100%×4 · 90%×6 · 80%×5 · 70%×5
+  //   100% 이름 고정(프로듀서): 반왕 인범·포세이든·퉁탕·구문룡 · 라인 만만이·원큐(요정)·철구·해골 — 양쪽 다 기사2·요정1·법사1
+  //   나머지 30자리: 프로듀서가 준 32개 이름을 한 번 무작위(씨앗 1103 · dev/rooms/aibot.md)로 배정해 박음 (남은 이름 고구마·발라카스는 예비) · 직업은 예전 명단(씨앗 1030)의 자리 그대로(반왕 기사5·요정6·법사7 · 라인 7·6·7)라 파티(R2 씨앗)도 그대로
+  const TAB = {
+    A: [['포세이든', 'wizard', 1], ['카드값줘체리', 'wizard', 0.7], ['갤럭시', 'knight', 0.9], ['손오공', 'wizard', 0.7], ['닥터x', 'elf', 0.7], ['x골리앗x', 'wizard', 0.8], ['인범', 'knight', 1], ['가렌', 'elf', 0.7], ['구문룡', 'elf', 1], ['쌈장', 'wizard', 0.8], ['문도', 'wizard', 0.8], ['퉁탕', 'knight', 1], ['오징어게임', 'elf', 0.7], ['거지왕', 'knight', 0.9], ['뿅가', 'elf', 0.9], ['노빤쮸', 'knight', 0.8], ['진격의거인', 'wizard', 0.9], ['막피의왕', 'elf', 0.8]],
+    B: [['멸치', 'elf', 0.9], ['안타라스', 'elf', 0.8], ['원큐', 'elf', 1], ['흑기사', 'knight', 0.8], ['천사혼', 'wizard', 0.9], ['킹받쥬', 'elf', 0.7], ['만만이', 'knight', 1], ['원피스', 'wizard', 0.9], ['불타는썽큰', 'wizard', 0.9], ['해골', 'wizard', 1], ['악마혼', 'elf', 0.7], ['루피', 'knight', 0.7], ['조로', 'knight', 0.9], ['간달프', 'elf', 0.9], ['철구', 'knight', 1], ['군터', 'wizard', 0.8], ['이실로테', 'knight', 0.8], ['베르한다실시', 'wizard', 0.7], ['파푸리온', 'knight', 0.7], ['나미', 'wizard', 0.8]] };
+  // 11/1 프로듀서: 봇 세기는 단계마다 구간 — 2시간 구간(slotOf)마다 봇마다 그 안에서 새로 (uid·구간 해시라 모든 PC가 같은 값) · 반왕(아군) 95~100·85~95·75~85·65~75 · 라인(적) 85~95·75~85·65~75·65~75
+  //   표의 1·0.9·0.8·0.7은 '단계'(tier) — 이름 고정·전설 변신(맨 위 단계만)·파티 구성은 단계로 · 능력치·레벨·장비 등급은 실제 비율(pct)로
+  const PCT_R = { A: { 1: [0.95, 1], 0.9: [0.85, 0.95], 0.8: [0.75, 0.85], 0.7: [0.65, 0.75] }, B: { 1: [0.85, 0.95], 0.9: [0.75, 0.85], 0.8: [0.65, 0.75], 0.7: [0.65, 0.75] } };
+  function pctOf(b) { if (b._pct != null) return b._pct; const s = slotOf(Date.now()); if (b._ps !== s) { const r = (PCT_R[b.team] || {})[b.tier] || [b.tier, b.tier], u = (h => { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; })(hsh('pct:' + s + ':' + b.uid)); b._ps = s; b._pv = Math.round((r[0] + (r[1] - r[0]) * u) * 100) / 100; } return b._pv; }
+  let RO = null;
+  function roster() { if (RO) return RO;
+    const team = t => TAB[t].map(([name, cls, tier], n) => { const b = { team: t, n, uid: UID0[t] + n, cls, tier, name, lk: hsh('lk' + (UID0[t] + n)), clan: CLAN[t], fb: true }; Object.defineProperty(b, 'pct', { get() { return pctOf(this); }, set(v) { this._pct = v; }, enumerable: true, configurable: true }); return b; });
+    RO = { A: team('A'), B: team('B') }; RO.all = RO.A.concat(RO.B); RO.by = new Map(RO.all.map(b => [b.uid, b]));
+    // 11/1 2단계 ②: 파티 — 혈맹마다 PT_N 크기로(섞인 직업: 기사 1·법사 1 먼저, 나머지 무작위) · 리더 = 첫 번째(기사) · pk = 대형 자리 번호 · 명단과 다른 씨앗이라 1단계 명단(이름·직업·비율)은 그대로
+    const R2 = K_.rngS(1101 * 7919 + 7); RO.pt = [];
+    for (const t of ['A', 'B']) { const pool = RO[t].slice(); C.PT_N[t].forEach((sz, q) => { const id = t + (q + 1), mem = [];
+      for (const c of ['knight', 'wizard']) { const ks = pool.filter(b => b.cls === c); if (ks.length && mem.length < sz) { const b = ks[Math.floor(R2() * ks.length)]; pool.splice(pool.indexOf(b), 1); mem.push(b); } }
+      while (mem.length < sz && pool.length) mem.push(pool.splice(Math.floor(R2() * pool.length), 1)[0]);
+      if (mem.length < 2) return; mem.forEach((b, k) => { b.pt = id; b.pk = k; }); RO.pt.push({ id, team: t, uids: mem.map(b => b.uid), lead: mem[0].uid }); }); }
+    RO.ptBy = new Map(RO.pt.map(p => [p.id, p])); return RO; }
+  // ----- 사냥터 (월드맵 도감의 구간별 권장 레벨) — 수호탑 대전·마을·안전·이벤트·결투장·콜로세움·소환의 제단은 도감에 없어서 자동으로 빠짐
+  //   11/1 프로듀서 결정: 봇은 각 사냥터의 2구역(본토던전은 2층)에만 · 1구역은 전투 없는 잠수 사냥용이라 봇 없음 → 2·4·6·8·10·12·17·23번 (/혈맹 일정표도 같은 목록)
+  let HZ = null;
+  const zones = () => HZ || (HZ = (TOWN.huntZones ? TOWN.huntZones() : []).filter(z => { const d = ISLAND.def(z.id); return z.sec === 2 && d && !d.tw && !d.hw && !d.arena && !d.duel && !d.pvp && !d.altar; }));
+  const zoneOk = id => zones().some(z => z.id === id);
+  // 지금 이 지역에서 봇이 움직이는지 (필드 사냥터에 있을 때만)
+  const here = () => SCENE === 'field' && !!ISLE && zoneOk(ISLE.id) && !TW() && !HW() && !ARENA() && !DUEL();
+  const host = () => SIM || (NET.zoneHost() && !ADMIN.on());
+  // ----- v204(10/31 프로듀서 결정): 봇은 캐릭터 하나를 복사 — 접속자 중 전투력 1등 캐릭터의 레벨·능력치·장비(강화·축복·속성)·변신·마법인형을 '2시간마다 찍은 사진'으로
+  //   사진 = Firestore worldbot/s<구간> (만들기만 · 먼저 쓴 사람이 이김 → 모든 PC가 같은 사진) · 구간 = 한국 시간 새벽 5시부터 2시간씩 (05·07·09…시에 바뀜)
+  //   그 구간 사진이 없으면: 접속자 중 전투력(presence cp) 1등 PC가 자기 캐릭터로 만들고, 다른 PC는 구간이 바뀔 때·1분마다 읽어 봄 (찾으면 그 구간 동안 그대로 · 접속자가 바뀌어도 안 바뀜)
+  //   서버를 못 쓰면(로그아웃·규칙 없음·테스트) 예전처럼 presence 실시간 1등 기준 · 읽은 사진은 범위를 잘라 씀(clampCopy: 아는 아이템·변신·인형만 · 레벨·HP·피해·AC·MR 상한)
+  //   봇 세기는 그대로 봇마다 60~100%(PCT) · 직업은 명단 그대로 — 같은 직업은 복사한 장비·변신·인형 그대로 · 다른 직업은 능력치를 직업 보정(HPK·ACK·DMK·MRK)으로 바꾸고 모습은 그 직업 짝(lookFor)
+  let REF = null, refSig = '', refAt = -9, FORCE = null;
+  function approx(lv) { return { lv, c: 'knight', hp: Math.round(60 + lv * 14), ac: Math.round(4 - lv * 1.1), mr: Math.round(lv * 0.5), d: Math.round((4 + lv * 0.7) * 10) / 10, cp: 0 }; }
+  const CLS3 = ['knight', 'elf', 'wizard'], STK = ['str', 'dex', 'con', 'int', 'wis', 'cha'], SLOT_K = SLOTS.map(s => s[0]), KLS = Object.values(KL_SLOT), ELC = { e: 1, w: 1, f: 1, a: 1 };
+  const SN_MS = 7200e3, SN_OFF = 4 * 3600e3, slotOf = ms => Math.floor((ms + SN_OFF) / SN_MS), slotStart = s => s * SN_MS - SN_OFF;   // 2시간 구간 (한국 시간 05:00 = UTC 20:00 경계)
+  const kHM = ms => { const d = new Date(ms + 9 * 3600e3); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+  const nowMs = () => Date.now() + (DBG.toff || 0);   // DBG.toff: 테스트용 시계 밀기
+  const num = (v, lo, hi, d) => { v = +v; return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; }, r3 = v => Math.round(v * 1000) / 1000;
+  const slotOk = (s, d) => !!d && (d.slot === s || (d.slot === 'ring' && (s === 'ring1' || s === 'ring2')));
+  const eqRow = e => { const r = [e.id, e.en | 0, e.blessed ? Math.max(1, e.blessSp | 0) : 0]; if (e.attr && WQ_EL[e.attr.el]) r.push(WQ_EL[e.attr.el], e.attr.lv | 0); return r; };   // [아이디, 강화, 축복(0·1~), 속성 글자, 속성 단계]
+  // 내 캐릭터 사진 (물약·버프 같은 일시 효과는 빼고 · 변신은 그대로) — 서버 사진 · presence fb(실시간 기준)에 씀
+  let MINE = null, mineAt = -9;
+  function mine() { if (MINE && performance.now() - mineAt < 2000) return MINE; mineAt = performance.now(); const keep = {}; for (const k in BUFF) if (k !== 'poly') { keep[k] = BUFF[k]; BUFF[k] = 0; }
+    try { const S = INV.stat(), W_ = INV.eqE('weapon'), wd = W_ && ITEMS[W_.id], wiz = CLASS === 'wizard', bow = !!wd && wd.wtype === 'bow', mode = wiz ? 'magic' : bow ? 'bow' : undefined, R = wiz ? magicDmg() : INV.dmg(), dl = ITEMS[INV.equipped('doll')] || {}, eq = {};
+      for (const s of SLOT_K) { const e = INV.eqE(s); if (e && ITEMS[e.id]) eq[s] = eqRow(e); }
+      return (MINE = { n: PNAME(), c: CLASS, lv: hero.lv, cp: myCP().total || 0, st: STK.map(k => S[k] | 0),
+        cb: { hp: hero.max, ac: INV.ac(), mr: Math.round(mrTotal()), d: Math.round((R[0] + R[1]) / 2 * 10) / 10, hb: r3(hitSb(mode) + (INV.cx('hit') || 0) * 0.03 + (wiz ? 0 : (INV.cx(bow ? 'hitR' : 'hitM') || 0) * 0.03)),
+          cr: r3(wiz ? spellCritP({ lv: hero.lv, mr: 40 }) : 0.12 + (INV.cx('crit') || 0) / 100), as: Math.round(INV.cx('atkSpd') || 0), ms: Math.round(INV.cx('moveSpd') || 0),
+          dr: Math.round(((INV.cx('dr') || 0) + (INV.cx('drMelee') || 0) * 0.5) * 10) / 10, jg: r3(judgeChance(wd, W_ && W_.en)), pr: dl.proc ? [dl.proc.p, dl.proc.dmg[0], dl.proc.dmg[1]] : 0 },
+        eq, pf: selfPoly() || '', dl: dl.doll || '' }); }
+    catch (e) { return (MINE = null); } finally { for (const k in keep) BUFF[k] = keep[k]; } }
+  function fbOut() { const m = mine(); return m ? Object.assign({ lv: m.lv, c: m.c, cp: m.cp, st: m.st }, m.cb) : K_.myRef(); }   // presence fb: 다른 PC의 실시간 기준용 (장비·변신·인형은 presence e·wq·pf·dl)
+  // presence → 사진 (실시간 기준) · wq 글자 = 접속자 정보 창(WHO)과 같은 형식
+  function fromPr(o) { const pr = o.pr || {}, f = pr.fb && typeof pr.fb === 'object' && pr.fb.hp > 0 ? pr.fb : null, lv = +pr.lv || 1; let eq = null;
+    if (pr.e && typeof pr.e === 'object') { eq = {}; const Q = pr.wq && typeof pr.wq === 'object' ? pr.wq : {};
+      for (const s of SLOT_K) { const m = /^([^+*@-]*)([+-]\d+)?(\*(\d?))?(?:@([ewfa])(\d+))?$/.exec(typeof Q[s] === 'string' ? Q[s] : '') || [], id = m[1] || pr.e[s]; if (!id) continue; const r = [id, +m[2] || 0, m[3] ? Math.max(1, +m[4] || 1) : 0]; if (m[5]) r.push(m[5], +m[6] || 1); eq[s] = r; } }
+    return { n: String(pr.n || ''), c: (f && f.c) || pr.c, lv, cp: +pr.cp || 0, st: f && f.st, cb: f || approx(lv), eq, pf: pr.pf || '', dl: pr.dl || '' }; }
+  // 사진 검사·범위 자르기 (서버 문서·presence 모두): 이상한 문서가 와도 말도 안 되는 봇이 나오지 않게 — 아는 아이템 id·부위만 · 변신·인형도 있는 것만
+  function clampCopy(o) { if (!o || typeof o !== 'object') return null; const c = CLS3.includes(o.c) ? o.c : null, lv = Math.round(num(o.lv, 1, 99, 0)); if (!c || !lv) return null;
+    const B = o.cb && typeof o.cb === 'object' ? o.cb : {}, A = approx(lv), Pr = Array.isArray(B.pr) && B.pr.length === 3 ? B.pr : null;
+    const cb = { hp: Math.round(num(B.hp, 20, 150 + lv * 45, A.hp)), ac: Math.round(num(B.ac, -(20 + lv * 2.5), 10, A.ac)), mr: Math.round(num(B.mr, 0, 40 + lv * 2.5, A.mr)), d: Math.round(num(B.d, 1, 20 + lv * 2.5, A.d) * 10) / 10,
+      hb: r3(num(B.hb, -0.2, 0.9, 0)), cr: r3(num(B.cr, 0, 0.5, 0.1)), as: Math.round(num(B.as, 0, 40, 0)), ms: Math.round(num(B.ms, 0, 40, 0)), dr: num(B.dr, 0, 15, 0), jg: r3(num(B.jg, 0, 0.6, 0)),
+      pr: Pr ? [num(Pr[0], 0, 0.1, 0), num(Pr[1], 0, 60, 0), num(Pr[2], 0, 80, 0)] : null };
+    if (cb.pr && !(cb.pr[0] > 0 && cb.pr[2] > 0)) cb.pr = null; if (cb.pr && cb.pr[1] > cb.pr[2]) cb.pr[1] = cb.pr[2];
+    let eq = null; if (o.eq && typeof o.eq === 'object') { eq = {}; for (const s of SLOT_K) { const r = o.eq[s]; if (!Array.isArray(r) || typeof r[0] !== 'string' || !slotOk(s, ITEMS[r[0]])) continue;
+        const e = [r[0], Math.round(num(r[1], -10, 15, 0)), Math.round(num(r[2], 0, 9, 0))]; if (ELC[r[3]]) e.push(r[3], Math.round(num(r[4], 1, 5, 1))); eq[s] = e; } }
+    const pf = typeof o.pf === 'string' && POLY[o.pf] && !POLY[o.pf].set ? o.pf : '', dl = typeof o.dl === 'string' && ITEMS['doll_' + o.dl] && ITEMS['doll_' + o.dl].doll === o.dl ? o.dl : '';
+    return { n: String(o.n || '').replace(/[\u0000-\u001f<>&"]/g, '').slice(0, 16), c, lv, cp: Math.round(num(o.cp, 0, 1e7, 0)), st: Array.isArray(o.st) && o.st.length === 6 ? o.st.map(v => Math.round(num(v, 1, 60, 10))) : null, cb, eq, pf, dl }; }
+  // ----- 서버 사진 (Firestore worldbot · 만들기만) — SN.cp = 읽은 사진 · 지난 구간 사진은 새 사진을 찾을 때까지 계속 씀 (구간이 바뀌는 순간 깜빡이지 않게)
+  const SN = { slot: -1, cp: null, at: 0, by: '', src: '', cur: -1, next: 0, busy: false, err: '', reads: 0, writes: 0, mode: 'off', tries: 0, from: '' }, LSK = 'aden_wbot';   // tries: 이 구간에서 사진이 없던 횟수 · from: 내가 만든 사진의 출처(chars = 서버 캐릭터 목록 · me = 내 캐릭터)
+  try { const c = JSON.parse(localStorage.getItem(LSK) || 'null'), v = c && c.s === slotOf(Date.now()) && clampCopy(c.d); if (v) Object.assign(SN, { slot: c.s, cp: v, at: +c.at || 0, src: 'cache' }); } catch (e) {}
+  const cloudOn = () => { try { return !DBG.noCloud && CLOUD.on() && !!CLOUD.uid(); } catch (e) { return false; } };
+  const isAdm = o => !!(o.pr && o.pr.adm && o.pr.adm.t);
+  // 11/1 밤: 봇 호스트 서버 계정(presence bh:1 · 서버 모드는 다른 작업) — cp 후보에서 빼고 · worldbot_chars에 안 쓰고 · 접속해 있으면 사진 작성자
+  const isBh = o => !!(o.pr && o.pr.bh), meBh = () => !!(DBG.bh || (NET.extraOf && NET.extraOf('bh'))), bhOn = () => NET.bhs().length > 0 || NET.others().some(o => isBh(o) && !isAdm(o));   // 11/1 봇 호스트 모드: NET이 bh 접속을 따로 둠(bhs)
+  let netAt = 0;
+  function amTop() { if (ADMIN.on() || !window.__gameOn || !NET.me() || meBh()) return false; const me = NET.me(), my = myCP().total || 0;   // 접속자 중 내 전투력이 1등인지 (같으면 peer 이름순 — 실시간 기준과 같은 순서) · 봇 호스트 계정은 빼고
+    for (const o of NET.others()) { if (isAdm(o) || isBh(o)) continue; const c = +o.pr.cp || 0; if (c > my || (c === my && o.peer < me)) return false; } return true; }
+  // 사진 작성자: 봇 호스트가 접속해 있으면 그것 · 없으면 cp 1등 PC · (봇 호스트가 있는데 두 번 읽어도(약 2분) 사진이 없으면 1등 PC가 대신 — 호스트의 목록 읽기가 막혔을 때)
+  const bhLead = () => !BOTHOST.on() || !NET.bhs().some(o => String(o.pr.z || '') < zkey());   // 봇 호스트 탭이 여럿이면 지역 열쇠가 가장 작은 탭만 작성자 (목록 읽기 절약)
+  const amWriter = () => (meBh() && bhLead()) || (amTop() && (!bhOn() || SN.tries >= 2));
+  // ----- 11/1 밤 프로듀서: "짧은 주기로 실 유저 캐릭터의 모든 정보(봇이 복제하는)를 서버에 저장하고 봇은 그 정보를 2시간마다 따서" — Firestore worldbot_chars/{uid} (계정마다 문서 하나 · 3분마다 바뀌었을 때만 덮어씀 · 약 0.7KB)
+  //   사진을 만들 때 worldbot_chars 전부(최대 200)를 읽어 cp 1등을 고름(접속 안 한 유저 포함) · 규칙이 없어 403이면 조용히 예전 방식(접속자 중 1등 = 내 캐릭터)으로 · 5분마다만 다시
+  //   규칙(프로듀서가 넣음): match /worldbot_chars/{uid} { allow read: if request.auth != null; allow write: if request.auth != null && request.auth.uid == uid; }
+  const CH = { next: Date.now() + 20e3, sig: '', writes: 0, lists: 0, err: '', listNext: 0, mode: 'off', top: '', n: 0, at: 0 };
+  function charTick() { const now = nowMs(); if (now < CH.next) return; CH.next = now + C.CHAR_T * 1000; if (!cloudOn() || meBh() || ADMIN.on() || !window.__gameOn) { CH.next = now + 30e3; return; }   // 아직 로그인 전이면 30초 뒤 다시
+    const me = mine(); if (!me) return; const sig = JSON.stringify([me.c, me.lv, me.cp, me.cb, me.eq, me.pf, me.dl, me.st]); if (sig === CH.sig || CH.busy) return;
+    const body = { v: '1', u: String(CLOUD.uid() || ''), n: me.n, c: me.c, lv: String(me.lv), cp: String(me.cp), at: String(now), d: JSON.stringify(me) }; CH.busy = true; CH.sig = sig;   // 쓰는 동안 같은 값을 또 쓰지 않게 · 실패하면 sig를 비워 다음에 다시
+    CLOUD.set('worldbot_chars/' + CLOUD.uid(), body).then(() => { CH.writes++; CH.mode = 'on'; CH.err = ''; CH.at = now; }).catch(e => { CH.sig = ''; CH.err = String((e && (e.code || e.message)) || e).slice(0, 40); CH.mode = 'fail'; if (e && (e.status === 403 || /PERMISSION/i.test(String(e.message)))) CH.next = now + 300e3; }).finally(() => { CH.busy = false; }); }
+  async function topChar() { const now = nowMs(); if (now < CH.listNext) return null;
+    try { const L = await CLOUD.list('worldbot_chars', 200); CH.lists++; let best = null, n = 0;
+      for (const r of L) { if (!r || r.bh) continue; let o = null; try { o = clampCopy(typeof r.d === 'string' ? JSON.parse(r.d) : r.d); } catch (e) {} if (!o) continue; n++; const cp = Math.round(num(r.cp, 0, 1e7, o.cp)), u = String(r.u || r.__id || ''); if (!best || cp > best.cp || (cp === best.cp && u < best.u)) best = { cp, u, o }; }
+      CH.n = n; CH.top = best ? best.o.n : ''; CH.err = ''; return best ? best.o : null; }
+    catch (e) { CH.err = String((e && (e.code || e.message)) || e).slice(0, 40); if (e && (e.status === 403 || /PERMISSION/i.test(String(e.message)))) CH.listNext = now + 300e3; else CH.listNext = now + 60e3; return null; } }
+  function docOk(d, s) { if (!d || String(d.s) !== String(s)) return null; const at = +d.at || 0; if (at && (at < slotStart(s) - 900e3 || at > slotStart(s + 1) + 900e3)) return null; let o = null; try { o = typeof d.d === 'string' ? JSON.parse(d.d) : d.d; } catch (e) { return null; } return clampCopy(o); }
+  function snapTick() { if (FORCE) return; const now = nowMs(), cur = slotOf(now); if (NET.me()) { if (!netAt) netAt = performance.now(); } else netAt = 0;
+    if (cur !== SN.cur) { SN.cur = cur; SN.next = 0; SN.tries = 0; refAt = -9; } if ((SN.cp && SN.slot === cur) || SN.busy || now < SN.next) return;
+    if (!cloudOn()) { SN.mode = 'off'; SN.next = now + 60e3; return; }
+    SN.busy = true; const path = 'worldbot/s' + cur; let wait = 60e3;
+    (async () => { try { SN.reads++; let d = await CLOUD.get(path);
+        if (!d) SN.tries++;
+        if (!d && amWriter()) { if (DBG.settled || (netAt && performance.now() - netAt > 8000)) { const top = await topChar(), me = top || (meBh() ? null : mine()); SN.from = top ? 'chars' : me ? 'me' : '';   // 11/1 밤: 서버 캐릭터 목록(worldbot_chars)의 cp 1등 · 못 읽으면 내 캐릭터 (봇 호스트는 안 씀)
+            if (me) { const body = { v: '1', s: String(cur), at: String(nowMs()), u: String(CLOUD.uid() || ''), d: JSON.stringify(me), f: SN.from }; SN.writes++;   // 먼저 쓴 사람이 이김 (있으면 거절됨 → 다시 읽음)
+              if (await CLOUD.create(path, body)) d = body; else { SN.reads++; d = await CLOUD.get(path); } } } else wait = 10e3; }   // 막 접속했으면 다른 사람 presence가 올 때까지 조금 기다림
+        if (d) { const v = docOk(d, cur); if (v) { Object.assign(SN, { slot: cur, cp: v, at: +d.at || 0, by: String(d.u || '').slice(0, 8), src: 'cloud', err: '', from: String(d.f || '') }); refAt = -9; try { localStorage.setItem(LSK, JSON.stringify({ s: cur, at: SN.at, d: v })); } catch (e) {} } else SN.err = 'bad'; }
+        SN.mode = 'on'; }
+      catch (e) { SN.err = String((e && (e.code || e.message)) || e).slice(0, 40); SN.mode = 'fail'; if (e && (e.status === 403 || /PERMISSION/i.test(String(e.message)))) wait = 300e3; }   // 규칙이 아직 없으면 5분마다만
+      finally { SN.busy = false; SN.next = nowMs() + wait; } })(); }
+  // 실시간 기준 (서버 사진이 없을 때): 접속자 중 전투력 1등 (나는 내 캐릭터 · 다른 사람은 presence)
+  function liveCopy() { const L = []; if (!ADMIN.on() && window.__gameOn && !meBh()) L.push({ peer: NET.me() || '', cp: myCP().total || 0, me: true });
+    for (const o of NET.others()) { if (isAdm(o) || isBh(o)) continue; L.push({ peer: o.peer, cp: +o.pr.cp || 0, o }); }
+    if (!L.length) return null; L.sort((a, b) => (b.cp - a.cp) || (a.peer < b.peer ? -1 : a.peer > b.peer ? 1 : 0)); const t = L[0]; return clampCopy(t.me ? mine() : fromPr(t.o)); }
+  function srcCopy() { if (FORCE) return { cp: FORCE, src: 'test' }; const cur = slotOf(nowMs()); if (SN.cp && SN.slot <= cur && SN.slot >= cur - 1) return { cp: SN.cp, src: SN.slot === cur ? 'cloud' : 'prev' };
+    return { cp: liveCopy(), src: 'live' }; }
+  function refNow() { if (REF && performance.now() - refAt < 1000) return REF; refAt = performance.now();
+    const S = srcCopy(), c = S.cp || clampCopy({ c: 'knight', lv: hero.lv || 1, cb: approx(hero.lv || 1) }), sig = JSON.stringify([c.c, c.lv, c.cb, c.eq, c.pf, c.dl, c.st, slotOf(Date.now())]);
+    if (sig !== refSig || !REF) { refSig = sig; REF = { lv: c.lv, n: c.n, cp: c.cp, copy: c, src: S.src, st: Object.assign({}, c.cb, { lv: c.lv, c: c.c }), eqC: {} }; } else { REF.n = c.n; REF.cp = c.cp; REF.src = S.src; } return REF; }
+  // 직업마다 모습 (같은 직업 = 복사한 그대로 · 다른 직업 = 그 직업이 쓸 수 있으면 그대로 · 아니면 같은 출처·등급·레벨의 그 직업 장비 · 없으면 예전 등급 장비)
+  const WT = { knight: t => t !== 'bow' && t !== 'staff', elf: t => t === 'bow', wizard: t => t === 'staff' };
+  const wearOk = (d, cls) => !!d && !(Array.isArray(d.cls) && !d.cls.includes(cls)) && !(d.only && d.only !== cls) && (d.slot !== 'weapon' || WT[cls](d.wtype));
+  const EQV = new Map();
+  function eqvOf(id, cls) { const k = id + '>' + cls; if (EQV.has(k)) return EQV.get(k); const d = ITEMS[id]; let r = null;
+    if (d) { if (wearOk(d, cls)) r = id; else if (d.src) for (const q in ITEMS) { const e = ITEMS[q]; if (e !== d && e.slot === d.slot && e.rar === d.rar && (e.lv || 0) === (d.lv || 0) && e.src === d.src && wearOk(e, cls)) { r = q; break; } } }   // 예: 집행검 → 가이아의 격노·수정결정체 지팡이 · 화룡의 갑옷 → 화룡의 로브·가죽갑옷
+    EQV.set(k, r); return r; }
+  function polyFor(C, cls) { const P = POLY[C.pf]; if (!P) return ''; if (P.card) { const c = P.card; if (!c.cls || c.cls === cls) return C.pf; const k = 'pc_' + c.rc + '_' + PM_JOB[cls][0]; return POLY[k] ? k : ''; }   // 몬스터 카드는 모든 직업 · 소드·아크는 같은 시리즈의 그 직업
+    if (P.cls) return P.cls === cls ? C.pf : ((POLY_FORM[cls] || {})[P.tier] || ''); return C.pf; }   // 다크·실버 주문서도 같은 단계의 그 직업
+  // 11/1 밤(프로듀서): 100% 봇만 복사 대상의 전설 변신(전설 카드 · 아크 시리즈) 그대로 · 90·80·70% 봇은 영웅 변신 = 자기 직업 소드 시리즈 · 복사 대상이 변신이 없으면 그대로 없음 · 전설이 아닌 변신(몬스터 카드·주문서·소드)은 비율과 상관없이 짝 그대로 · 전설 오로라는 아크 변신에만 붙으므로 100% 봇만
+  const isLegend = pf => { const P = POLY[pf]; return !!(P && P.card && P.card.g === '전설'); };
+  function polyTier(C, cls, pct) { const p = polyFor(C, cls); if (!p || pct >= 1 || !isLegend(p)) return p; const k = 'pc_sword_' + PM_JOB[cls][0]; return POLY[k] ? k : p; }
+  function lookFor(R, cls, pct) { const L = R.eqC, key = cls + (pct != null && pct < 1 ? ':h' : ''); if (L[key]) return L[key]; const C = R.copy, o = { m: null, en: 0, pf: polyTier(C, cls, pct == null ? 1 : pct), dl: C.dl || '' };
+    if (C.eq) { o.m = {}; for (const s of KLS) { const r = C.eq[s]; if (r) o.m[s] = cls === C.c ? r[0] : eqvOf(r[0], cls); } o.en = C.eq.weapon ? C.eq.weapon[1] : 0; }
+    return (L[key] = o); }
+  function looks(b, R) { const o = lookFor(R, b.cls, b.tier >= 1 ? 1 : b.pct); /* 전설 변신은 맨 위 단계(표의 1)만 */ b.pf = o.pf; b.dl = o.dl; if (!o.m) { b.eq = null; b.en = null; K_.gearOf(b); return; }   // 장비를 모르면(옛 버전 presence) 예전 등급 장비
+    const T = K_.gearOf({ cls: b.cls, pct: b.pct, lk: b.lk }), eq = {}; for (const s in o.m) { const id = o.m[s] || T[s]; if (id) eq[s] = id; }
+    b.eq = eq; b.en = o.en; if (!b.pf) b.pf = polyOf(s => eq[s] || null) || '';   // 데스나이트 세트처럼 장비로 되는 변신은 먼 봇(간단히 그림)도 같게
+  }
+  const elvOf = (b, lv) => Math.max(1, Math.round((lv == null ? refNow().lv : lv) * b.pct));
+  // 봇 능력치 = 복사한 값 × 비율 × 직업 보정 (HP·AC·MR·평균 피해는 TWM statOf) + 명중 보너스·받는 피해 감소·인형 번개 × 비율 · 치명타·공격/이동 속도·심판 확률은 그대로
+  function statFor(b) { const R = refNow(), st = K_.statOf(b, R.st); if (st.fbR !== R) { const C = R.copy, cb = C.cb, p = b.pct; st.fbR = R; st.lv = elvOf(b, R.lv);
+      st.hb = cb.hb * p; st.cr = cb.cr; st.as = cb.as; st.ms = cb.ms; st.dr = Math.round(cb.dr * p); st.jg = cb.jg; st.pr = cb.pr ? [cb.pr[0], cb.pr[1] * p, cb.pr[2] * p] : null; st.stat = C.st ? C.st.map(v => Math.max(1, Math.round(v * p))) : null; looks(b, R); }
+    return st; }
+  // ----- 일과표: 20분 구간마다 봇마다 사냥터 (시각·기준 레벨만으로 정함 → 모든 PC 같은 결과)
+  let PL = null;
+  function planAt(ms, lv) { const slot = Math.floor(ms / 1000 / C.SLOT), key = slot + ':' + lv; if (PL && PL.key === key) return PL;
+    const Z = zones(), cnt = {}, at = {}, el = {};
+    const RO_ = roster(), L = RO_.all.map(b => ({ b, h: hsh(b.uid + ':' + slot) })).sort((x, y) => x.h - y.h || x.b.uid - y.b.uid), ptAt = {};
+    const place = (b, h, v, n) => { if ((h % 1000) / 1000 < C.REST) return 0;   // 마을에서 정비 중
+      const cand = Z.map(z => ({ id: z.id, d: v < z.lo ? z.lo - v : v > z.hi ? v - z.hi : 0, r: hsh(b.uid + ':' + z.id + ':' + slot) })).filter(c => c.d <= C.FAR).sort((x, y) => x.d - y.d || x.r - y.r);
+      if (cand.length > 1 && cand[1].d <= cand[0].d + 3 && ((h >>> 10) % 1000) / 1000 < C.ALT) cand.unshift(cand.splice(1, 1)[0]);   // 4번에 1번은 두 번째로 맞는 사냥터 (같은 곳에만 몰리지 않게)
+      const c = cand.find(q => (cnt[q.id] || 0) + n <= C.CAP); if (c) cnt[c.id] = (cnt[c.id] || 0) + n; return c ? c.id : 0; };
+    for (const { b, h } of L) { const v = elvOf(b, lv); el[b.uid] = v;
+      if (b.pt) { if (ptAt[b.pt] == null) { const Pt = RO_.ptBy.get(b.pt), ld = RO_.by.get(Pt.lead); ptAt[b.pt] = place(ld, hsh(ld.uid + ':' + slot), elvOf(ld, lv), Pt.uids.length); } at[b.uid] = ptAt[b.pt]; continue; }   // 11/1 2단계 ②: 파티는 리더 기준으로 다 같이
+      at[b.uid] = place(b, h, v, 1); }
+    return (PL = { key, slot, lv, at, el, cnt, next: (slot + 1) * C.SLOT * 1000 }); }
+  const plan = () => planAt(Date.now(), refNow().lv);
+  // ----- 봇 몸 (몬스터 목록의 한 종류: fb_k · fb_e · fb_w)
+  function tag(f) { if (f.uid == null || !isUid(f.uid)) return false; const b = roster().by.get(f.uid); if (!b) return false; const st = statFor(b); K_.gearOf(b); f.bot = b; f.fb = true;
+    const k = f.max ? f.hp / f.max : 1; if (f.max !== st.hp) { f.max = st.hp; f.hp = Math.max(f.dead ? 0 : 1, Math.round(st.hp * k)); } f.dispName = b.name; return true; }
+  const playersPos = () => { const P = []; if (SCENE === 'field' && !ADMIN.on() && !BOTHOST.on()) P.push([hero.x, hero.z]); for (const o of NET.others()) if (o.pr.z === zkey()) P.push([o.pr.x, o.pr.y]); return P; };
+  function spawnSpot() { const N = MAP, P = playersPos(), por = (ISLE && ISLE.portals) || [];
+    for (let t = 0; t < 240; t++) { const i = 2 + Math.floor(Math.random() * (N - 4)), j = 2 + Math.floor(Math.random() * (N - 4)); if (!walkable(i, j) || occ(i, j)) continue;
+      if (P.some(([x, z]) => cheb(i, j, Math.floor(x), Math.floor(z)) < 8)) continue; if (por.some(q => cheb(i, j, q.i, q.j) < 4)) continue; return [i, j]; } return null; }
+  const AWAY = new Map(), VIS = new Map();   // 죽었거나 귀환한 봇: 다시 나타날 시각 (호스트만) · VIS: 11/1 2단계 ② 일정표 밖에서 이 지역에 온 봇 (지원군 r · 뒷치기 파티 boss) — 호스트만 · 지역을 옮기면 비움
+  const nearSpot = (ci, cj, r) => { for (let t = 0; t < 40; t++) { const i = ci + Math.round((Math.random() * 2 - 1) * r), j = cj + Math.round((Math.random() * 2 - 1) * r); if (i > 1 && j > 1 && i < MAP - 2 && j < MAP - 2 && walkable(i, j) && !occ(i, j)) return [i, j]; } return null; };
+  function spawn(b, at, V) { const L = !at && b.pt && !V ? foxes.find(e => e.fb && live(e) && e.bot && e.uid === roster().ptBy.get(b.pt).lead) : null, p = at || (L && nearSpot(L.i, L.j, 3)) || spawnSpot(); if (!p) return null; const f = mkMob(KIND[b.cls], p[0], p[1]); f.uid = b.uid; f.home = p; f.aggro = false; f.row = Math.floor(Math.random() * 8);
+    tag(f); f.hp = f.max; f.fbD = 0; f.dmgBy = null; f.bx = null; foxes.push(f); if (V) { f.bx = newX(f); f.bx.go = V.go ? V.go.slice() : null; f.bx.vis = V.r ? 'r' : 'b'; } fx(['g', f.uid]); return f; }   // 파티원은 리더 옆(3칸)에 · 지원군(V)은 지역 가장자리에서 싸움터로 걸어감
+  function leave(f, quiet) { if (!f || f.gone) return; if (!quiet) fx(['g', f.uid]); f.gone = true; if (f.bx) f.bx.loot = null; if (hero.target === f) hero.target = null; for (const m of foxes) if (m.tgt === f) { m.tgt = null; m.aggro = false; } }
+  const isLead = uid => { const b = roster().by.get(uid); return !!(b && b.pt && roster().ptBy.get(b.pt).lead === uid); };
+  function ensure() { const P = plan(), zid = ISLE.id, now = Date.now(), want = []; for (const b of roster().all) if (P.at[b.uid] === zid || VIS.has(b.uid)) want.push(b.uid); want.sort((a, b) => isLead(b) - isLead(a));   // 리더 먼저 (파티원이 리더 옆에 나오게)
+    for (const f of foxes) { if (!f.fb || f.gone) continue; if (!f.bot || f.bot.stRef !== refNow().st) tag(f); if (!want.includes(f.uid) && !f.dead) leave(f); }   // 기준 유저가 바뀌면 능력치 다시 (HP 비율은 그대로)
+    let n = 0, cnt = foxes.filter(f => f.fb && !f.gone).length; for (const uid of want) { if (foxes.some(f => f.uid === uid && !f.gone)) continue; if ((AWAY.get(uid) || 0) > now) continue; if (cnt >= C.ZONE_CAP) break; if (n++ >= 2) break; const V = VIS.get(uid); if (spawn(roster().by.get(uid), V ? edgeSpot() : null, V)) cnt++; } }   // 한 번에 2명씩 (우르르 나타나지 않게) · 지역당 ZONE_CAP(12)까지
+  // 지원군이 들어오는 자리: 지역 가장자리(2~3칸 안쪽) 중 플레이어에게서 10칸 넘게 떨어진 곳 (없으면 아무 빈자리)
+  function edgeSpot() { const N = MAP, Pp = playersPos(), por = (ISLE && ISLE.portals) || [], farP = (i, j) => !Pp.some(([x, z]) => cheb(i, j, Math.floor(x), Math.floor(z)) < 10);
+    if (por.length) for (let t = 0; t < 120; t++) { const q = por[Math.floor(Math.random() * por.length)], i = q.i + Math.round((Math.random() * 2 - 1) * 5), j = q.j + Math.round((Math.random() * 2 - 1) * 5); if (i > 1 && j > 1 && i < N - 2 && j < N - 2 && walkable(i, j) && !occ(i, j) && (farP(i, j) || t > 80)) return [i, j]; }   // 포털 옆은 길이 이어져 있음 (가장자리 아무 데나는 절벽 안쪽일 수 있음)
+    for (let t = 0; t < 200; t++) { const s = Math.floor(Math.random() * 4), q = 2 + Math.floor(Math.random() * (N - 4)), e = 2 + Math.floor(Math.random() * 2), i = s === 0 ? e : s === 1 ? N - 1 - e : q, j = s === 2 ? e : s === 3 ? N - 1 - e : q;
+      if (!walkable(i, j) || occ(i, j)) continue; if (!farP(i, j)) continue; return [i, j]; } return spawnSpot(); }
+  // ----- 11/1 2단계 ② 파티: 같은 혈맹 3~5명 · 리더를 따라 이동(대형) · 같은 대상 · 법사 힐 · 파티 멘트
+  const ptOf = f => f && f.bot && f.bot.pt ? roster().ptBy.get(f.bot.pt) : null, samePt = (a, b) => !!(a && b && a.bot && b.bot && a.bot.pt && a.bot.pt === b.bot.pt);
+  const ptMembers = f => f && f.bot && f.bot.pt ? live_.filter(e => e.bot.pt === f.bot.pt) : [];
+  function ptLead(f) { const Pt = ptOf(f); if (!Pt) return null; const M = ptMembers(f); if (!M.length) return null; return M.find(e => e.uid === Pt.lead) || M.slice().sort((a, b) => a.bot.pk - b.bot.pk)[0]; }   // 리더가 없으면(죽음·귀환) 다음 번호가 리더
+  const FORM = [[0, 0], [-1, 1], [1, 1], [-1, -1], [1, -1]], formSpot = (L, f) => { const o = FORM[(f.bot.pk || 0) % FORM.length]; return [L.i + o[0], L.j + o[1]]; };   // 대형: 리더 뒤·옆 (겹치지 않게)
+  // ----- 팀 목록 (한 프레임에 한 번): A = 반왕 봇 + 플레이어 · B = 라인 봇
+  let TM = null, TMt = -1, OTT = new Set();
+  const heroOk = () => SCENE === 'field' && !DEATH && hero.hp > 0 && !ADMIN.on() && !(BUFF.invis > 0) && !BOTHOST.on();
+  function teams() { if (TMt === time && TM) return TM; TMt = time; const T = { A: [], B: [], P: [] };
+    for (const f of foxes) if (f.fb && f.bot && live(f)) T[f.bot.team].push(f);
+    if (heroOk()) { T.A.push(hero); T.P.push(hero); }
+    if (!SIM) for (const o of NET.others()) { if (o.pr.z !== zkey() || !(o.pr.hp > 0) || o.pr.dd > 0 || o.pr.iv) continue; const p = NET.proxyOf(o.peer); if (!NET.alive(p)) continue; T.A.push(p); T.P.push(p); }
+    try { OTT = SIM ? new Set() : new Set([...NET.othersTargets(), ...NET.partyTargets()]); } catch (e) { OTT = new Set(); } return (TM = T); }   // 다른 플레이어(파티원 포함)가 노리거나 때리는 몹
+  const foesOf = b => teams()[b.team === 'A' ? 'B' : 'A'], alliesOf = b => teams()[b.team];
+  const validT = e => !!e && (e === hero ? heroOk() : e.isRemote ? NET.alive(e) && !((NET.peerObj(e.peer) || { pr: {} }).pr.iv) : live(e) && !!e.fb);
+  const los = (a, b) => !MAZE() || DGLOS(a, b);
+  // ----- 전투 계산 (수호탑 봇과 같은 식 · TWB 밸런스 값 공유)
+  function lvAc(T) { if (T === hero) return [hero.lv, INV.ac()]; if (T.isRemote) { const o = NET.peerObj(T.peer), r = o && o.pr.fb; return [(o && +o.pr.lv) || 1, r && r.ac != null ? +r.ac : 0]; } if (T.bot && T.bot.st) return [T.bot.st.lv, T.bot.st.ac]; return [1, 10]; }
+  // v204: 대인전 명중 = 유저와 같은 식(PVP_HIT) + 복사한 명중 보너스(힘·민첩·지능 · 장비·인형·변신 카드 명중) × 비율 · 치명타는 복사한 확률 · 전설 무기 [심판]은 그 확률로 2배 (기사·요정)
+  const hasBuf = (f, k) => !!(f && f.bx && f.bx.bf && f.bx.bf[k] > time);   // 11/1: 기사 봇 버프가 걸려 있는지 (호스트)
+  const solidOn = T => T === hero ? BUFF.solid > 0 : T.isRemote ? !!((((NET.peerObj(T.peer) || { pr: {} }).pr.bf) || {}).solid > 0) : !!(T.fbBf & 2);   // 상대가 솔리드 캐리지 중 (활 회피 +25%)
+  function hitChance(a, T) { const st = a.bot.st, [lv, ac] = lvAc(T), c = a.bot.cls, p = Math.max(0.2, Math.min(0.95, PVP_HIT.base + 0.03 * (st.lv - lv) + (st.hb || 0) - (10 - ac) * (c === 'wizard' ? PVP_HIT.acKM : PVP_HIT.acK) + (c === 'knight' && hasBuf(a, 'bounce') ? 0.15 : 0)));   // 11/1: 바운스 어택 근거리 명중 +15%
+    return c === 'elf' ? Math.min(0.95, Math.max(0.05, p - (solidOn(T) ? 0.25 : 0) + (galeOn(T) ? 0.5 : 0))) : p; }   // 11/1 밤: 스트라이커 게일이 걸린 대상에게 활 명중 +50% (유저와 같음)
+  const galeOn = T => T === hero ? BUFF.gale > 0 : !!(T && T.galeUntil > time);   // 게일이 걸려 있는지 (나 = BUFF.gale · 다른 유저(호스트 proxy)·봇 = galeUntil)
+  function rollD(a, mul) { const B = K_.TWB, st = a.bot.st; let d = st.d * B.dm * (a.bot.cls === 'wizard' ? B.wiz : 1) * (0.75 + Math.random() * 0.5) * (mul || 1); const cr = Math.random() < (st.cr ?? 0.1); if (cr) d *= 1.5; if (st.jg && a.bot.cls !== 'wizard' && Math.random() < st.jg) d *= 2; return [Math.max(1, Math.round(d)), cr]; }
+  const atkCd = (b, k) => ATK[b.cls] / GSPD / K_.TWB.spd * (k || 1) / (1 + Math.max(0, (b.st && b.st.as) || 0) / 100);   // 공격 속도 (복사한 장비·변신 카드 % 포함)
+  function procHit(f, T, mob) { const P = f.bot.st && f.bot.st.pr; if (!P || Math.random() >= P[0]) return; const d = Math.max(1, Math.round(P[1] + Math.random() * (P[2] - P[1])));   // 인형 번개 (와이번 인형 4%)
+    PEND.push(mob ? { at: time + 0.15, a: f, T, d, cr: false, mob: 1 } : { at: time + 0.15, a: f, T, d, k: 'magic', cr: false, keep: 1 }); }
+  const near = (e, r) => !SIM && here() && !!e && Math.max(Math.abs(e.x - hero.x), Math.abs(e.z - hero.z)) <= (r || 16);
+  function showD(T, d, cr, c) { if (!near(T, 12)) return; const [x, y] = W2P(T.x, T.z), top = y - headY(T) - 4; floatText(x + (Math.random() * 16 - 8), top - 6, String(d), { color: c || (cr ? '#ffb03a' : '#f2eedf'), size: cr ? 14 : 11, big: cr }); }
+  function miss(T) { if (!near(T)) return; const [x, y] = W2P(T.x, T.z); floatText(x, y - headY(T) - 8, 'MISS', { color: '#c8d0d8', size: 10 }); }
+  let sndT = 0, sndN = 0;
+  function snd(e, k) { if (SIM || !AC || !SFX_ON || !near(e, 11)) return; const now = performance.now(); if (now - sndT > 1000) { sndT = now; sndN = 0; } if (++sndN > 6) return; if (k === 'swing') sfx.swing(); else if (k === 'hit') sfx.hit(false); else if (k === 'bow') MSFX('elf', 'bow', 0.3); else if (k === 'die') sfx.die(); else if (k === 'pot') tone(AC.currentTime, 'sine', 520, 880, 0.18, 0.06); else if (k === 'recall') { const t = AC.currentTime; tone(t, 'sine', 600, 1400, 0.35, 0.06); tone(t + 0.08, 'triangle', 900, 1800, 0.3, 0.04); } else spellSfx(k); }
+  const PEND = [], HITP = new Map();   // HITP: 라인 봇이 플레이어를 때린 시각 (반왕 봇이 도와줌)
+  const sideOf = e => e === hero ? { t: 'A', n: PNAME() } : e && e.isRemote ? { t: 'A', n: NET.nameOf(e.peer) || '유저' } : e && e.isPet ? { t: 'A', n: PNAME() } : e && e.fb && e.bot ? { t: e.bot.team, n: e.bot.name } : null;
+  function deal(a, T, d, kind, cr) { if (!T || !a || a.gone || !a.bot) return; engage(a, T); fightMark(a, T);
+    if (T === hero) { if (!heroOk()) return; HITP.set(a.uid, time); if (d <= 0) { heroMiss(); a.hitMeT = time; return; } hurtHero(d, a, kind); if (hero.hp <= 0 || DEATH) talk(a, 'win'); return; }
+    if (T.isRemote) { if (!NET.alive(T)) return; HITP.set(a.uid, time); NET.hitRaw(T, a, d, kind === 'magic'); return; }
+    if (!live(T) || !T.fb || T.bot.team === a.bot.team) return; if (T.bindUntil > time) { bindNo(T); return; } if (d <= 0) { miss(T); return; }   // 11/1 밤: 어스 바인드에 묶인 봇은 어떤 피해도 안 받음 (유저와 같음)
+    d = K_.inDmg(T, d, kind); T.hp -= d; T.flash = 0.08; T.fbD = (T.fbD || 0) + d; if (T.bx) { T.bx.hitBy = a; T.bx.hitByT = time; } showD(T, d, cr); if (kind === 'melee') snd(T, 'hit'); if (T.hp <= 0) { botDie(T, a); talk(a, 'win'); return; } counter(T, a, d); }
+  // 카운터 배리어 (11/1 · 필드 기사 봇): 받은 피해의 30%를 공격자에게 (유저와 같음) · 공격자도 카운터 배리어 중이면 안 되돌림 (서로 끝없이 주고받지 않게) · 펫·범위 기술은 빼고
+  function counter(T, a, d) { if (!T || !T.fb || !(T.fbBf & 4) || !a || !(d > 0) || T.dead || a === T) return; const rd = Math.max(1, Math.round(d * 0.3));
+    if (a === hero) { if (!heroOk() || BUFF.counter > 0) return; STAT.refl += rd; hurtHero(rd, T, 'melee'); return; }
+    if (a.isRemote) { const o = NET.peerObj(a.peer); if (!NET.alive(a) || (o && o.pr.bf && o.pr.bf.counter > 0)) return; STAT.refl += rd; NET.hitRaw(a, T, rd, false); return; }
+    if (a.fb) { if (!live(a) || (a.fbBf & 4)) return; STAT.refl += rd; a.hp -= rd; a.flash = 0.08; a.fbD = (a.fbD || 0) + rd; showD(a, rd, false, '#e08a8a'); if (a.hp <= 0) botDie(a, T); return; }
+    if (!a.dead && !a.gone && a.uid != null && MOB[a.kind] && !a.isPet) { STAT.refl += rd; mobDeal(T, a, rd, false); } }
+  // 몬스터에게: 명중은 몬스터 방어(AC)·레벨 차 (유저와 비슷) · 피해는 기준 유저 평균 피해 × 비율 · 플레이어가 함께 때렸으면 보상은 기존 몹 규칙(플레이어 몫) · 봇 혼자 잡으면 보상·드랍 없음
+  function huntHit(a, m, mode) { const st = a.bot.st, S = MOB[m.kind]; const hp = Math.max(0.2, Math.min(0.97, 0.7 + 0.05 * (st.lv - (S.lv || 1)) + (st.hb || 0) + (mode === 'melee' && hasBuf(a, 'bounce') ? 0.15 : 0) + (10 - (S.mac ?? 10)) * (mode === 'magic' ? -0.015 : -0.03)));
+    let d = Math.round(st.d * (0.75 + Math.random() * 0.5)); const cr = Math.random() < (st.cr ?? 0.1); if (cr) d = Math.round(d * 1.5); if (st.jg && mode !== 'magic' && Math.random() < st.jg) d *= 2; if (S.pdr && mode !== 'magic') d = Math.max(1, Math.round(d * (1 - S.pdr))); return [Math.random() < hp ? Math.max(1, d) : 0, cr]; }
+  function mobDeal(a, m, d, cr) { if (!m || m.dead || m.gone) return; if (!m.tgt || !(m.tgt === hero || m.tgt.isRemote || m.tgt.isPet)) { m.aggro = true; m.tgt = a; } if (d <= 0) { miss(m); return; }
+    if (m.bindUntil > time) return; if (m.ashT > 0) return; const SB = MOB[m.kind]; if (SB && (SB.boss || SB.midb)) bossAlert(m, a); m.lastDmgAt = Date.now(); m.regenAt = 0; m.regenOn = false;   // 11/1 2단계 ②: 봇이 때려도 보스 '2분 회복'이 안 걸리게 · 보스 알림
+    m.hp -= d; m.flash = 0.09; m.fbD = (m.fbD || 0) + d; (m.fbDm || (m.fbDm = new Map())).set(a.uid, (m.fbDm.get(a.uid) || 0) + d); showD(m, d, cr, '#d8d0b8'); if (m.hp > 0) return;
+    if (SB && (SB.boss || SB.midb)) { bossKill(a, m); return; }   // 11/1 2단계 ②: 보스는 실제로 죽음 → 기록·드랍은 봇
+    const pl = m.dmgBy && [...m.dmgBy.values()].some(v => v > 0);
+    if (pl) { killCheck(m); return; }   // 플레이어가 함께 때린 몹: 기존 규칙대로 플레이어 보상·드랍
+    m.dead = true; m.deadT = 0; m.stunT = 0; m.bleed = null; m.atkT = null; m.tgt = null; m.aggro = false; m.dmgBy = null; m.fbD = 0; if (hero.target === m) hero.target = null; if (near(m, 12)) MSFX(m.kind, 'death', 0.35);
+    if (a.bx) { a.bx.mob = null; a.bx.idle = 1.2 + Math.random() * 2.6; a.bx.kills = (a.bx.kills || 0) + 1; } STAT.mob++;
+    if (!a.dead && !a.gone && a.bx) { const L = botLoot(a, m); if (L.length) { const X = a.bx; if (!(X.loot && X.loot.length)) X.lootT0 = time; X.loot = (X.loot || []).concat(L); X.lootMin = time + 0.5 + Math.random() * 0.7; X.lootT = time + rr(C.LOOT); } } }   // 11/1: 봇 혼자 잡은 몹도 드랍 → 그 봇이 걸어가서 1~6초 안에 주워 감
+  // 봇 혼자 잡은 몹의 드랍 (11/1): 일반 몹 드랍 규칙 그대로(몹 드랍 → 지역 보스 재료 → 지역 장비) · '떨어졌습니다' 알림 없이 · 주인 = 그 봇 ('fb:번호' · LOOT_HOLD초 동안 유저는 못 주움)
+  function botLoot(a, m) { const S = MOB[m.kind]; if (!S || S.boss || S.midb || S.hwEv || S.dummy || m.summoned || m.reaper || m.soulBoss) return []; let L = [];
+    FB_QUIET = true; GROUND.capStart(); try { let got = false; if (MOB_DROPS[m.kind]) for (const [id, pr] of MOB_DROPS[m.kind]) if (Math.random() < pr) { GROUND.drop(id, 1, m.i, m.j); got = true; break; } if (!got) got = regionDrop(m); if (!got) cxZoneDrop(m); } finally { FB_QUIET = false; L = GROUND.capEnd() || []; }
+    const own = 'fb:' + a.uid, until = performance.now() + C.LOOT_HOLD * 1000; for (const d of L) { d.owner = own; d.until = until; } STAT.dropB += L.length; return L; }
+  // ----- 11/1 2단계 ② 보스: 봇이 보스를 잡으면 실제로 죽음(리니지처럼) — 기록(ISLAND.bossDown/midDown → 다음 젠까지 없음 · 모든 PC 공유)·전리품은 봇(파티면 살아 있는 파티원 중 무작위)이 주워 감
+  //   유저가 함께 때렸으면 기존 규칙(killCheck: 유저 경험치·골드·드랍 우선권)대로 하되, 전리품 개수를 봇 몫 = 봇 피해 비율만큼 봇이 가져감 (공헌도) · 피닉스는 유저와 같이 잿더미 → 다시
+  function bossKill(a, m) { const S = MOB[m.kind], pl = m.dmgBy && [...m.dmgBy.values()].some(v => v > 0), bd = m.fbD || 0, key = ISLAND.bossKey(m);
+    if (S.rebirth && !m.reborn && !m.summoned && !m.reaper && !m.soulBoss) { phxAsh(m, S); return; }
+    const M = ptMembers(a).filter(e => !e.dead), looter = M.length ? M[Math.floor(Math.random() * M.length)] : a, give = L => { if (!L.length || !live(looter) || !looter.bx) return; const X = looter.bx, own = 'fb:' + looter.uid, until = performance.now() + C.LOOT_HOLD * 1000; for (const d of L) { d.owner = own; d.until = until; } if (!(X.loot && X.loot.length)) X.lootT0 = time; X.loot = (X.loot || []).concat(L); X.lootMin = time + 0.5 + Math.random() * 0.7; X.lootT = time + rr(C.LOOT); STAT.bossItems += L.length; };
+    if (pl) { let pd = 0; for (const [w, v] of m.dmgBy) if (w && !w.fb && v > 0) pd += v; const before = new Set(GROUND.here()); FB_KILLER = bd > pd ? `[${a.bot.clan}] ${a.bot.name}` : ''; try { killCheck(m); } finally { FB_KILLER = ''; } const items = GROUND.here().filter(d => !before.has(d)), q = bd + pd > 0 ? items.length * bd / (bd + pd) : 0; let nb = Math.floor(q); if (Math.random() < q - nb) nb++;
+      const take = items.slice().sort(() => Math.random() - 0.5).slice(0, nb); give(take); STAT.boss++; if (key) BH.set(key, Object.assign(BH.get(key) || {}, { done: true })); if (take.length) say(`[${a.bot.clan} 혈맹] ${jo(looter.bot.name, '이', '가')} ${S.name}의 전리품 ${take.length}개를 가져갑니다. (공헌도 ${Math.round(bd / (bd + pd) * 100)}%)`, '#ffb070'); for (const e of M) talk(e, 'bwin'); return; }
+    m.dead = true; m.deadT = 0; m.stunT = 0; m.bleed = null; m.atkT = null; m.tgt = null; m.aggro = false; m.dmgBy = null; m.fbD = 0; if (hero.target === m) hero.target = null; if (near(m, 14)) { if (!MSFX(m.kind, 'death', 0.6)) snd(m, 'die'); }
+    if (a.bx) { a.bx.mob = null; a.bx.boss = null; a.bx.idle = 1 + Math.random() * 2; } STAT.mob++; STAT.boss++; if (key) BH.set(key, Object.assign(BH.get(key) || {}, { done: true }));
+    let L = []; FB_QUIET = true; GROUND.capStart(); try { GROUND.bossLoot(m); } finally { FB_QUIET = false; L = GROUND.capEnd() || []; } give(L);
+    const by = `[${a.bot.clan}] ${a.bot.name}`; if (S.midb) ISLAND.midDown(m, by); else if (!m.summoned && !m.soulBoss) ISLAND.bossDown(m.kind, by, true);
+    say(`[${a.bot.clan} 혈맹] ${jo(looter.bot.name, '이', '가')} ${S.name}의 전리품 ${L.length}개를 가져갑니다.`, '#ffb070'); for (const e of (M.length ? M : [a])) talk(e, 'bwin'); }
+  // 보스 알림 (지역 호스트 · 젠마다 한 번): 누가(유저·봇) 보스를 치기 시작하면 전체 채팅 "○○에서 [반왕 혈맹] 누가 바포메트를 치고 있습니다" · 조용한 중간 보스(이프리트)는 알림 없음
+  const BAL = new Map();
+  function bossAlert(m, who) { if (!here() || !host() || !m || !who) return; const S = MOB[m.kind]; if (!S || !S.boss || m.summoned || m.soulBoss || m.reaper) return; const key = ISLAND.bossKey(m); if (!key || BAL.has(key)) return; const s = sideOf(who); if (!s) return;
+    BAL.set(key, Date.now()); if (BAL.size > 40) BAL.delete(BAL.keys().next().value); const k = 'fbb:' + ISLE.id, t = `${zoneTitle()}에서 [${s.t === 'A' ? '반왕' : '라인'} 혈맹] ${jo(s.n, '이', '가')} ${jo(S.name, '을', '를')} 치고 있습니다`;
+    ALERT.set(k, Date.now()); if (STAT.alerts.push(t) > 50) STAT.alerts.shift(); STAT.bal++; say('[전체] ' + t, '#ffb070', 1); if (!SIM) NET.announceAll(t, k); }
+  function bossHit(m, who) { if (!host() || !here()) return; bossAlert(m, who && who.isPet ? hero : who); }   // 플레이어(나·펫·다른 유저)가 보스를 침 (addDmg → 호스트)
+  // 몬스터가 봇을 칠 때 (근접·화살·마법) — 봇 레벨·AC로 명중 · 받는 피해 감소는 수호탑 봇과 같음
+  function mobHit(f, m, S, dmgIn, hitIn, magic, aoe) { if (!f || f.dead || f.gone || !f.bot || !f.bot.st || !S) return; if (f.bindUntil > time) { bindNo(f); return; } const st = f.bot.st;   // 11/1 밤: 어바 중엔 몬스터 공격도 안 맞음
+    const hp = hitIn != null ? hitIn : magic ? Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * ((S.lv || 1) - st.lv))) : Math.max(0.1, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (st.lv * 2 - st.ac) - 40 + (nightUp(S) ? 10 : 0)) / 100));
+    if (Math.random() >= hp) { miss(f); return; } let d = Math.max(1, dmgIn || mobDmg(S, m)); d = K_.inDmg(f, d, magic ? 'magic' : 'melee'); f.hp -= d; f.flash = 0.08; showD(f, d, false, '#ff9a8a');
+    if (f.hp <= 0) { botDie(f, m); return; } if (m && !aoe) counter(f, m, d); const X = f.bx; if (X && !X.tgt && !(X.mob && live(X.mob))) X.mob = m; }
+  // 몹 범위 기술에 맞은 봇 (11/1 · 지역 호스트만): 유저와 같은 피해(보스 마법 배율 · 공격력 배율) · 마법(MR로 줄어듦) · 느려짐
+  function aoe(a, G, dot) { if (!host() || !here()) return; const m = a.src && !a.src.dead ? a.src : null, S = (m && MOB[m.kind]) || { lv: 1 }, base = dot || (a.dmg ? rint(a.dmg) : 0); if (!(base > 0)) return;
+    for (const e of live_.slice()) { if (!live(e) || !G.some(q => Math.hypot(e.x - q.x, e.z - q.z) <= q.r)) continue; STAT.aoe++; mobHit(e, m, S, Math.max(1, Math.round(base * BOSS_MAGIC * (a.mul || 1))), 1, true, true); if (a.slow && !dot) e.slowT = Math.max(e.slowT || 0, a.slow); } }
+  // ----- 죽음 · 드랍
+  const STAT = { die: 0, drop: 0, mob: 0, alerts: [], dmg: 0, pot: [0, 0, 0], buf: {}, sp: {}, stun: 0, stunMiss: 0, stunImm: 0, stunMob: 0, low: 0, ret: 0, last: 0, refl: 0, aoe: 0, dropB: 0, pick: 0, picks: [], talk: [], chat: [], ev: {}, boss: 0, bossItems: 0, bal: 0, bs: 0, bsPt: 0, reinf: 0, reinfBack: 0, heal: 0, ef: {}, efOk: 0, efMiss: 0, efImm: 0, efOn: {} };   // 11/1 밤: 슬로우·게일·똥물·어바 (시도·성공·실패·면역 · 대상별 적용)   // 11/1 ②: 보스 처치·전리품·보스 알림·뒷치기(봇·파티)·지원군(옴·복귀)·파티 힐   // 11/1: 물약·버프·마법·스턴·귀환·끝까지·반사·범위·줍기·멘트 (테스트·확인용)
+  function botDie(f, by) { if (f.dead) return; f.dead = true; f.deadT = 0; f.hp = 0; f.atkT = null; f.lunge = 0; f.stunT = 0; f.immT = 0; if (hero.target === f) hero.target = null;
+    for (const m of foxes) if (m.tgt === f) { m.tgt = null; m.aggro = false; } snd(f, 'die'); STAT.die++; f.fbBf = 0; if (f.bx) f.bx.loot = null; talk(f, 'dead');
+    const L = loot(f); fx(['d', f.uid, L ? L.top : 0, L && L.drop ? 1 : 0]); if (L && L.top === myId()) killMsg(f, L.drop); f.dmgBy = null; f.fbD = 0; }
+  // 라인 봇을 플레이어가 잡으면 타버린 불멸의 가호 (플레이어 몫이 받은 피해의 30% 이상일 때) · 우선권은 기존 몹 드랍처럼 공헌도대로 · 봇끼리·몹이 잡으면 없음
+  const DROPT = new Map();
+  function loot(f) { if (!f.bot || f.bot.team !== 'B') return null; const Cm = new Map(); let pd = 0;
+    if (f.dmgBy) for (const [w, v] of f.dmgBy) { if (!w || !(v > 0) || w.fb) continue; const p = w.isRemote ? w.peer : myId(); Cm.set(p, (Cm.get(p) || 0) + v); pd += v; }
+    const bd = f.fbD || 0; if (!(pd > 0) || pd < C.DROP_P * (pd + bd)) return null;
+    const shares = new Map([...Cm].map(([p, v]) => [p, v / pd])), top = [...shares].sort((x, y) => y[1] - x[1])[0][0], now = Date.now();
+    if (now - (DROPT.get(f.uid) || 0) < C.DROP_CD * 1000) return { top, drop: false }; DROPT.set(f.uid, now);   // 같은 봇은 10분에 한 번만 (되살아나는 봇을 계속 잡아 가호를 모으지 못하게)
+    GROUND.capStart(); GROUND.drop('burnt_ward', 1, f.i, f.j); const items = GROUND.capEnd(); STAT.drop++;
+    if (NET.me() && NET.others().some(o => o.pr.z === zkey())) { try { NET.assignLoot(items, shares, f, MOB[f.kind]); } catch (e) {} }
+    return { top, drop: true }; }
+  function killMsg(f, drop) { const b = f.bot; say(`[${b.clan} 혈맹] ${jo(b.name, '을', '를')} 쓰러뜨렸습니다! ${drop ? JOSA(ITEMS.burnt_ward.name, '이', '가') + ' 떨어졌습니다.' : '(이 봇은 10분 안에 이미 ' + ITEMS.burnt_ward.name + '를 떨어뜨렸어요)'}`, '#ffd86a'); if (near(f, 20)) { const [x, y] = W2P(f.x, f.z); floatText(x, y - 120, '처치!', { color: '#ffd86a', size: 15, big: true, life: 1.2 }); } }
+  function down(f) { if (!f || f.dead) return; botDie(f, (f.bx && f.bx.hitBy) || null); }   // 플레이어에게 쓰러짐 (killCheck)
+  function onDmg(f, who, d) { if (!f.fb || !who || !(d > 0)) return; const w = who.isPet ? hero : who; if (f.bx && (w === hero || w.isRemote)) { f.bx.hitBy = w; f.bx.hitByT = time; } engage(w, f); fightMark(w, f); if (!who.isPet && host()) counter(f, w, d); }
+  // ----- 전체 채팅 알림: 전투가 시작되면 (지역 호스트만 · 같은 지역은 3분에 한 번 · 받는 쪽도 같은 지역 3분 안이면 무시)
+  const ALERT = new Map();
+  function engage(a, T) { if (SIM || !here() || !host()) return; const A = sideOf(a), B = sideOf(T); if (!A || !B || A.t === B.t) return; const ban = A.t === 'A' ? A : B, lin = A.t === 'A' ? B : A, k = 'fb:' + ISLE.id, now = Date.now();
+    if (now - (ALERT.get(k) || 0) < C.ALERT * 1000) return; ALERT.set(k, now);
+    const t = `${zoneTitle()}에서 [반왕 혈맹] ${jo(ban.n, '이', '가')} [라인 혈맹] ${jo(lin.n, '과', '와')} 전투 중입니다`; if (STAT.alerts.push(t) > 50) STAT.alerts.shift(); say('[전체] ' + t, '#ffb070', 1); NET.announceAll(t, k); }
+  function onAlert(t, k) { const now = Date.now(); if (now - (ALERT.get(k) || 0) < (String(k).startsWith('fbb:') ? 5 : C.ALERT - 10) * 1000) return; ALERT.set(k, now); if (STAT.alerts.push(t) > 50) STAT.alerts.shift(); say('[전체] ' + String(t).slice(0, 90), '#ffb070', 1); }
+  // ----- 봇 판단 (호스트 · 초당 약 3~5회) · 행동 (매 프레임)
+  const ATK = { knight: 0.9, elf: 1.0, wizard: 1.15 }, RNG = { knight: 1, elf: 8, wizard: 7 }, AGR = { knight: 7, elf: 9, wizard: 9 };
+  const SPD = () => 3.2 * GSPD * C.SPD;
+  function persona(f) { const R = K_.rngS((f.uid || 1) * 131 + 1030), c = f.bot.cls;
+    return { agg: 0.75 + R() * 0.55, brave: c === 'knight' ? 0.18 + R() * 0.17 : 0.25 + R() * 0.2, pat: 3 + R() * 5, react: 0.18 + R() * 0.25, wander: 0.12 + R() * 0.3, focus: R() < (c === 'knight' ? 0.25 : 0.2) ? 'caster' : R() < 0.5 ? 'weak' : 'near', lazy: R() }; }
+  const newX = f => ({ cd: Math.random() * 0.6, th: Math.random() * 0.25, pot: 0, potN: Math.round(rr(C.POT_N)), potAt: rr(C.POT_AT), sk: { tri: 2 + Math.random() * 6, fb: 1 + Math.random() * 5, tor: 3 + Math.random() * 6, heal: 0, imm: Math.random() * 6, stun: 1 + Math.random() * 3, buf: 0, esp: rr(C.ESP_DL) },   // esp: 11/1 밤 요정 정령마법 다음 판단 시각
+    mag: Math.random() * 2, scd: {}, bf: {}, bq: {}, stuck: 0, tgt: null, mob: null, goal: null, kite: 0, idle: Math.random() * 2, p: persona(f), loot: null, end: null, lowT: 0, fightT: -99, seen: {}, boss: null, go: null, fol: null, waitT: 0, bsK: '', vis: '' });   // 11/1 ②: boss(치러 갈 보스) · go(지원군이 걸어갈 자리) · fol(대형 자리) · bsK(뒷치기 판단한 젠)   // 11/1: 물약 개수·먹는 HP% · 스턴·버프 대기 · 마법 공용 대기(mag)·마법별 대기(scd) · 버프 끝나는 시각(bf)·다시 걸 시각(bq) · 줍기(loot) · 끝까지 싸움(end)
+  function mobTick(f, dt) { if (!f.bot && !tag(f)) return; f.flash = Math.max(0, (f.flash || 0) - dt); if (f.atkT != null) { f.atkT += dt; if (f.atkT >= ATK_T) f.atkT = null; }
+    if (!host() || !here() || DBG.noAI) return; const b = f.bot, X = f.bx || (f.bx = newX(f));
+    if (f.dead) { f.deadT += dt; if (f.deadT >= 2.2 && !f.gone) { f.gone = true; AWAY.set(f.uid, Date.now() + (C.RESP[0] + Math.random() * (C.RESP[1] - C.RESP[0])) * 1000); } return; }
+    f.fbBf = b.cls === 'knight' ? (X.bf.reduction > time ? 1 : 0) | (X.bf.solid > time ? 2 : 0) | (X.bf.counter > time ? 4 : 0) : 0;   // 기사 버프 (게스트에게는 몬스터 목록 칸으로)
+    stepMove(f, dt, SPD() * (1 + Math.max(0, f.bot.st.ms || 0) / 100) * (f.slowT > 0 ? 0.6 : 1) * (f.wslowT > 0 ? 0.75 : 1)); if (f.slowT > 0) f.slowT -= dt; if (f.wslowT > 0) f.wslowT -= dt;   // 11/1 밤: 봇 슬로우(wslowT) 이동 25% 느림
+    if (f.stunT > 0) { f.stunT -= dt; f.atkT = null; if (!(f.bindUntil > time)) { f.dingT = (f.dingT || 0) - dt; if (f.dingT <= 0 && f.stunT > 0.05) { f.dingT = 0.45; if (near(f, 14)) stunDing(f); } } return; } if (f.bindUntil > time) return;   // 기절: 공격·마법·물약 모두 못 함 (유저와 같음)
+    X.cd -= dt * (f.wslowT > 0 ? 0.75 : 1); X.pot -= dt; X.kite -= dt; X.idle -= dt; X.mag -= dt; for (const k in X.sk) X.sk[k] -= dt; for (const k in X.scd) X.scd[k] -= dt;   // 슬로우 중엔 공격 간격도 25% 느림
+    potion(f, X);
+    if (b.cls === 'knight' && X.sk.buf <= 0 && f.t >= 1 && buffs(f, b, X)) return;
+    if ((X.th -= dt) <= 0) { X.th = X.p.react * (0.8 + Math.random() * 0.4); think(f, b, X); if (f.gone) return; }
+    act(f, b, X); }
+  // 기사 버프 (11/1): 자기 레벨에서 배우는 것만 (리덕션 아머 15 · 바운스 어택 25 · 솔리드 캐리지 35 · 카운터 배리어 45) · 유저와 같은 지속 시간(BUFF_DEF) · 끝나면 0.5~3초 뒤 다시 (한 번에 하나 · 기술 재사용 2초)
+  function buffs(f, b, X) { const lv = b.st.lv; for (const id of KBUF) { if (lv < SK[id].lv || X.bf[id] > time) continue; if (!X.bq[id]) { X.bq[id] = time + rr(C.BUF_DL); continue; } if (time < X.bq[id]) continue;
+      X.bq[id] = 0; X.bf[id] = time + BUFF_DEF[id].dur; X.sk.buf = SK[id].cd; f.atkT = 0; STAT.buf[id] = (STAT.buf[id] || 0) + 1; fx(['k', f.uid, KBUF.indexOf(id)]); return true; } return false; }
+  // 물약 (11/1): 빨강·주홍·맑은 물약을 섞어서(35·35·30) · 실제 아이템 회복량(15~20·30~40·50~60) · 유저와 같은 1.5초 · 먹는 HP%는 봇마다·싸움마다 40~65% · 개수는 봇마다 30~80
+  function potion(f, X) { if (X.pot > 0 || X.potN <= 0 || f.hp >= f.max * X.potAt) return false; const w = C.POT_W, r = Math.random() * (w[0] + w[1] + w[2]), k = r < w[0] ? 0 : r < w[0] + w[1] ? 1 : 2;
+    const h = Math.max(1, Math.min(Math.ceil(f.max - f.hp), Math.round(rint(ITEMS[POTS[k]].heal) * (f.pollUntil > time ? 0.5 : 1)))); f.hp = Math.min(f.max, f.hp + h); X.pot = C.POT_CD; X.potN--; STAT.pot[k]++; fx(['p', f.uid, k, h]); return true; }   // 11/1 밤: 폴루트 워터(똥물) 중엔 회복 50%
+  // HP가 없을 때 (11/1): 도망가지 않음 → 위험하면(가까운 적 · 나를 때리는 몹) 물약이 없거나 겁먹으면(PANIC) 50% 귀환 주문서 · 50% 끝까지 싸우다 죽기 (3초마다 다시 봄)
+  function lowHp(f, X, hp, danger) { if (hp > 0.6) { X.lowT = 0; if (hp > 0.75) X.end = null; return false; } if (X.end || !danger || hp >= X.p.brave || time < X.lowT) return false; X.lowT = time + 3;
+    if (X.potN > 0 && Math.random() >= C.PANIC) return false;   // 물약이 남아 있으면 대개 마시며 버팀
+    STAT.low++; if (Math.random() < C.RET_P) { recall(f); return true; } X.end = 'die'; STAT.last++; talk(f, 'last'); return false; }
+  // 귀환 주문서 (11/1): 빛기둥과 함께 사라짐 → 1~2분 뒤 다시 (HP·물약·버프 새로)
+  function recall(f) { STAT.ret++; talk(f, 'ret'); fx(['r', f.uid]); AWAY.set(f.uid, Date.now() + rr(C.RET_BACK) * 1000); leave(f, true); }
+  const nearest = (f, L, max) => { let b = null, bd = max == null ? 1e9 : max + 1; for (const e of L) { const d = cheb(f.i, f.j, e.i, e.j); if (d < bd) { bd = d; b = e; } } return b; };
+  const hpPct = e => e === hero ? hero.hp / Math.max(1, hero.max) : (e.hp || 0) / Math.max(1, e.max || 1);
+  const isCaster = e => e === hero ? CLASS !== 'knight' : e.isRemote ? ((NET.peerObj(e.peer) || { pr: {} }).pr.c || 'knight') !== 'knight' : !!(e.bot && e.bot.cls !== 'knight');
+  const isMelee = e => e === hero ? CLASS === 'knight' : e.isRemote ? ((NET.peerObj(e.peer) || { pr: {} }).pr.c || 'knight') === 'knight' : !!(e.bot && e.bot.cls === 'knight');
+  const keyT = e => !e ? 0 : e === hero ? 'p:' + myId() : e.isRemote ? 'p:' + e.peer : e.uid;
+  function pickTarget(f, b, X, L) { if (!L.length) return null; const p = X.p;
+    if (p.focus === 'caster') { const c = L.filter(isCaster); if (c.length && Math.random() < 0.7) return nearest(f, c); }
+    if (b.cls !== 'knight' && (p.focus === 'weak' || Math.random() < 0.35)) { let w = null, wv = 9; for (const e of L) { if (cheb(f.i, f.j, e.i, e.j) > RNG[b.cls] + 1) continue; const v = hpPct(e); if (v < wv) { wv = v; w = e; } } if (w) return w; }
+    return nearest(f, L); }
+  // 사냥할 몹: 플레이어가 노리거나 때린 몹·다른 플레이어·봇과 싸우는 몹·보스는 빼고 · 플레이어 5칸 안의 몹도 빼고 (나를 노리는 몹은 상대)
+  function mobOk(m, f) { if (!m || m.dead || m.gone || m.fb || m.uid == null) return false; const S = MOB[m.kind]; if (!S || S.boss || S.midb || S.dummy || S.pet || m.summoned || m.reaper || m.soulBoss || m.colo || m.bot || m.twr) return false;
+    if (m.tgt === f) return true; if (m.tgt && (m.tgt === hero || m.tgt.isRemote || m.tgt.isPet || (m.tgt.fb && !samePt(m.tgt, f)))) return false; if (m.aggro && !m.tgt) return false;   // 11/1 ②: 같은 파티 봇과 싸우는 몹은 같이 침
+    if (m.dmgBy && m.dmgBy.size) return false; if (hero.target === m || OTT.has(m.uid)) return false;
+    if (m.fbBy && m.fbBy !== f && live(m.fbBy) && time - (m.fbT || 0) < 6 && !samePt(m.fbBy, f)) return false; return true; }   // 11/1 2단계 ②: 같은 파티가 잡는 몹은 같이 침
+  const bossOk = (m, f) => live(m) && !m.fb && m.uid != null && !!MOB[m.kind] && !!(MOB[m.kind].boss || MOB[m.kind].midb) && !m.summoned && !m.soulBoss && !m.reaper && !m.colo && !(m.ashT > 0);   // 봇이 칠 수 있는 보스 (시간표 보스·중간 보스)
+  function pickMob(f, nearE) { const P = playersPos(); let best = null, bd = 1e9; for (const m of foxes) { if (!mobOk(m, f)) continue; const d = cheb(f.i, f.j, m.i, m.j); if (d > C.MOB_R) continue; if (nearE && cheb(m.i, m.j, nearE.i, nearE.j) > 6) continue;
+      if (m.tgt !== f && P.some(([x, z]) => cheb(m.i, m.j, Math.floor(x), Math.floor(z)) < C.NEAR_P)) continue; if (d > 1 && !los(f, m)) continue; const v = d - (m.tgt === f ? 50 : m.tgt && m.tgt.fb && samePt(m.tgt, f) ? 30 : 0); if (v < bd) { bd = v; best = m; } } return best; }   // 11/1 ②: 파티원을 노리는 몹 우선
+  function assistT(f) { let best = null, bd = 13; for (const e of teams().B) { const t = HITP.get(e.uid); if (!(t > time - 5)) continue; const d = cheb(f.i, f.j, e.i, e.j); if (d < bd) { bd = d; best = e; } } return best; }
+  function think(f, b, X) { const p = X.p, hp = f.hp / (f.max || 1), foes = foesOf(b), R = AGR[b.cls] * p.agg;
+    const danger = foes.some(e => cheb(f.i, f.j, e.i, e.j) <= 4) || foxes.some(m => m.tgt === f && !m.dead && !m.gone && cheb(f.i, f.j, m.i, m.j) <= 3);
+    if (lowHp(f, X, hp, danger)) return;   // 11/1: 도망 대신 귀환 또는 끝까지
+    const LD = ptLead(f), isLd = !!LD && LD === f, mem = LD && !isLd ? LD : null;   // 11/1 ② 파티: 리더(isLd) · 리더를 따라가는 파티원(mem = 리더)
+    let tg = X.tgt; if (tg && !(validT(tg) && cheb(f.i, f.j, tg.i, tg.j) <= R + 4)) tg = null;
+    if (tg) { const out = cheb(f.i, f.j, tg.i, tg.j) > RNG[b.cls]; if (out) { X.chase = (X.chase || 0) + (time - (X.thAt || time)); if (X.chase > p.pat) { (X.ign || (X.ign = {}))[keyT(tg)] = time + 4 + Math.random() * 3; tg = null; X.chase = 0; } } else X.chase = 0; }   // 추격 인내
+    X.thAt = time; const had = !!tg; let ast = null;
+    if (!tg && b.team === 'A') tg = ast = assistT(f);   // 반왕 봇: 플레이어를 공격한 라인 봇을 도와서 침
+    if (!tg && X.hitBy && time - X.hitByT < 4 && validT(X.hitBy) && foes.includes(X.hitBy) && cheb(f.i, f.j, X.hitBy.i, X.hitBy.j) <= R + 6) tg = X.hitBy;   // 나를 때린 적에게 반격
+    if (!tg && LD) tg = ptHelp(f, foes, R);   // 11/1 ② 파티: 리더·파티원이 치는 적 · 파티원을 때리는 적
+    if (!tg) { const ign = X.ign || {}, nb = foes.filter(e => cheb(f.i, f.j, e.i, e.j) <= R && !((ign[keyT(e)] || 0) > time) && los(f, e)); if (nb.length) tg = pickTarget(f, b, X, nb); }
+    X.tgt = tg; if ((tg && !had) || (X.mob && !X.mobWas)) { if (time - X.fightT > 8) X.potAt = rr(C.POT_AT); } if (tg || X.mob) X.fightT = time; X.mobWas = X.mob;   // 11/1: 싸움마다 물약 먹는 HP%를 다시 정함
+    if (X.go && (tg || cheb(f.i, f.j, X.go[0], X.go[1]) <= 6 || (X.goT && time > X.goT))) { X.go = null; X.goT = 0; talk(f, X.vis === 'r' ? 'reinf' : 'boss'); }   // 11/1 ② 지원군·뒷치기 파티 도착 (적을 만나거나 6칸 안 · 90초 넘으면 그만)
+    if (tg) { X.mob = null; X.goal = null; if (!had) { const k = keyT(tg); if (b.team === 'B' && isPl(tg) && !((X.seen[k] || 0) > time) && !X.go) { X.seen[k] = time + 90; talk(f, 'see', tg); } else if (ast) talk(f, 'ally', tg); } return; }
+    if (X.go) { if (!X.goT) X.goT = time + 90; X.goal = 'go'; X.mob = null; return; }   // 11/1 ② 지원군·뒷치기 파티: 먼저 싸움터·보스 쪽으로 걸어감
+    if (X.boss && !bossOk(X.boss, f)) X.boss = null;
+    if (X.boss) { if (X.loot && X.loot.length && cheb(f.i, f.j, X.loot[0].i, X.loot[0].j) <= 3) { X.goal = 'loot'; return; } X.mob = X.boss; X.goal = 'boss'; if (hp < 0.4 && LD && Math.random() < 0.3) talk(f, 'heal'); return; }   // 11/1 ② 보스 사냥·뒷치기: 보스에게 (적이 보이면 위에서 먼저 상대)
+    if (X.loot && X.loot.length && !(X.mob && X.mob.tgt === f && mobOk(X.mob, f))) { X.goal = 'loot'; return; }   // 잡은 몹의 드랍 줍기 (나를 때리는 몹이 있으면 먼저 상대)
+    if (X.mob && !mobOk(X.mob, f)) X.mob = null;
+    if (mem) { const lm = mem.bx && mem.bx.mob; if (lm && lm !== X.mob && mobOk(lm, f)) X.mob = lm; else if (X.mob && X.mob !== lm && cheb(f.i, f.j, LD.i, LD.j) > 8) X.mob = null;   // 11/1 ② 파티원: 리더가 잡는 몹을 같이 · 리더가 8칸 넘게 멀어지면 자기 몹은 두고 따라감 · 리더에게서 멀어지면 대형 자리로
+      if (!X.mob) { if (cheb(f.i, f.j, LD.i, LD.j) > C.PT_FAR) { X.goal = 'follow'; X.fol = formSpot(LD, f); if (hp < 0.4 && Math.random() < 0.3) talk(f, 'heal'); return; } if (X.idle <= 0 && !(LD.bx && (LD.bx.goal === 'roam' || LD.bx.goal === 'go' || LD.bx.goal === 'follow'))) X.mob = pickMob(f, LD); if (!X.mob) { X.goal = 'hold'; return; } } }   // 리더 옆이면 리더 근처 몹만(리더가 이동 중이면 안 고름) · 없으면 제자리
+    else if (isLd) { const far = ptMembers(f).some(e => e !== f && !(e.bx && e.bx.go) && cheb(f.i, f.j, e.i, e.j) > 7); if (!far) X.waitT = 0; else { if (!X.waitT) X.waitT = time; if (time - X.waitT < C.PT_WAIT && !(X.mob && mobOk(X.mob, f) && cheb(f.i, f.j, X.mob.i, X.mob.j) <= 2)) { X.goal = 'wait'; X.mob = null; return; } } }   // 리더: 뒤처진 파티원을 최대 PT_WAIT초 기다림
+    if (!X.mob && X.idle <= 0) { X.mob = pickMob(f, mem ? LD : null); if (X.mob) { X.mob.fbBy = f; X.mob.fbT = time; } } X.goal = X.mob ? 'hunt' : 'roam';
+    if (Math.random() < 0.004) talk(f, 'idle'); if (LD && Math.random() < 0.003) talk(f, 'pt'); }
+  function ptHelp(f, foes, R) { for (const e of ptMembers(f)) { if (e === f || !e.bx) continue; for (const c of [e.bx.tgt, time - (e.bx.hitByT || -99) < 4 ? e.bx.hitBy : null]) if (c && validT(c) && foes.includes(c) && cheb(f.i, f.j, c.i, c.j) <= R + 8 && los(f, c)) return c; } return null; }
+  const isPl = e => e === hero || !!(e && e.isRemote);
+  // 줍기 (11/1): 자기가 잡은 몹의 드랍만 · 걸어가서 옆 칸이면 주움 (떨어지고 0.5초 뒤부터) · 길이 막혀도 정한 시간(1~6초)이 지나면 주운 것으로
+  function lootAct(f, X) { const L = X.loot || [], here_ = GROUND.here(); while (L.length && !here_.includes(L[0])) L.shift(); if (!L.length) { X.loot = null; X.goal = null; return false; }
+    const d = L[0], dd = cheb(f.i, f.j, d.i, d.j);
+    if ((dd <= 1 && time >= X.lootMin) || time > X.lootT) { if (f.t < 1 && time <= X.lootT) return true; const r = GROUND.takeFor(d.gid, 'fb:' + f.uid); L.shift(); if (r && r.ok) { STAT.pick++; if (STAT.picks.push(+(time - (X.lootT0 || time)).toFixed(2)) > 50) STAT.picks.shift(); f.atkT = 0; fx(['l', f.uid]); } if (!L.length) { X.loot = null; X.goal = null; } return true; }
+    if (f.t >= 1) stepTo(f, d.i, d.j, 0); return true; }
+  function act(f, b, X) { const tg = X.tgt;
+    if (b.cls === 'wizard' && X.cd <= 0 && f.t >= 1 && support(f, b, X)) return;
+    if (tg && validT(tg)) { fight(f, b, X, tg, true); return; }
+    if (X.goal === 'loot' && lootAct(f, X)) return;
+    const m = X.mob; if (m && (mobOk(m, f) || (m === X.boss && bossOk(m, f)))) { if (m !== X.boss) { m.fbBy = f; m.fbT = time; } fight(f, b, X, m, false); return; }
+    if (f.t < 1) return;
+    if (X.goal === 'go' && X.go) { stepTo(f, X.go[0], X.go[1], 2); return; }   // 11/1 ② 지원군·뒷치기 파티: 싸움터로
+    if (X.goal === 'follow' && X.fol) { if (cheb(f.i, f.j, X.fol[0], X.fol[1]) >= 1) stepTo(f, X.fol[0], X.fol[1], 0); return; }   // 파티원: 대형 자리로
+    if (X.goal === 'wait' || X.goal === 'hold') return;   // 리더: 파티원 기다림 · 파티원: 리더 옆에서 대기
+    roam(f, X); }
+  function fight(f, b, X, T, pvp) { const d = cheb(f.i, f.j, T.i, T.j), R = RNG[b.cls];
+    if (d <= R && (d <= 1 || los(f, T))) { if (pvp && b.cls !== 'knight' && X.kite <= 0 && f.t >= 1) { const m = foesOf(b).find(e => cheb(f.i, f.j, e.i, e.j) <= 1 && isMelee(e)); if (m && stepAway(f, m)) { X.kite = 0.6 + Math.random() * 0.8; return; } }   // 카이팅: 근접이 붙으면 한 칸 물러남
+      if (f.t >= 1) { face(f, T); if (X.cd <= 0) { if (pvp) attack(f, b, X, T); else hunt(f, b, X, T); } } return; }
+    if (f.t >= 1) stepTo(f, T.i, T.j, R); }
+  function hunt(f, b, X, m) { const cls = b.cls, dist = cheb(f.i, f.j, m.i, m.j), mode = cls === 'knight' ? 'melee' : cls === 'elf' ? 'bow' : 'magic';
+    if (!m.tgt || !(m.tgt === hero || m.tgt.isRemote || m.tgt.isPet)) { m.aggro = true; m.tgt = f; }
+    if (cls === 'knight' && dist <= 1 && X.sk.stun <= 0 && b.st.lv >= SK.stun.lv && Math.random() < C.STUN_HUNT) { stunMob(f, m); X.cd = atkCd(b, C.HUNT); return; }   // 11/1: 사냥 몹에게도 가끔 스턴
+    if (cls === 'wizard') { const sp = wizPick(b, X); if (sp) { castSp(f, X, m, sp, false); return; } }   // 11/1: 사냥도 콘 오브 콜드·이럽션·선버스트·디스
+    f.atkT = 0; X.cd = atkCd(b, C.HUNT); procHit(f, m, true); const [d, cr] = huntHit(f, m, mode);
+    if (cls === 'knight') { mobDeal(f, m, d, cr); snd(f, 'swing'); return; }
+    PEND.push({ at: time + (cls === 'elf' ? 0.1 + dist * 0.05 : 0.22 + dist * 0.045), a: f, T: m, d, k: mode, cr, mob: 1 }); fx([cls === 'elf' ? 'a' : 'b', f.uid, m.uid, 1]); if (cls === 'elf') snd(f, 'bow'); }
+  function attack(f, b, X, tg) { const cls = b.cls, dist = cheb(f.i, f.j, tg.i, tg.j);
+    if (cls === 'knight' && dist <= 1 && X.sk.stun <= 0 && b.st.lv >= SK.stun.lv && Math.random() < C.STUN_USE) { stunTry(f, tg); X.cd = atkCd(b); return; }   // 11/1: 스턴 (유저와 같은 성공률·재사용 8초)
+    f.atkT = 0; X.cd = atkCd(b); procHit(f, tg, false);
+    if (cls === 'knight') { const [d, cr] = rollD(f); deal(f, tg, Math.random() < hitChance(f, tg) ? d : 0, 'melee', cr); snd(f, 'swing'); return; }
+    if (cls === 'elf' && X.sk.esp <= 0) { X.sk.esp = rr(C.ESP_DL); if (Math.random() < (DBG.espP ?? C.ESP_P)) { const id = elfPick(f, b, X, tg); if (id) { castEf(f, X, tg, id); return; } } }   // 11/1 밤: 요정 봇은 6~12초마다 30%로 게일·똥물·어바 중 하나
+    if (cls === 'elf') { const tri = X.sk.tri <= 0, n = tri ? 3 : 1; if (tri) X.sk.tri = 9;
+      for (let q = 0; q < n; q++) { const [d, cr] = rollD(f, tri ? 0.8 : 1), ok = Math.random() < hitChance(f, tg); PEND.push({ at: time + 0.1 + dist * 0.05 + q * 0.12, a: f, T: tg, d: ok ? d : 0, k: 'bow', cr, keep: 1 }); }
+      fx(['a', f.uid, keyT(tg), n]); snd(f, 'bow'); return; }
+    const foes = foesOf(b), n3 = foes.filter(e => cheb(f.i, f.j, e.i, e.j) <= 3);
+    if (X.sk.tor <= 0 && n3.length >= 3 && b.st.lv >= SK.tornado.lv) { X.sk.tor = 9; for (const e of n3.slice(0, 6)) { const [d, cr] = rollD(f, 1.1); PEND.push({ at: time + 0.35, a: f, T: e, d, k: 'magic', cr, keep: 1 }); } fx(['t', f.uid, 0]); snd(f, 'tornado'); return; }
+    if (!((X.scd.wslow || 0) > 0) && Math.random() < (DBG.wslowP ?? C.WSLOW_P) && !efBusy(tg, 'wslow')) { castEf(f, X, tg, 'wslow'); return; }   // 11/1 밤: 법사 봇 슬로우 (대인전만 · 행동마다 18% · 재사용 15초)
+    { const sp = wizPick(b, X); if (sp) { castSp(f, X, tg, sp, true); return; } }   // 11/1: 콘 오브 콜드·이럽션·선버스트·디스인티그레이트 25%씩 (공용 대기 3초 사이에는 에너지 볼트)
+    if (X.sk.fb <= 0 && b.st.lv < SK.coc.lv) { X.sk.fb = 7; const L = [tg, ...foes.filter(e => e !== tg && cheb(e.i, e.j, tg.i, tg.j) <= 1)].slice(0, 6); for (const e of L) { const [d, cr] = rollD(f, 0.9); PEND.push({ at: time + 0.3 + dist * 0.056, a: f, T: e, d, k: 'magic', cr, keep: 1 }); } fx(['f', f.uid, keyT(tg)]); snd(f, 'fball'); return; }
+    const [d, cr] = rollD(f, 1); PEND.push({ at: time + 0.22 + dist * 0.045, a: f, T: tg, d, k: 'magic', cr, keep: 1 }); fx(['b', f.uid, keyT(tg)]); }
+  // ----- 11/1 기사 스턴 · 법사 공격 마법
+  // 스턴 (대인전): 성공률 = 유저 스턴과 같은 식(50% + 레벨 차 1당 5% · 10~90%) · 1~4초 · 재사용 8초(+사람처럼 0~1.5초) · 대인전 규칙: 기절 중엔 안 겹침 · 풀린 뒤 3초 면역
+  function stunTry(a, T) { const st = a.bot.st, X = a.bx; X.sk.stun = SK.stun.cd + Math.random() * 1.5; a.atkT = 0; face(a, T); const lv = lvAc(T)[0], ch = Math.max(0.1, Math.min(0.9, 0.5 + 0.05 * (st.lv - lv)));
+    const busy = T === hero ? (BUFF.stun > 0 || time < STUN_IMM || GOD_INV || BUFF.abar > 0) : T.isRemote ? (T.stunImm || 0) > time : (T.stunT > 0 || (T.stunImm || 0) > time);
+    if (busy) { STAT.stunImm++; fx(['s', a.uid, keyT(T), -1]); return; } if (Math.random() >= ch) { STAT.stunMiss++; fx(['s', a.uid, keyT(T), 0]); return; }
+    const t = Math.round((1 + Math.random() * 3) * 10) / 10; STAT.stun++; engage(a, T);
+    if (T === hero) { BUFF.stun = Math.max(BUFF.stun || 0, t); STUN_IMM = time + t + STUN_IMM_SEC; hero.atk = null; moveGoal = null; HITP.set(a.uid, time); say(`${a.bot.name}님의 스턴에 걸렸습니다! (${t.toFixed(1)}초)`, '#ffe066'); }
+    else if (T.isRemote) { T.stunImm = time + t + STUN_IMM_SEC; HITP.set(a.uid, time); NET.stunRaw(T, a, t); }
+    else { T.stunT = t; T.stunMax = t; T.stunImm = time + t + STUN_IMM_SEC; T.dingT = 0.18; T.atkT = null; if (T.bx) { T.bx.hitBy = a; T.bx.hitByT = time; } }
+    fx(['s', a.uid, keyT(T), Math.round(t * 10)]); if (isPl(T)) talk(a, 'stun', T); }
+  function stunMob(a, m) { const S = MOB[m.kind] || {}, X = a.bx; X.sk.stun = SK.stun.cd + Math.random() * 1.5; a.atkT = 0; face(a, m); const ch = Math.max(0.1, Math.min(0.9, 0.5 + 0.05 * (a.bot.st.lv - (S.lv || 1)) - (S.boss || S.midb ? 0.25 : 0)));
+    if (Math.random() >= ch) { fx(['s', a.uid, m.uid, 0]); return; } const t = Math.round((1 + Math.random() * 3) * 10) / 10; m.stunT = Math.max(m.stunT || 0, t); m.stunMax = m.stunT; m.dingT = 0.18; m.aggro = true; STAT.stunMob++; fx(['s', a.uid, m.uid, Math.round(t * 10)]); }
+  // ----- 11/1 밤 프로듀서: "봇 마법사들은 가끔 슬로우를 걸고, 요정들은 게일·똥물·어바를 가끔 걸어" — 대인전(유저·적 봇)에만
+  //   성공률 = 유저 정령마법·스턴과 같은 식(50% + 레벨 차 1당 5% · 10~90%) · 효과·지속·연출은 유저 정령마법 그대로(게일 12초 활 명중 +50% · 똥물 8초 회복 50% · 어바 1~5초 행동 불가+무적 · 풀린 뒤 6초 면역)
+  //   슬로우(wslow · 봇 전용 · 유저 슬로우 마법과 별개): 이동·공격 속도 25% 감소 6초 · 재사용 15초 · 걸려 있는 동안 안 겹침 · 풀린 뒤 3초 면역 · 카운터 매직에 막힘(어바·똥물과 같음 · 게일은 안 막힘)
+  //   받는 쪽: 나 = BUFF.wslow·gale·poll·ebind(디버프 아이콘·남은 시간) · 다른 유저 = 호스트가 피해 목록 8·9번째 칸(NET.efRaw)으로 → 그 PC가 FBOT.efMe · 봇 = wslowT·galeUntil·pollUntil·bindUntil(봇 모델: 어바 = 공격 안 함+피해 없음 · 똥물 = 물약·힐 50%)
+  const bindNo = T => { if (near(T, 12)) { const [x, y] = W2P(T.x, T.z); floatText(x, y - headY(T) - 8, '바인드', { color: '#f2d98a', size: 11 }); } };
+  function efBusy(T, id) { if (T === hero) { if (GOD_INV || BUFF.abar > 0) return true; return id === 'wslow' ? BUFF.wslow > 0 || time < WSLOW_IMM : id === 'earth_bind' ? BUFF.ebind > 0 || time < BIND_IMM : id === 'striker_gale' ? BUFF.gale > 0 : BUFF.poll > 0; }
+    if (T.isRemote) return id === 'wslow' ? (T.wslowImm || 0) > time : id === 'earth_bind' ? (T.bindImm || 0) > time : id === 'striker_gale' ? (T.galeUntil || 0) > time : (T.pollUntil || 0) > time;   // 호스트 proxy에 기록한 것으로만 (앱솔루트 배리어·카운터 매직은 그 PC가 봄)
+    return id === 'wslow' ? T.wslowT > 0 || (T.wslowImm || 0) > time : id === 'earth_bind' ? T.bindUntil > time || (T.bindImm || 0) > time : id === 'striker_gale' ? T.galeUntil > time : T.pollUntil > time; }
+  function elfPick(f, b, X, T) { const lv = b.st.lv, L = EFN.slice(0, 3).filter(id => lv >= SK[id].lv && !((X.scd[id] || 0) > 0) && !efBusy(T, id)); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }   // 셋 중 쓸 수 있는 것(레벨 30 · 재사용 · 대상이 아직 안 걸림) 가운데 골고루
+  function castEf(f, X, T, id) { const b = f.bot, st = b.st, lv = lvAc(T)[0]; f.atkT = 0; X.cd = atkCd(b); X.scd[id] = id === 'wslow' ? C.WSLOW_CD : SK[id].cd + 1; STAT.ef[id] = (STAT.ef[id] || 0) + 1; face(f, T);
+    const ch = Math.max(0.1, Math.min(0.9, 0.5 + 0.05 * (st.lv - lv))), k = EFN.indexOf(id);
+    if (efBusy(T, id)) { STAT.efImm++; fx(['e', f.uid, keyT(T), k, -1]); return; } if (Math.random() >= ch) { STAT.efMiss++; fx(['e', f.uid, keyT(T), k, 0]); return; }
+    const t = id === 'earth_bind' ? Math.round((1 + Math.random() * 4) * 10) / 10 : id === 'wslow' ? C.WSLOW_T : id === 'striker_gale' ? 12 : 8; STAT.efOk++; engage(f, T);
+    if (applyEf(f, T, id, t)) { const q = keyT(T); STAT.efOn[q] = (STAT.efOn[q] || 0) + 1; fx(['e', f.uid, q, k, Math.round(t * 10)]); if (isPl(T)) talk(f, id === 'wslow' ? 'slow' : 'spirit', T); } else { STAT.efImm++; fx(['e', f.uid, keyT(T), k, -1]); } }
+  function applyEf(a, T, id, t) { if (T === hero) { if (!heroOk()) return false; HITP.set(a.uid, time); return efMe(a.bot.name, id, t); }
+    if (T.isRemote) { if (!NET.alive(T)) return false; HITP.set(a.uid, time); if (id === 'wslow') T.wslowImm = time + t + C.WSLOW_IMM; else if (id === 'earth_bind') T.bindImm = time + t + 6; else if (id === 'striker_gale') T.galeUntil = time + t; else T.pollUntil = time + t; NET.efRaw(T, a, EFN.indexOf(id), t); return true; }
+    if (!live(T) || !T.fb) return false; if (T.bx) { T.bx.hitBy = a; T.bx.hitByT = time; }
+    if (id === 'wslow') { T.wslowT = t; T.wslowImm = time + t + C.WSLOW_IMM; } else if (id === 'earth_bind') { T.stunT = Math.max(T.stunT || 0, t); T.stunMax = T.stunT; T.dingT = 99; T.bindUntil = time + t; T.bindImm = time + t + 6; T.atkT = null; } else if (id === 'striker_gale') T.galeUntil = time + t; else T.pollUntil = time + t; return true; }
+  // 나에게 걸린 봇의 기술 (호스트면 바로 · 게스트면 피해 목록으로) — 유저 정령마법을 맞을 때와 같은 규칙·글자 · 카운터 매직은 슬로우·똥물·어바를 막음
+  function efMe(nm, id, t) { if (DEATH || hero.hp <= 0 || GOD_INV || BUFF.abar > 0) return false; const [hx, hy] = W2P(hero.x, hero.z);
+    if (id !== 'striker_gale' && BUFF.counterm > 0) { BUFF.counterm = 0; floatText(hx, hy - 100, '카운터 매직!', { color: '#d8a8ff', size: 14, big: true }); spellFx('aura', hero, '#d8a8ff'); say(`카운터 매직이 ${nm}님의 ${jo(EFNM[id], '을', '를')} 막았습니다! (효과 끝)`, '#d8a8ff'); return false; }
+    MXLITE = true; try {
+      if (id === 'wslow') { if (BUFF.wslow > 0 || time < WSLOW_IMM) { floatText(hx, hy - 112, BUFF.wslow > 0 ? '이미 슬로우 중' : '슬로우 면역', { color: '#c8d0d8', size: 11 }); return false; } BUFF.wslow = t; WSLOW_IMM = time + t + C.WSLOW_IMM; mxSelf('slow', hero); floatText(hx, hy - 118, `슬로우! ${t}초`, { color: '#c9a0ff', size: 15, big: true, life: 1.3 }); say(`${nm}님의 슬로우에 걸렸습니다! (${t}초 · 이동·공격 속도 25% 감소)`, '#c9a0ff'); spellSfx('slow'); return true; }
+      if (id === 'earth_bind') { if (BUFF.ebind > 0 || time < BIND_IMM) { floatText(hx, hy - 112, BUFF.ebind > 0 ? '이미 바인드 중' : '바인드 면역', { color: '#c8d0d8', size: 11 }); return false; } BUFF.stun = Math.max(BUFF.stun || 0, t); BUFF.ebind = Math.max(BUFF.ebind || 0, t); BIND_IMM = time + t + 6; hero.atk = null; moveGoal = null; hero.bindLeft = t; mxSelf('earth_bind', hero); floatText(hx, hy - 118, `어스 바인드! ${t.toFixed(1)}초`, { color: '#ffd870', size: 16, big: true, life: 1.3 }); say(`${nm}님의 어스 바인드에 걸렸습니다! (${t.toFixed(1)}초 · 그동안 피해도 받지 않아요)`, '#ffd870'); spellSfx('earth_bind'); return true; }
+      if (id === 'striker_gale') { BUFF.gale = Math.max(BUFF.gale || 0, t); mxSelf('striker_gale', hero); floatText(hx, hy - 118, `스트라이커 게일! ${t}초`, { color: '#ff8a7a', size: 14, big: true }); say(`${nm}님의 스트라이커 게일: ${t}초 동안 나에게 쏘는 활 명중 +50%`, '#ff8a7a'); spellSfx('striker_gale'); return true; }
+      BUFF.poll = Math.max(BUFF.poll || 0, t); mxSelf('pollute_water', hero); floatText(hx, hy - 118, `폴루트 워터! ${t}초`, { color: '#a8c070', size: 14, big: true }); say(`${nm}님의 폴루트 워터: ${t}초 동안 받는 회복(힐·물약) 50% 감소`, '#a8c070'); spellSfx('pollute_water'); return true; }
+    finally { MXLITE = false; } }
+  // 법사 공격 마법: 콘 오브 콜드·이럽션·선버스트·디스인티그레이트 중 25%씩 고름 (그 마법이 재사용 중이면 다른 것 · 배울 레벨(24·24·24·40)이 안 되면 못 씀 · 쓰면 공용 대기 3초 동안 다른 마법 못 씀 = 유저와 같음)
+  //   피해 = 봇 마법 피해(기본 마법과 같은 식) × SPK × (그 마법 기본 피해 ÷ 콘 오브 콜드 기본 피해) — 지능·SP 배율(대인전은 절반)은 모든 공격 마법에 똑같이 곱해지므로 유저와 같은 비율 · 받는 쪽 MR로 줄어듦
+  //   재사용 = 유저 법사와 같음 (콘·이럽·선버 3초 · 디스 8초) · 연출 = 유저 마법 그대로(가볍게)
+  const spAvg = id => (SPELL[id].dmg[0] + SPELL[id].dmg[1]) / 2, spMul = id => C.SPK * spAvg(id) / spAvg('coc'), wcd = id => (SPELL_CD[id] || ((SK[id] && SK[id].circle) <= 2 ? 1.2 : 2)) + 1;
+  const SPDL = { coc: 0.3, eruption: 0.35, sunburst: 0.65, disint: 0.45 };   // 맞는 시점 (연출에 맞춤)
+  function wizPick(b, X) { if (X.mag > 0) return null; const lv = b.st.lv, ok = id => lv >= SK[id].lv && !((X.scd[id] || 0) > 0), c = WSP[Math.floor(Math.random() * WSP.length)]; if (ok(c)) return c; const L = WSP.filter(ok); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
+  function castSp(f, X, T, id, pvp) { const b = f.bot; f.atkT = 0; X.cd = atkCd(b, pvp ? 1 : C.HUNT); X.mag = C.MAG_CD; X.scd[id] = wcd(id); STAT.sp[id] = (STAT.sp[id] || 0) + 1; let d, cr;
+    if (pvp) [d, cr] = rollD(f, spMul(id)); else { [d, cr] = huntHit(f, T, 'magic'); const P = SPELL[id], me = MOB[T.kind] && MOB[T.kind].el; d = d * spMul(id) * (P.el && me ? (ATTR_OPP[me] === P.el ? 1.5 : 1) : 1) /* 11/1: 같은 속성 마법도 피해 안 줄임 (유저와 같게) */; d = d > 0 ? Math.max(1, Math.round(d)) : 0; }
+    PEND.push(pvp ? { at: time + SPDL[id], a: f, T, d, k: 'magic', cr, keep: 1 } : { at: time + SPDL[id], a: f, T, d, cr, mob: 1 }); fx(['m', f.uid, keyT(T), WSP.indexOf(id)]); }
+  function pendTick() { for (let k = PEND.length - 1; k >= 0; k--) { const p = PEND[k]; if (time < p.at) continue; PEND.splice(k, 1); if (!p.a || p.a.gone || (p.a.dead && !p.keep)) continue; if (p.mob) mobDeal(p.a, p.T, p.d, p.cr); else deal(p.a, p.T, p.d, p.k, p.cr); } }
+  // 지원 마법 (마법사 봇): 7칸 안 HP 50% 밑 아군 힐 · 싸우는 기사(반왕은 적 봇과 싸우는 플레이어도) 이뮨 투 함
+  function support(f, b, X) { const L = alliesOf(b), PM = ptMembers(f);
+    if (X.sk.heal <= 0) { let w = null, wv = 0.6; for (const e of PM) { if (e === f || cheb(f.i, f.j, e.i, e.j) > 7) continue; const v = hpPct(e); if (v < wv) { wv = v; w = e; } }   // 11/1 ② 파티원 먼저 (HP 60% 밑)
+      if (!w) { wv = K_.TWB.potAt; for (const e of L) { if (cheb(f.i, f.j, e.i, e.j) > 7) continue; const v = hpPct(e); if (v < wv) { wv = v; w = e; } } } else STAT.heal++;
+      if (w) { healOn(f, w); X.sk.heal = K_.TWB.healCd; X.cd = Math.max(X.cd, 0.7); f.atkT = 0; if (isPl(w)) talk(f, 'ally', w); return true; } }
+    if (X.sk.imm <= 0) { const T = L.filter(e => e !== f && cheb(f.i, f.j, e.i, e.j) <= 7 && (e.fb ? e.bot.cls === 'knight' && e.bx && e.bx.tgt && !(e.immT > time) : e === hero ? !(BUFF.immune > 0) && !!(hero.target && hero.target.fb) : false)); if (T.length) { immOn(f, T[0]); X.sk.imm = 12; X.cd = Math.max(X.cd, 0.7); f.atkT = 0; return true; } }
+    return false; }
+  function healOn(a, e) { const H = K_.TWB.heal; if (e === hero) { const h = Math.max(1, Math.min(Math.ceil(hero.max - hero.hp), Math.round(hero.max * H * HEALK()))); /* 11/1 밤: 폴루트 워터 중엔 받는 힐 50% */ hero.hp = Math.min(hero.max, hero.hp + h); const [x, y] = W2P(hero.x, hero.z); floatText(x, y - 100, '+' + h, { color: '#8af08a', size: 13 }); }
+    else if (e.isRemote) { const o = NET.peerObj(e.peer); if (o) NET.healPeer(o, Math.round((o.pr.hm || 300) * H)); }
+    else { const h = Math.round(e.max * H * (e.pollUntil > time ? 0.5 : 1)); e.hp = Math.min(e.max, e.hp + h); if (near(e)) { const [x, y] = W2P(e.x, e.z); floatText(x, y - 100, '+' + h, { color: '#8af08a', size: 11 }); } }
+    fx(['h', a.uid, keyT(e)]); }
+  function immOn(a, e) { if (e === hero) { BUFF.immune = Math.max(BUFF.immune || 0, 18); say(`[반왕 혈맹] ${a.bot.name}님이 이뮨 투 함을 걸어 줬어요. (받는 피해 30% 감소 · 18초)`, '#9fe0a0'); } else if (e.fb) e.immT = time + 18; fx(['i', a.uid, keyT(e)]); }
+  // ----- 이동 (넓은 사냥터: 가까워지는 칸 + 막히면 길찾기 · 미로: 거리장)
+  function stepTo(f, ti, tj, want) { const X = f.bx;
+    if (MAZE()) { const p = mzPath(f, ti, tj); if (p.length && beginStep(f, p[0])) { X.stuck = 0; return true; } X.stuck += 0.25; if (X.stuck >= 2) { X.stuck = 0; const d = DIRS8[Math.floor(Math.random() * 8)]; beginStep(f, [f.i + d[0], f.j + d[1]]); } return false; }
+    let best = null, bd = cheb(f.i, f.j, ti, tj) * 10 + Math.hypot(f.i - ti, f.j - tj) * 0.3;
+    for (const [di, dj] of DIRS8) { const i = f.i + di, j = f.j + dj; if (!walkable(i, j) || (di && dj && (!walkable(f.i + di, f.j) || !walkable(f.i, f.j + dj))) || occ(i, j)) continue; const v = cheb(i, j, ti, tj) * 10 + Math.hypot(i - ti, j - tj) * 0.3; if (v < bd - 0.01) { bd = v; best = [i, j]; } }
+    if (best && beginStep(f, best)) { X.stuck = 0; return true; }
+    X.stuck += 0.25; if (X.stuck >= 0.75) { X.stuck = 0; const p = astar(f, (i, j) => cheb(i, j, ti, tj) <= Math.max(1, want || 0), ti, tj); if (p.length) return beginStep(f, p[0]); } return false; }
+  function stepAway(f, E) { let best = null, bd = cheb(f.i, f.j, E.i, E.j); for (const [di, dj] of DIRS8) { const i = f.i + di, j = f.j + dj; if (!walkable(i, j) || occ(i, j) || (di && dj && (!walkable(f.i + di, f.j) || !walkable(f.i, f.j + dj)))) continue; const d = cheb(i, j, E.i, E.j); if (d > bd) { bd = d; best = [i, j]; } } return best ? beginStep(f, best) : false; }
+  function roam(f, X) { if (X.idle > 0) return; if (!X.roam || cheb(f.i, f.j, X.roam[0], X.roam[1]) <= 1 || time > X.roamT) { X.roam = null; for (let t = 0; t < 30 && !X.roam; t++) { const i = f.i + Math.round((Math.random() * 2 - 1) * 10), j = f.j + Math.round((Math.random() * 2 - 1) * 10); if (i >= 2 && j >= 2 && i < MAP - 2 && j < MAP - 2 && walkable(i, j)) X.roam = [i, j]; } X.roamT = time + 8 + Math.random() * 8; if (X.roam && Math.random() < 0.35 + 0.3 * X.p.lazy) { X.idle = 1 + Math.random() * 2.5; return; } }   // 가끔 멈춰 서서 쉼
+    if (X.roam) stepTo(f, X.roam[0], X.roam[1], 0); }
+  // ----- 연출 (호스트는 바로 · 게스트는 presence fbx로) — 수호탑 봇과 같은 가벼운 마법
+  const FX = [], seenFx = new Map(); let fxSeq = 0, pub = null;
+  function fx(ev) { if (SIM) return; FX.push([++fxSeq, ...ev]); if (FX.length > 30) FX.splice(0, FX.length - 30); play(ev, true); }
+  function entOf(k) { if (k == null || k === 0) return null; if (typeof k === 'number') return foxes.find(q => q.uid === k && !q.gone) || null; if (k === 'p:' + myId()) return hero; const o = NET.others().find(q => 'p:' + q.peer === k); return o ? mxAt(o.pr.x, o.pr.y, 60) : null; }
+  function play(ev, mine) { if (SIM || !here()) return; const [ty, su, tk, n] = ev, a = entOf(su); if (!mine) STAT.ev[ty] = (STAT.ev[ty] || 0) + 1;   // STAT.ev: 게스트가 받은 연출 (테스트용)
+    if (ty === 'd') { if (!mine && a && a.bot && tk && tk === myId()) killMsg(a, !!n); return; }   // 게스트: 내가 잡은 라인 봇이면 메시지
+    if (ty === 'c') { chatShow(a, su, tk); return; }   // 11/1 멘트: 같은 지역이면 거리와 상관없이 채팅 (말풍선은 화면에 보일 때)
+    if (ty === 'r') { if (a && near(a, 14)) recallFx(a); if (a && !mine) { a.gone = true; if (hero.target === a) hero.target = null; } return; }   // 11/1 귀환: 게스트 화면에서도 바로 사라짐
+    if (!a || !near(a, 14)) return; if (ty === 'g') { spellFx('enok', a, a.bot && a.bot.team === 'B' ? '#ff9a8a' : '#9fd8ff'); return; }
+    if (ty === 'k') { const id = KBUF[tk]; if (id) { const sh = shake; MXLITE = true; try { mxSelf(id, a); } finally { MXLITE = false; shake = sh; } a.atkT = 0; snd(a, id); } return; }   // 11/1 기사 버프 (유저와 같은 연출 · 화면 흔들림 없이)
+    if (ty === 'p') { const id = POTS[tk]; if (id) { potFx(a, id); const [x, y] = W2P(a.x, a.z); floatText(x + 10, y - 96, '+' + (n | 0), { color: '#8af08a', size: 10 }); snd(a, 'pot'); } return; }   // 11/1 물약 (그 물약 색 빛)
+    if (ty === 'l') { a.atkT = 0; return; }   // 11/1 줍기
+    const T = entOf(tk), far = !near(a, 11);
+    if (ty === 's') { if (T) stunFx(a, T, n, mine); return; }   // 11/1 스턴
+    if (ty === 'm') { const id = WSP[n]; if (id && T) { MXLITE = true; try { mxCast(id, a); mxFire(id, a, T, true, undefined, true); } finally { MXLITE = false; } a.atkT = 0; snd(a, id); } return; }   // 11/1 법사 공격 마법 (유저 마법 연출 · 가볍게)
+    if (ty === 'e') { const id = EFN[n], v = ev[4] | 0, sid = id === 'wslow' ? 'slow' : id; if (!id) return; a.atkT = 0; MXLITE = true; try { mxCast(sid, a);   // 11/1 밤: 슬로우·게일·똥물·어바 — 시전 연출 · 걸린 대상 연출(나는 efMe에서 · 게스트의 봇 화면 표시도 같이)
+        if (T && T !== hero) { if (v > 0) { if (!mine && T.fb) { if (id === 'wslow') T.wslowT = v / 10; else if (id === 'earth_bind') { T.bindUntil = time + v / 10; T.stunT = Math.max(T.stunT || 0, v / 10); } else if (id === 'striker_gale') T.galeUntil = time + v / 10; else T.pollUntil = time + v / 10; } if (id === 'earth_bind') T.bindLeft = v / 10; mxSelf(sid, T); if (!far) { const [x, y] = W2P(T.x, T.z); floatText(x, y - mxH(T) - 14, `${EFNM[id]}! ${id === 'earth_bind' ? (v / 10).toFixed(1) : v / 10}초`, { color: id === 'wslow' ? '#c9a0ff' : id === 'earth_bind' ? '#ffd870' : id === 'striker_gale' ? '#ff8a7a' : '#a8c070', size: 14, big: true }); } }
+          else if (!far) { const [x, y] = W2P(T.x, T.z); floatText(x, y - mxH(T) - 10, v < 0 ? `${EFNM[id]} 면역` : `${EFNM[id]} 실패`, { color: '#c8d0d8', size: 11 }); } } } finally { MXLITE = false; }
+      snd(a, v > 0 ? sid : 'stunfail'); return; }
+    if (ty === 'a' && T) { const [x0, y0] = W2P(a.x, a.z), [x1, y1] = W2P(T.x, T.z), d = cheb(a.i, a.j, Math.floor(T.x), Math.floor(T.z)); for (let q = 0; q < (n || 1); q++) arrows.push({ pl: true, kind: 'arrow', x0, y0: y0 - 42, x1: x1 + q * 6 - 6, y1: y1 - 40, t: -q * 0.12, dur: 0.1 + d * 0.05 }); a.atkT = 0; return; }
+    MXLITE = true; try {
+      if (ty === 'b' && T) { mxFire('ebolt', a, T, true, undefined, true); a.atkT = 0; return; }
+      if (ty === 'f' && T) { mxFire('fball', a, T, true, undefined, true); a.atkT = 0; return; }
+      if (ty === 't') { mxSelf('tornado', a); a.atkT = 0; return; }
+      if (ty === 'h' && T) { const [hx, hy] = W2P(T.x, T.z); mxAdd('ring', T, { gnd: 1, c: '120,255,150', r0: 6, r1: 34, w: 2, life: 0.55 }); for (let q = 0; q < 6; q++) mxP(hx + mxR(-14, 14), hy - mxR(0, 34), { k: 'dot', c: q % 3 ? '140,255,160' : '255,240,170', s: mxR(1.6, 2.4), vy: -mxR(30, 70), wob: 5, life: mxR(0.5, 0.9), dr: 0.5 }); a.atkT = 0; return; }
+      if (ty === 'i' && T) { mxAdd('ring', T, { gnd: 1, c: '120,255,160', r0: 4, r1: 36, w: 2, life: 0.6 }); if (T.fb) T.immT = time + 18; a.atkT = 0; } } finally { MXLITE = false; } }
+  function stunFx(a, T, n, mine) { a.atkT = 0; if (T === hero && !mine) return;   // 게스트가 맞은 스턴은 받는 쪽(피해 목록)에서 글자를 띄움
+    const [x, y] = W2P(T.x, T.z), hy = headY(T) || 72; if (n > 0) { floatText(x, y - hy - 14, `스턴! ${(n / 10).toFixed(1)}초`, { color: '#ffe066', size: 17, big: true, life: 1.3, rise: 30 }); spellFx('stun', T); impact(x, y - hy * 0.6, 'bolt', '#ffe066'); snd(T, 'stun'); }
+    else { floatText(x, y - hy - 10, n < 0 ? '스턴 면역' : '스턴 실패', { color: '#c8d0d8', size: 11 }); snd(T, 'stunfail'); } }
+  function recallFx(a) { const [x, y] = W2P(a.x, a.z); MXLITE = true; try { mxAdd('pillar', a, { c: '150,200,255', l: '235,245,255', w: 26, life: 0.9 }); mxAdd('ring', a, { gnd: 1, c: '170,215,255', r0: 6, r1: 48, w: 3, life: 0.6 });
+      for (let q = 0; q < 14; q++) mxP(x + mxR(-12, 12), y - mxR(0, 60), { k: 'dot', c: q % 3 ? '170,215,255' : '255,255,255', s: mxR(1.4, 2.4), vy: -mxR(60, 140), life: mxR(0.5, 0.9), dr: 0.6 }); } finally { MXLITE = false; } snd(a, 'recall'); }   // 귀환 주문서: 푸른 빛기둥 (코드로 그림)
+  // ----- 11/1 멘트 (최대한 사람처럼): 말풍선 + 그 지역 채팅 · 상황별 · 봇마다 말투 버릇 · 도배 방지(봇마다 30초 · 지역마다 8초) · 욕설·패드립·혐오 표현 없음
+  const TALK = {
+    see: ['님 베르요', '통제중입니다', '뭐야 이 족밥은', '여기 라인 자리입니다', '자리 비켜 주세요', '누구 허락받고 사냥함?', '반왕은 마을로 가세요', '오 반왕 발견', '물약은 넉넉히 챙기셨죠?', '템 좀 맞추고 오시지', '또 왔네', '혼자 왔어요?', '레벨 몇이세요?', '여긴 통제 구역임'],
+    stun: ['스턴 맛 좀 보세요', '어디 가요?', '가만히 계세요', '스턴 들어갔다'],
+    win: ['ㅂㅂ', '잘 가요~', '다음엔 템 맞추고 오세요', '마을에서 정비하고 오셈', '역시 족밥', '가볍네', '수고하셨습니다', '또 오세요', '눕는 것도 실력'],
+    ret: ['귀환합니다', '물약 다 떨어짐', '잠깐 정비 좀', '다음에 보자', '기억해 둔다', '일단 빠집니다'],
+    last: ['끝까지 간다', '물약 없어도 안 빠짐', '여기서 안 물러남', '한 대만 더', '같이 눕자'],
+    dead: ['아 렉…', '이번만 봐준다', '아 템빨 ㅡㅡ', '스턴 너무하네', '복수하러 온다', 'ㅠㅠ'],
+    ally: ['ㄱㄱ', '힐 좀요', '님 굿', '도와드릴게요', '같이 잡아요', '라인 왔어요 조심', '뒤에 있어요', '나이스', '밀어요 ㄱㄱ', '버티세요 갑니다', '반왕 화이팅'],
+    idle: ['오늘 드랍 왜 이럼', '자리 좋네', '경험치 안 오르네', '젠 느리다', '아 졸려', '여기 몹 많네', '오늘은 뭐 하나 뜨겠지', '사냥 ㄱ', '무게 꽉 찼다', '물약 값 아깝다'],
+    // 11/1 ② 파티·보스·지원군
+    pt: ['ㄱㄱ', '리더 따라가요', '같이 가요', '다 모였나요', '줄 서세요', '제가 탱할게요', '뒤에서 쏠게요', '젠 기다리는 중', '천천히 가요', '여기 자리 괜찮네', '파티 사냥 꿀', '한 마리씩 잡아요'],
+    heal: ['힐 좀', '힐 좀요', '피 없어요 힐', '힐 부탁', '법사님 힐'],
+    boss: ['보스 떴다 ㄱㄱ', '보스 잡으러 갑니다', '컷 간다', '보스 뺏자', '먼저 치는 사람이 임자', '뒷치기 ㄱ', '보스 템 내놔', '보스 자리 통제', '다 같이 보스 ㄱ'],
+    bwin: ['보스 컷', '템 먹었다', '보스 잡음 ㅋㅋ', '다음 젠 때 봐요', '드랍 뭐 나옴?', '컷 완료'],
+    reinf: ['지원 왔음', '지원 왔습니다', '밀리지 마세요 왔어요', '누가 불렀나요', '싸움 중이라길래 왔음', '지원 도착', '같이 밀어요'],
+    // 11/1 밤 슬로우 · 정령마법
+    slow: ['슬로우 들어갔다', '느려졌죠?', '천천히 오세요', '발 묶였네', '슬로우 ㅋㅋ'],
+    spirit: ['어바 ㄱ', '게일 박았다', '똥물 드세요', '정령마법 간다', '묶였다 ㅋㅋ', '물약 반만 차요', '과녁 새겼다'],
+    bye: ['복귀합니다', '지원 끝', '저는 이만', '사냥터로 돌아감', '수고하셨어요 갑니다'] };
+  const TALKP = { see: 0.65, stun: 0.5, win: 0.7, ret: 0.7, last: 0.6, dead: 0.5, ally: 0.5, idle: 1, pt: 0.5, heal: 0.6, boss: 0.6, bwin: 0.6, reinf: 0.8, bye: 0.6, slow: 0.4, spirit: 0.4 }, QK = ['', '', '.', '..', '~', ' ㅋㅋ', 'ㅋ', ' ㅎㅎ', '!', ''];
+  function quirk(uid, t) { const h = hsh('tq' + uid); let s = String(t); if (h % 3) s = s.replace(/[.~!]+$/, ''); if ((h >>> 5) % 4 === 0) s = s.replace(/ /g, '');   // 봇마다: 마침표 없음·붙여 쓰기·ㅋㅋ·~ 같은 버릇
+    if (!/[ㅋㅎㅠ?…~]$/.test(s) && Math.random() < 0.8) s += QK[(h >>> 9) % QK.length]; return s.slice(0, 40); }
+  const TLAST = new Map(); let zTalk = -1e9;
+  function talk(f, k, T) { const L = TALK[k]; if (!L || !f || !f.bot || DBG.noTalk || !host() || !here()) return false; const now = time;
+    if (now - (TLAST.has(f.uid) ? TLAST.get(f.uid) : -1e9) < C.TALK_BOT || now - zTalk < C.TALK_ZONE || Math.random() >= (DBG.talkP ?? TALKP[k] ?? 0.5)) return false;   // DBG.talkP: 테스트용 확률
+    const t = quirk(f.uid, L[Math.floor(Math.random() * L.length)]); TLAST.set(f.uid, now); zTalk = now; if (STAT.talk.push([+now.toFixed(2), f.uid, k, t]) > 300) STAT.talk.shift(); fx(['c', f.uid, t]); return true; }
+  function chatShow(a, uid, t) { t = String(t || '').replace(/[\u0000-\u001f<>]/g, '').slice(0, 40); const b = (a && a.bot) || roster().by.get(+uid); if (!t || !b) return; if (a) a.fbChat = { t, until: time + 5 };
+    say(`[${b.clan}] ${b.name}: ${t}`, b.team === 'B' ? '#ff9a8a' : '#9fd8ff', 1); if (STAT.chat.push(t) > 60) STAT.chat.shift(); }
+  function drawTalk(g) { if (SCENE !== 'field') return; for (const f of foxes) { const T = f.fbChat; if (!T || !f.fb || f.gone || !(T.until > time) || (ISLE && !DN.seen(f.i, f.j))) continue; CHAT.bubble(g, { x: f.x, z: f.z, chat: T, pname: f.bot ? `[${f.bot.clan}] ${f.bot.name}` : '' }); } }
+  const ownerName = p => { if (typeof p !== 'string' || !p.startsWith('fb:')) return ''; const b = roster().by.get(+p.slice(3)); return b ? `[${b.clan}] ${b.name}` : '봇'; };   // 봇이 잡은 몹의 드랍 주인
+  function publish() { const watch = NET.others().some(o => o.pr.z === zkey()); if (!watch || !foxes.some(f => f.fb)) { if (pub) { pub = null; NET.setExtra('fbx', null); } return; }
+    const o = { z: zkey(), L: FX.slice(-8) }; if (!pub) { pub = o; NET.setExtra('fbx', pub); } else Object.assign(pub, o); }
+  function guestFx() { if (pub) { pub = null; NET.setExtra('fbx', null); } const h = NET.others().concat(NET.bhs()).find(o => o.pr.fbx && o.pr.fbx.z === zkey() && o.pr.z === zkey()); if (!h) return; const L = h.pr.fbx.L; if (!Array.isArray(L)) return;
+    const last = seenFx.get(h.peer); let mx = last || 0; for (const ev of L) { if (!Array.isArray(ev) || !(ev[0] > (last || 0))) continue; mx = Math.max(mx, ev[0]); if (last != null) play(ev.slice(1), false); } seenFx.set(h.peer, mx); }
+  // ----- 지역을 옮기면 예전 지역의 봇은 치움 (호스트가 새로 내보내거나, 게스트는 호스트 목록으로 받음)
+  let lastArr = null, lastZ = '', ensT = 0.4, refT = 0, refS = '', live_ = [], snT = 0;
+  function zoneSwitch() { const z = SCENE === 'field' && ISLE ? 'isle' + ISLE.id : SCENE; if (z === lastZ && lastArr === foxes) return; if (lastArr && lastArr !== foxes) for (let k = lastArr.length - 1; k >= 0; k--) if (lastArr[k].fb) lastArr.splice(k, 1);
+    lastZ = z; lastArr = foxes; PEND.length = 0; ensT = 0.6; for (const f of foxes) if (f.fb && !NET.guestMob(f)) f.gone = true; VIS.clear(); FT.since = 0; FT.last = -1e9; FT.at = null; FT.chk = 0; hereOn = false; }   // 들어오자마자 예전 봇은 정리 → 0.6초 뒤 새로 · 11/1 ②: 지원군·전투 기록도 새로
+  function tick(dt) { if (!window.__gameOn) return;
+    if ((refT -= dt) <= 0) { refT = 4; const r = fbOut(), s = JSON.stringify(r); if (s !== refS) { refS = s; NET.setExtra('fb', r); } }
+    if ((snT -= dt) <= 0) { snT = 1; snapTick(); charTick(); }   // v204: 2시간 사진 (서버) · 11/1 밤: 내 캐릭터 정보 서버 저장(3분)   // 내 기준 능력치 (다른 PC가 봇 세기를 정할 때 씀)
+    zoneSwitch(); live_ = here() ? foxes.filter(f => f.fb && live(f)) : []; lodTick(dt);
+    if (!here()) { if (pub) { pub = null; NET.setExtra('fbx', null); } return; }
+    if ((ensT -= dt) <= 0) { ensT = 1; if (!host()) { for (const f of foxes) if (f.fb && !f.gone && (!f.bot || f.bot.stRef !== refNow().st)) tag(f); } else if (!DBG.noEnsure) ensure(); }
+    if (here() && !hereOn) { hereOn = true; hereT = time; }
+    if (host()) { pendTick(); if ((bsT -= dt) <= 0) { bsT = 2; bossTick(); } if ((rfT -= dt) <= 0) { rfT = 1; reinfTick(); } publish(); } else guestFx(); }
+  // ----- 11/1 2단계 ② 보스 사냥 (지역 호스트 · 2초마다): 젠마다 씨앗으로 '봇이 가는지(BOSS_P)·언제(젠 뒤 2~12분 · 호스트가 들어온 뒤 1~3분은 지남)·라인 파티 뒷치기(BS_PT)'를 정함 → 모든 PC 같은 계획
+  //   가는 무리: 혼자 = 예상 처치 시간(보스 HP ÷ 봇 DPS) ≤ BOSS_SOLO(180초) '약한 보스' · 파티(살아 있는 2명 이상) = 보스 HP ÷ 파티 DPS 합 ≤ BOSS_PARTY(1500초) · 둘 다 안 되면 아무도 안 감 · 봇 DPS = 평균 피해 × DPS_K(0.6 · 명중·치명 보정) ÷ 사냥 공격 간격
+  //   뒷치기: 유저(반왕)가 보스를 치는 중이면 지역의 라인 봇마다 BS_P(70%)로 보스에게 감(가는 길에 유저가 보이면 먼저 침 · 유저가 죽거나 빠지면 보스를 가져감) · 젠마다 BS_PT(50%)로 일정표의 라인 파티 하나가 가장자리에서 걸어 들어옴 · 유저가 치는 보스에 반왕 봇은 먼저 가지 않음
+  const BH = new Map(); let bsT = 1, rfT = 0.5, hereOn = false, hereT = 0;
+  const dpsOf = f => f.bot.st.d * C.DPS_K / atkCd(f.bot, C.HUNT);
+  function bossPlan(key, at) { let H = BH.get(key); if (H) return H; const R = K_.rngS(hsh(key + ':fb') | 0);
+    H = { go: R() < (DBG.bossP ?? C.BOSS_P), at: Math.max(at + C.BOSS_DL[0] + R() * (C.BOSS_DL[1] - C.BOSS_DL[0]), Date.now() / 1000 + 60 + R() * 120), bs: R() < (DBG.bsSpawn ?? C.BS_SPAWN), bsPt: R() < (DBG.bsPt ?? C.BS_PT), grp: null, done: false, bsCalled: false }; if (DBG.bossNow) { H.go = true; H.at = 0; }
+    BH.set(key, H); if (BH.size > 40) BH.delete(BH.keys().next().value); return H; }
+  const playerOn = m => (hero.target === m && heroOk()) || OTT.has(m.uid) || !!(m.dmgBy && m.dmgBy.size && Date.now() - (m.lastDmgAt || 0) < 30000 && [...m.dmgBy.keys()].some(w => w && !w.fb));   // 유저(나·펫·다른 유저)가 보스를 노리거나 30초 안에 때림
+  function pickGroup(m, key, plOn) { const el = [], pts = [...new Set(live_.filter(f => f.bot.pt).map(f => f.bot.pt))];
+    for (const id of pts) { const M = live_.filter(f => f.bot.pt === id); if (M.length < 2 || (plOn && M[0].bot.team === 'A')) continue; const t = m.hp / M.reduce((a, f) => a + dpsOf(f), 0); if (t <= C.BOSS_PARTY) el.push({ u: M.map(f => f.uid), t: Math.round(t), pt: id }); }
+    for (const f of live_) { if (f.bot.pt || (plOn && f.bot.team === 'A') || (f.bx && f.bx.boss)) continue; const t = m.hp / dpsOf(f); if (t <= C.BOSS_SOLO) el.push({ u: [f.uid], t: Math.round(t) }); }
+    if (!el.length) return null; el.sort((a, b) => a.t - b.t); const R = K_.rngS(hsh(key + ':grp') | 0); return el[Math.floor(R() * Math.min(2, el.length))]; }   // 가장 빨리 잡을 두 무리 중 하나 (씨앗)
+  function bossTick() { if (DBG.noBoss || !here()) return; const zid = ISLE.id, now = Date.now() / 1000; teams();
+    for (const I of ISLAND.bossInfo(zid)) { if (!I.alive) continue; const key = I.k + ':' + I.sid, H = bossPlan(key, I.at); if (H.done) continue; const m = I.ent; if (!m || !bossOk(m) || !foxes.includes(m)) continue;
+      const plOn = playerOn(m); for (const f of live_) { const V = VIS.get(f.uid); if (V && V.boss === key && f.bx && !f.bx.boss) { f.bx.boss = m; f.bx.bsK = key; } }   // 불러온 라인 파티는 유저가 빠져도 보스를 가져감
+      if (plOn && H.bs) { for (const f of live_) { if (f.bot.team !== 'B' || !f.bx || f.bx.bsK === key) continue; f.bx.bsK = key; if ((hsh(f.uid + ':bs:' + key) % 1000) / 1000 < (DBG.bsP ?? C.BS_P)) { f.bx.boss = m; STAT.bs++; talk(f, 'boss'); } }   // 뒷치기: 라인 봇마다 확률
+        if (H.bsPt && !H.bsCalled) { H.bsCalled = true; callParty('B', m, key); } }
+      if (H.go && now >= H.at) { if (!H.grp || !H.grp.u.some(u => live_.some(f => f.uid === u))) H.grp = pickGroup(m, key, plOn); if (H.grp) for (const u of H.grp.u) { const f = live_.find(e => e.uid === u); if (f && f.bx && f.bx.boss !== m) { f.bx.boss = m; talk(f, 'boss'); } } } } }
+  // 일정표 밖의 파티를 이 지역으로 (뒷치기): 이 지역에 없는 그 혈맹 파티 중 레벨이 가장 맞는 파티 · 지역 가장자리에서 보스 쪽으로 걸어 들어옴 · 보스가 끝나면 30초 뒤 복귀
+  function callParty(team, m, key) { const RO_ = roster(), zid = ISLE.id, P = plan(), zr = zones().find(z => z.id === zid), mid = zr ? (zr.lo + zr.hi) / 2 : 0, lv = refNow().lv, now = Date.now();
+    const cands = RO_.pt.filter(p => p.team === team && !p.uids.some(u => live_.some(f => f.uid === u) || VIS.has(u))).map(p => ({ p, h: P.at[p.lead] === zid ? 1 : 0, d: Math.abs(elvOf(RO_.by.get(p.lead), lv) - mid) })).sort((a, b) => a.h - b.h || a.d - b.d).map(x => x.p); if (!cands.length) return false;
+    const room = C.ZONE_CAP - live_.length; if (room < 2) return false; const go = [m.i, m.j]; let n = 0; for (const u of cands[0].uids) { if (n >= room) break; if ((AWAY.get(u) || 0) > now) continue; VIS.set(u, { z: zid, boss: key, go }); n++; } if (n) { STAT.bsPt++; visSpawn(); } return n > 0; }
+  // ----- 11/1 2단계 ② 지원군 (지역 호스트 · 1초마다): 혈맹 간 전투(봇↔유저·봇↔봇)가 REINF_AT(25초) 넘게 이어지면 REINF_CHK(10초)마다 머릿수를 비교(유저는 반왕) → 적은 쪽에 그 차이만큼 일정표의 다른 봇이 옴 (지역당 ZONE_CAP 12까지) · 전투 없이 REINF_END(60초)가 지나면 귀환 연출과 함께 돌아감
+  const FT = { since: 0, last: -1e9, at: null, chk: 0 };
+  function fightMark(a, T) { const A = sideOf(a), B = sideOf(T); if (!A || !B || A.t === B.t) return; if (time - FT.last > 8) FT.since = time; FT.last = time; FT.at = [T.i | 0, T.j | 0]; }
+  const bossUp = key => ISLAND.bossInfo(ISLE.id).some(I => I.k + ':' + I.sid === key && I.alive) && !(BH.get(key) || {}).done;
+  function reinfTick() { if (DBG.noReinf || !here()) return; visSpawn(); const now = Date.now();
+    for (const [u, V] of [...VIS]) { if (!V.boss) continue; if (!V.end && !bossUp(V.boss)) V.end = time + 30; if (V.end && time > V.end) visLeave(u); }   // 뒷치기 파티: 보스가 끝나면 30초 뒤 복귀
+    if (time - FT.last > C.REINF_END) { for (const [u, V] of [...VIS]) if (V.r) visLeave(u); return; }   // 싸움이 끝나고 60초 → 지원군 복귀
+    if (time - FT.since < (DBG.reinfAt ?? C.REINF_AT) || time < FT.chk) return; FT.chk = time + C.REINF_CHK;
+    if (time - FT.last > 10) return; const T = teams(), diff = T.A.length - T.B.length, team = diff > 1 ? 'B' : diff < -1 ? 'A' : null; if (!team || !T.A.length || !T.B.length) return; const room = C.ZONE_CAP - live_.length; if (room <= 0) return;   // 싸움이 이어지는 동안(10초 안 피해)·양쪽 다 있을 때만
+    const n = Math.min(room, Math.abs(diff)), zid = ISLE.id, P = plan(), zr = zones().find(z => z.id === zid), lv = refNow().lv, mid = zr ? (zr.lo + zr.hi) / 2 : lv;
+    const cands = roster()[team].filter(b => !live_.some(f => f.uid === b.uid) && !VIS.has(b.uid) && P.at[b.uid] !== zid && !((AWAY.get(b.uid) || 0) > now)).map(b => ({ b, d: Math.abs(elvOf(b, lv) - mid), r: Math.random() })).sort((x, y) => x.d - y.d || x.r - y.r);
+    for (const { b } of cands.slice(0, n)) { VIS.set(b.uid, { z: zid, r: 1, go: FT.at ? FT.at.slice() : null }); STAT.reinf++; } visSpawn(); }
+  function visSpawn() { let n = 0; const now = Date.now(); for (const [u, V] of [...VIS]) { if (n >= 2) break; if (foxes.some(f => f.uid === u && !f.gone)) continue; if ((AWAY.get(u) || 0) > now) { if (V.r) VIS.delete(u); continue; } if (live_.length + n >= C.ZONE_CAP) break; if (spawn(roster().by.get(u), edgeSpot(), V)) n++; } }   // 한 번에 2명씩 가장자리에서 · 죽은 지원군은 다시 안 옴
+  function visLeave(u) { VIS.delete(u); const f = foxes.find(q => q.uid === u && !q.gone); if (!f) return; if (!f.dead) { talk(f, 'bye'); fx(['r', f.uid]); STAT.reinfBack++; } leave(f, true); }
+  // 그리기 부담 조절 (수호탑 대전과 같은 방식): 봇이 있는 사냥터에서 프레임이 계속 24 밑이면 봇 그림을 한 단계씩 간단히 (1 = 6칸 밖 간단히 · 2 = 모두 간단히)
+  let LODF = 0, dtE = 1 / 60, lodT = 0; function lodTick(dt) { if (SIM) return; dtE += (Math.min(0.2, dt) - dtE) * 0.05; lodT += dt; if (lodT < 2) return; lodT = 0; const fps = 1 / dtE; if (live_.length && fps < 24 && LODF < 2) LODF++; else if ((fps > 45 || !live_.length) && LODF > 0) LODF--; }
+  // 선공 몬스터가 근처 봇을 노림 (FBOT.nearBot) · 몹 AI 쪽에서 씀
+  function nearBot(f, r) { let b = null, bd = r + 1; for (const e of live_) { const d = cheb(f.i, f.j, e.i, e.j); if (d < bd) { bd = d; b = e; } } return b; }
+  // ----- 표시: 혈맹 이름표 · /혈맹 (어디서 사냥 중인지)
+  const tagOn = () => !TW();
+  function report() { const P = plan(), R = refNow(), Z = zones(), A = roster(), cnt = id => [A.A.filter(b => P.at[b.uid] === id).length, A.B.filter(b => P.at[b.uid] === id).length];
+    const users = 1 + NET.others().length, left = Math.max(0, Math.ceil((P.next - Date.now()) / 60000));
+    const src = R.src === 'cloud' ? `다음 갱신 ${kHM(slotStart(SN.slot + 1))}${SN.from === 'chars' ? ' · 서버 캐릭터' + (CH.n ? ` ${CH.n}명` : '') + ' 중 1등' : ''}` : R.src === 'prev' ? '지난 사진 · 새 사진 기다리는 중' : R.src === 'test' ? '테스트' : '실시간 기준 · 서버 저장 안 됨';   // v204: 복사한 캐릭터 · 사진 출처
+    say(`[혈맹] 반왕 혈맹: 유저 ${users}명 + 봇 ${NB.A}명 · 라인 혈맹: 봇 ${NB.B}명 · 봇 복사: ${R.n || '나'} Lv.${R.lv} ${CLASS_NAME[R.copy.c] || ''} (${src}) · 세기 반왕 65~100% · 라인 65~95%`, '#ffd28a', 1);
+    const L = Z.map(z => [z, cnt(z.id)]).filter(([, c]) => c[0] + c[1] > 0).map(([z, c]) => `${z.name} ${c[0]}·${c[1]}`); const rest = cnt(0);
+    say(`[혈맹] 지금 사냥 중 (반왕·라인): ${L.join(' / ') || '없음'} · 마을 정비 ${rest[0] + rest[1]}명 · ${left}분 뒤 자리 바꿈`, '#ffd28a', 1);
+    const pts = A.pt.map(p => `${p.team === 'A' ? '반왕' : '라인'} ${p.uids.map(u => A.by.get(u).name).join('·')}${P.at[p.lead] ? ' @' + ((Z.find(z => z.id === P.at[p.lead]) || {}).name || '') : ' @마을'}`); say(`[혈맹] 파티 ${A.pt.length}개: ${pts.join(' / ')}${VIS.size ? ` · 이 지역 지원군·원정 ${VIS.size}명` : ''}`, '#ffd28a', 1); }   // 11/1 ②
+  // 분배 표 (테스트·확인용): 기준 레벨 lv일 때 사냥터마다 반왕·라인 몇 명 · 봇 레벨대
+  function table(lv, ms) { const P = planAt(ms || Date.now(), lv), A = roster(), out = []; for (const z of zones()) { const a = A.A.filter(b => P.at[b.uid] === z.id), bb = A.B.filter(b => P.at[b.uid] === z.id); if (!a.length && !bb.length) continue; const lvs = a.concat(bb).map(b => P.el[b.uid]);
+      out.push({ zone: z.name, rec: z.lo + '~' + z.hi, ban: a.length, lin: bb.length, lv: Math.min(...lvs) + '~' + Math.max(...lvs) }); }
+    const rest = A.all.filter(b => P.at[b.uid] === 0); out.push({ zone: '마을 정비', rec: '-', ban: rest.filter(b => b.team === 'A').length, lin: rest.filter(b => b.team === 'B').length, lv: rest.length ? Math.min(...rest.map(b => P.el[b.uid])) + '~' + Math.max(...rest.map(b => P.el[b.uid])) : '-' }); return out; }
+  // 테스트용: 시간을 빨리 돌림 (몹·봇만 · 내 캐릭터는 가만히)
+  function sim(sec, dt) { dt = dt || 0.05; SIM = true; const t0 = performance.now(); try { for (let k = 0, n = Math.round(sec / dt); k < n; k++) { time += dt; for (const f of foxes.slice()) updateFox(f, dt); ISLAND.tick(dt); tick(dt); } } finally { SIM = false; } return Math.round(performance.now() - t0); }
+  const DBG = {};
+  return { tick, mobTick, tag, down, onDmg, mobHit, nearBot, onAlert, tagOn, report, table, sim, isUid, DBG, lod: () => LODF, cfg: o => o ? Object.assign(C, o) : C, aoe, drawTalk, ownerName,
+    bx: uid => { const f = foxes.find(q => q.uid === uid && !q.gone); return f ? f.bx : null; }, TALK, quirk, spMul, talk, recall: f => recall(f), stunTry: (a, T) => stunTry(a, T), KBUF, WSP, POTS,   // 11/1: 테스트·확인용
+    EFN, efMe, castEf: (a, T, id) => castEf(a, a.bx || (a.bx = newX(a)), T, id), applyEf, efBusy, TAB,   // 11/1 밤: 슬로우·정령마법 · 명단 표
+    live: () => live_.length > 0, roster, plan, planAt, ref: refNow, setRef(r) { FORCE = !r ? null : r.copy ? clampCopy(Object.assign({ n: 'TEST', cp: 1e9 }, r.copy)) : clampCopy({ n: r.n || 'TEST', c: (r.fb && r.fb.c) || 'knight', lv: r.lv || (r.fb && r.fb.lv) || 1, cp: 1e9, cb: r.fb || approx(r.lv || 1), eq: null }); refAt = -9; PL = null; return refNow(); }, zones, here, host,
+    snap: () => SN, snapNow() { SN.next = 0; snapTick(); }, snapReset() { Object.assign(SN, { slot: -1, cp: null, at: 0, by: '', src: '', cur: -1, next: 0, err: '', tries: 0, from: '' }); refAt = -9; try { localStorage.removeItem(LSK); } catch (e) {} },
+    chars: () => CH, charNow() { CH.next = 0; charTick(); }, charReset() { Object.assign(CH, { next: 0, sig: '', writes: 0, lists: 0, err: '', listNext: 0, mode: 'off', top: '', n: 0, at: 0, busy: false }); }, topChar, amWriter, meBh, bhOn, /* 11/1 밤: worldbot_chars 테스트·확인용 */ copy: () => refNow().copy, mine: () => { mineAt = -9; return mine(); }, fbOut, clampCopy, lookFor: (cls, pct) => lookFor(refNow(), cls, pct), slotOf, slotStart, kHM, amTop, stOf(uid) { const b = roster().by.get(uid); if (!b) return null; const st = statFor(b); return { uid, cls: b.cls, pct: b.pct, tier: b.tier, name: b.name, st: Object.assign({}, st, { fbR: undefined }), eq: Object.assign({}, b.eq || {}), en: b.en, pf: b.pf || '', dl: b.dl || '' }; },
+    bossHit, vis: VIS, parties: () => roster().pt, bossPlans: BH, fight: FT, bossTick, reinfTick, dpsOf, pickGroup: m => pickGroup(m, ISLAND.bossKey(m) || 'x', playerOn(m)), playerOn, callParty, visLeave, edgeSpot, ptLead, ptMembers, bossOk, bossKill: (a, m) => bossKill(a, m), bossUp, bossPlan: (key, at) => bossPlan(key, at),   // 11/1 ② 테스트·확인용
+    bots: () => foxes.filter(f => f.fb && !f.gone), stat: () => STAT, spawnTest(uid, i, j) { const b = roster().by.get(uid); if (!b) return null; for (let r = 0; r < 6; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { const a = i + di, c = j + dj; if (Math.max(Math.abs(di), Math.abs(dj)) === r && walkable(a, c) && !occ(a, c)) return spawn(b, [a, c]); } return null; }, away: AWAY, alerts: ALERT };
+})();
+window.__FB = FBOT;
 
 // ============================================================ v136: 제작 장인 — 보스 가호조각 5개 → 가호 제작 (40% · 실패하면 조각 5개 소멸)
 // 가호 조합: 같은 가호 2개 → 가장 높은 가호 +1 (40% · 성공·실패 모두 재료 가호 1개 소멸 · 최대 +8) · 가호는 가지고만 있으면 자동 적용 (같은 가호는 가장 높은 것 하나만)
@@ -9748,7 +10470,8 @@ const ACCOUNT = (() => {
     acc = a; chars = r.chars || {}; store.set('aden_acc', a); saveAuto(); $('lg-pw').value = ''; $('lg-pw2').value = ''; $('loginscr').hidden = true; openSel(false); if (r.moved) csMsg('예전 계정을 계정 서버로 옮겼어요. 이제 어느 PC에서든 이어서 할 수 있어요.', true); }
   const csMsg = (t, ok) => { const m = $('cs-msg'); if (m) { m.textContent = t || ''; m.className = 'nm-msg ' + (ok ? 'ok' : 'no'); } };
   // 캐릭터 선택: 직업 카드 3장 (만든 캐릭터는 이름, 없으면 새로 만들기) · 그림은 대기 동작
-  function openSel(fromGame) { $('charsel').hidden = false; $('cs-acc').textContent = acc || '-'; if (!sel) sel = started ? CLASS : (['knight', 'elf', 'wizard'].find(c => chars[c]) || 'knight'); render(); if (!raf) raf = requestAnimationFrame(anim); }
+  function openSel(fromGame) { $('charsel').hidden = false; $('cs-acc').textContent = acc || '-'; if (!sel) sel = started ? CLASS : (['knight', 'elf', 'wizard'].find(c => chars[c]) || 'knight'); render(); if (!raf && !BOTHOST.on()) raf = requestAnimationFrame(anim);
+    if (BOTHOST.on() && !started) { const c = ['knight', 'elf', 'wizard'].find(c => chars[c]); if (c) { sel = c; BOTHOST.phase('load'); setTimeout(start, 50); } else { BOTHOST.fail('nochar'); csMsg('봇 호스트 계정에 캐릭터가 없어요 — 일반 게임에서 이 계정으로 접속해 캐릭터를 먼저 만들어 주세요.', false); } } }   // 11/1 봇 호스트: 캐릭터를 자동으로 골라 바로 시작
   function render() { document.querySelectorAll('#charsel .cs-card').forEach(c => { const cls = c.dataset.cls, ch = chars[cls]; c.classList.toggle('on', sel === cls); c.classList.toggle('new', !ch);
       c.querySelector('.cs-ch').textContent = ch ? ch + (started && CLASS === cls ? ` · Lv.${hero.lv} · 접속 중` : '') : '새 캐릭터 만들기'; });
     const b = $('cs-start'); b.textContent = !chars[sel] ? '캐릭터 만들기' : started && sel === CLASS ? '게임으로 돌아가기' : '게임 시작'; }
@@ -9766,11 +10489,11 @@ const ACCOUNT = (() => {
     if (started && cls === CLASS) { $('charsel').hidden = true; return; }
     if (started) { INV.askYesNo(`${name}(${CLASS_NAME[cls]})(으)로 바꿀까요?`, '지금 캐릭터를 저장한 뒤 게임을 새로 불러옵니다.', async () => { await SAVE.now(true, true);
         try { sessionStorage.setItem('aden_boot', JSON.stringify({ acc, cls, name, chars, srv, fb: CLOUD.session() })); location.reload(); } catch (e) { location.reload(); } }); return; }
-    const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false;
+    const b = $('cs-start'); if (b) b.disabled = true; csMsg('캐릭터 정보를 불러오는 중…', true); const sv = await SAVE.load(cls), st = await SAVE.loadStore(); if (b) b.disabled = false; if (BOTHOST.on() && (sv === undefined || st === undefined)) BOTHOST.fail('load');
     if (sv === undefined) { csMsg('서버에서 캐릭터 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }
     if (st === undefined) { csMsg('서버에서 창고 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', false); $('charsel').hidden = false; return; }   // v150: 빈 창고로 시작해서 덮어쓰지 않게
     if (sv && (+sv.ver || 0) > GAME_VER) { csMsg(`이 캐릭터는 더 새 버전(v${sv.ver})에서 저장됐어요. 아이템이 사라지지 않게 먼저 업데이트해 주세요. (지금 v${GAME_VER})`, false); $('charsel').hidden = false; try { UPD.check(); } catch (e) {} return; }   // v150   // 불러오기 실패한 채로 시작하면 새 캐릭터로 덮어쓸 수 있어서 막음
-    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); SAVE.start(cls, st); if (got && sv && sv.pos && !sv.dd) resumePos(sv.pos); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
+    csMsg(''); $('charsel').hidden = true; applyClass(cls, name); started = true; window.__gameOn = true; setTimeout(() => ADMIN.tryOn(), 300); store.set('aden_pname', name); const got = SAVE.apply(sv); TOWN.goTown(); if (BOTHOST.on()) { saveAuto(); BOTHOST.start(); return; }   /* 11/1 봇 호스트: 저장·접속 표시(sess)·오프라인 정산·업데이트 안내 없이 지역으로 */ SAVE.start(cls, st); if (got && sv && sv.pos && !sv.dd) resumePos(sv.pos); saveAuto(); if (got && OFFL_HOOK) OFFL_HOOK.settle(sv && sv.ofl); setTimeout(() => UPD.check(), 3000); setTimeout(() => NOTES.onEnter(), 1200);
     if (got) { say(`***** ${name}님, 다시 오신 것을 환영합니다! (Lv.${hero.lv} · 골드 ${coins.toLocaleString()}) *****`, '#f2e6a8'); say(srv === 'cloud' ? '계정 서버에 저장된 진행 상황을 불러왔습니다. 20초마다 자동 저장돼요.' : '이 기기에 저장된 진행 상황을 불러왔습니다.', '#9fd08a'); return; }
     say(`***** ${name}님(${CLASS_NAME[cls]}), 아덴 월드에 오신 것을 환영합니다! *****`, '#f2e6a8'); if (srv === 'cloud') say('진행 상황은 계정 서버에 20초마다 자동 저장돼요. 다른 PC에서 같은 계정으로 접속해도 이어서 할 수 있어요.', '#9fd08a'); else say('지금은 계정 서버에 연결되지 않아 이 기기에만 저장돼요.', '#f0c080');
     if (cls === 'elf') say('요정: 활로 멀리서 공격합니다. 화살 없이도 쏠 수 있어요.', '#9fd0e8'); else if (cls === 'wizard') say('마법사: 지팡이로 가까이에서 때리고, 멀리서는 마법으로 공격합니다. 마법상점에서 마법서를 배울 수 있어요.', '#9fd0e8'); }
@@ -9866,7 +10589,7 @@ const AUTO = (() => {
     if (PT && PT.size) { const only = C.tgtMode === 'same' ? f => PT.has(f.uid) : f => !PT.has(f.uid) || (f.aggro && f.tgt === hero); const r = pickIn(pd, only, OT); if (r) return r; }
     return pickIn(pd, null, OT); }
   function pickIn(pd, only, OT) { let b = null, bd = 1e9, fb = null, fd = 1e9;
-    for (const f of foxes) { if (f.dead || f.gone || f.bindUntil > time || TWM.ally(f)) continue; const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (S.dummy) continue; if (only && !only(f)) continue; if (OT && OT.has(f.uid) && !mineF(f)) continue;
+    for (const f of foxes) { if (f.dead || f.gone || f.bindUntil > time || TWM.ally(f)) continue; if (f.fb && !(f.hitMeT && time - f.hitMeT < 6)) continue;   /* v191: 라인 혈맹 봇은 나를 공격 중일 때만 (반격) */ const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (S.dummy) continue; if (only && !only(f)) continue; if (OT && OT.has(f.uid) && !mineF(f)) continue;
       let d = stepsTo(pd, f); if (d < 0) { const c = cheb(f.i, f.j, hero.i, hero.j); if (c < fd) { fd = c; fb = f; } continue; }
       if (atkMe(f) || (C.aggrFirst && f.aggro && f.tgt === hero && d <= 8)) d -= 100; if (d < bd) { bd = d; b = f; } }
     return b ? { f: b, d: bd } : fb ? { f: fb, d: 999 } : null; }
@@ -11336,7 +12059,7 @@ window.SAVER = (() => {
       <div class="sv-bar ex"><i id="sv-ex"></i><span id="sv-ext"></span></div><div class="sv-st" id="sv-st"></div><div class="sv-boss" id="sv-boss" hidden></div>
       <div class="sv-grid"><div><small>처치</small><b id="sv-k">0</b></div><div><small>경험치</small><b id="sv-x">0</b></div><div><small>시간당 경험치</small><b id="sv-xh">-</b></div><div><small>골드 변화</small><b id="sv-g">0</b></div><div><small>귀환</small><b id="sv-r">0</b></div><div><small>사망</small><b id="sv-d">0</b></div></div>
       <div class="sv-h">획득 아이템</div><ul class="sv-items" id="sv-items"></ul><div class="sv-h" id="sv-bh">상점 구매</div><ul class="sv-items sv-buys" id="sv-buys"></ul><ul class="sv-notes" id="sv-notes"></ul></div>
-      <label class="sv-home"><input type="checkbox" id="sv-homec"> 절전 귀환 — 다른 유저에게 공격받으면 바로 마을로 귀환</label>
+      <label class="sv-home"><input type="checkbox" id="sv-homec"> 절전 귀환 — 다른 유저·라인 혈맹 봇에게 공격받으면 바로 마을로 귀환</label>
       <div class="sv-slide" id="sv-slide"><span>밀어서 절전 해제 ▶▶</span><b class="sv-knob" id="sv-knob">⏻</b></div>`;
     document.body.appendChild(el);
     $('sv-updb').onclick = () => { keep = snap(); if (keep) keep.at = Date.now(); exit(); const b = document.getElementById('btn-upd'); if (b && !b.hidden && !b.disabled) b.click(); };
@@ -11399,13 +12122,13 @@ window.SAVER = (() => {
     exp(n) { if (!on || !(n > 0)) return; S.exp += n; let r = n, lv = hero.lv, e = hero.exp; for (let k = 0; k < 6 && r > 0; k++) { const nd = needExp(lv), t = Math.min(r, Math.max(1, nd - e)); S.xp += t / nd * 100; r -= t; e = 0; lv++; } },   /* 레벨 % 로도 셈 (레벨이 오르면 나눠서) */ kill() { if (on) S.kills++; }, item(id, n) { if (!on || SCENE === 'town' || !ITEMS[id]) return; if (id === 'gold_pile') return; S.items.set(id, (S.items.get(id) || 0) + (n || 1)); if (ITEMS[id].rar === '영웅' || ITEMS[id].rar === '희귀') note(`${JOSA(ITEMS[id].name, '을', '를')} 얻었어요!`, rarC(id)); },
     death() { if (!on) return; S.dead++; S.pend = true; note('캐릭터가 쓰러졌어요.', '#ff5a4a'); render(); },
     buy(o) { if (!on || !S || !o || !(o.q > 0)) return; const k = o.id || '?', v = S.buys.get(k) || { n: 0, g: 0 }; v.n += o.q; v.g += o.g || 0; S.buys.set(k, v); },
-    pvpHit(src) { if (!on || !home || SCENE === 'town') return; note('다른 유저에게 공격받아 마을로 귀환했어요.', '#ff8a70'); try { TOWN.goTown(); } catch (e) {} } };
+    pvpHit(src) { if (!on || !home || SCENE === 'town') return; note(`${src && src.fb ? '라인 혈맹 봇' : '다른 유저'}에게 공격받아 마을로 귀환했어요.`, '#ff8a70'); try { TOWN.goTown(); } catch (e) {} } };
 })();
 function frame(now){
   holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
+  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); FBOT.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
@@ -11416,10 +12139,12 @@ function frame(now){
   const vw=Math.ceil(W/z), vh=Math.ceil(H/z), pw=Math.ceil(W*DPR), ph=Math.ceil(H*DPR);
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
-  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover) {   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BOTHOST.on()) {   /* 봇 호스트 모드는 화면을 아예 안 그림 */   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  // GL: 새 그래픽(시험 · src/gl.js) — 켜져 있으면 세계는 WebGL2, UI는 지금처럼 2D 캔버스로 그 위에 · 기본은 꺼짐 · 못 쓰거나 실패하면 false → 아래 원래 그리기 그대로
+  if (!(window.GLR && GLR.on() && GLR.frame(drawWorld, drawUI, lc, ctx, low, cv, pw, ph, z*DPR, !pixel, vw, vh))) {
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
-  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); }
-  curZ = z; requestAnimationFrame(frame);
+  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); } }
+  curZ = z; if (BOTHOST.on()) BOTHOST.frameDone(dt); else requestAnimationFrame(frame);
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
 const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https://jungkyu9797.github.io/aden-world/';   // 휴대폰 웹 주소 (GitHub Pages)
@@ -11431,7 +12156,7 @@ const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https
   const ua = navigator.userAgent || '', ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), kakao = /KAKAOTALK/i.test(ua), inApp = kakao || /NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua);
   const standalone = () => { try { return matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
   let evt = null;
-  if (web && 'serviceWorker' in navigator) addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  if (web && 'serviceWorker' in navigator && !BOTHOST.on()) addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; sync(); });
   addEventListener('appinstalled', () => { evt = null; sync(); const g = $a('app-guide'); if (g) g.hidden = true; try { say('아덴 월드를 설치했어요! 이제 홈 화면 아이콘으로 바로 들어올 수 있어요.', '#9fd08a'); } catch (e) {} });
   const can = () => web && MOBILE && !standalone();
@@ -12166,6 +12891,6 @@ for (const [k, nm] of [['str', '힘'], ['dex', '민첩'], ['int', '지능']]) IT
   for (const [id, d] of Object.entries(ITEMS)) if (d && (d.doll || d.mat0 || MAT0.has(id) || id.startsWith('gfrag_'))) d.w = 0; }
 // 10/30 프로듀서: 선공 몬스터가 알아채는 거리 +1칸 (모든 선공 몹 · 4~7칸 → 5~8칸)
 for (const k in MOB) { const S = MOB[k]; if (S && S.aggr > 0 && !S.aggr1) { S.aggr += 1; S.aggr1 = true; } }
-requestAnimationFrame(frame);
-setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
+if (BOTHOST.on()) BOTHOST.loop(frame); else requestAnimationFrame(frame);
+if (!BOTHOST.on()) setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();
