@@ -10551,7 +10551,11 @@ const AUTO = (() => {
     say(`자동판매(아덴상단): 장비 ${n}개를 팔아 ${tot.toLocaleString()} 골드를 받았습니다. (가방 무게 ${w0}% → ${wpc()}%)`, '#9fe0a0');
     if (AC && SFX_ON) { const t = AC.currentTime; tone(t, 'triangle', 1200, 1600, 0.08, 0.05); tone(t + 0.07, 'triangle', 1600, 2200, 0.1, 0.05); } }
   const inZ1 = () => SCENE === 'field' && ISLE && ISLE.def && (ISLE.def.tier === 1 || ISLE.def.tier === 2 || !!ISLE.def.hw);   // 모든 지역의 1·2구간에서 자동사냥 가능
-  let home = '이야기섬', homeId = 1;   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
+  let home = '이야기섬', homeId = 1, anchor = null;   // anchor: 11/1 프로듀서 — 자동사냥을 켠 자리 {z, i, j} (마을 다녀온 뒤 그 지역 그 좌표 4칸 안 빈 칸으로 복귀)
+  const ANCHOR_R = 4;
+  function setAnchor() { anchor = SCENE !== 'town' && ISLE ? { z: ISLE.id, i: hero.i, j: hero.j } : null; }
+  function anchorSpot(A) { for (let r = 0; r <= ANCHOR_R; r++) { let best = null, bd = 1e9; for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) { if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue; const i = A.i + di, j = A.j + dj; if (!walkable(i, j)) continue; const o = occ(i, j); if (o && o !== hero) continue; const d = di * di + dj * dj; if (d < bd) { bd = d; best = [i, j]; } } if (best) return best; } return null; }   // 그 자리가 몬스터로 막혀 있으면 가까운 빈 칸 (4칸 안)
+  function backToHunt() { const A = anchor && ISLAND.def(anchor.z) ? anchor : null, id = A ? A.z : homeId; TOWN.toZone(id); if (SCENE === 'town' || !ISLE || ISLE.id !== id || !A) return; const p = anchorSpot(A); if (p) { TOWN.placeAt(p[0] + 0.5, p[1] + 0.5); say(`자동사냥: 처음 켠 자리(${A.i}, ${A.j}) 근처로 돌아왔습니다.`, '#9fd0e8'); } }   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
   function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
@@ -10587,7 +10591,7 @@ const AUTO = (() => {
     if (state === 'hunting') {
       if (SCENE === 'town') { if (died) { died = false; if (C.deathBack) { state = 'town'; bought = false; wait = 0; say('자동사냥: 사망 — 회복 후 다시 사냥터로 갑니다.', '#9fd0e8'); } else { state = 'off'; say('자동사냥을 멈췄습니다.', '#9c9682'); } } else { state = 'off'; say('자동사냥을 멈췄습니다. (마을로 이동)', '#9c9682'); } return; }
       if (!inZ1()) { state = 'off'; say('자동사냥은 각 지역의 1·2구간에서만 됩니다. 멈췄습니다.', '#f08a7a'); return; }
-      home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id;
+      home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; if (!anchor || anchor.z !== ISLE.id) setAnchor();
       if (pct() <= C.retHp) { goHome(`HP ${pct()}%`); return; }
       if (C.healFirst && !HW()) healFirstTry();   // v114: 힐 마법 먼저 — 자동 물약 기준보다 HP 10% 높을 때 MP로 회복
       if (C.lowPot && !HW() && lowCount() <= C.lowN) { goHome('물약 부족'); return; }   // 할로윈: 빨간 물약을 못 쓰므로 물약 부족·변신 주문서 정비로는 안 나감
@@ -10609,11 +10613,12 @@ const AUTO = (() => {
       if (SCENE !== 'town') { if (!inZ1()) { state = 'off'; } return; }
       if (!bought) { bought = true; if (C.sell && (sellGo || wpc() >= C.sellPct)) autoSell(); sellGo = false; buyAll(); }
       hero.hp = Math.min(hero.max, hero.hp + hero.max * 0.05 * dt); hero.mp = Math.min(hero.maxmp, hero.mp + hero.maxmp * 0.05 * dt);
-      if (homeId === HWC.ZID && (INV.hwHat() < 0 || HWM.left() <= 0)) { state = 'off'; say(INV.hwHat() < 0 ? '자동사냥: 할로윈 모자가 없어 호박밭으로 돌아가지 않아요. 멈췄습니다.' : '자동사냥: 오늘 할로윈 이용 시간을 다 써서 멈췄습니다.', '#f0a060'); return; }
-      if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; TOWN.toZone(homeId); } } }
+      if (anchor && anchor.z === DREAM.ZID && DRM.left() <= 0) { state = 'off'; say('자동사냥: 오늘 몽환의 섬 이용 시간을 다 써서 멈췄습니다.', '#c8a0ff'); return; }
+      if ((anchor ? anchor.z : homeId) === HWC.ZID && (INV.hwHat() < 0 || HWM.left() <= 0)) { state = 'off'; say(INV.hwHat() < 0 ? '자동사냥: 할로윈 모자가 없어 호박밭으로 돌아가지 않아요. 멈췄습니다.' : '자동사냥: 오늘 할로윈 이용 시간을 다 써서 멈췄습니다.', '#f0a060'); return; }
+      if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(anchor ? anchor.z : homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; backToHunt(); } } }
     } }
   function toggle() { if (state === 'off' && ADMIN.on()) { say('운영자는 자동사냥을 쓸 수 없어요.', '#ff86e0'); return; } if (state === 'off' && DUEL()) { say('결투장에서는 자동사냥을 쓸 수 없어요.', '#f08a7a'); return; } if (state !== 'off') { state = 'off'; hero.target = null; muteOff(); say('자동사냥을 껐습니다.', '#9c9682'); return; }
-    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; state = 'hunting'; died = false; say('자동사냥을 켰습니다.', '#f2e6a8'); muteOn(); }
+    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; setAnchor(); state = 'hunting'; died = false; say(`자동사냥을 켰습니다. (마을에 다녀오면 이 자리(${hero.i}, ${hero.j}) 근처로 돌아와요)`, '#f2e6a8'); muteOn(); }
   function status() { if (state === 'off') return inZ1() ? '이 구간에서 사용 가능' : '각 지역 1·2구간 전용'; if (state === 'hunting') return '사냥 중' + (hero.target && !hero.target.dead ? ' · ' + (hero.target.dispName || MOB[hero.target.kind].name) : ''); return `마을 대기 · HP ${pct()}% / ${C.backHp}%`; }
   const $h = id => document.getElementById(id);
   function sync() { const w = $h('huntwin'); if (!w) return;
@@ -10627,7 +10632,7 @@ const AUTO = (() => {
     w.querySelectorAll('[data-buff]').forEach(el => { el.onchange = () => { INV.setAutoBuff(el.dataset.buff, el.checked); sync(); }; });
     const qv = el => Math.max(0, Math.min(+el.max || 500, Math.floor(+el.value || 0))); w.querySelectorAll('[data-bq]').forEach(el => { el.oninput = () => { C.buyQ[el.dataset.bq] = qv(el); }; el.onchange = () => { C.buyQ[el.dataset.bq] = qv(el); sync(); }; }); w.querySelectorAll('[data-hq]').forEach(el => { el.oninput = () => { C.hasteQ[el.dataset.hq] = qv(el); }; el.onchange = () => { C.hasteQ[el.dataset.hq] = qv(el); sync(); }; }); w.querySelectorAll('[data-pq]').forEach(el => { el.oninput = () => { C.polyQ[el.dataset.pq] = qv(el); }; el.onchange = () => { C.polyQ[el.dataset.pq] = qv(el); sync(); }; });
     w.querySelectorAll('select,input').forEach(el => { el.onkeydown = ev => ev.stopPropagation(); }); }
-  return { tick, toggle, openSet, status, wantLoot, buyAll, home: () => home, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o) lmFix(!o.lootM);   /* 줍기 표: 예전 저장(등급·종류 따로)은 그대로 옮김 */ for (const q of [C.buyQ, C.hasteQ]) for (const id in q) if (REMOVED_ITEMS[id] || !ITEMS[id]) delete q[id]; if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; }
+  return { tick, toggle, openSet, status, wantLoot, buyAll, home: () => home, anchor: () => anchor, price: id => PRICE[id] || 0, conf: () => C, on: () => state !== 'off', died() { if (state !== 'off') died = true; }, cfg: () => JSON.parse(JSON.stringify(C)), setCfg(o) { for (const k in o) if (k in C) { if (C[k] && typeof C[k] === 'object') Object.assign(C[k], o[k]); else C[k] = o[k]; } if (o) lmFix(!o.lootM);   /* 줍기 표: 예전 저장(등급·종류 따로)은 그대로 옮김 */ for (const q of [C.buyQ, C.hasteQ]) for (const id in q) if (REMOVED_ITEMS[id] || !ITEMS[id]) delete q[id]; if (o && !o.lowIds && o.buyId && o.buyId in C.lowIds) { for (const id in C.lowIds) C.lowIds[id] = id === o.buyId; }
       if (o && !o.buyQ && o.buyId && o.buyId in C.buyQ) { for (const id in C.buyQ) C.buyQ[id] = id === o.buyId ? Math.max(1, +o.buyN || 30) : 0; }   /* v125: 예전 저장(물약 1종) → 종류별 개수 */
       if (o && !o.hasteQ && o.hasteId && o.hasteId in C.hasteQ) { for (const id in C.hasteQ) C.hasteQ[id] = id === o.hasteId ? Math.max(1, +o.hasteN || 5) : 0; } } };
 })();
