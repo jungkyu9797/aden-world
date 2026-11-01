@@ -10,8 +10,10 @@ a = s.index(mark) + len(mark); b = s.index('</style></head>', a); css = s[a:b]; 
 s = s.replace('<style>\n/* Layout:', '<style>\n' + css.strip() + '\n/* Layout:', 1)
 s = s.replace('<script src="admin_key.js" onerror="this.remove()"></script>\n', '')
 s = s.replace('<script src="src/map_data.js"></script>', '<script>window.DEMO_MODE=true;</script>\n<script src="src/map_data.js"></script>', 1)
-for f, h in [('src/map_data.js', '// 맵·스프라이트 메타데이터 (그래픽/맵 팀)'), ('src/game.js', '')]:
-    tag = f'<script src="{f}"></script>'; assert tag in s, tag
+for f, h in [('src/map_data.js', '// 맵·스프라이트 메타데이터 (그래픽/맵 팀)'), ('src/gl.js', '// 새 그래픽(WebGL2) 시험 — 기본은 꺼짐'), ('src/game.js', '')]:
+    tag = f'<script src="{f}"></script>'
+    if f == 'src/gl.js' and tag not in s: continue   # 11/1 webgl: 새 그래픽 파일 (없는 판이면 건너뜀)
+    assert tag in s, tag
     s = s.replace(tag, '<script>\n' + h + '\n' + open(f, encoding='utf8').read() + '\n</script>')
 assert s.count('"d":"') == 0, '운영자 키가 들어 있음 — 올리지 마세요'
 # 몬스터 효과음(assets/sound/sfx/*.mp3)은 페이지 안에 넣음 — 아티팩트 한 판에 파일을 511개까지만 올릴 수 있어서 (게임이 그 주소로 부르면 안에 넣은 소리를 줌)
