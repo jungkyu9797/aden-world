@@ -11672,7 +11672,7 @@ function dreamGround(g, d, T, sc, N, paint) { const C = N / 2, Rr = dreamRng(d.s
     g.lineWidth = 1.4 * sc * k1; for (const r of [0.3, 0.55, 0.78, 0.96]) { g.strokeStyle = r > 0.9 ? 'rgba(20,22,30,.7)' : 'rgba(30,34,48,.5)'; g.beginPath(); g.arc(0, 0, R0 * r, 0, 7); g.stroke(); }
     const SKIP = a => [0, Math.PI / 2, Math.PI, -Math.PI / 2].some(b => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < 0.45);   // 상감 줄 자리(화면 기준 동·남·서·북)는 이음 없이
     g.strokeStyle = 'rgba(30,34,48,.4)'; g.lineWidth = 1 * sc * k1; for (const [r0, r1, n, o] of [[0.3, 0.55, 12, 0], [0.55, 0.78, 20, 0.5], [0.78, 0.96, 28, 0]]) for (let k = 0; k < n; k++) { const a = (k + o) * 6.283 / n; if (SKIP(a)) continue; g.beginPath(); g.moveTo(Math.cos(a) * R0 * r0, Math.sin(a) * R0 * r0); g.lineTo(Math.cos(a) * R0 * r1, Math.sin(a) * R0 * r1); g.stroke(); }
-    g.restore(); if (d.roads) dreamInlay(g, d, N, T);
+    g.restore();
     g.save(); g.translate(cx, cy); g.scale(1, 0.5); gr = g.createRadialGradient(0, 0, 0, 0, 0, R0 * 0.3); gr.addColorStop(0, 'rgba(220,235,255,.75)'); gr.addColorStop(0.6, 'rgba(160,190,255,.35)'); gr.addColorStop(1, 'rgba(160,190,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R0 * 0.3, 0, 7); g.fill();
     g.strokeStyle = 'rgba(200,220,255,.55)'; g.lineWidth = 2 * sc * k1; g.beginPath(); for (let k = 0; k <= 8; k++) { const a = k * Math.PI / 4 - Math.PI / 2, r = R0 * (k % 2 ? 0.1 : 0.24); k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.stroke(); g.restore(); g.restore(); } }
 // 속성 길 굽기 (바닥 캔버스에 한 번 · 프레임마다 안 그림): 사분면마다 작은 층 캔버스에 두 갈래 — 부드러운 가장자리 바탕 → 'source-atop'으로 무늬를 길 안에만 → 끝은 둥글게 흐려지게 지우고 바닥에 얹음
@@ -11721,13 +11721,7 @@ function dreamRoadPaint(g, d, N, sc, T) { const SR = DREAM.SAFE_R, W = DREAM.ROA
     L.globalCompositeOperation = 'destination-out'; const gr = L.createRadialGradient(C, C, r1 - 12, C, C, r1 + 1.5); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)'); L.fillStyle = gr; L.fillRect(C - N, C - N, 2 * N, 2 * N);   // 끝: 바깥으로 갈수록 흐려짐
     g.drawImage(c, x0, y0); } }
 // 광장 안 속성 상감 줄 (길과 이어짐 · 돌 테두리 + 색 줄 + 밝은 심 + 마름모 룬) · 광장 가장자리의 속성 문(두 갈래 사이 색 띠)
-const DREAM_INL = { fire: ['#3a0a04', '#d0441a', 'rgba(255,206,120,.95)'], water: ['#0e2a50', '#3a8ee0', 'rgba(224,246,255,.95)'], wind: ['#1c1c20', '#b8bcc0', 'rgba(244,248,252,.85)'], earth: ['#4a3010', '#d8a848', 'rgba(255,240,180,.9)'] };
-function dreamInlay(g, d, N, T) { const SR = DREAM.SAFE_R, C = N / 2, o = T(0, 0), ex = T(1, 0), ez = T(0, 1); g.save(); g.setTransform(ex[0] - o[0], ex[1] - o[1], ez[0] - o[0], ez[1] - o[1], o[0], o[1]); g.lineCap = 'round'; g.lineJoin = 'round';
-  for (const rd of d.roads) { const P = rd.pts.filter(p => p[2] <= SR + 0.6), c = DREAM_INL[rd.el], wk = rd.q === 'N' || rd.q === 'S' ? 0.6 : 1; if (P.length < 2) continue; const st = (w, col) => { g.strokeStyle = col; g.lineWidth = w * wk; g.beginPath(); P.forEach((p, n) => n ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); };   // 화면 위·아래(북·남) 줄은 등각이라 두 배 굵어 보여서 0.6배
-    st(1.0, 'rgba(12,14,20,.7)'); st(0.78, c[0]); st(0.58, c[1]); st(0.15, c[2]);
-    for (let n = 4; n < P.length - 1; n += 5) { const [x, z] = P[n], r = 0.2 * wk; g.fillStyle = c[2]; g.beginPath(); g.moveTo(x - r, z); g.lineTo(x, z - r); g.lineTo(x + r, z); g.lineTo(x, z + r); g.closePath(); g.fill(); } }
-  for (const q of DREAM.Q) { const [ux, uz] = DREAM_AX[q], a0 = Math.atan2(uz, ux), c = DREAM_INL[DREAM.EL[q]]; for (const [w, col] of [[0.95, 'rgba(12,14,20,.65)'], [0.66, c[1]], [0.16, c[2]]]) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.arc(C, C, SR - 0.55, a0 - 0.44, a0 + 0.44); g.stroke(); } }
-  g.restore(); }
+// 11/1 프로듀서: 가운데 광장 바닥의 속성 상감 줄·테두리 반달(속성 문)은 없앰 — 속성 길은 광장 밖에만
 // 소품 그림: 사분면 색으로 물들인 기존 소품 (한 번 만들어 저장) · 동쪽 고목 자리는 흑요석 기둥
 const DRPC = {}, DREAM_PF = { E: 'sepia(.6) hue-rotate(-30deg) saturate(1.5) brightness(.5) contrast(1.35)', W: 'grayscale(.85) brightness(1.45) sepia(.25) hue-rotate(170deg) saturate(1.6) contrast(.95)', S: 'sepia(.6) saturate(.9) brightness(1.15) contrast(.98)', N: 'grayscale(.95) brightness(.72) contrast(1.25) sepia(.1)' };
 function dreamPropImg(p) { const q = p.b || dreamQuad(ISLE.N, p.i, p.j), key = q + p.type + p.v; if (DRPC[key] !== undefined) return DRPC[key]; let pc;
