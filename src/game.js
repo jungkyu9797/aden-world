@@ -440,7 +440,7 @@ function killCheck(f){ if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TW
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 const KNIGHT_PVE = 1.25;   // 11/1: 기사 — 몬스터에게 주는 피해 +25% (법사와 사냥 속도 맞춤 · 대인전 제외)
-function dmgMob(f, d, who){ if (DEFMODE.atkMul !== 1 && d > 0 && (!who || who === hero)) d = Math.round(d * DEFMODE.atkMul); if (CLASS === 'knight' && d > 0 && (!who || who === hero)) d = Math.round(d * KNIGHT_PVE); if (f && f.bindUntil > time) return; if (f && f.ashT > 0) return; if (f && TWM.ally(f)) return; if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
+function dmgMob(f, d, who, fixed){ if (!fixed && DEFMODE.atkMul !== 1 && d > 0 && (!who || who === hero)) d = Math.round(d * DEFMODE.atkMul); if (!fixed && CLASS === 'knight' && d > 0 && (!who || who === hero)) d = Math.round(d * KNIGHT_PVE);   /* fixed: 할로윈처럼 정해진 피해 (사냥터 배율·기사 ×1.25 안 붙음) */ if (f && f.bindUntil > time) return; if (f && f.ashT > 0) return; if (f && TWM.ally(f)) return; if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
 function mobHurt(f,d,color,src,crit){ if (!f||f.dead) return; if (f.ashT>0) return; if (TWM.ally(f)) return; if ((f.bot || f.twr) && d > 0) d = TWM.inDmg(f, d, 'magic'); if (f.bindUntil>time){ bindNo(f); return; } if ((!src||src===hero)&&d>0){ const gd=INV.gaho('dmg'); if (gd) d=Math.floor(d*(1+gd/100)+Math.random()); } if (!src||src===hero) breakInvis(); dmgMob(f, d, src||hero); f.flash=0.09; mobHitFx(f,!!crit); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); const [fx,fy]=W2P(f.x,f.z);
   if (crit){ floatText(fx,fy-headY(f)-20,'CRITICAL!',{color:'#ff8ae0',size:14,big:true,life:1.15,rise:32}); floatText(fx,fy-headY(f)-2,String(d),{color:'#ffd6f6',size:17,big:true,life:1.05}); bursts.push({x:fx,y:fy-headY(f)*0.5,t:0}); shake=Math.max(shake,0.16); if (AC&&SFX_ON){ const t=AC.currentTime; tone(t,'triangle',1760,2640,0.18,0.06); tone(t+0.05,'sine',2640,3520,0.22,0.05); } }   // 마법 치명타: 분홍빛 큰 글씨
   else floatText(fx,fy-headY(f)-4,String(d),{color:color||'#ffffff',size:12}); if (f.hp>0) MSFX(f.kind,'hit',0.4); killCheck(f); return d; }   // 10/31: 실제로 넣은 피해를 돌려줌 (전설 [심판])
@@ -2725,7 +2725,7 @@ function drawUI(g, vw, vh){
 // ===== 할로윈 이벤트 수치 — 프로듀서가 정한 값은 여기만 바꾸면 됨 (지역 21번 · 마을 NPC 할로윈 허수아비 잭) =====
 const HWC = {
   ZID: 21, HAT_PRICE: 100, DAY_SEC: 2 * 3600,          // 입장 모자 가격 · 하루 이용 시간(초, 새벽 5시 초기화)
-  DMG_OUT: 1, DMG_IN: 1, MOB_HIT: 0.5, COOL: 0.9,      // 주는 피해(+모자 강화) · 받는 피해 · 호박이 나를 맞힐 확률 · 공격 간격(초, 초록·용기 물약 적용)
+  DMG_OUT: 1, DMG_IN: 1, MOB_HIT: 0.5, COOL: 0.9,      // 주는 피해(호박에게는 모자 강화 수치 · 최소 1) · 받는 피해 · 호박이 나를 맞힐 확률 · 공격 간격(초, 초록·용기 물약 적용)
   HAT_SAFE: 4, HAT_MAX: 9, SEEDS: 100,                 // 모자 안전 강화 · 최대 강화 · 주머니 1개 교환에 드는 호박씨
   mob: {
     hw_pumpkin:      { n: 27, hp: 15, exp: 2460, coin: [620, 940],   seed: [1, 3], drops: [['hw_scroll', 0.10], ['hw_candy', 0.01], ['hw_lantern', 0.005]] },
@@ -3829,7 +3829,7 @@ const ISLAND = (() => {
          mobs: [['fn_salamander', 16], ['fn_hcerberus', 16], ['fn_ashtazio', 3], ['fn_egg', 5]], groups: [] },   // 10/30: 40마리 (25 → 40 · 드문 아시타지오는 2 → 3만)
     // 할로윈 이벤트 지역 (21번): 음침한 호박밭 — 귀신이 떠다니고 핏빛 살육터 소품 · 시야는 늘 낮처럼 · 마을 NPC 할로윈 허수아비 잭으로만 입장 · 나가려면 귀환 주문서
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
-         hello: '으스스한 호박밭에 들어왔습니다... 호박 머리 허수아비로 변신했어요! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. 호박괴물을 쓰러뜨려 호박씨를 모으세요. (주는 피해 1 + 모자 강화 · 받는 피해 1 · 나가려면 귀환 주문서·귀환 부적)',
+         hello: '으스스한 호박밭에 들어왔습니다... 호박 머리 허수아비로 변신했어요! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. 호박괴물을 쓰러뜨려 호박씨를 모으세요. (주는 피해 = 모자 강화 수치(최소 1) · 받는 피해 1 · 나가려면 귀환 주문서·귀환 부적)',
          mobs: [['hw_pumpkin', HWC.mob.hw_pumpkin.n], ['hw_pumpkin_boss', HWC.mob.hw_pumpkin_boss.n]], groups: [] },
   };
   const ARRIVE = { 1: { town: [37, 37], 2: [8, 8] }, 2: { 1: [56, 56], town: [56, 56] }, 3: { town: [48, 48], 4: [7, 7] }, 4: { 3: [57, 57], town: [57, 57] }, 5: { town: [48, 48], 6: [7, 7] }, 6: { 5: [57, 57], town: [57, 57] }, 7: { town: [48, 48], 8: [7, 7] }, 8: { 7: [57, 57], town: [57, 57] }, 11: { town: [52, 52], 12: [7, 7] }, 12: { 11: [57, 57], town: [57, 57] }, 13: { town: [18, 27] }, 14: { town: [12, 12] }, 15: { town: [17, 8] }, 16: { town: [52, 52], 17: [7, 7] }, 17: { 16: [57, 57], 22: [7, 7], town: [57, 57] }, 22: { town: [52, 52], 17: [52, 52], 23: [7, 7] }, 23: { 22: [57, 57], town: [57, 57] }, 20: { town: [36, 64] }, 21: { town: [22, 22] } };
@@ -8552,8 +8552,8 @@ const TWL = { A: { cx: 36.5, cz: 59.5, tw: [36, 59], gate: 51, hold: 54, back: 6
 // v190(할로윈): 할로윈 이벤트 지역 — 마을의 할로윈 허수아비 잭에게 모자를 사서 입장 · 하루 2시간(새벽 5시 초기화) · 허수아비로 변신 · 근거리 공격만 · 피해 1 고정 · 마법·펫 불가
 function HW() { return !!(ISLE && ISLE.def && ISLE.def.hw && SCENE === 'field'); }
 let hwNoT = 0; function hwNo(what) { if (time - hwNoT < 3) return; hwNoT = time; say(`할로윈 이벤트 지역에서는 ${what}을(를) 쓸 수 없어요. (펫·서먼·마법·변신은 쓸 수 없고 다른 소모품은 모두 쓸 수 있어요)`, '#f0a060'); }
-// 근거리 한 대: 피해 1 고정 · 모자 강화 1당 필요한 타수 −1 (몬스터마다 내 첫 타에 강화 수치만큼 더 들어감 → +0 호박괴물 15대 · +9 6대) · 명중 100% · 치명타·추가 타격·속성 없음
-function hwStrike(f) { const S = MOB[f.kind]; breakInvis(); const first = !(f.dmgBy && f.dmgBy.get && f.dmgBy.get(hero) > 0), d = HWC.DMG_OUT + (S && S.hwEv && first ? Math.max(0, INV.hwHat()) : 0); dmgMob(f, d); f.flash = 0.09; mobHitFx(f, false); hero.lastHit = f; hero.lastHitT = time; f.aggro = true; hitstop = 0.06; sfx.hit(false);
+// 근거리 한 대: 11/1 프로듀서 — 호박에게는 한 대마다 모자 강화 수치만큼 (+5 모자 = 5 · +0이면 1) · 명중 100% · 치명타·추가 타격·속성 없음
+function hwStrike(f) { const S = MOB[f.kind]; breakInvis(); const d = S && S.hwEv ? Math.max(HWC.DMG_OUT, INV.hwHat()) : HWC.DMG_OUT; dmgMob(f, d, null, true); f.flash = 0.09; mobHitFx(f, false); hero.lastHit = f; hero.lastHitT = time; f.aggro = true; hitstop = 0.06; sfx.hit(false);
   { const [fx, fy] = W2P(f.x, f.z); floatText(fx + (Math.random() * 18 - 9), fy - headY(f) - 12, String(d), { color: '#ffb050', size: 13 }); } if (f.hp > 0) MSFX(f.kind, 'hit', 0.5); killCheck(f); }
 // 호박 처치 보상: 호박씨(항상) + 주문서(확률 · 따로 굴림) — 경험치·골드는 몬스터 수치(HWC.mob)로 기존 방식대로
 function hwLoot(f) { const C = HWC.mob[f.kind]; if (!C) return; GROUND.drop('hw_seed', rint(C.seed), f.i, f.j);
