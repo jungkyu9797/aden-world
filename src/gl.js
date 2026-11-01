@@ -16,7 +16,7 @@
   let WANT = /[?&]gl=(1|force)\b/.test(QS) ? true : /[?&]gl=0\b/.test(QS) ? false : /^(1|force)$/.test(LSG('aden_gl') || '');
   let FAILED = false, LOST = false, why = '';
   // ---------------------------------------------------------------- 통계 (한 프레임)
-  const ZST = () => ({ tUp: 0, tRun: 0, tTxt: 0, abs: 0, stn: 0, bloom: 0, bloomQ: 0, tBloom: 0, poly: 0, pline: 0, img: 0, imgR: 0, txt: 0, txtR: 0, txtNew: 0, rect: 0, rectR: 0, ell: 0, seg: 0, grad: 0, path: 0, other: 0, runs: 0, runPx: 0, defer: 0, batches: 0, quads: 0, up: 0, upPx: 0, approx: 0, ms: 0 });
+  const ZST = () => ({ tUp: 0, tRun: 0, tTxt: 0, abs: 0, stn: 0, shadow: 0, tShadow: 0, bloom: 0, bloomQ: 0, tBloom: 0, poly: 0, pline: 0, img: 0, imgR: 0, txt: 0, txtR: 0, txtNew: 0, rect: 0, rectR: 0, ell: 0, seg: 0, grad: 0, path: 0, other: 0, runs: 0, runPx: 0, defer: 0, batches: 0, quads: 0, up: 0, upPx: 0, approx: 0, ms: 0 });
   let ST = ZST(), LAST = ZST();
   const why_ = {};   // 그림이 GL 대신 2D로 간 이유 (누적 · 개발용)
   const note = k => { why_[k] = (why_[k] || 0) + 1; };
@@ -98,9 +98,10 @@ precision highp float; precision highp int;
 uniform sampler2D uT[${n}]; uniform sampler2D uG; uniform int uN; uniform mat4 uM[4]; uniform vec4 uO[4];
 in vec2 vT; in vec2 vG; in vec4 vC; in vec4 vP; flat in int vS; flat in int vM; out vec4 o;
 ${TXF(n)}
-void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(dFdx(d),dFdy(d))),1e-6); vec4 c;
+void main(){ int sh=vM&3, pa=(vM>>2)&3; float d=length(vT); float w=max(length(vec2(dFdx(d),dFdy(d))),1e-6); vec4 c;
   if(pa==0) c=tx(sh==0?vT:vec2(.5)); else { float t=pa==1?vG.x:(length(vG)-vP.y)/(vP.z-vP.y); c=texture(uG,vec2((clamp(t,0.,1.)*255.+.5)/256.,vP.x)); }
   if(uN>0 && pa==0){ float a=c.a; vec4 q=vec4(a>0.?c.rgb/a:vec3(0.),a); for(int k=0;k<4;k++){ if(k>=uN) break; q=clamp(uM[k]*q+uO[k],0.,1.); } c=vec4(q.rgb*q.a,q.a); }
+  if((vM&16)!=0) c=vec4(c.a);
   if(sh==1) c*=clamp((1.-d)/w+.5,0.,1.); else if(sh==2) c*=clamp(vP.w-abs((d-1.)/w)+.5,0.,1.); else if(sh==3) c*=clamp(vP.w-abs(vT.y)+.5,0.,1.)*clamp(vP.z-abs(vT.x)+.5,0.,1.);
   o=c*vC; }`;
   const RAMP = { tex: null, m: new Map(), n: 0, H: 256, c: null, g: null };
@@ -159,7 +160,7 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
     for (const [s, e] of TX) if (e.f < old || (tAll > lim && e.f < frameNo - 60)) { for (const q of e.t || []) gl.deleteTexture(q.tex); tAll -= e.by; TX.delete(s); } }
   // 그라데이션 색 띠 (256칸 한 줄 · 같은 색 목록은 한 번만)
   function rampRow(r) { if (!r.key) r.key = r.st.join('|'); let row = RAMP.m.get(r.key); if (row !== undefined) return row;
-    if (RAMP.n >= RAMP.H) { flush(); RAMP.m.clear(); RAMP.n = 0; } row = RAMP.n++; const g = RAMP.g; g.clearRect(0, 0, 256, 1);
+    if (RAMP.n >= RAMP.H) { shFlush(); flush(); RAMP.m.clear(); RAMP.n = 0; } row = RAMP.n++; const g = RAMP.g; g.clearRect(0, 0, 256, 1);
     const gr = g.createLinearGradient(0.5, 0, 255.5, 0); for (let i = 0; i < r.st.length; i += 2) gr.addColorStop(r.st[i], r.st[i + 1]); g.fillStyle = gr; g.fillRect(0, 0, 256, 1);
     gl.activeTexture(gl.TEXTURE0 + NS); gl.bindTexture(gl.TEXTURE_2D, RAMP.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, 256, 1, gl.RGBA, gl.UNSIGNED_BYTE, g.getImageData(0, 0, 256, 1).data); gl.activeTexture(gl.TEXTURE0);
     RAMP.m.set(r.key, row); return row; }
@@ -194,6 +195,48 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, PW, PH); G.blendFunc(G.ONE, G.ONE); G.bindTexture(G.TEXTURE_2D, BLM.tB); G.uniform2f(BLM.uD, 0, 2.5 / BLM.h); G.uniform1f(BLM.uK, BLM.k);
     if (!DBG.nodraw) G.drawArrays(G.TRIANGLES, 0, 3); G.bindVertexArray(vao); ST.tBloom = performance.now() - t0; ST.bloom = 1; }
 
+
+  // ---------------------------------------------------------------- 1단계: 그림자 흐림(shadowBlur)을 GL로
+  //   그림자가 켜진 그리기는 바로 그리지 않고 모아 둠(SHG) → 같은 그림자 설정이 끝나면: 모양의 알파만 그림자 색으로 그림자 버퍼에(오프셋만큼 밀어서) → 가우스 흐림(가로·세로, 그 영역만) → 화면에 합성 → 모은 모양을 그 위에
+  //   (2D와 다른 점: 같은 설정으로 연달아 그린 것끼리는 그림자가 모두 먼저 깔림 — 글자 빛 등에서 거의 차이 없음)
+  const SHG = { cap: false, key: '', list: [], col: null, ox: 0, oy: 0, sg: 0, bl: 0, fb: null, tA: null, tB: null, w: 0, h: 0, pr: null, uS: null, uD: null, uN: null, uQ: null, vao: null, ok: true };
+  function shBegin() { const V_ = V, c = parseColor(V_.shadowColor), key = V_.shadowColor + '|' + V_.shadowBlur + '|' + V_.shadowOffsetX + '|' + V_.shadowOffsetY + '|' + C.st.bl;
+    if (SHG.list.length && key !== SHG.key) shFlush(); if (RUN.open) runFlush();
+    if (!c || !SHG.ok) return false; SHG.key = key; SHG.col = c; SHG.ox = V_.shadowOffsetX; SHG.oy = V_.shadowOffsetY; SHG.sg = Math.max(0, V_.shadowBlur) / 2; SHG.bl = C.st.bl; SHG.cap = true; return true; }
+  function shInit() { if (SHG.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
+      const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
+out vec2 v; void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); v=p; gl_Position=vec4(p*2.-1.,0.,1.); }`));
+      G.attachShader(p, sh(G.FRAGMENT_SHADER, `#version 300 es
+precision highp float; uniform sampler2D uS; uniform vec2 uD; uniform int uN; uniform float uQ; in vec2 v; out vec4 o;
+void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i>uN) continue; float x=float(i), w=exp(-x*x*uQ); c+=texture(uS,v+uD*x)*w; ws+=w; } o=c/ws; }`));
+      G.linkProgram(p); if (!G.getProgramParameter(p, G.LINK_STATUS)) throw new Error(G.getProgramInfoLog(p));
+      SHG.pr = p; for (const k of ['uS', 'uD', 'uN', 'uQ']) SHG[k] = G.getUniformLocation(p, k); SHG.vao = G.createVertexArray(); SHG.fb = G.createFramebuffer(); return true;
+    } catch (e) { SHG.ok = false; note('shadow:' + String(e && e.message || e).slice(0, 60)); return false; } }
+  function shSize() { if (SHG.w === PW && SHG.h === PH) return; const G = gl;
+    for (const k of ['tA', 'tB']) { if (SHG[k]) G.deleteTexture(SHG[k]); const t = G.createTexture(); G.bindTexture(G.TEXTURE_2D, t); G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, PW, PH, 0, G.RGBA, G.UNSIGNED_BYTE, null);
+      G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MIN_FILTER, G.LINEAR); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MAG_FILTER, G.LINEAR); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_WRAP_S, G.CLAMP_TO_EDGE); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_WRAP_T, G.CLAMP_TO_EDGE); SHG[k] = t; }
+    SHG.w = PW; SHG.h = PH; }
+  // 모아 둔 그림자 묶음 그리기
+  function shFlush() { const L = SHG.list; if (!L.length) return; SHG.list = []; const cap0 = SHG.cap; SHG.cap = false; flush();
+    const G = gl, t0 = performance.now(), c = SHG.col, ox = SHG.ox, oy = SHG.oy, sg = SHG.sg, pad = Math.ceil(sg * 3) + 2;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const q of L) for (let i = 0; i < 8; i += 2) { x0 = Math.min(x0, q.X[i]); x1 = Math.max(x1, q.X[i]); y0 = Math.min(y0, q.X[i + 1]); y1 = Math.max(y1, q.X[i + 1]); }
+    const sx0 = Math.max(0, Math.floor(x0 + ox - pad)), sy0 = Math.max(0, Math.floor(y0 + oy - pad)), sx1 = Math.min(PW, Math.ceil(x1 + ox + pad)), sy1 = Math.min(PH, Math.ceil(y1 + oy + pad));
+    const sa = c[3]; if (sa > 0.002 && sx1 > sx0 && sy1 > sy0 && shInit()) { shSize();
+      G.bindFramebuffer(G.FRAMEBUFFER, SHG.fb); G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, SHG.tA, 0); G.viewport(0, 0, PW, PH);
+      G.enable(G.SCISSOR_TEST); G.scissor(sx0, PH - sy1, sx1 - sx0, sy1 - sy0); G.clearColor(0, 0, 0, 0); G.clear(G.COLOR_BUFFER_BIT); STN = true;
+      for (const q of L) { for (let i = 0; i < 8; i += 2) { QX[i] = q.X[i] + ox; QX[i + 1] = q.X[i + 1] + oy; QU[i] = q.U[i]; QU[i + 1] = q.U[i + 1]; QG[i] = q.G[i]; QG[i + 1] = q.G[i + 1]; }
+        const A = q.a[8]; emitRaw(q.a[0], q.a[1], 0, q.a[3], q.a[4] | 16, c[0] * sa * A, c[1] * sa * A, c[2] * sa * A, sa * A, q.a[9], q.a[10], q.a[11], q.a[12]); }
+      flush(); STN = false;
+      G.useProgram(SHG.pr); curProg = null; G.bindVertexArray(SHG.vao); G.activeTexture(G.TEXTURE0); G.bindSampler(0, null); G.uniform1i(SHG.uS, 0); blendSet(8);
+      if (sg > 0.3) { const st = Math.max(1, sg * 3 / 48), n = Math.ceil(sg * 3 / st), q = 1 / (2 * (sg / st) * (sg / st));
+        G.uniform1i(SHG.uN, n); G.uniform1f(SHG.uQ, q);
+        G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, SHG.tB, 0); G.clear(G.COLOR_BUFFER_BIT); G.bindTexture(G.TEXTURE_2D, SHG.tA); G.uniform2f(SHG.uD, st / PW, 0); G.drawArrays(G.TRIANGLES, 0, 3);
+        G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, SHG.tA, 0); G.bindTexture(G.TEXTURE_2D, SHG.tB); G.uniform2f(SHG.uD, 0, st / PH); G.drawArrays(G.TRIANGLES, 0, 3); }
+      G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, PW, PH); blendSet(SHG.bl); G.bindTexture(G.TEXTURE_2D, SHG.tA); G.uniform1i(SHG.uN, 0); G.uniform1f(SHG.uQ, 0); G.uniform2f(SHG.uD, 0, 0);
+      if (!DBG.nodraw) G.drawArrays(G.TRIANGLES, 0, 3); G.disable(G.SCISSOR_TEST); G.bindVertexArray(vao); ST.shadow++; ST.tShadow += performance.now() - t0; }
+    for (const q of L) { for (let i = 0; i < 8; i++) { QX[i] = q.X[i]; QU[i] = q.U[i]; QG[i] = q.G[i]; } emitRaw(...q.a); }
+    SHG.cap = cap0; }
+
   // ---------------------------------------------------------------- 배치
   const BL = { 'source-over': 0, lighter: 1, multiply: 2, screen: 3, 'destination-out': 4, 'source-atop': 5, 'destination-over': 6, clear: 7, copy: 8 };
   let nQ = 0, slots = [], cBl = 0, cF = null, curBl = -1;
@@ -210,7 +253,10 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
   // 사각형 하나: QX(기기 픽셀 네 꼭짓점) · QU(텍스처 좌표 또는 모양 안 좌표) · QG(그라데이션 좌표) — t: GL 텍스처, s: 표본, md: 모양|칠<<2, 색은 미리 곱한 RGBA(0~1)
   const QX = new Float64Array(8), QU = new Float64Array(8), QG = new Float64Array(8);
   const c8 = v => (v <= 0 ? 0 : v >= 1 ? 255 : Math.round(v * 255));
-  function emit(t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3) {
+  function emit(t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3) {   // 그림자 모으는 중이면 모아 두고, 아니면 모아 둔 그림자부터 그린 뒤 그림
+    if (SHG.cap) { SHG.list.push({ X: Float64Array.from(QX), U: Float64Array.from(QU), G: Float64Array.from(QG), a: [t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3] }); return; }
+    if (SHG.list.length) shFlush(); emitRaw(t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3); }
+  function emitRaw(t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3) {
     if (bl !== cBl || F !== cF || nQ >= MAXQ) { flush(); cBl = bl; cF = F; }
     let k = -1; for (let i = 0; i < slots.length; i++) if (slots[i].t === t && slots[i].s === s) { k = i; break; }
     if (k < 0) { if (slots.length >= NS) { flush(); cBl = bl; cF = F; } k = slots.length; slots.push({ t, s }); }
@@ -223,7 +269,7 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
 
   // ---------------------------------------------------------------- 글자 아틀라스 (2048² 한 장 · 가득 차면 비우고 다시)
   const TA = { tex: null, m: new Map(), x: 0, y: 0, rh: 0, S: 2048, c: null, g: null };
-  function taReset() { flush(); TA.m.clear(); TA.x = 0; TA.y = 0; TA.rh = 0; }
+  function taReset() { shFlush(); flush(); TA.m.clear(); TA.x = 0; TA.y = 0; TA.rh = 0; }
   function taPut(w, h) { const S = TA.S; if (w > S || h > S) return null; if (TA.x + w > S) { TA.x = 0; TA.y += TA.rh + 1; TA.rh = 0; } if (TA.y + h > S) return null; const p = [TA.x, TA.y]; TA.x += w + 1; TA.rh = Math.max(TA.rh, h); return p; }
 
   // ---------------------------------------------------------------- 보조 2D 캔버스 (복잡한 경로 등) 묶음
@@ -234,7 +280,7 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     const w = x1 - x0, h = y1 - y0; flush();
     const t0 = performance.now(); gl.bindTexture(gl.TEXTURE_2D, layer); gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, y0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, V.getImageData(x0, y0, w, h).data); ST.tRun += performance.now() - t0;   // 그 부분만 읽어서 올림 (캔버스 통째 복사 안 함)
     QX[0] = x0; QX[1] = y0; QX[2] = x1; QX[3] = y0; QX[4] = x1; QX[5] = y1; QX[6] = x0; QX[7] = y1; uvRect(x0 / layerW, y0 / layerH, x1 / layerW, y1 / layerH);
-    emit(layer, 0, RUN.bl, null, 0, 1, 1, 1, 1, 0, 0, 0, 0); flush();
+    { const c0 = SHG.cap; SHG.cap = false; emit(layer, 0, RUN.bl, null, 0, 1, 1, 1, 1, 0, 0, 0, 0); SHG.cap = c0; } flush();
     if (DBG.on) (ST.rl || (ST.rl = [])).push([RUN.who, RUN.n, w, h, RUN.bl]);
     if (C.st.clip) { C.reset = true; } else { V.save(); V.setTransform(1, 0, 0, 1, 0, 0); V.clearRect(x0, y0, w, h); V.restore(); } C.vd = true; ST.runs++; ST.runPx += w * h; }
 
@@ -289,7 +335,7 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     ST.poly++; return true; }
   // 아무 모양 채우기 (꼬인 다각형·구멍·하위 경로 여럿): 스텐실에 부채꼴 삼각형으로 감은 수를 세고(0이 아닌 곳/짝홀) → 그 영역만 칠하고 스텐실 0으로 되돌림
   let STC = false, STN = false;
-  function stFill(P, L, eo, x0, y0, x1, y1) { if (!STC) { note('pf:nostencil'); return false; } const G = gl, st = C.st; flush(); STN = true;
+  function stFill(P, L, eo, x0, y0, x1, y1) { if (!STC) { note('pf:nostencil'); return false; } if (SHG.cap) { note('pf:stshadow'); return false; } const G = gl, st = C.st; flush(); STN = true;
     G.enable(G.STENCIL_TEST); G.colorMask(false, false, false, false); G.stencilMask(255); G.stencilFunc(G.ALWAYS, 0, 255);
     if (eo) G.stencilOp(G.KEEP, G.KEEP, G.INVERT); else { G.stencilOpSeparate(G.FRONT, G.KEEP, G.KEEP, G.INCR_WRAP); G.stencilOpSeparate(G.BACK, G.KEEP, G.KEEP, G.DECR_WRAP); }
     uvRect(0, 0, 1, 1);
@@ -336,7 +382,7 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     runFlush(); return false; }
   function gOpenNo(x0, y0, x1, y1) { if (RUN.open && !(x1 <= RUN.x0 || x0 >= RUN.x1 || y1 <= RUN.y0 || y0 >= RUN.y1)) runFlush(); }
   const gOpenQ = () => gOpen(Math.min(QX[0], QX[2], QX[4], QX[6]), Math.min(QX[1], QX[3], QX[5], QX[7]), Math.max(QX[0], QX[2], QX[4], QX[6]), Math.max(QX[1], QX[3], QX[5], QX[7]));
-  const glOK = () => { const s = C.st; return !s.clip && !s.sh && s.F !== false && s.bl >= 0; };
+  const glOK = () => { const s = C.st; return !s.clip && (!s.sh || SHG.cap) && s.F !== false && s.bl >= 0; };   // 그림자는 모으는 중(SHG.cap)일 때만 GL
   function tx4(m, x, y, w, h, out) { const a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5];
     out[0] = a * x + c * y + e; out[1] = b * x + d * y + f; out[2] = a * (x + w) + c * y + e; out[3] = b * (x + w) + d * y + f;
     out[4] = a * (x + w) + c * (y + h) + e; out[5] = b * (x + w) + d * (y + h) + f; out[6] = a * x + c * (y + h) + e; out[7] = b * x + d * (y + h) + f; return out; }
@@ -490,6 +536,9 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     createImageData(...a) { return V.createImageData(...a); } getImageData(...a) { note('getImageData'); return V.getImageData(...a); }
     getContextAttributes() { return { alpha: false }; }
   }
+  // 그림자 켜진 그리기: 모으기 시작 → 원래 함수(GL로 되면 SHG에 모임 · 안 되면 2D가 그림자까지 그림) → 끝
+  for (const n of ['drawImage', 'fillRect', 'fill', 'stroke', 'fillText', 'strokeText']) { const o = Ctx.prototype[n];
+    Ctx.prototype[n] = function (...a) { if (!C.st.sh || DBG.noshadow) return o.apply(this, a); if (!shBegin()) return o.apply(this, a); try { return o.apply(this, a); } finally { SHG.cap = false; } }; }
   for (const k of ['fillStyle', 'strokeStyle', 'lineWidth', 'lineCap', 'lineJoin', 'miterLimit', 'lineDashOffset', 'font', 'textAlign', 'textBaseline', 'direction', 'letterSpacing', 'wordSpacing', 'fontKerning', 'fontStretch', 'fontVariantCaps', 'textRendering'])
     Object.defineProperty(Ctx.prototype, k, { get() { return V[k]; }, set(v) { V[k] = v; }, configurable: true });
   const CTX = new Ctx();
@@ -508,13 +557,13 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     gl.activeTexture(gl.TEXTURE0 + NS); gl.bindTexture(gl.TEXTURE_2D, RAMP.tex); gl.bindSampler(NS, SMP[1]); gl.activeTexture(gl.TEXTURE0);
     gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | (STC ? gl.STENCIL_BUFFER_BIT : 0)); BLM.used = false; if (BLM.on && bloomInit()) bloomSize(pw, ph); else BLM.w = 0;
     if (C.stack.length || C.reset) { C.stack.length = 0; C.reset = false; if (V.reset) V.reset(); else Vc.width = Vc.width; }
-    C.st = NEWST(); C.st.m = [s, 0, 0, s, 0, 0]; C.st.sm = !!smooth; C.st.q = 'high'; C.vd = true; RUN.open = false; PK.k = 0; PK.mv = false; ppRe();
+    C.st = NEWST(); C.st.m = [s, 0, 0, s, 0, 0]; C.st.sm = !!smooth; C.st.q = 'high'; C.vd = true; RUN.open = false; PK.k = 0; PK.mv = false; ppRe(); SHG.list.length = 0; SHG.cap = false;
     V.setTransform(1, 0, 0, 1, 0, 0); V.globalAlpha = 1; V.globalCompositeOperation = 'source-over'; V.filter = 'none'; V.imageSmoothingEnabled = !!smooth; V.imageSmoothingQuality = 'high';
     V.shadowBlur = 0; V.shadowColor = 'rgba(0,0,0,0)'; V.shadowOffsetX = 0; V.shadowOffsetY = 0; V.fillStyle = '#000'; V.strokeStyle = '#000'; V.lineWidth = 1; V.lineCap = 'butt'; V.lineJoin = 'miter'; V.miterLimit = 10; V.setLineDash([]); V.lineDashOffset = 0;
     V.font = '10px sans-serif'; V.textAlign = 'start'; V.textBaseline = 'alphabetic'; V.beginPath();
     return CTX; }
   function end() { if (C.stack.length) { while (C.stack.length) CTX.restore(); note('unbalanced'); }
-    runFlush(); flush(); if (BLM.on && BLM.w) bloomEnd(); ST.ms = performance.now() - ST.t0; if (DBG.fin) { const t = performance.now(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, DBG.px || (DBG.px = new Uint8Array(4))); ST.gpu = performance.now() - t; } LAST = ST; frameNo++; if (frameNo % 120 === 0) sweep(); return true; }
+    runFlush(); shFlush(); flush(); if (BLM.on && BLM.w) bloomEnd(); ST.ms = performance.now() - ST.t0; if (DBG.fin) { const t = performance.now(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, DBG.px || (DBG.px = new Uint8Array(4))); ST.gpu = performance.now() - t; } LAST = ST; frameNo++; if (frameNo % 120 === 0) sweep(); return true; }
 
   // ---------------------------------------------------------------- 게임이 부르는 것 (game.js의 frame 한 군데: // GL:)
   let LA = null;   // 마지막 프레임 인자 (시험용 _redraw)
@@ -532,6 +581,9 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     if (useGL) { const w0 = WANT; WANT = true; const ok = frame(...A); WANT = w0; return ok ? { ...LAST } : 'fail: ' + why; }
     hide(); lc.setTransform(s, 0, 0, s, 0, 0); lc.imageSmoothingEnabled = smooth; lc.imageSmoothingQuality = 'high'; dw(lc, vw, vh); du(lc, vw, vh); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(low, 0, 0); return '2d'; }
 
+  // 시험용: 마지막 프레임 크기로 fn(가짜 컨텍스트)만 그려 봄 (dev/tests/gl_shadow.js) → 그 프레임 통계
+  function frameWith(fn) { const A = LA; if (!A || !init()) return 'GL 프레임이 아직 없음'; const cv = A[5], pw = A[6], ph = A[7], s = A[8], smooth = A[9]; const g = begin(pw, ph, s, smooth, cv); g.setTransform(1, 0, 0, 1, 0, 0); fn(g); end(); return { ...LAST, pw, ph }; }
+
   // ---------------------------------------------------------------- 테스트 페이지(DEMO) ESC 메뉴 버튼 [새 그래픽(시험)]
   function syncBtn() { const b = document.getElementById('esc-gl'); if (!b) return; b.textContent = '새 그래픽(시험): ' + (on() ? '켬' : FAILED || LOST ? '못 씀 (원래 그래픽)' : '끔'); b.setAttribute('aria-pressed', on() ? 'true' : 'false'); }
   function addBtn() { if (!window.DEMO_MODE || document.getElementById('esc-gl')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
@@ -540,6 +592,6 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _dbg: DBG,
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG,
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();
