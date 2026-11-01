@@ -43,7 +43,7 @@ async function session(b, bs, { page, gl, modes }) { const ctx = await b.newCont
       if (window.GLR && GLR.on()) window.__gs.push(GLR.stats()); } else cb(ts); }); }; }, gl);
   const info = await S.setup(p, { chars: 30, mobs: 30, page }); console.log('scene', page || 'branch', JSON.stringify(info));
   const out = []; for (const m of modes) { await p.evaluate(m => { if (window.GLR) { GLR.set(m !== 'off' && m !== 'main'); GLR._dbg.nodraw = m === 'glcpu'; } }, m); out.push(await measure(b, p, bs, m)); }
-  if (out.some(o => o.label === 'gl')) await p.screenshot({ path: 'dev/out/gl_bench_on.png' }).catch(() => {});
+  if (out.some(o => o.label === 'gl')) await p.evaluate(() => { GLR.set(true); GLR._dbg.nodraw = false; }), await p.waitForTimeout(1500), await p.screenshot({ path: 'dev/out/gl_bench_on.png' }).catch(() => {});
   console.log(errs.length ? 'ERRORS ' + errs.slice(0, 5).join(' | ') : 'no page errors'); await ctx.close(); return out; }
 (async () => { const b = await chromium.launch({ args: S.ARGS }); const bs = await b.newBrowserCDPSession(); const res = [];
   const want = m => !ONLY.length || ONLY.includes(m);

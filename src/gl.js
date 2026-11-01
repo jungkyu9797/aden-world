@@ -167,7 +167,7 @@ void main(){ int sh=vM&3, pa=vM>>2; float d=length(vT); float w=max(length(vec2(
 
   // ---------------------------------------------------------------- 1단계: 빛 번짐(블룸) — '더하기(lighter)'로 그린 것(불·마법·빛 효과)만 반 해상도 빛 버퍼에도 한 번 더 그려 흐리게 번진 빛을 화면에 더함
   //   게임 코드는 그대로 (지금 효과들이 lighter로 그리는 곳이 곧 빛나는 곳) · 끄기: localStorage aden_gl_bloom=0 · 세기 aden_gl_bloom=0.3~1.5
-  const BLM = { on: LSG('aden_gl_bloom') !== '0', k: Math.max(0, Math.min(2, parseFloat(LSG('aden_gl_bloom')) || 0.75)), fb: null, tA: null, tB: null, w: 0, h: 0, used: false, pr: null, vao: null, uS: null, uD: null, uK: null };
+  const BLM = { on: LSG('aden_gl_bloom') !== '0', k: Math.max(0, Math.min(2, parseFloat(LSG('aden_gl_bloom')) || 0.6)), fb: null, tA: null, tB: null, w: 0, h: 0, used: false, pr: null, vao: null, uS: null, uD: null, uK: null };
   function bloomInit() { if (BLM.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
       const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
 out vec2 v; void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); v=p; gl_Position=vec4(p*2.-1.,0.,1.); }`));
