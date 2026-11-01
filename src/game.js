@@ -2941,7 +2941,7 @@ const RING = { drake: 26, drake_king: 36, phoenix: 40, fn_salamander: 30, fn_ifr
 //   자기 속성 피해 ×0.5 · 반대 속성(불↔물 · 땅↔바람) 피해 ×1.3 · 근접 공격에 속성 추가 피해(MR·속성 저항으로 줄어듦)
 //   순간이동 불가(주문서) · 귀환만 · 필드 봇 없음(nobot) · 유니콘 2시간마다 제단
 const DREAM = {
-  ZID: 24, N: 133, SEED: 2424,
+  ZID: 24, N: 133, SEED: 2424, DAY_SEC: 4 * 3600,   // DAY_SEC: 11/1 프로듀서 — 하루 이용 시간 4시간 (새벽 5시 초기화 · 캐릭터마다)
   SAFE_R: 11,         // 가운데 안전지대 반지름 (소품·용암 없음 · 유니콘 제단) — 11/1 2차: 7 → 11 (1.5배)
   NO_SPAWN_R: 15,     // 가운데 반지름 15칸 안에는 정령 스폰 없음 (10 → 15)
   EDGE_MIX: 3,        // 사분면 경계 섞임 폭 (칸)
@@ -3876,7 +3876,7 @@ const ISLAND = (() => {
          mobs: [['hw_pumpkin', HWC.mob.hw_pumpkin.n], ['hw_pumpkin_boss', HWC.mob.hw_pumpkin_boss.n]], groups: [] },
     // 11/1 몽환의 섬 (24 · 단층 N 133(11/1 2차 · 처음 94) · 가운데 안전지대·유니콘 제단 · 동 용암 / 서 설원·얼음 / 남 사막 / 북 황량한 절벽 · 순간이동 불가·귀환만 · 필드 봇 없음(nobot)) — 수치는 DREAM 상수 · mobs 3번째 값 = 스폰 사분면
     24: { name: '몽환의 섬', tier: 2, hiz: true, dream: true, nobot: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: DREAM.SEED, N: DREAM.N, hills: null, portals: [], tone: null, lavaDmg: DREAM.LAVA_DMG, shrine: { i: DREAM.N >> 1, j: DREAM.N >> 1 },
-         hello: '몽환의 섬에 들어왔습니다. 가운데 제단 둘레는 안전지대예요. 광장에서 뻗은 바닥의 색 길(빨강 = 불 · 파랑 = 물 · 잿빛 = 바람 · 모래빛 = 땅)을 따라가면 그 속성 지역이에요. 동쪽 용암 지대에는 불의 정령, 서쪽 설원에는 물의 정령, 남쪽 사막에는 땅의 정령, 북쪽 절벽에는 바람의 정령이 삽니다. 정령은 먼저 덤비지 않지만 대정령은 먼저 덤비고 속성 마법을 써요! 반대 속성(불↔물 · 땅↔바람) 무기·마법이 잘 듣고, 같은 속성은 절반밖에 안 들어요. 이곳에서는 순간이동을 할 수 없고 귀환만 됩니다. 2시간마다 가운데 제단에 유니콘이 나타나요.',
+         hello: '몽환의 섬에 들어왔습니다. 가운데 제단 둘레는 안전지대예요. 광장에서 뻗은 바닥의 색 길(빨강 = 불 · 파랑 = 물 · 잿빛 = 바람 · 모래빛 = 땅)을 따라가면 그 속성 지역이에요. 동쪽 용암 지대에는 불의 정령, 서쪽 설원에는 물의 정령, 남쪽 사막에는 땅의 정령, 북쪽 절벽에는 바람의 정령이 삽니다. 정령은 먼저 덤비지 않지만 대정령은 먼저 덤비고 속성 마법을 써요! 반대 속성(불↔물 · 땅↔바람) 무기·마법이 잘 듣고, 같은 속성은 절반밖에 안 들어요. 이곳에서는 순간이동을 할 수 없고 귀환만 됩니다. 하루 이용 시간은 4시간이에요(새벽 5시 초기화). 2시간마다 가운데 제단에 유니콘이 나타나요.',
          mobs: DREAM.Q.flatMap(q => [['dr_' + DREAM.EL[q], DREAM.N_SPIRIT, q], ['dr_g' + DREAM.EL[q], DREAM.N_GREAT, q]]), groups: [] },
   };
   const ARRIVE = { 1: { town: [37, 37], 2: [8, 8] }, 2: { 1: [56, 56], town: [56, 56] }, 3: { town: [48, 48], 4: [7, 7] }, 4: { 3: [57, 57], town: [57, 57] }, 5: { town: [48, 48], 6: [7, 7] }, 6: { 5: [57, 57], town: [57, 57] }, 7: { town: [48, 48], 8: [7, 7] }, 8: { 7: [57, 57], town: [57, 57] }, 11: { town: [52, 52], 12: [7, 7] }, 12: { 11: [57, 57], town: [57, 57] }, 13: { town: [18, 27] }, 14: { town: [12, 12] }, 15: { town: [17, 8] }, 16: { town: [52, 52], 17: [7, 7] }, 17: { 16: [57, 57], 22: [7, 7], town: [57, 57] }, 22: { town: [52, 52], 17: [52, 52], 23: [7, 7] }, 23: { 22: [57, 57], town: [57, 57] }, 20: { town: [36, 64] }, 21: { town: [22, 22] } };
@@ -4283,7 +4283,7 @@ const ISLAND = (() => {
   const BUID = k => 90000 + Object.keys(BOSS).indexOf(k);
   function removeBoss(k) { const B = BOSS[k], z = get(B.zone), e = B.ent; if (B.fam) for (const m of z.mobs.filter(m_ => B.fam.includes(m_.kind) && m_ !== e)) { m.dead = true; m.gone = true; z.mobs.splice(z.mobs.indexOf(m), 1); if (hero.target === m) hero.target = null; } if (e) { e.dead = true; e.gone = true; const i = z.mobs.indexOf(e); if (i >= 0) z.mobs.splice(i, 1); if (hero.target === e) hero.target = null; } B.ent = null; }
   const get = id => Z[id] || (Z[id] = build(id));
-  function enter(id, from) { const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap);
+  function enter(id, from) { if (id === DREAM.ZID && !DRM.canEnter()) return; const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap);   /* 11/1: 몽환의 섬 하루 4시간 */
     ISLE = z; setGeom(z.N); SCENE = 'field'; ZONE = z.name; blockedT = z.blocked; PROPS = z.props; foxes = z.mobs; arrows.length = 0;
     const [i, j] = ARRIVE[id][from] || ARRIVE[id].town || [37, 37];
     hero.i = hero.fi = i; hero.j = hero.fj = j; hero.x = i + 0.5; hero.z = j + 0.5; hero.t = 1; hero.target = null; hero.atk = null; moveGoal = null; holding = false; hero.row = 5;
@@ -7703,10 +7703,10 @@ const SAVE = (() => {
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
   function snap() { const b = {}; for (const k in BUFF) if (BUFF[k] > 0) b[k] = Math.round(BUFF[k]);
     return { v: 1, ver: GAME_VER, cls: CLASS, name: PNAME(), lv: hero.lv, exp: hero.exp, bhp: hero.baseHP, bmp: hero.baseMP, bp: hero.bonusPts, hp: Math.ceil(hero.hp), mp: Math.floor(hero.mp), coins: Math.floor(coins),
-      learned: [...LEARNED], cu: CODES.dump(), sm: PET.sumOut(), buff: b, pf: selfPoly() || undefined, dd: DEATH && !DEATH.arena && !DEATH.duel && !DEATH.ward ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined, cfg: CFGSYNC.dump(), bk: ISLAND.bossKills(), hw: HWM.dump(),
+      learned: [...LEARNED], cu: CODES.dump(), sm: PET.sumOut(), buff: b, pf: selfPoly() || undefined, dd: DEATH && !DEATH.arena && !DEATH.duel && !DEATH.ward ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined, cfg: CFGSYNC.dump(), bk: ISLAND.bossKills(), hw: HWM.dump(), dr: DRM.dump(),
       pos: SCENE === 'town' ? { t: 1, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : ISLE ? { z: ISLE.id, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : null }; }   /* v137: 설정 · 마지막 위치 */
   function apply(s) { if (!s || s.cls !== CLASS) return false;
-    hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1; if (CLASS === 'knight' && (s.ver || 0) < 162 && hero.lv > 1) hero.baseMP = Math.max(hero.baseMP, CLS_DEF.knight.mp + hero.lv - 1);   /* v162: 기사 레벨업 MP 1 고정 소급 */   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0); HWM.load(s.hw);
+    hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1; if (CLASS === 'knight' && (s.ver || 0) < 162 && hero.lv > 1) hero.baseMP = Math.max(hero.baseMP, CLS_DEF.knight.mp + hero.lv - 1);   /* v162: 기사 레벨업 MP 1 고정 소급 */   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0); HWM.load(s.hw); DRM.load(s.dr);
     LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0; PCG.charLoad(s.pf);   /* 변신 카드: 변신 칸(계정 문서)의 카드 모습으로 · 예전(1만 골드) 카드 변신은 그 카드를 변신 칸으로 옮김 · 주문서 변신은 남은 시간 그대로 */ setTimeout(() => wizAutoLearn(), 1200);
     INV.load(s.inv); CODES.load(s.cu); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); if (s.cfg) CFGSYNC.load(s.cfg); if (s.sm) try { PET.sumIn(s.sm); } catch (e) {} if (s.bk) try { ISLAND.mergeKills(s.bk, true); } catch (e) {} if (OFFL_HOOK) OFFL_HOOK.load(s.ofl); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); DEATH = null; deathUI();
     if (s.dd) { const P = deathPenalty(false); hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); setTimeout(() => say(`쓰러진 채로 접속을 끊어서 마을에서 부활했어요. (경험치 −${P.ex.toLocaleString()} · 골드 −${P.g.toLocaleString()})`, '#f2e6a8'), 1500); }
@@ -8645,6 +8645,18 @@ const HWM = (() => { let day = '', used = 0, last = 0, warned = 0;
     return [k, 1]; }
   setTimeout(() => { const b = id => el(id); if (!b('hwwin')) return; b('hw-buy').onclick = buy; b('hw-enter').onclick = enter; b('hw-ex1').onclick = () => exch(false); b('hw-exall').onclick = () => exch(true); }, 0);
   return { tick, open, render, left, rollPouch, pouchTxt, dump: () => ({ d: day, u: Math.round(used) }), load(o) { if (o && typeof o === 'object') { day = String(o.d || ''); used = Math.max(0, +o.u || 0); } roll(); } }; })();
+// 11/1 프로듀서: 몽환의 섬 하루 이용 시간 4시간 (새벽 5시 초기화 · 캐릭터마다 저장 · 할로윈 시간과 같은 방식) — 다 쓰면 마을로, 그날은 다시 못 들어감
+const DRM = (() => { let day = '', used = 0, last = 0, warned = 0;
+  const roll = () => { const g = gameDay(); if (day !== g) { day = g; used = 0; warned = 0; } };
+  const left = () => { roll(); return Math.max(0, DREAM.DAY_SEC - used); };
+  const fmt = s => { s = Math.ceil(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + '시간 ' : '') + m + '분 ' + String(x).padStart(2, '0') + '초'; };
+  const bh = () => typeof BOTHOST !== 'undefined' && BOTHOST.on(), inDream = () => SCENE !== 'town' && !!ISLE && ISLE.id === DREAM.ZID && !bh();   // 봇 호스트(24시간 서버)는 시간 제한 없음
+  function tick(dt) { const on = inDream(), T = document.getElementById('dr-timer'); if (T) T.hidden = !on; if (!on) { last = 0; return; } const now = Date.now(); if (last) used += Math.min(2, (now - last) / 1000); last = now; const L = left();
+    if (T) { T.textContent = `몽환의 섬 남은 시간 ${fmt(L)}`; T.classList.toggle('low', L <= 600); }
+    if (L <= 600 && !warned) { warned = 1; say('몽환의 섬 남은 이용 시간이 10분입니다.', '#c8a0ff'); }
+    if (L <= 0) { say(`오늘의 몽환의 섬 이용 시간(${DREAM.DAY_SEC / 3600}시간)을 모두 썼습니다. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#c8a0ff'); if (!DEATH) TOWN.goTown(); } }
+  function canEnter() { if (bh() || left() > 0) return true; say(`오늘 몽환의 섬 이용 시간(${DREAM.DAY_SEC / 3600}시간)을 모두 썼어요. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#f08a7a'); return false; }
+  return { tick, left, canEnter, fmt, dump: () => ({ d: day, u: Math.round(used) }), load(o) { if (o && typeof o === 'object') { day = String(o.d || ''); used = Math.max(0, +o.u || 0); } roll(); }, dbgSet(u) { roll(); used = Math.max(0, +u || 0); warned = 0; } }; })();
 
 // ===== 할로윈 이벤트 그림 (오리지널 · 캔버스로 직접 그림) =====
 // 호박 얼굴 (cx, cy 중심 · r 반지름 · 안에서 노랗게 빛남)
@@ -11329,7 +11341,7 @@ function frame(now){
   holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); HWM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
+  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
