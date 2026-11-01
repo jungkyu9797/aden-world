@@ -2530,6 +2530,7 @@ const MM = (() => { let on = true, op = 0.85, key = '', img = null, rect = [0, 0
       let col; if (ISLE && ISLE.def.maze) col = bl ? '#15110f' : '#5a524a'; else if (!bl) { const h = hm ? hm[j * w + i] : 0; const L = Math.min(1, h / 2.6); col = ISLE && ISLE.def.dream ? dreamMiniCol(i, j, L, false, pt) : town ? '#7a7466' : ISLE && ISLE.def.snow ? `rgb(${Math.round(196 + 40 * L)},${Math.round(212 + 30 * L)},${Math.round(228 + 20 * L)})` : ISLE && ISLE.def.gore ? `rgb(${Math.round(72 + 40 * L)},${Math.round(58 + 30 * L)},${Math.round(50 + 24 * L)})` : ISLE && ISLE.def.sand ? `rgb(${Math.round(176 + 40 * L)},${Math.round(146 + 34 * L)},${Math.round(96 + 26 * L)})` : `rgb(${Math.round(78 + 50 * L)},${Math.round(92 + 40 * L)},${Math.round(48 + 26 * L)})`; }
       else if (!(ISLE && ISLE.def.maze)) col = ISLE && ISLE.def.dream ? dreamMiniCol(i, j, 0, true, pt) : ISLE && ISLE.water && ISLE.water.has(j * 1000 + i) ? (ISLE.def.snow ? '#8ac8e8' : '#3a8ab0') : ISLE && ISLE.def.snow ? (pt === 'tree' ? '#2a4a3a' : pt === 'bonfire' ? '#ff8a3a' : pt === 'tent' || pt === 'banner' || pt === 'palisade' || pt === 'rack' ? '#4a5a8a' : '#7a8698') : ISLE && ISLE.def.gore ? (pt === 'bonfire' ? '#ff8a3a' : pt === 'deadtree' ? '#3a332c' : pt === 'rock' ? '#6a6460' : pt ? '#5a3a30' : '#2a2018') : pt === 'tree' || pt === 'palm' || pt === 'sapling' ? '#1f3a1a' : pt === 'cactus' ? '#4a7a32' : pt === 'rock' || pt === 'spire' ? '#77736a' : pt === 'bush' || pt === 'deadtree' ? '#2f4c24' : pt === 'bonfire' ? '#ff8a3a' : pt === 'tent' || pt === 'totem' || pt === 'palisade' || pt === 'banner' || pt === 'rack' || pt === 'stump' ? '#6a4a2a' : town ? '#5a4232' : ISLE && ISLE.def.sand ? '#8a6040' : ISLE && ISLE.def.forest ? '#26341a' : '#3c2e22';
       g.fillStyle = col; g.beginPath(); g.moveTo(x, y); g.lineTo(x + S, y + S / 2); g.lineTo(x, y + S); g.lineTo(x - S, y + S / 2); g.closePath(); g.fill(); }
+    if (SCENE !== 'town' && ISLE && ISLE.def.dream && ISLE.def.roads) dreamMiniRoads(g, P, S, ISLE.def);   // 11/1 2차: 몽환의 섬 속성 길 (작게 줄여도 보이게 굵은 색 줄)
     img = c; key = zkey(); fog = null; fogKey = ''; }
   // 던전 안개: 내가 본 칸만 밝힘 (지역마다 기억 · 같은 접속 동안)
   let fog = null, fogKey = '';
@@ -2935,18 +2936,21 @@ for (const k in DROP_Y) { const M = MSHEET[k]; if (!M) continue; M.ay -= DROP_Y[
 const RING = { drake: 26, drake_king: 36, phoenix: 40, fn_salamander: 30, fn_ifrit: 40 }; for (const k in RING) if (MOB[k]) MOB[k].ring = RING[k];
 { const FN_SZ = { fn_hcerberus: 0.72, fn_salamander: 0.78 }; for (const k in FN_SZ) { const M = MSHEET[k], S = MOB[k], f = FN_SZ[k]; if (!M || !S) continue; M.s *= f; M.hh = Math.max(50, Math.round(M.hh * f)); M.hw = Math.max(18, Math.round(M.hw * f)); S.sc = (S.sc || 1) * f; } }   // 화룡의 둥지: 물들인 임시 그림 크기 맞춤
 // ============================================================ 11/1 몽환의 섬 (지역 24 · dev/rooms/dream.md) — 수치는 전부 여기 DREAM 상수에서 바꿈
-//   단층 N 94 (화둥 2구역 66의 약 2배 넓이) · 가운데 안전지대(유니콘 제단) · 동 용암 / 서 설원·얼음 / 남 사막 / 북 황량한 절벽 (사분면 경계는 대각선 기준 · 2~3칸 섞임)
+//   단층 N 133 (11/1 2차: 넓이 2배 — 처음 N 94(화둥 2구역 66의 약 2배)에서 한 변 ×√2 → 화둥 2구역의 약 4배) · 가운데 안전지대(유니콘 제단 · 반지름 11 = 처음 7의 1.5배) · 동 용암 / 서 설원·얼음 / 남 사막 / 북 황량한 절벽 (사분면 경계는 대각선 기준 · 2~3칸 섞임)
 //   정령 4종(Lv60 · 근접 · 비선공) · 대정령 4종(Lv65 · 근접 + 속성 마법 · 선공 · 1.5배 크기 · 속성 오로라) — 화둥 2구역 사라만다(HP 2250 · 피해 90~143 · 경험치 14150 · 골드 3250~5200) 기준 배율
 //   자기 속성 피해 ×0.5 · 반대 속성(불↔물 · 땅↔바람) 피해 ×1.3 · 근접 공격에 속성 추가 피해(MR·속성 저항으로 줄어듦)
 //   순간이동 불가(주문서) · 귀환만 · 필드 봇 없음(nobot) · 유니콘 2시간마다 제단
 const DREAM = {
-  ZID: 24, N: 94, SEED: 2424,
-  SAFE_R: 7,          // 가운데 안전지대 반지름 (소품·용암 없음 · 유니콘 제단)
-  NO_SPAWN_R: 10,     // 가운데 반지름 10칸 안에는 정령 스폰 없음
-  EDGE_MIX: 2.5,      // 사분면 경계 섞임 폭 (칸)
-  LAVA_N: 14, LAVA_ST: 2, LAVA_DMG: [10, 16],   // 동쪽 용암 웅덩이 수 · 용암 줄기 수 · 용암 피해 (약하게 · 화산탄 없음)
-  LAKE_N: 2,          // 서쪽 얼음 호수 수
-  N_SPIRIT: 15, N_GREAT: 3,   // 사분면마다 정령 15 · 대정령 3 → 총 60 · 12 (5:1)
+  ZID: 24, N: 133, SEED: 2424,
+  SAFE_R: 11,         // 가운데 안전지대 반지름 (소품·용암 없음 · 유니콘 제단) — 11/1 2차: 7 → 11 (1.5배)
+  NO_SPAWN_R: 15,     // 가운데 반지름 15칸 안에는 정령 스폰 없음 (10 → 15)
+  EDGE_MIX: 3,        // 사분면 경계 섞임 폭 (칸)
+  LAVA_N: 28, LAVA_ST: 4, LAVA_DMG: [10, 16],   // 동쪽 용암 웅덩이 수 · 용암 줄기 수 · 용암 피해 (약하게 · 화산탄 없음) — 넓이 2배라 수도 2배
+  LAKE_N: 4,          // 서쪽 얼음 호수 수
+  HILL_PL: 4, HILL_RD: 8,   // 북쪽 절벽 고원 수 · 둥근 언덕 수
+  N_SPIRIT: 30, N_GREAT: 6,   // 사분면마다 정령 30 · 대정령 6 → 총 120 · 24 (5:1 · 넓이 2배라 밀도는 처음과 같음)
+  // 속성 길 (바닥에 구움 · 걷는 데 영향 없음): 방향마다 두 갈래 · 폭 w칸 · 갈래 중심이 축에서 lane칸(끝으로 갈수록 +spread) · 물결 amp칸 · per번 굽이 · 갈래마다 따로 wob칸 · 가장자리까지 거리의 reach만큼 · 광장 안 상감은 반지름 inR부터
+  ROAD: { w: 2.0, lane: 2.6, spread: 1.6, amp: 3.2, per: 1.15, wob: 0.8, reach: 0.7, inR: 0.36 },
   // 정령: HP ×4 · 피해 ×1.6 · 경험치 ×3 · 골드 ×3 (사라만다 기준) · mac(몹 AC): 명중 식이 레벨 차(1레벨당 5%)에 민감해서 Lv58~60이 맞힐 수 있게 사라만다(1)보다 낮게 (10에 가까울수록 잘 맞음)
   SPIRIT: { lv: 60, hp: 9000, dmg: [144, 229], mac: 6, hit: 0.95, mr: 45, exp: 42450, coin: [9750, 15600], walk: 1.1, run: 3.0, cd: 1.42, elAdd: [24, 40] },
   // 대정령: HP ×6 · 피해 ×2 · 경험치 ×6 · 골드 ×6 · 선공 6칸
@@ -3870,9 +3874,9 @@ const ISLAND = (() => {
     21: { name: '할로윈 호박밭', tier: 0, seed: 2131, N: 44, hw: true, gore: true, sites: 3, camps: 0, hills: [], portals: [], tone: 'rgba(60,20,80,.30)',
          hello: '으스스한 호박밭에 들어왔습니다... 호박 머리 허수아비로 변신했어요! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. 호박괴물을 쓰러뜨려 호박씨를 모으세요. (주는 피해 1 + 모자 강화 · 받는 피해 1 · 나가려면 귀환 주문서·귀환 부적)',
          mobs: [['hw_pumpkin', HWC.mob.hw_pumpkin.n], ['hw_pumpkin_boss', HWC.mob.hw_pumpkin_boss.n]], groups: [] },
-    // 11/1 몽환의 섬 (24 · 단층 N 94 · 가운데 안전지대·유니콘 제단 · 동 용암 / 서 설원·얼음 / 남 사막 / 북 황량한 절벽 · 순간이동 불가·귀환만 · 필드 봇 없음(nobot)) — 수치는 DREAM 상수 · mobs 3번째 값 = 스폰 사분면
+    // 11/1 몽환의 섬 (24 · 단층 N 133(11/1 2차 · 처음 94) · 가운데 안전지대·유니콘 제단 · 동 용암 / 서 설원·얼음 / 남 사막 / 북 황량한 절벽 · 순간이동 불가·귀환만 · 필드 봇 없음(nobot)) — 수치는 DREAM 상수 · mobs 3번째 값 = 스폰 사분면
     24: { name: '몽환의 섬', tier: 2, hiz: true, dream: true, nobot: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: DREAM.SEED, N: DREAM.N, hills: null, portals: [], tone: null, lavaDmg: DREAM.LAVA_DMG, shrine: { i: DREAM.N >> 1, j: DREAM.N >> 1 },
-         hello: '몽환의 섬에 들어왔습니다. 가운데 제단 둘레는 안전지대예요. 동쪽 용암 지대에는 불의 정령, 서쪽 설원에는 물의 정령, 남쪽 사막에는 땅의 정령, 북쪽 절벽에는 바람의 정령이 삽니다. 정령은 먼저 덤비지 않지만 대정령은 먼저 덤비고 속성 마법을 써요! 반대 속성(불↔물 · 땅↔바람) 무기·마법이 잘 듣고, 같은 속성은 절반밖에 안 들어요. 이곳에서는 순간이동을 할 수 없고 귀환만 됩니다. 2시간마다 가운데 제단에 유니콘이 나타나요.',
+         hello: '몽환의 섬에 들어왔습니다. 가운데 제단 둘레는 안전지대예요. 광장에서 뻗은 바닥의 색 길(빨강 = 불 · 파랑 = 물 · 잿빛 = 바람 · 모래빛 = 땅)을 따라가면 그 속성 지역이에요. 동쪽 용암 지대에는 불의 정령, 서쪽 설원에는 물의 정령, 남쪽 사막에는 땅의 정령, 북쪽 절벽에는 바람의 정령이 삽니다. 정령은 먼저 덤비지 않지만 대정령은 먼저 덤비고 속성 마법을 써요! 반대 속성(불↔물 · 땅↔바람) 무기·마법이 잘 듣고, 같은 속성은 절반밖에 안 들어요. 이곳에서는 순간이동을 할 수 없고 귀환만 됩니다. 2시간마다 가운데 제단에 유니콘이 나타나요.',
          mobs: DREAM.Q.flatMap(q => [['dr_' + DREAM.EL[q], DREAM.N_SPIRIT, q], ['dr_g' + DREAM.EL[q], DREAM.N_GREAT, q]]), groups: [] },
   };
   const ARRIVE = { 1: { town: [37, 37], 2: [8, 8] }, 2: { 1: [56, 56], town: [56, 56] }, 3: { town: [48, 48], 4: [7, 7] }, 4: { 3: [57, 57], town: [57, 57] }, 5: { town: [48, 48], 6: [7, 7] }, 6: { 5: [57, 57], town: [57, 57] }, 7: { town: [48, 48], 8: [7, 7] }, 8: { 7: [57, 57], town: [57, 57] }, 11: { town: [52, 52], 12: [7, 7] }, 12: { 11: [57, 57], town: [57, 57] }, 13: { town: [18, 27] }, 14: { town: [12, 12] }, 15: { town: [17, 8] }, 16: { town: [52, 52], 17: [7, 7] }, 17: { 16: [57, 57], 22: [7, 7], town: [57, 57] }, 22: { town: [52, 52], 17: [52, 52], 23: [7, 7] }, 23: { 22: [57, 57], town: [57, 57] }, 20: { town: [36, 64] }, 21: { town: [22, 22] } };
@@ -3885,7 +3889,7 @@ const ISLAND = (() => {
     const A = c1x * i11 + c2x * i21, C = c1x * i12 + c2x * i22, B = c1y * i11 + c2y * i21, D = c1y * i12 + c2y * i22;
     return [A, B, C, D, t0[0] - A * s0[0] - C * s0[1], t0[1] - B * s0[0] - D * s0[1]]; }
   // 바닥: 사냥터 실사 바닥(30×30 m)을 거울 반복으로 이어 붙여 이음매 없이 넓힘
-  function buildGround(d, hm) { const N = d.N || N0, sc = N > 80 ? 1.0 : N > 50 ? 1.2 : 1.5,   // 넓은 맵은 바닥 해상도를 조금 낮춰 메모리·굽는 시간 절약
+  function buildGround(d, hm) { const N = d.N || N0, sc = Math.min(N > 80 ? 1.0 : N > 50 ? 1.2 : 1.5, Math.sqrt(15e6 / ((2 * N * K + 48) * (N * K + 48)))),   // 넓은 맵은 바닥 해상도를 조금 낮춰 메모리·굽는 시간 절약 · 11/1: 캔버스 한 장 1500만 픽셀(60MB)까지 — 아이폰 사파리 한도(1677만) 아래 (몽환의 섬 N 133 → 0.72배)
  ax = N * K + 24, ay = 24, c = document.createElement('canvas');
     c.width = Math.ceil((2 * N * K + 48) * sc); c.height = Math.ceil((N * K + 48) * sc);
     const g = c.getContext('2d'), src = im.ground, sx = src.naturalWidth / GEO0.W, sy = src.naturalHeight / GEO0.H;
@@ -4293,7 +4297,7 @@ const ISLAND = (() => {
     const ex = z.mobs.find(m => m.kind === MK && !m.dead && !m.gone && !m.summoned && !m.reaper && !m.soulBoss && !(m.uid != null && isRpUid(m.uid))); if (ex) { B.ent = ex; return; }   // 호스트에게서 받은 보스가 이미 있으면 그대로
     const R = rngOf(hsh(kind + ':pos:' + n)); let p = null; const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6) && !(B.quiet && z.lava && z.lava.has(j * 1000 + i));
     for (let t = 0; t < 800 && !p; t++) { const i = 2 + Math.floor(R() * (z.N - 4)), j = 2 + Math.floor(R() * (z.N - 4)); if (ok(i, j)) p = [i, j]; } if (!p) p = [z.N >> 1, z.N >> 1];
-    if (z.hall) p = [z.hall[0], z.hall[1]]; if (z.def.shrine) p = [z.def.shrine.i, z.def.shrine.j - 2];   // 몽환의 섬: 가운데 제단 (도착 자리 바로 위 2칸)   // 던전 보스: 보스 방 가운데
+    if (z.hall) p = [z.hall[0], z.hall[1]]; if (z.def.shrine) p = [z.def.shrine.i, z.def.shrine.j - Math.round(DREAM.SAFE_R * 2 / 7)];   // 몽환의 섬: 가운데 제단 (도착 자리 바로 위 3칸 · 광장 1.5배라 2 → 3)   // 던전 보스: 보스 방 가운데
     const boss = mkMob(MK, ...p); boss.home = p; boss.uid = BUID(kind); z.mobs.push(boss); B.ent = boss;
     if (B.fam) { const grp = [boss]; boss.grp = grp; B.fam.slice(1).forEach((k2, q) => { const [a, b] = [[2, 0], [0, 2], [2, 2]][q]; let pp = [p[0] + a, p[1] + b]; if (!ok(pp[0], pp[1])) pp = [p[0] - a, p[1] - b]; if (!ok(pp[0], pp[1])) pp = p;
       const m = mkMob(k2, ...pp); m.home = pp; m.uid = BUID(kind) + 100 + q; m.leader = boss; m.grp = grp; grp.push(m); z.mobs.push(m); }); }
@@ -7249,7 +7253,7 @@ const TOWN = (() => {
     ['dragon_valley', '용의 계곡', '상급', '47~54', 900, 300, '용족이 지배하는 검붉은 협곡 (불 속성 — 물 속성 무기·마법이 잘 듭니다). 1구역(Lv 47~50): 먼저 덤비는 빠른 해골 돌격병·해골 궁수, 3마리씩 무리 지은 트롤. 2구역(Lv 50~54, 모두 선공): 와이번(독)·불 숨결을 뿜는 드레이크·드물게 번개와 토네이도를 쓰는 흑장로, 그리고 보스 드레이크 킹(약 3시간마다, 2인 이상). 용의 비늘·드레이크의 발톱·용의 심장으로 제작 장인 브론에게서 직업 무기(드래곤 슬레이어·용의 지팡이·용의 활)를 만들 수 있어요.'],
     ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(잡힌 뒤 5~6시간마다, 3~4명 · 한 번 되살아남). 1·2구역 어딘가에는 이따금 불의 정령 이프리트(중간 보스)가 알림 없이 나타나요 — 쓰러뜨리면 화룡 갑옷의 핵심 재료인 이프리트의 심장을 얻을 수 있어요. 화룡의 비늘·아시타지오의 재·피닉스의 깃털·이프리트의 심장으로 제작 장인 브론에게서 화룡 갑옷 3종(화룡의 갑옷·화룡의 로브·화룡의 가죽갑옷 · 영웅 · 직업 전용 · 화염 저항 +50)을 만들 수 있어요.'],
     ['summon_altar', '소환의 제단', '상급', '30~50', 700, 560, '영혼석으로 보스를 불러내는 고대의 제단. 몬스터는 없고, 사냥터에서 감시자 리퍼를 쓰러뜨려 얻은 [영혼석]을 제단 가까이에서 쓰면 그 보스(같은 능력치·드랍)가 나타나요. 한 번에 한 마리.'],
-    ['dream_island', '몽환의 섬', '상급', '58~65', 1090, 490, '화룡의 둥지 너머 꿈결 같은 안개에 싸인 큰 섬 (1·2구역 없는 단층 · 화룡의 둥지 2구역의 2배 넓이). 맵 한가운데 제단 둘레는 안전지대이고, 동쪽 용암 지대·서쪽 설원과 얼음 호수·남쪽 사막·북쪽 황량한 절벽에 각 속성의 정령이 삽니다. 정령(Lv60 · 근접)은 먼저 덤비지 않지만 대정령(Lv65 · 근접 + 속성 마법 · 1.5배 크기 · 속성 오로라)은 먼저 덤벼요. 정령은 같은 속성 피해를 절반만 받고 반대 속성(불↔물 · 땅↔바람)에 약해요. 정령은 축복받은 무기·갑옷 마법 주문서를 5%, 대정령은 15%에 영웅 장비 3%·퓨어엘릭서 15%를 떨어뜨려요. 퓨어엘릭서 100개는 제작 장인 브론에게서 힘·민첩·지능 엘릭서(영구 +1 · 캐릭터당 5개)로 바꿔요. 2시간마다 가운데 제단에 보스 유니콘(피닉스의 2배 · 돌진·뿔 빛기둥·치유 빛)이 나타나 축데이·축젤·퓨어엘릭서를 떨어뜨립니다. 이곳에서는 순간이동을 할 수 없고 귀환만 돼요.'],
+    ['dream_island', '몽환의 섬', '상급', '58~65', 1090, 490, '화룡의 둥지 너머 꿈결 같은 안개에 싸인 큰 섬 (1·2구역 없는 단층 · 화룡의 둥지 2구역의 약 4배 넓이). 맵 한가운데 제단 둘레는 안전지대이고, 광장에서 동서남북으로 속성 색 길(빨강·파랑·잿빛·모래빛)이 두 갈래씩 뻗어 있어요. 동쪽 용암 지대·서쪽 설원과 얼음 호수·남쪽 사막·북쪽 황량한 절벽에 각 속성의 정령이 삽니다. 정령(Lv60 · 근접)은 먼저 덤비지 않지만 대정령(Lv65 · 근접 + 속성 마법 · 1.5배 크기 · 속성 오로라)은 먼저 덤벼요. 정령은 같은 속성 피해를 절반만 받고 반대 속성(불↔물 · 땅↔바람)에 약해요. 정령은 축복받은 무기·갑옷 마법 주문서를 5%, 대정령은 15%에 영웅 장비 3%·퓨어엘릭서 15%를 떨어뜨려요. 퓨어엘릭서 100개는 제작 장인 브론에게서 힘·민첩·지능 엘릭서(영구 +1 · 캐릭터당 5개)로 바꿔요. 2시간마다 가운데 제단에 보스 유니콘(피닉스의 2배 · 돌진·뿔 빛기둥·치유 빛)이 나타나 축데이·축젤·퓨어엘릭서를 떨어뜨립니다. 이곳에서는 순간이동을 할 수 없고 귀환만 돼요.'],
     ['oren_elmore', '오렌설원지역', '상급', '40~50', 800, 130, '눈보라가 몰아치는 북쪽의 눈 덮인 설원 (수속성 — 불 속성 무기·마법이 잘 듭니다). 1구역(Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다니며 하나를 치면 무리 전체가 반격. 2구역(Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 얼어붙는 아이스 골렘, 그리고 보스 얼음여왕(약 3시간마다, 블리자드·콘 오브 콜드).'],
   ];
   // v109: 보스가 살아 있는 지역은 아이콘 위에 보스 그림과 '출현' (지도를 연 동안 5초마다 갱신)
@@ -11586,20 +11590,38 @@ function dreamQuad(N, i, j) { const C = N / 2, M = DREAM.EDGE_MIX, n1 = Math.sin
 const dreamCenter = (N, i, j) => Math.hypot(i + 0.5 - N / 2, j + 0.5 - N / 2) <= DREAM.SAFE_R;
 // 지형 준비 (한 번): 북쪽 고원 2 + 둥근 언덕 4 · 동쪽 용암 웅덩이·줄기 · 서쪽 얼음 호수 · 제단 돌기둥 8개 자리
 const dreamRng = seed => () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };   // ISLAND 안의 rng와 같은 식
+// 11/1 2차 속성 길: 가운데 광장에서 동서남북으로 두 갈래씩 구불구불 뻗은 길 (지역 시드로 정해 모두 같은 모양) — 동 불(붉은 용암 길) · 서 물(푸른 얼음 길) · 북 바람(잿빛 돌길) · 남 땅(모래빛 흙길)
+//   pts = [x, z, r(가운데에서 축 방향 거리)] 0.35칸 간격 · 광장 안(r < SAFE_R)은 돌 바닥에 상감한 색 줄 · 밖은 바닥에 구운 길 (걷는 데 영향 없음 · 몹도 설 수 있음)
+const DREAM_AX = { E: [Math.SQRT1_2, -Math.SQRT1_2], W: [-Math.SQRT1_2, Math.SQRT1_2], S: [Math.SQRT1_2, Math.SQRT1_2], N: [-Math.SQRT1_2, -Math.SQRT1_2] };
+function dreamRoads(d, N) { const C = N / 2, RD = DREAM.ROAD, SR = DREAM.SAFE_R, R = dreamRng(d.seed * 3 + 77), out = [];
+  for (const q of DREAM.Q) { const [ux, uz] = DREAM_AX[q], vx = -uz, vz = ux, edge = C * Math.SQRT2 - 3, r1 = SR + RD.reach * (edge - SR), L = r1 - SR, ph = R() * 6.283;
+    for (const k of [-1, 1]) { const ph3 = R() * 6.283, pts = [];
+      for (let r = SR * RD.inR; r <= r1 + 1e-6; r += 0.35) { const s = Math.max(0, (r - SR) / L), e = Math.min(1, Math.max(0, (r - SR) / 8)), env = e * e * (3 - 2 * e), off = k * (RD.lane + RD.spread * s) + env * (RD.amp * Math.sin(ph + s * RD.per * 6.283) + RD.wob * Math.sin(ph3 + s * RD.per * 2.3 * 6.283));
+        pts.push([C + ux * r + vx * off, C + uz * r + vz * off, r]); }
+      out.push({ q, el: DREAM.EL[q], k, pts, r1 }); } }
+  return out; }
+// 길까지 거리 (칸 중심 → 가장 가까운 길 가운데선 · 8칸 넘으면 99) · roadQ = 1 + 사분면 번호(DREAM.Q) — 소품 비우기·용암/호수/언덕 피하기·미니맵
+function dreamRoadField(d, N) { const D = new Float32Array(N * N).fill(99), Q = new Uint8Array(N * N), SR = DREAM.SAFE_R;
+  for (const rd of d.roads) { const qn = 1 + DREAM.Q.indexOf(rd.q); for (const [x, z, r] of rd.pts) { if (r < SR - 1) continue; const i0 = Math.floor(x), j0 = Math.floor(z);
+    for (let j = j0 - 8; j <= j0 + 8; j++) for (let i = i0 - 8; i <= i0 + 8; i++) { if (i < 0 || j < 0 || i >= N || j >= N) continue; const dd = Math.hypot(i + 0.5 - x, j + 0.5 - z), k = j * N + i; if (dd < D[k]) { D[k] = dd; Q[k] = qn; } } } }
+  d.roadD = D; d.roadQ = Q; }
+function dreamRoadAt(d, i, j) { const N = d.N; if (!d.roadD || i < 0 || j < 0 || i >= N || j >= N) return null; const k = j * N + i, dd = d.roadD[k]; return dd <= DREAM.ROAD.w * 0.5 ? { q: DREAM.Q[d.roadQ[k] - 1], el: DREAM.EL[DREAM.Q[d.roadQ[k] - 1]], d: dd } : null; }
 function dreamPrep(d, N) { if (d.hills) return; const C = N / 2, R = dreamRng(d.seed * 7 + 3), H = [];
-  const okAt = (x, z, r) => x > r + 5 && z > r + 5 && x < C - r - 4 && z < C - r - 4 && Math.hypot(x - C, z - C) > DREAM.NO_SPAWN_R + r + 6 && H.every(h => Math.hypot(h.x - x, h.z - z) > h.r + r + 3);
-  for (let k = 0, t = 0; k < 2 && t < 300; t++) { const r = 4 + R() * 2, x = 6 + R() * (C - 12), z = 6 + R() * (C - 12); if (!okAt(x, z, r)) continue; const a0 = R() * 6.283; H.push({ x, z, r, h: 2 + R() * 0.6, plateau: true, ramps: [[Math.cos(a0), Math.sin(a0)], [Math.cos(a0 + 2.6), Math.sin(a0 + 2.6)]] }); k++; }
-  for (let k = 0, t = 0; k < 4 && t < 300; t++) { const r = 3 + R() * 2.5, x = 5 + R() * (C - 10), z = 5 + R() * (C - 10); if (!okAt(x, z, r)) continue; H.push({ x, z, r, h: 0.8 + R() * 0.9 }); k++; }
+  d.roads = dreamRoads(d, N); dreamRoadField(d, N); const rdD = (x, z) => { const i = Math.floor(x), j = Math.floor(z); return i < 0 || j < 0 || i >= N || j >= N ? 99 : d.roadD[j * N + i]; };   // 길 위에는 언덕·용암·호수를 두지 않음
+  const okAt = (x, z, r) => x > r + 5 && z > r + 5 && x < C - r - 4 && z < C - r - 4 && Math.hypot(x - C, z - C) > DREAM.NO_SPAWN_R + r + 6 && rdD(x, z) > r + 3 && H.every(h => Math.hypot(h.x - x, h.z - z) > h.r + r + 3);
+  for (let k = 0, t = 0; k < DREAM.HILL_PL && t < 2000; t++) { const r = 4.6 + R() * 2.3, x = 6 + R() * (C - 12), z = 6 + R() * (C - 12); if (!okAt(x, z, r)) continue; const a0 = R() * 6.283; H.push({ x, z, r, h: 2 + R() * 0.6, plateau: true, ramps: [[Math.cos(a0), Math.sin(a0)], [Math.cos(a0 + 2.6), Math.sin(a0 + 2.6)]] }); k++; }
+  for (let k = 0, t = 0; k < DREAM.HILL_RD && t < 2000; t++) { const r = 3.4 + R() * 2.8, x = 5 + R() * (C - 10), z = 5 + R() * (C - 10); if (!okAt(x, z, r)) continue; H.push({ x, z, r, h: 0.8 + R() * 0.9 }); k++; }
   d.hills = H;
   const L = [], farC = (x, z, pad) => Math.hypot(x - C, z - C) > DREAM.SAFE_R + pad, inE = (x, z, m) => x > C + m && z < C - m && x < N - 4 && z > 4;
-  for (let t = 0, n = 0; t < 800 && n < DREAM.LAVA_N; t++) { const x = C + 5 + R() * (C - 9), z = 4 + R() * (C - 9), r = 1.3 + R() * 1.0; if (!inE(x, z, 5) || !farC(x, z, 6 + r) || L.some(o => Math.hypot(o.x - x, o.z - z) < o.r + r + 3.5)) continue; L.push({ x, z, r }); n++; }
-  for (let s = 0; s < DREAM.LAVA_ST; s++) for (let t = 0; t < 80; t++) { let x = C + 8 + R() * (C - 14), z = 6 + R() * (C - 14), an = R() * 6.283; const seg = []; let ok = true;
-    for (let q = 0, n = 8 + Math.floor(R() * 6); q < n; q++) { an += (R() - 0.5) * 0.7; x += Math.cos(an) * 0.9; z += Math.sin(an) * 0.9; if (!inE(x, z, 6) || !farC(x, z, 7)) { ok = false; break; } seg.push({ x, z, r: 0.75 + R() * 0.3, st: 1 }); }
+  for (let t = 0, n = 0; t < 1600 && n < DREAM.LAVA_N; t++) { const x = C + 5 + R() * (C - 9), z = 4 + R() * (C - 9), r = 1.3 + R() * 1.1; if (!inE(x, z, 5) || !farC(x, z, 6 + r) || rdD(x, z) < r + 2.6 || L.some(o => Math.hypot(o.x - x, o.z - z) < o.r + r + 3.5)) continue; L.push({ x, z, r }); n++; }
+  for (let s = 0; s < DREAM.LAVA_ST; s++) for (let t = 0; t < 120; t++) { let x = C + 8 + R() * (C - 14), z = 6 + R() * (C - 14), an = R() * 6.283; const seg = []; let ok = true;
+    for (let q = 0, n = 8 + Math.floor(R() * 7); q < n; q++) { an += (R() - 0.5) * 0.7; x += Math.cos(an) * 0.9; z += Math.sin(an) * 0.9; if (!inE(x, z, 6) || !farC(x, z, 7) || rdD(x, z) < 2.4) { ok = false; break; } seg.push({ x, z, r: 0.75 + R() * 0.3, st: 1 }); }
     if (ok && seg.length > 6) { L.push(...seg); break; } }
   d.lavaList = L;
-  const LK = []; for (let t = 0, n = 0; t < 400 && n < DREAM.LAKE_N; t++) { const x = 6 + R() * (C - 12), z = C + 6 + R() * (C - 12), r = 2.4 + R() * 1.2; if (!(x < C - 6 - r && z > C + 6 + r) || !farC(x, z, 8 + r) || LK.some(o => Math.hypot(o.x - x, o.z - z) < o.r + r + 6)) continue; LK.push({ x, z, r }); n++; }
+  const LK = []; for (let t = 0, n = 0; t < 800 && n < DREAM.LAKE_N; t++) { const x = 6 + R() * (C - 12), z = C + 6 + R() * (C - 12), r = 2.8 + R() * 1.5; if (!(x < C - 6 - r && z > C + 6 + r) || !farC(x, z, 8 + r) || rdD(x, z) < r + 3 || LK.some(o => Math.hypot(o.x - x, o.z - z) < o.r + r + 6)) continue; LK.push({ x, z, r }); n++; }
   d.lakeList = LK;
-  d.stones = []; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + Math.PI / 8; d.stones.push([Math.round(C + Math.cos(a) * 3.6 - 0.5), Math.round(C + Math.sin(a) * 3.6 - 0.5)]); } }
+  // 제단 돌기둥 8개 (반지름 SAFE_R의 0.49): 축 위 4개 = 그 방향 속성 표지석(두 갈래 상감 줄 사이) · 경계 4개 = 보통 돌기둥
+  d.stones = []; const SA = DREAM.SAFE_R * 0.49, AXE = { [-1]: 'E', 1: 'S', 3: 'W', [-3]: 'N' }; for (let k = -3; k <= 4; k++) { const a = k * Math.PI / 4, q = AXE[k]; d.stones.push([Math.round(C + Math.cos(a) * SA - 0.5), Math.round(C + Math.sin(a) * SA - 0.5), q ? DREAM.EL[q] : null]); } }
 // 칸마다 소품 (사분면별 · 가운데 안전지대는 제단 돌기둥만 · 호수는 막힘)
 function dreamTile(d, N, B, P, R, i, j, lavaT, water) { const C = N / 2, q = dreamQuad(N, i, j), dc = Math.hypot(i + 0.5 - C, j + 0.5 - C);
   if (i === 0 || j === 0 || i === N - 1 || j === N - 1) { B[j][i] = 1; if ((i + j) % 2 === 0) P.push({ type: q === 'W' ? (R() < 0.8 ? 'tree' : 'rock') : q === 'S' ? (R() < 0.6 ? 'rock' : 'cactus') : q === 'N' ? (R() < 0.6 ? 'rock' : 'deadtree') : (R() < 0.7 ? 'rock' : 'deadtree'), v: Math.floor(R() * 3), i, j, b: q }); return; }
@@ -11607,6 +11629,7 @@ function dreamTile(d, N, B, P, R, i, j, lavaT, water) { const C = N / 2, q = dre
   if (B[j][i] || lavaT.has(j * 1000 + i)) return;
   for (const o of d.lakeList || []) { const dd = Math.hypot(i + 0.5 - o.x, j + 0.5 - o.z); if (dd <= o.r) { water.add(j * 1000 + i); B[j][i] = 1; return; } if (dd <= o.r + 1.4) return; }
   if ((d.lavaList || []).some(o => Math.hypot(i + 0.5 - o.x, j + 0.5 - o.z) <= o.r + 1.2)) return;   // 용암 둘레 비움
+  if (d.roadD && d.roadD[j * N + i] < DREAM.ROAD.w * 0.5 + 0.8) return;   // 11/1 2차: 속성 길 위·가장자리는 소품 없이 비움
   const r = R(), v3 = () => Math.floor(R() * 3); let t = null;
   if (q === 'E') t = r < 0.012 ? ['deadtree', v3()] : r < 0.034 ? ['rock', v3()] : r < 0.038 ? ['bones', 0, 1] : null;
   else if (q === 'W') t = r < 0.03 ? ['tree', v3()] : r < 0.042 ? ['rock', v3()] : r < 0.05 ? ['spire', Math.floor(R() * 2)] : r < 0.058 ? ['bush', v3()] : null;
@@ -11622,8 +11645,8 @@ function dreamGround(g, d, T, sc, N, paint) { const C = N / 2, Rr = dreamRng(d.s
     for (const [w, col] of cols) { g.strokeStyle = col; g.lineWidth = w * sc; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); } };
   const BOX = { E: [C, N - 2, 2, C], W: [2, C, C, N - 2], S: [C, N - 2, C, N - 2], N: [2, C, 2, C] };
   const rnd = q => { const b = BOX[q]; for (let t = 0; t < 30; t++) { const x = b[0] + Rr() * (b[1] - b[0]), z = b[2] + Rr() * (b[3] - b[2]); if (dreamQuad(N, Math.floor(x), Math.floor(z)) === q && Math.hypot(x - C, z - C) > DREAM.SAFE_R + 1) return [x, z]; } return null; };
-  const clipQ = q => { g.beginPath(); for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { if (dreamQuad(N, i, j) !== q) continue; const a = T(i - 0.05, j - 0.05), b = T(i + 1.05, j - 0.05), c = T(i + 1.05, j + 1.05), e = T(i - 0.05, j + 1.05); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(e[0], e[1]); g.closePath(); } g.clip(); };
-  const Q = N * 0.25;   // 사분면 하나 넓이에 맞춘 무늬 개수 기준
+  const clipQ = q => { g.beginPath(); for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { if (dreamQuad(N, i, j) !== q) continue; let i1 = i; while (i1 + 1 < N && dreamQuad(N, i1 + 1, j) === q) i1++; const a = T(i - 0.05, j - 0.05), b = T(i1 + 1.05, j - 0.05), c = T(i1 + 1.05, j + 1.05), e = T(i - 0.05, j + 1.05); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(e[0], e[1]); g.closePath(); i = i1; } g.clip(); };   // 11/1 2차: 한 줄에 이어진 칸은 사각형 하나로 (N 133이라 칸마다 그리면 굽기가 느림)
+  const Q = N * N / 376;   // 사분면 하나 넓이에 맞춘 무늬 개수 기준 (N 94 → 23.5 · 11/1 2차 N 133 → 47: 넓이에 비례해 밀도 그대로)
   for (const q of DREAM.Q) { g.save(); clipQ(q); paint(FILT[q]);
     if (q === 'E') { for (let k = 0; k < Q * 1.2; k++) { const p = rnd(q); if (p) ell(p[0], p[1], 1.5 + Rr() * 3, 'rgba(8,4,2,.42)', 'rgba(8,4,2,0)'); }
       for (let k = 0; k < Q * 0.6; k++) { const p = rnd(q); if (p) ell(p[0], p[1], 0.8 + Rr() * 1.6, 'rgba(255,90,20,.12)', 'rgba(255,90,20,0)'); }
@@ -11642,13 +11665,69 @@ function dreamGround(g, d, T, sc, N, paint) { const C = N / 2, Rr = dreamRng(d.s
       for (let k = 0; k < Q * 1.4; k++) { const p = rnd(q); if (p) crack(p[0], p[1], 3 + Math.floor(Rr() * 7), [[3.2, 'rgba(0,0,0,.55)'], [1.1, 'rgba(60,58,54,.8)']]); }
       for (let k = 0; k < Q * 10; k++) { const p = rnd(q); if (!p) continue; const [px, py] = T(p[0], p[1]); g.fillStyle = ['rgba(120,116,110,.5)', 'rgba(70,68,64,.55)', 'rgba(150,146,140,.4)'][k % 3]; g.beginPath(); g.ellipse(px, py, (1.4 + Rr() * 1.6) * sc, (0.7 + Rr() * 0.8) * sc, Rr() * 3, 0, 7); g.fill(); } }
     g.restore(); }
-  // 가운데 제단 광장: 둥근 돌 바닥 + 고리 무늬 + 빛나는 룬 원
-  { const [cx, cy] = T(C, C), R0 = DREAM.SAFE_R * KS; g.save(); g.translate(cx, cy); g.scale(1, 0.5); g.beginPath(); g.arc(0, 0, R0, 0, 7); g.restore(); g.save(); g.clip(); paint('grayscale(.75) sepia(.2) brightness(.78) contrast(1.12)');
+  if (d.roads) dreamRoadPaint(g, d, N, sc, T);   // 11/1 2차: 속성 길 (광장 밖)
+  // 가운데 제단 광장 (11/1 2차: 반지름 SAFE_R 11 = 처음 7의 1.5배): 둥근 돌 바닥 + 고리·포석 이음 + 속성 상감 줄(길과 이어짐)·테두리 속성 문 + 빛나는 룬 원
+  { const [cx, cy] = T(C, C), R0 = DREAM.SAFE_R * KS, k1 = DREAM.SAFE_R / 7; g.save(); g.translate(cx, cy); g.scale(1, 0.5); g.beginPath(); g.arc(0, 0, R0, 0, 7); g.restore(); g.save(); g.clip(); paint('grayscale(.75) sepia(.2) brightness(.78) contrast(1.12)');
     g.save(); g.translate(cx, cy); g.scale(1, 0.5); let gr = g.createRadialGradient(0, 0, 0, 0, 0, R0); gr.addColorStop(0, 'rgba(190,200,220,.55)'); gr.addColorStop(0.55, 'rgba(120,130,150,.35)'); gr.addColorStop(1, 'rgba(40,44,60,.6)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R0, 0, 7); g.fill();
-    g.lineWidth = 1.4 * sc; for (const r of [0.3, 0.55, 0.78, 0.96]) { g.strokeStyle = r > 0.9 ? 'rgba(20,22,30,.7)' : 'rgba(30,34,48,.5)'; g.beginPath(); g.arc(0, 0, R0 * r, 0, 7); g.stroke(); }
-    g.strokeStyle = 'rgba(30,34,48,.4)'; g.lineWidth = 1 * sc; for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8; g.beginPath(); g.moveTo(Math.cos(a) * R0 * 0.3, Math.sin(a) * R0 * 0.3); g.lineTo(Math.cos(a) * R0 * 0.96, Math.sin(a) * R0 * 0.96); g.stroke(); }
-    gr = g.createRadialGradient(0, 0, 0, 0, 0, R0 * 0.3); gr.addColorStop(0, 'rgba(220,235,255,.75)'); gr.addColorStop(0.6, 'rgba(160,190,255,.35)'); gr.addColorStop(1, 'rgba(160,190,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R0 * 0.3, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(200,220,255,.55)'; g.lineWidth = 2 * sc; g.beginPath(); for (let k = 0; k <= 8; k++) { const a = k * Math.PI / 4 - Math.PI / 2, r = R0 * (k % 2 ? 0.1 : 0.24); k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.stroke(); g.restore(); g.restore(); } }
+    g.lineWidth = 1.4 * sc * k1; for (const r of [0.3, 0.55, 0.78, 0.96]) { g.strokeStyle = r > 0.9 ? 'rgba(20,22,30,.7)' : 'rgba(30,34,48,.5)'; g.beginPath(); g.arc(0, 0, R0 * r, 0, 7); g.stroke(); }
+    const SKIP = a => [0, Math.PI / 2, Math.PI, -Math.PI / 2].some(b => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < 0.45);   // 상감 줄 자리(화면 기준 동·남·서·북)는 이음 없이
+    g.strokeStyle = 'rgba(30,34,48,.4)'; g.lineWidth = 1 * sc * k1; for (const [r0, r1, n, o] of [[0.3, 0.55, 12, 0], [0.55, 0.78, 20, 0.5], [0.78, 0.96, 28, 0]]) for (let k = 0; k < n; k++) { const a = (k + o) * 6.283 / n; if (SKIP(a)) continue; g.beginPath(); g.moveTo(Math.cos(a) * R0 * r0, Math.sin(a) * R0 * r0); g.lineTo(Math.cos(a) * R0 * r1, Math.sin(a) * R0 * r1); g.stroke(); }
+    g.restore(); if (d.roads) dreamInlay(g, d, N, T);
+    g.save(); g.translate(cx, cy); g.scale(1, 0.5); gr = g.createRadialGradient(0, 0, 0, 0, 0, R0 * 0.3); gr.addColorStop(0, 'rgba(220,235,255,.75)'); gr.addColorStop(0.6, 'rgba(160,190,255,.35)'); gr.addColorStop(1, 'rgba(160,190,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R0 * 0.3, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(200,220,255,.55)'; g.lineWidth = 2 * sc * k1; g.beginPath(); for (let k = 0; k <= 8; k++) { const a = k * Math.PI / 4 - Math.PI / 2, r = R0 * (k % 2 ? 0.1 : 0.24); k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.stroke(); g.restore(); g.restore(); } }
+// 속성 길 굽기 (바닥 캔버스에 한 번 · 프레임마다 안 그림): 사분면마다 작은 층 캔버스에 두 갈래 — 부드러운 가장자리 바탕 → 'source-atop'으로 무늬를 길 안에만 → 끝은 둥글게 흐려지게 지우고 바닥에 얹음
+//   좌표는 칸 단위(x, z)로 그리고 등각 변환(setTransform)으로 눕힘 → 어느 방향이든 폭 2칸
+const DREAM_RDS = {
+  fire: { edge: 'rgba(24,4,2,.55)', base: ['rgba(52,9,4,.62)', 'rgba(82,16,6,.9)', 'rgba(104,24,8,.96)'], mid: 'rgba(150,40,12,.4)', mini: '#ff4a1c' },
+  water: { edge: 'rgba(16,46,92,.55)', base: ['rgba(46,100,168,.55)', 'rgba(80,146,212,.88)', 'rgba(122,186,236,.96)'], mid: 'rgba(206,238,255,.55)', mini: '#2a86ff' },
+  wind: { edge: 'rgba(14,14,16,.6)', base: ['rgba(44,44,46,.62)', 'rgba(62,62,64,.9)', 'rgba(76,76,78,.96)'], mid: null, mini: '#f0f0ea' },
+  earth: { edge: 'rgba(84,50,18,.62)', base: ['rgba(146,100,44,.62)', 'rgba(196,148,76,.9)', 'rgba(224,186,112,.96)'], mid: 'rgba(246,218,150,.5)', mini: '#ffc838' } };
+function dreamRoadPaint(g, d, N, sc, T) { const SR = DREAM.SAFE_R, W = DREAM.ROAD.w, C = N / 2, o = T(0, 0), ex = T(1, 0), ez = T(0, 1), M = [ex[0] - o[0], ex[1] - o[1], ez[0] - o[0], ez[1] - o[1], o[0], o[1]];
+  const nrm = (P, n) => { const a = P[Math.max(0, n - 1)], b = P[Math.min(P.length - 1, n + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [-dz / l, dx / l]; };
+  const at = (P, n, of) => { const [nx, nz] = nrm(P, n); return [P[n][0] + nx * of, P[n][1] + nz * of]; }, offs = (P, of) => P.map((p, n) => at(P, n, of));
+  for (const q of DREAM.Q) { const RS = d.roads.filter(r => r.q === q); if (!RS.length) continue; const el = RS[0].el, st = DREAM_RDS[el], r1 = RS[0].r1, Rr = dreamRng(d.seed * 11 + DREAM.Q.indexOf(q) * 97), lanes = RS.map(r => r.pts.filter(p => p[2] >= SR - 1.4));
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const P of lanes) for (const [x, z] of P) { const [px, py] = T(x, z); if (px < x0) x0 = px; if (py < y0) y0 = py; if (px > x1) x1 = px; if (py > y1) y1 = py; }
+    const pad = 3 * K * sc; x0 = Math.floor(x0 - pad); y0 = Math.floor(y0 - pad); x1 = Math.ceil(x1 + pad); y1 = Math.ceil(y1 + pad);
+    const c = document.createElement('canvas'); c.width = Math.max(1, x1 - x0); c.height = Math.max(1, y1 - y0); const L = c.getContext('2d'); L.setTransform(M[0], M[1], M[2], M[3], M[4] - x0, M[5] - y0); L.lineCap = 'round'; L.lineJoin = 'round';
+    const stroke = (P, w, col) => { L.strokeStyle = col; L.lineWidth = w; L.beginPath(); P.forEach((p, n) => n ? L.lineTo(p[0], p[1]) : L.moveTo(p[0], p[1])); L.stroke(); };
+    const blob = (x, z, rx, rz, col) => { L.fillStyle = col; L.beginPath(); L.ellipse(x, z, rx, rz, Rr() * 3, 0, 7); L.fill(); }, jit = s => (Rr() - 0.5) * s;
+    const twig = (x, z, a, n, step, bend) => { const pts = [[x, z]]; for (let s = 0; s < n; s++) { a += jit(bend); x += Math.cos(a) * step; z += Math.sin(a) * step; pts.push([x, z]); } return pts; };
+    for (const P of lanes) { stroke(P, W * 1.34, st.edge); stroke(P, W * 1.17, st.base[0]); stroke(P, W * 1.0, st.base[1]); stroke(P, W * 0.86, st.base[2]); if (st.mid) stroke(P, W * 0.48, st.mid); }   // 바탕 (넓은 것부터 겹쳐 가장자리가 부드럽게)
+    L.globalCompositeOperation = 'source-atop';   // 아래 무늬는 길 안에만
+    for (const P of lanes) {
+      if (el === 'fire') {   // 불: 검붉은 현무암 길 + 빛나는 용암 금(길 따라 지그재그 · 짧은 가지) + 불씨
+        for (let n = 0; n < P.length; n += 2) if (Rr() < 0.55) blob(P[n][0] + jit(1.6), P[n][1] + jit(1.6), 0.25 + Rr() * 0.45, 0.18 + Rr() * 0.3, `rgba(14,3,1,${(0.25 + Rr() * 0.3).toFixed(2)})`);
+        let of = 0; const CP = P.map((p, n) => { of = Math.max(-0.5, Math.min(0.5, of + jit(0.38))); return at(P, n, of); });
+        for (const [w, col] of [[0.6, 'rgba(255,70,10,.16)'], [0.2, 'rgba(255,118,30,.8)'], [0.07, 'rgba(255,236,160,.96)']]) stroke(CP, w, col);
+        for (let n = 3; n < P.length - 3; n += 3) if (Rr() < 0.6) { const [nx, nz] = nrm(P, n), s = Rr() < 0.5 ? 1 : -1, tw = twig(CP[n][0], CP[n][1], Math.atan2(nz * s, nx * s) + jit(1.4), 3, 0.24, 0.9); for (const [w, col] of [[0.32, 'rgba(255,80,10,.2)'], [0.11, 'rgba(255,140,40,.8)'], [0.045, 'rgba(255,230,150,.9)']]) stroke(tw, w, col); }
+        for (const s of [-1, 1]) stroke(offs(P, s * W * 0.45), 0.1, 'rgba(255,110,40,.32)');
+        for (let n = 0; n < P.length; n++) if (Rr() < 0.65) { L.fillStyle = `rgba(255,${150 + Rr() * 80 | 0},60,${(0.5 + Rr() * 0.4).toFixed(2)})`; L.beginPath(); L.arc(P[n][0] + jit(1.7), P[n][1] + jit(1.7), 0.03 + Rr() * 0.05, 0, 7); L.fill(); } }
+      else if (el === 'water') {   // 물: 푸른 얼음 길 + 깊은 얼음 얼룩 · 서리 낀 가장자리 · 반짝이는 결 · 하얀 얼음 금 · 서리 알갱이
+        for (let n = 0; n < P.length; n += 2) if (Rr() < 0.5) blob(P[n][0] + jit(1.4), P[n][1] + jit(1.4), 0.3 + Rr() * 0.5, 0.2 + Rr() * 0.3, `rgba(36,90,156,${(0.18 + Rr() * 0.22).toFixed(2)})`);
+        for (const s of [-1, 1]) { stroke(offs(P, s * W * 0.44), 0.2, 'rgba(244,252,255,.55)'); stroke(offs(P, s * W * 0.36), 0.06, 'rgba(255,255,255,.4)'); }
+        for (let n = 0; n < P.length; n++) if (Rr() < 0.7) { const x = P[n][0] + jit(1.4), z = P[n][1] + jit(1.4), a = Rr() * 6.283, l = 0.15 + Rr() * 0.35; stroke([[x, z], [x + Math.cos(a) * l, z + Math.sin(a) * l]], 0.06, 'rgba(235,250,255,.6)'); }
+        for (let n = 0; n < P.length; n += 4) if (Rr() < 0.65) stroke(twig(P[n][0] + jit(1.2), P[n][1] + jit(1.2), Rr() * 6.283, 4, 0.3, 1.4), 0.035, 'rgba(255,255,255,.78)');
+        for (let n = 0; n < P.length * 6; n++) { const p = P[n % P.length]; L.fillStyle = `rgba(255,255,255,${(0.4 + Rr() * 0.5).toFixed(2)})`; L.fillRect(p[0] + jit(2), p[1] + jit(2), 0.05, 0.05); } }
+      else if (el === 'wind') {   // 바람: 잿빛 포석 길 (돌판 3줄 · 가운데는 닳아 밝음) + 먼지
+        for (let n = 0; n < P.length; n += 2) for (const o2 of [-0.62, 0, 0.62]) { const [x, z] = at(P, n, o2 + jit(0.12)), r = 0.27 + Rr() * 0.08, sd = 5 + (Rr() * 2 | 0), a0 = Rr() * 6.283, v = 142 + Rr() * 44 | 0, wn = Math.abs(o2) < 0.1 ? 20 : 0;
+          L.fillStyle = `rgb(${v + wn},${v + wn},${v - 3 + wn})`; L.beginPath(); for (let s = 0; s < sd; s++) { const a = a0 + s / sd * 6.283, rr = r * (0.82 + Rr() * 0.3); s ? L.lineTo(x + Math.cos(a) * rr, z + Math.sin(a) * rr) : L.moveTo(x + Math.cos(a) * rr, z + Math.sin(a) * rr); } L.closePath(); L.fill();
+          L.fillStyle = 'rgba(255,255,255,.13)'; L.beginPath(); L.ellipse(x - 0.05, z - 0.05, r * 0.55, r * 0.4, 0, 0, 7); L.fill(); if (Rr() < 0.25) stroke(twig(x + jit(0.2), z + jit(0.2), Rr() * 6.283, 2, 0.12, 1), 0.03, 'rgba(40,40,40,.6)'); }
+        for (let n = 0; n < P.length * 3; n++) { const p = P[n % P.length]; L.fillStyle = `rgba(${Rr() < 0.5 ? '40,40,40' : '225,225,220'},${(0.15 + Rr() * 0.2).toFixed(2)})`; L.beginPath(); L.arc(p[0] + jit(2), p[1] + jit(2), 0.03 + Rr() * 0.04, 0, 7); L.fill(); } }
+      else {   // 땅: 모래빛 다져진 흙길 + 얼룩 · 발자국 자국 두 줄 · 마른 흙 갈라짐 · 자갈 · 진한 가장자리
+        for (let n = 0; n < P.length; n += 2) if (Rr() < 0.45) blob(P[n][0] + jit(1.4), P[n][1] + jit(1.4), 0.3 + Rr() * 0.5, 0.2 + Rr() * 0.3, `rgba(${Rr() < 0.5 ? '150,104,52' : '248,224,168'},${(0.18 + Rr() * 0.2).toFixed(2)})`);
+        for (const s of [-1, 1]) { stroke(offs(P, s * 0.42), 0.2, 'rgba(126,84,38,.45)'); stroke(offs(P, s * 0.42 + 0.09), 0.06, 'rgba(255,238,190,.38)'); stroke(offs(P, s * W * 0.47), 0.13, 'rgba(104,64,26,.5)'); }
+        for (let n = 0; n < P.length; n += 3) if (Rr() < 0.5) stroke(twig(P[n][0] + jit(1.3), P[n][1] + jit(1.3), Rr() * 6.283, 3, 0.25, 1.6), 0.045, 'rgba(110,70,30,.55)');
+        for (let n = 0; n < P.length * 2; n++) { const p = P[n % P.length], x = p[0] + jit(1.8), z = p[1] + jit(1.8), r = 0.04 + Rr() * 0.06; L.fillStyle = 'rgba(96,66,34,.7)'; L.beginPath(); L.ellipse(x, z, r, r * 0.8, 0, 0, 7); L.fill(); L.fillStyle = 'rgba(250,230,190,.6)'; L.beginPath(); L.ellipse(x - r * 0.3, z - r * 0.3, r * 0.45, r * 0.35, 0, 0, 7); L.fill(); } } }
+    L.globalCompositeOperation = 'destination-out'; const gr = L.createRadialGradient(C, C, r1 - 12, C, C, r1 + 1.5); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)'); L.fillStyle = gr; L.fillRect(C - N, C - N, 2 * N, 2 * N);   // 끝: 바깥으로 갈수록 흐려짐
+    g.drawImage(c, x0, y0); } }
+// 광장 안 속성 상감 줄 (길과 이어짐 · 돌 테두리 + 색 줄 + 밝은 심 + 마름모 룬) · 광장 가장자리의 속성 문(두 갈래 사이 색 띠)
+const DREAM_INL = { fire: ['#3a0a04', '#d0441a', 'rgba(255,206,120,.95)'], water: ['#0e2a50', '#3a8ee0', 'rgba(224,246,255,.95)'], wind: ['#1c1c20', '#b8bcc0', 'rgba(244,248,252,.85)'], earth: ['#4a3010', '#d8a848', 'rgba(255,240,180,.9)'] };
+function dreamInlay(g, d, N, T) { const SR = DREAM.SAFE_R, C = N / 2, o = T(0, 0), ex = T(1, 0), ez = T(0, 1); g.save(); g.setTransform(ex[0] - o[0], ex[1] - o[1], ez[0] - o[0], ez[1] - o[1], o[0], o[1]); g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const rd of d.roads) { const P = rd.pts.filter(p => p[2] <= SR + 0.6), c = DREAM_INL[rd.el]; if (P.length < 2) continue; const st = (w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); P.forEach((p, n) => n ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); };
+    st(1.0, 'rgba(12,14,20,.7)'); st(0.78, c[0]); st(0.58, c[1]); st(0.15, c[2]);
+    for (let n = 4; n < P.length - 1; n += 5) { const [x, z] = P[n]; g.fillStyle = c[2]; g.beginPath(); g.moveTo(x - 0.2, z); g.lineTo(x, z - 0.2); g.lineTo(x + 0.2, z); g.lineTo(x, z + 0.2); g.closePath(); g.fill(); } }
+  for (const q of DREAM.Q) { const [ux, uz] = DREAM_AX[q], a0 = Math.atan2(uz, ux), c = DREAM_INL[DREAM.EL[q]]; for (const [w, col] of [[0.95, 'rgba(12,14,20,.65)'], [0.66, c[1]], [0.16, c[2]]]) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.arc(C, C, SR - 0.55, a0 - 0.44, a0 + 0.44); g.stroke(); } }
+  g.restore(); }
 // 소품 그림: 사분면 색으로 물들인 기존 소품 (한 번 만들어 저장) · 동쪽 고목 자리는 흑요석 기둥
 const DRPC = {}, DREAM_PF = { E: 'sepia(.6) hue-rotate(-30deg) saturate(1.5) brightness(.5) contrast(1.35)', W: 'grayscale(.85) brightness(1.45) sepia(.25) hue-rotate(170deg) saturate(1.6) contrast(.95)', S: 'sepia(.6) saturate(.9) brightness(1.15) contrast(.98)', N: 'grayscale(.95) brightness(.72) contrast(1.25) sepia(.1)' };
 function dreamPropImg(p) { const q = p.b || dreamQuad(ISLE.N, p.i, p.j), key = q + p.type + p.v; if (DRPC[key] !== undefined) return DRPC[key]; let pc;
@@ -11661,15 +11740,22 @@ function dreamDrawProp(g, p, x, y, fade) { const r = dreamPropImg(p); if (!r) re
 const DREAM_SHR = { t: -9, alive: false, soon: false };
 function dreamShrineDraw(list, g) { const Sh = ISLE.def.shrine, [cx, cy] = W2P(Sh.i + 0.5, Sh.j + 0.5), st = DREAM_SHR;
   if (time - st.t > 1) { st.t = time; try { const v = ISLAND.bossTimers().unicorn; st.alive = v === 'alive'; st.soon = typeof v === 'number' && v < 60; } catch (e) {} }
-  list.push({ d: Sh.i + Sh.j - 6, f: () => { const pu = 0.5 + 0.5 * Math.sin(time * (st.soon ? 6 : 1.5)); g.save(); g.globalCompositeOperation = 'lighter'; mxG(g, '200,220,255', cx, cy, 60 + pu * 10, 0.16 + pu * 0.12 + (st.alive ? 0.15 : 0), 0.5); g.strokeStyle = `rgba(220,235,255,${(0.3 + pu * 0.3).toFixed(2)})`; g.lineWidth = 2; g.beginPath(); g.ellipse(cx, cy, 52, 26, 0, 0, 7); g.stroke();
-    for (let k = 0; k < 8; k++) { const a = time * 0.4 + k * Math.PI / 4, x = cx + Math.cos(a) * 44, y = cy + Math.sin(a) * 22; g.fillStyle = `rgba(230,240,255,${(0.45 + 0.45 * Math.sin(time * 3 + k)).toFixed(2)})`; g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + 3, y); g.lineTo(x, y + 4); g.lineTo(x - 3, y); g.closePath(); g.fill(); } g.restore(); } });
-  for (const [i, j] of ISLE.def.stones || []) { const [x, y] = W2P(i + 0.5, j + 0.5); list.push({ d: i + j + 1, f: () => dreamStone(g, x, y, i * 3 + j) }); } }
-function dreamStone(g, x, y, sd) { g.save(); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(x, y + 1, 12, 5, 0, 0, 7); g.fill(); const h = 44 + (sd % 3) * 6, w = 9, gr = g.createLinearGradient(x - w, 0, x + w, 0); gr.addColorStop(0, '#8a90a0'); gr.addColorStop(0.5, '#c8ccd8'); gr.addColorStop(1, '#5a6070'); g.fillStyle = gr;
+  const k1 = DREAM.SAFE_R / 7;   // 11/1 2차: 광장 1.5배 → 빛 고리·룬도 1.5배
+  list.push({ d: Sh.i + Sh.j - 6, f: () => { const pu = 0.5 + 0.5 * Math.sin(time * (st.soon ? 6 : 1.5)); g.save(); g.globalCompositeOperation = 'lighter'; mxG(g, '200,220,255', cx, cy, (60 + pu * 10) * k1, 0.16 + pu * 0.12 + (st.alive ? 0.15 : 0), 0.5); g.strokeStyle = `rgba(220,235,255,${(0.3 + pu * 0.3).toFixed(2)})`; g.lineWidth = 2; g.beginPath(); g.ellipse(cx, cy, 52 * k1, 26 * k1, 0, 0, 7); g.stroke();
+    for (let k = 0; k < 12; k++) { const a = time * 0.4 + k * Math.PI / 6, x = cx + Math.cos(a) * 44 * k1, y = cy + Math.sin(a) * 22 * k1; g.fillStyle = `rgba(230,240,255,${(0.45 + 0.45 * Math.sin(time * 3 + k)).toFixed(2)})`; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 3.5, y); g.lineTo(x, y + 5); g.lineTo(x - 3.5, y); g.closePath(); g.fill(); } g.restore(); } });
+  for (const [i, j, el] of ISLE.def.stones || []) { const [x, y] = W2P(i + 0.5, j + 0.5); list.push({ d: i + j + 1, f: () => dreamStone(g, x, y, i * 3 + j, el) }); } }
+const DREAM_STC = { fire: '255,140,70', water: '120,190,255', wind: '230,240,245', earth: '245,205,120' };   // 속성 표지석 빛
+function dreamStone(g, x, y, sd, el) { const SC = (el && DREAM_STC[el]) || '160,210,255'; g.save(); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(x, y + 1, 12, 5, 0, 0, 7); g.fill(); const h = 44 + (sd % 3) * 6, w = 9, gr = g.createLinearGradient(x - w, 0, x + w, 0); gr.addColorStop(0, '#8a90a0'); gr.addColorStop(0.5, '#c8ccd8'); gr.addColorStop(1, '#5a6070'); g.fillStyle = gr;
   g.beginPath(); g.moveTo(x - w, y); g.lineTo(x - w + 1.5, y - h * 0.7); g.lineTo(x - 3, y - h); g.lineTo(x + 4, y - h + 2); g.lineTo(x + w - 1, y - h * 0.6); g.lineTo(x + w, y); g.closePath(); g.fill(); g.strokeStyle = '#2a2e3a'; g.lineWidth = 1; g.stroke();
-  const pu = 0.5 + 0.5 * Math.sin(time * 2 + sd); g.strokeStyle = `rgba(160,210,255,${(0.4 + 0.5 * pu).toFixed(2)})`; g.lineWidth = 1.5; g.lineJoin = 'round'; g.beginPath(); g.moveTo(x - 2, y - h * 0.75); g.lineTo(x + 2, y - h * 0.6); g.lineTo(x - 1, y - h * 0.45); g.lineTo(x + 2, y - h * 0.3); g.stroke();
-  g.globalCompositeOperation = 'lighter'; mxG(g, '160,210,255', x, y - h * 0.5, 14, 0.2 + 0.2 * pu, 1); g.restore(); }
+  const pu = 0.5 + 0.5 * Math.sin(time * 2 + sd); g.strokeStyle = `rgba(${SC},${(0.4 + 0.5 * pu).toFixed(2)})`; g.lineWidth = el ? 2 : 1.5; g.lineJoin = 'round'; g.beginPath(); g.moveTo(x - 2, y - h * 0.75); g.lineTo(x + 2, y - h * 0.6); g.lineTo(x - 1, y - h * 0.45); g.lineTo(x + 2, y - h * 0.3); g.stroke();
+  g.globalCompositeOperation = 'lighter'; mxG(g, SC, x, y - h * 0.5, el ? 18 : 14, (el ? 0.28 : 0.2) + 0.2 * pu, 1); if (el) mxG(g, SC, x, y - h - 4, 9, 0.35 + 0.3 * pu, 1); g.restore(); }
+// 미니맵 속성 길: 칸 단위 색 위에 굵은 색 줄 (미니맵은 폭 132px로 줄여 그려서 2칸 길은 1px도 안 됨)
+function dreamMiniRoads(g, P, S, d) { g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const pass of [0, 1]) for (const rd of d.roads) { const pts = rd.pts.filter(p => p[2] >= DREAM.SAFE_R * DREAM.ROAD.inR && p[2] <= rd.r1 - 3); g.strokeStyle = pass ? DREAM_RDS[rd.el].mini : 'rgba(10,8,6,.75)'; g.lineWidth = S * (pass ? 2.6 : 4.2); g.beginPath(); pts.forEach((p, n) => { const [x, y] = P(p[0] - 0.5, p[1] - 0.5); n ? g.lineTo(x, y + S / 2) : g.moveTo(x, y + S / 2); }); g.stroke(); }
+  g.restore(); }
 // 미니맵 색 (사분면 · 용암 · 호수 · 제단)
 function dreamMiniCol(i, j, L, blk, pt) { const N = ISLE.N, C = N / 2; if (Math.hypot(i + 0.5 - C, j + 0.5 - C) <= DREAM.SAFE_R) return blk ? '#5a6478' : '#9aa0b0'; const q = dreamQuad(N, i, j);
+  if (!blk) { const rd = dreamRoadAt(ISLE.def, i, j); if (rd) return DREAM_RDS[rd.el].mini; }   // 11/1 2차: 속성 길
   if (!blk) { if (ISLE.lava && ISLE.lava.has(j * 1000 + i)) return '#ff7a2a'; const b = Math.round(50 * L); return q === 'E' ? `rgb(${90 + b},${40 + b},${30 + b})` : q === 'W' ? `rgb(${200 + (b >> 1)},${214 + (b >> 2)},230)` : q === 'S' ? `rgb(${182 + b},${150 + b},${98 + b})` : `rgb(${78 + b},${76 + b},${72 + b})`; }
   if (ISLE.water && ISLE.water.has(j * 1000 + i)) return '#8ac8e8';
   return q === 'E' ? (pt === 'deadtree' ? '#1a1020' : '#3a1a14') : q === 'W' ? (pt === 'tree' ? '#2a4a3a' : '#7a8698') : q === 'S' ? (pt === 'cactus' ? '#4a7a32' : '#8a6040') : '#3a3834'; }
