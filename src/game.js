@@ -8536,7 +8536,7 @@ let COLO_LOCK = false;   // 입장 대기 중: 채팅만 가능
 const COLO = (() => {
   const $ = id => document.getElementById(id), ZID = 14, ZK = 'isle14', PRICE = 100, DAY_MAX = 3;   // DAY_MAX: 계정마다 하루 입장권 (11/1: 캐릭터마다 하루 1번 입장이라 3직업 몫)
   const WAVES = { 1: [[1, 2], [3, 4], [5, 6]], 2: [[7, 8], [9, 10], [11, 12]] }, REG = { 1: '이야기섬', 3: '사막필드', 5: '오크숲', 7: '버그베어밭', 9: '본토던전', 11: '오렌설원' };
-  const WAVE_N = 15, ROUND_T = 1800, CD_T = 10, CLEAR_T = 5, END_T = 0, AUTO_OUT = 60, LOOT_T = 30, ENT_MAX = 1, POT_N = 50, BOSSES = ['deathknight', 'ice_queen'], GATES = [Math.PI, Math.PI * 1.25, Math.PI * 1.5];
+  const WAVE_N = 15, ROUND_T = 1800, CD_T = 10, CLEAR_T = 5, END_T = 0, AUTO_OUT = 60, LOOT_T = 300, ENT_MAX = 1, POT_N = 50, BOSSES = ['deathknight', 'ice_queen'], GATES = [Math.PI, Math.PI * 1.25, Math.PI * 1.5];
   const POOL = () => Object.keys(ITEMS).filter(k => /^gaho_/.test(k) && ITEMS[k].gaho && MOB[ITEMS[k].gaho] && MOB[ITEMS[k].gaho].boss).map(k => ITEMS[k].gaho);   // 가호를 주는 보스 (셸로브·여왕개미·오우거·바포메트·데스나이트·얼음여왕·드레이크 킹·피닉스 …)
   let ent = { n: 0, d: '' }; const entToday = () => ent.d === gameDay() ? ent.n : 0;   // 캐릭터마다 오늘 입장 수 (캐릭터 저장)
   let rec = { n: 0, d: '' }, wait = false, pend = null, csOut = null, csClearAt = 0, S = null, lastKey = '', lastW = 0, coRef = null, deadAll = 0, banner = null, cheerT = 0, lockT = 0, uiT = 0, aggT = 0;
@@ -8651,7 +8651,8 @@ const COLO = (() => {
     if (ph === 'cd') { banner = null; if (S.cl) { banner = { t0: time, dur: 3.2, big: `${S.cl}라운드 클리어!`, sub: '바닥의 주홍·맑은 물약을 주우세요', col: '#ffe070' }; cheerT = 4; fan('win'); if (S.msg) say('[콜로세움] ' + S.msg, '#ffd86a'); } say(`10초 후에 ${r}라운드(보스 ${r}마리)가 시작됩니다!`, '#ffd86a'); }
     else if (ph === 'fight') { banner = { t0: time, dur: 2.8, big: `${r}라운드 · 보스 ${r}마리!`, sub: `${bossName()} — 30분 안에 모두 쓰러뜨리세요!`, col: '#ffd86a' }; fan('go'); shake = Math.max(shake, 0.4 + 0.15 * r); say(`[콜로세움] ${r}라운드: ${bossName()} 등장! (30분)`, '#ffd86a'); }
     else if (ph === 'clear') { banner = { t0: time, dur: 4.6, big: S.pf ? '퍼펙트 클리어!' : '생존 클리어!', sub: S.pf ? '모든 몬스터 처치 — 보상 1.5배!' : '5분을 버텨 냈습니다!', col: S.pf ? '#ffe070' : '#9fe0ff' }; cheerT = 5; fan('win'); if (S.msg) say('[콜로세움] ' + S.msg, '#ffd86a'); }
-    else if (ph === 'win') { banner = { t0: time, dur: 4.6, big: '콜로세움 클리어!', sub: `3라운드까지 모두 쓰러뜨렸습니다! ${LOOT_T}초 동안 전리품을 주우세요`, col: '#ffe070' }; cheerT = 6; fan('win'); if (S.msg) say('[콜로세움] ' + S.msg, '#ffd86a'); }
+    else if (ph === 'win') { banner = { t0: time, dur: 4.6, big: '콜로세움 클리어!', sub: `3라운드까지 모두 쓰러뜨렸습니다! ${Math.round(LOOT_T / 60)}분 뒤 자동 퇴장 — 전리품을 주우세요`, col: '#ffe070' }; cheerT = 6; fan('win'); if (S.msg) say('[콜로세움] ' + S.msg, '#ffd86a');
+      say(`[콜로세움] 3라운드 클리어! ${Math.round(LOOT_T / 60)}분 뒤 자동으로 퇴장합니다. 바닥의 전리품을 주우세요. (먼저 나가려면 [퇴장])`, '#ffe070'); setTimeout(() => { try { centerNote('콜로세움 클리어!', `${Math.round(LOOT_T / 60)}분 뒤 자동으로 퇴장합니다 · 바닥의 전리품을 주우세요`, '#ffe070', 5000); } catch (e) {} }, 4700); }   // 11/1: 배너가 끝난 뒤 가운데 안내
     else if (ph === 'fail') { banner = { t0: time, dur: 4.6, big: '실패!', sub: S.why === 'time' ? `제한 시간 30분 안에 보스를 모두 쓰러뜨리지 못했습니다` : '모두 쓰러졌습니다...', col: '#ff6a5a' }; fan('fail'); }
     else if (ph === 'end') { banner = null; say(`콜로세움이 끝났습니다. [퇴장]을 누르세요. (${AUTO_OUT}초 뒤 자동 퇴장)`, '#ffd86a'); } }
   function onWave() { const pair = WAVES[S.r] && WAVES[S.r][S.w - 1]; if (!pair || S.w <= 1) return; banner = { t0: time, dur: 2.4, big: `${S.w}웨이브`, sub: `${REG[pair[0]]} 몬스터가 몰려옵니다!`, col: '#ffb070' }; fan('wave'); say(`[콜로세움] ${S.w}웨이브: ${REG[pair[0]]} 몬스터가 몰려옵니다!`, '#ffb070'); }
@@ -8662,6 +8663,7 @@ const COLO = (() => {
     if (S.w !== lastW) { if (S.w > lastW && S.ph === 'fight' && S.r < 3) onWave(); lastW = S.w; }
     if (S.ph === 'cd') { const L = Math.ceil(CD_T - S.t); if (L >= 1 && L <= 3 && L !== S._bp) { S._bp = L; fan('beep'); } }
     exitBtn(S.ph === 'end' || S.ph === 'win' || S.ph === 'fail'); if ((S.ph === 'end' && S.t >= AUTO_OUT) || (S.ph === 'win' && S.t >= LOOT_T)) exit(true);
+    if (S.ph === 'win') { const lf = LOOT_T - S.t; for (const [k, sec, big] of [['_w60', 60, '1분 뒤 자동 퇴장'], ['_w10', 10, '10초 뒤 자동 퇴장']]) if (lf <= sec && lf > 0 && !S[k]) { S[k] = 1; say(`[콜로세움] ${big}합니다. 남은 전리품을 주우세요.`, '#ffe070'); try { centerNote(big, '남은 전리품을 주우세요', '#ffe070', 3500); } catch (e) {} } }   // 11/1: 퇴장 1분·10초 전 안내
     if (S.gk && S.gk.length) for (const g of S.gk) gotGaho(g); }
   function exitBtn(show) { let b = $('colo-exit'); if (!show) { if (b && !b.hidden) b.hidden = true; return; }
     if (!b) { b = document.createElement('button'); b.type = 'button'; b.id = 'colo-exit'; b.innerHTML = '🏁 퇴장 <small>마을로 돌아가기</small>'; b.addEventListener('pointerdown', ev => ev.stopPropagation()); b.onclick = () => exit(false); document.body.appendChild(b); }
@@ -8672,7 +8674,7 @@ const COLO = (() => {
     if (sub) { g.font = '800 15px "Noto Sans KR",sans-serif'; g.lineWidth = 4; g.strokeText(sub, 0, 28); g.fillStyle = '#f2e6c8'; g.fillText(sub, 0, 28); } g.restore(); }
   function hudTxt() { const ph = S.ph, r = S.r, left = Math.max(0, (ph === 'fight' ? ROUND_T : ph === 'cd' ? CD_T : ph === 'win' ? LOOT_T : ph === 'end' ? END_T : CLEAR_T) - S.t); let txt;
     if (ph === 'fight') txt = `⚔ 콜로세움 ${r}라운드 · 보스 ${S.n}/${S.bs || r} (${bossName()}) · 남은 시간 ${mmss(left)}`;
-    else if (ph === 'cd') txt = `⚔ 콜로세움 · ${r}라운드(보스 ${r}마리) 준비`; else if (ph === 'clear') txt = `⚔ 콜로세움 · ${r}라운드 클리어`; else if (ph === 'win') txt = `⚔ 콜로세움 클리어! · ${Math.ceil(left)}초 뒤 자동 퇴장 (전리품을 주우세요)`; else if (ph === 'fail') txt = '⚔ 콜로세움 · 실패 · [퇴장]을 누르세요';
+    else if (ph === 'cd') txt = `⚔ 콜로세움 · ${r}라운드(보스 ${r}마리) 준비`; else if (ph === 'clear') txt = `⚔ 콜로세움 · ${r}라운드 클리어`; else if (ph === 'win') txt = `⚔ 콜로세움 클리어! · ${mmss(left)} 뒤 자동 퇴장 (전리품을 주우세요)`; else if (ph === 'fail') txt = '⚔ 콜로세움 · 실패 · [퇴장]을 누르세요';
     else txt = `⚔ 콜로세움 종료 · [퇴장]을 누르세요${S.t < AUTO_OUT ? ` (${Math.ceil(AUTO_OUT - S.t)}초 뒤 자동 퇴장)` : ''}`;
     return { txt, left, ph, low: ph === 'fight' && left < 300 }; }
   function draw(g, vw, vh) { if (!S || !inArena()) return; let top = BOSSBAR_LY;
