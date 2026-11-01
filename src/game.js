@@ -9796,6 +9796,8 @@ const FBOT = (() => {
     const users = 1 + NET.others().length, left = Math.max(0, Math.ceil((P.next - Date.now()) / 60000));
     const src = R.src === 'cloud' ? `다음 갱신 ${kHM(slotStart(SN.slot + 1))}${SN.from === 'chars' ? ' · 서버 캐릭터' + (CH.n ? ` ${CH.n}명` : '') + ' 중 1등' : ''}` : R.src === 'prev' ? '지난 사진 · 새 사진 기다리는 중' : R.src === 'test' ? '테스트' : '실시간 기준 · 서버 저장 안 됨';   // v204: 복사한 캐릭터 · 사진 출처
     say(`[혈맹] 반왕 혈맹: 유저 ${users}명 + 봇 ${NB.A}명 · 라인 혈맹: 봇 ${NB.B}명 · 봇 복사: ${R.n || '나'} Lv.${R.lv} ${CLASS_NAME[R.copy.c] || ''} (${src}) · 세기 반왕 65~100% · 라인 65~95%`, '#ffd28a', 1);
+    { const st = !cloudOn() ? '안 함 — 계정 서버로 로그인하지 않았어요' : ADMIN.on() ? '안 함 — 운영자 모드' : meBh() ? '안 함 — 봇 호스트' : CH.mode === 'on' ? `됨 (${kHM(CH.at)} · ${CH.writes}번 · 바뀌면 3분마다)` : CH.mode === 'fail' ? `실패 — ${/403|PERMISSION/i.test(CH.err) ? '파이어베이스 규칙(worldbot_chars) 확인 필요' : CH.err}` : '곧 저장해요';   // 11/1: 서버 저장이 되는지 게임 안에서 바로 확인
+      say(`[혈맹] 내 캐릭터 서버 저장(worldbot_chars): ${st} · 서버 캐릭터 목록 읽기: ${CH.lists ? `${CH.n}명` : CH.err && CH.mode !== 'fail' ? '실패 — ' + CH.err : '아직'}`, '#ffd28a', 1); }
     const L = Z.map(z => [z, cnt(z.id)]).filter(([, c]) => c[0] + c[1] > 0).map(([z, c]) => `${z.name} ${c[0]}·${c[1]}`); const rest = cnt(0);
     say(`[혈맹] 지금 사냥 중 (반왕·라인): ${L.join(' / ') || '없음'} · 마을 정비 ${rest[0] + rest[1]}명 · ${left}분 뒤 자리 바꿈`, '#ffd28a', 1);
     const pts = A.pt.map(p => `${p.team === 'A' ? '반왕' : '라인'} ${p.uids.map(u => A.by.get(u).name).join('·')}${P.at[p.lead] ? ' @' + ((Z.find(z => z.id === P.at[p.lead]) || {}).name || '') : ' @마을'}`); say(`[혈맹] 파티 ${A.pt.length}개: ${pts.join(' / ')}${VIS.size ? ` · 이 지역 지원군·원정 ${VIS.size}명` : ''}`, '#ffd28a', 1); }   // 11/1 ②
