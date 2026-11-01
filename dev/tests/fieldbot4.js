@@ -10,20 +10,27 @@ const REST = ['킹받쥬', '불타는썽큰', 'x골리앗x', '악마혼', '천�
   const p = await ctx1.newPage(); p.on('pageerror', e => errs.push('P1: ' + e.message + ' @ ' + (e.stack || '').split('\n').slice(1, 3).join(' | ')));
   await login(p, { cls: 'knight', name: 'fb4One', mp: true });   // mp: NET.me()가 있어야 사진 작성자(amTop)가 됨
   // ① 비율표
-  const r1 = await p.evaluate(() => { const R = __FB.roster(), cnt = t => [1, 0.9, 0.8, 0.7].map(q => R[t].filter(b => b.pct === q).length);
-    return { n: R.all.length, A: cnt('A'), B: cnt('B'), cls: ['A', 'B'].map(t => ['knight', 'elf', 'wizard'].map(c => R[t].filter(b => b.cls === c).length).join('/')), top: ['A', 'B'].map(t => R[t].filter(b => b.pct === 1).map(b => b.cls + ':' + b.name)), tab: ['A', 'B'].map(t => __FB.TAB[t].length), same: R.A.every((b, n) => __FB.TAB.A[n][0] === b.name && __FB.TAB.A[n][1] === b.cls && __FB.TAB.A[n][2] === b.pct) }; });
+  const r1 = await p.evaluate(() => { const R = __FB.roster(), cnt = t => [1, 0.9, 0.8, 0.7].map(q => R[t].filter(b => b.tier === q).length);
+    return { n: R.all.length, A: cnt('A'), B: cnt('B'), cls: ['A', 'B'].map(t => ['knight', 'elf', 'wizard'].map(c => R[t].filter(b => b.cls === c).length).join('/')), top: ['A', 'B'].map(t => R[t].filter(b => b.tier === 1).map(b => b.cls + ':' + b.name)), tab: ['A', 'B'].map(t => __FB.TAB[t].length), same: R.A.every((b, n) => __FB.TAB.A[n][0] === b.name && __FB.TAB.A[n][1] === b.cls && __FB.TAB.A[n][2] === b.tier) }; });
   console.log('① ratio', JSON.stringify(r1));
   ok(r1.n === 38 && r1.A.join() === '4,4,5,5' && r1.B.join() === '4,6,5,5', '① 반왕 18 = 100%×4·90%×4·80%×5·70%×5 · 라인 20 = 100%×4·90%×6·80%×5·70%×5');
   ok(r1.cls[0] === '5/6/7' && r1.cls[1] === '7/6/7' && r1.top.every(L => new Set(L.map(s => s.split(':')[0])).size === 3) && r1.tab.join() === '18,20' && r1.same, '① 직업 구성 그대로(반왕 기사5·요정6·법사7 · 라인 7·6·7) · 100% 4명은 세 직업 섞임 · 명단 = 코드의 표(TAB)');
+  { const rg = await p.evaluate(() => { const R = __FB.roster(), RG = { A: { 1: [0.95, 1], 0.9: [0.85, 0.95], 0.8: [0.75, 0.85], 0.7: [0.65, 0.75] }, B: { 1: [0.85, 0.95], 0.9: [0.75, 0.85], 0.8: [0.65, 0.75], 0.7: [0.65, 0.75] } }, now = Date.now(), D0 = Date.now;
+      const at = ms => { Date.now = () => ms; try { return R.all.map(b => b.pct); } finally { Date.now = D0; } };
+      const a = at(now), a2 = at(now + 60e3), b = at(now + 7200e3 * 3), inR = L => R.all.every((x, k) => L[k] >= RG[x.team][x.tier][0] - 1e-9 && L[k] <= RG[x.team][x.tier][1] + 1e-9);
+      const st = R.all.find(x => x.team === 'B' && x.tier === 1), s1 = __FB.stOf(st.uid);
+      return { inA: inR(a), inB: inR(b), same: a.join() === a2.join(), diff: a.filter((v, k) => v !== b[k]).length, top: R.A.filter(x => x.tier === 1).map(x => x.pct), line: R.B.filter(x => x.tier === 1).map(x => x.pct), low: R.B.filter(x => x.tier === 0.7).map(x => x.pct), lv: s1 && s1.lv }; });
+    console.log('① 구간', JSON.stringify(rg));
+    ok(rg.inA && rg.inB && rg.same && rg.diff > 10, '① 세기 구간: 반왕 95~100·85~95·75~85·65~75 · 라인 85~95·75~85·65~75·65~75 · 2시간 구간 안에서는 그대로 · 구간이 바뀌면 새로'); }
   // ② 이름
-  const r2 = await p.evaluate(() => { const R = __FB.roster(), names = R.all.map(b => b.name), R2 = __FB.roster(); return { names, uniq: new Set(names).size, t100: ['A', 'B'].map(t => R[t].filter(b => b.pct === 1).map(b => b.name).sort()), wk: R.B.find(b => b.name === '원큐'), stable: R === R2 && R.all.every((b, k) => b.name === R2.all[k].name), tw: __TW.kit.N1.length > 0, disp: (() => { const f = __FB.spawnTest(R.B[0].uid, __T.hero.i + 2, __T.hero.j); const d = f && f.dispName; if (f) f.gone = true; return d; })() }; });
+  const r2 = await p.evaluate(() => { const R = __FB.roster(), names = R.all.map(b => b.name), R2 = __FB.roster(); return { names, uniq: new Set(names).size, t100: ['A', 'B'].map(t => R[t].filter(b => b.tier === 1).map(b => b.name).sort()), wk: R.B.find(b => b.name === '원큐'), stable: R === R2 && R.all.every((b, k) => b.name === R2.all[k].name), tw: __TW.kit.N1.length > 0, disp: (() => { const f = __FB.spawnTest(R.B[0].uid, __T.hero.i + 2, __T.hero.j); const d = f && f.dispName; if (f) f.gone = true; return d; })() }; });
   console.log('② names', r2.names.join(' '));
   const rest2 = r2.names.filter(n => !N100.A.includes(n) && !N100.B.includes(n));
   ok(r2.uniq === 38 && r2.t100[0].join() === N100.A.slice().sort().join() && r2.t100[1].join() === N100.B.slice().sort().join(), '② 38개 모두 다름 · 100% 8명 이름 고정 (반왕 인범·포세이든·퉁탕·구문룡 · 라인 만만이·원큐·철구·해골)');
-  ok(r2.wk && r2.wk.cls === 'elf' && r2.wk.pct === 1 && rest2.length === 30 && rest2.every(n => REST.includes(n)) && r2.stable && r2.disp === r2.names[18], `② 원큐 = 요정 100% · 나머지 30명은 프로듀서 목록에서 (남은 이름 ${REST.filter(n => !rest2.includes(n)).join('·')}) · 이름표(dispName)도 그 이름`);
+  ok(r2.wk && r2.wk.cls === 'elf' && r2.wk.tier === 1 && rest2.length === 30 && rest2.every(n => REST.includes(n)) && r2.stable && r2.disp === r2.names[18], `② 원큐 = 요정 100% · 나머지 30명은 프로듀서 목록에서 (남은 이름 ${REST.filter(n => !rest2.includes(n)).join('·')}) · 이름표(dispName)도 그 이름`);
   // ③ 변신: 100%만 전설 · 나머지 소드 · 복사 대상이 전설이 아니면 그대로
   const r3 = await p.evaluate(() => { const o = {}; for (const pf of ['pc_arc_knight', 'pc_sword_knight', 'pm_dknight', 'pc_deathknight', '']) { __FB.setRef({ copy: { c: 'knight', lv: 55, cb: { hp: 900, ac: -60, mr: 40, d: 45 }, eq: {}, pf } }); o[pf || 'none'] = [1, 0.9, 0.7].map(p => ['knight', 'elf', 'wizard'].map(c => __FB.lookFor(c, p).pf || '-').join(',')); }
-    __FB.setRef({ copy: { c: 'knight', lv: 55, cb: { hp: 900, ac: -60, mr: 40, d: 45 }, eq: {}, pf: 'pc_arc_knight' } }); const R = __FB.roster(); o.bots = ['A', 'B'].map(t => [1, 0.9, 0.8, 0.7].map(p => [...new Set(R[t].filter(b => b.pct === p).map(b => __FB.stOf(b.uid).pf))].join('|')));
+    __FB.setRef({ copy: { c: 'knight', lv: 55, cb: { hp: 900, ac: -60, mr: 40, d: 45 }, eq: {}, pf: 'pc_arc_knight' } }); const R = __FB.roster(); o.bots = ['A', 'B'].map(t => [1, 0.9, 0.8, 0.7].map(p => [...new Set(R[t].filter(b => b.tier === p).map(b => __FB.stOf(b.uid).pf))].join('|')));
     __FB.setRef(null); return o; });
   console.log('③ poly', JSON.stringify(r3));
   ok(r3.pc_arc_knight[0] === 'pc_arc_knight,pc_arc_ranger,pc_arc_mage' && r3.pc_arc_knight[1] === 'pc_sword_knight,pc_sword_ranger,pc_sword_mage' && r3.pc_arc_knight[2] === 'pc_sword_knight,pc_sword_ranger,pc_sword_mage', '③ 복사 대상이 아크나이트(전설): 100% 봇만 아크 시리즈 · 90·70%는 자기 직업 소드 시리즈');
@@ -33,7 +40,7 @@ const REST = ['킹받쥬', '불타는썽큰', 'x골리앗x', '악마혼', '천�
   await p.evaluate(R => { __FB.setRef(R); __T.GOD_INV = true; __T.BUFF.invis = 9999; __T.TOWN.toZone(4); }, REF); await p.waitForTimeout(1500);
   await p.evaluate(() => { const F = __FB, H = __T.hero; F.DBG.noEnsure = true; F.DBG.noAI = true; F.DBG.noReinf = true; F.DBG.noBoss = true; F.DBG.noTalk = true; for (const q of F.bots()) q.gone = true; __T.TOWN.placeAt(27.5, 30.5); H.lv = 55; H.baseHP = 1e5; __T.INV.render(); H.hp = H.max; __T.GOD_INV = false; __T.BUFF.invis = 0; });
   await p.waitForTimeout(400);
-  const cast = (who, what, tgt) => p.evaluate(([who, what, tgt]) => { const F = __FB, H = __T.hero, R = F.roster(), S = F.stat(); let f = F.bots().find(q => q.bot.team === 'B' && q.bot.cls === who && !q.dead); if (!f) { f = F.spawnTest(R.B.filter(b => b.cls === who && b.pct === 1)[0].uid, H.i + (who === 'wizard' ? 2 : -2), H.j + 1); f.max = f.hp = 1e5; }
+  const cast = (who, what, tgt) => p.evaluate(([who, what, tgt]) => { const F = __FB, H = __T.hero, R = F.roster(), S = F.stat(); let f = F.bots().find(q => q.bot.team === 'B' && q.bot.cls === who && !q.dead); if (!f) { f = F.spawnTest(R.B.filter(b => b.cls === who && b.tier === 1)[0].uid, H.i + (who === 'wizard' ? 2 : -2), H.j + 1); f.max = f.hp = 1e5; }
     const T = tgt === 'me' ? H : F.bots().find(q => q.bot.team === 'A' && !q.dead); const b = { ok: S.efOk, imm: S.efImm, miss: S.efMiss }; const mr = Math.random; Math.random = () => 0.01; try { F.castEf(f, T, what); } finally { Math.random = mr; }
     return { ok: S.efOk - b.ok, imm: S.efImm - b.imm, miss: S.efMiss - b.miss, lv: f.bot.st.lv, B: { wslow: +(__T.BUFF.wslow || 0).toFixed(2), gale: +(__T.BUFF.gale || 0).toFixed(2), poll: +(__T.BUFF.poll || 0).toFixed(2), ebind: +(__T.BUFF.ebind || 0).toFixed(2), stun: +(__T.BUFF.stun || 0).toFixed(2) }, hs: __T.NET.dbgPayload().hs, log: __T.log.slice(-2).map(l => l.t) }; }, [who, what, tgt]);
   const hs0 = await p.evaluate(() => __T.NET.dbgPayload().hs);
@@ -60,8 +67,8 @@ const REST = ['킹받쥬', '불타는썽큰', 'x골리앗x', '악마혼', '천�
   ok(c5a.B.wslow === 0 && /카운터 매직/.test(c5a.log.join()) && c5b.ok === 1 && c5b.B.gale === 12, '⑤ 카운터 매직이 슬로우를 막음(효과 끝) · 게일은 막히지 않음');
   await p.evaluate(() => { __T.BUFF.gale = 0; __T.BUFF.counterm = 0; __FB.sim(4); });
   // ⑥ 봇끼리: 반왕 기사 봇에게 슬로우·어바·똥물
-  const r6 = await p.evaluate(() => { const F = __FB, H = __T.hero, R = F.roster(), S = F.stat(); const k = F.spawnTest(R.A.filter(b => b.cls === 'knight' && b.pct === 1)[0].uid, H.i - 4, H.j - 3); k.max = k.hp = 1e5; k.hp = k.max;
-    const w = F.bots().find(q => q.bot.team === 'B' && q.bot.cls === 'wizard'), e = F.bots().find(q => q.bot.team === 'B' && q.bot.cls === 'elf'), bk = F.spawnTest(R.B.filter(b => b.cls === 'knight' && b.pct === 1)[0].uid, k.i + 1, k.j); bk.max = bk.hp = 1e5;
+  const r6 = await p.evaluate(() => { const F = __FB, H = __T.hero, R = F.roster(), S = F.stat(); const k = F.spawnTest(R.A.filter(b => b.cls === 'knight' && b.tier === 1)[0].uid, H.i - 4, H.j - 3); k.max = k.hp = 1e5; k.hp = k.max;
+    const w = F.bots().find(q => q.bot.team === 'B' && q.bot.cls === 'wizard'), e = F.bots().find(q => q.bot.team === 'B' && q.bot.cls === 'elf'), bk = F.spawnTest(R.B.filter(b => b.cls === 'knight' && b.tier === 1)[0].uid, k.i + 1, k.j); bk.max = bk.hp = 1e5;
     const mr = Math.random; let o = {}; try { Math.random = () => 0.01; F.castEf(w, k, 'wslow'); o.wslowT = +k.wslowT.toFixed(1); o.wimm = k.wslowImm > __T.time; const q = [0.01, 0.9]; Math.random = () => q.length ? q.shift() : 0.01; F.castEf(e, k, 'earth_bind'); o.bind = k.bindUntil > __T.time; o.stun = +k.stunT.toFixed(1); } finally { Math.random = mr; }   // 성공 판정 0.01 · 지속 0.9 → 4.6초
     // 묶인 동안 라인 기사가 때려도 피해 없음 (AI 켜고 1초)
     F.DBG.noAI = false; bk.bx = null; F.sim(0.2); if (bk.bx) { bk.bx.tgt = k; bk.bx.cd = 0; } const hp0 = k.hp; F.sim(1.2); o.hpBound = hp0 - k.hp; o.stillBound = k.bindUntil > __T.time; F.DBG.noAI = true;
@@ -100,7 +107,7 @@ const REST = ['킹받쥬', '불타는썽큰', 'x골리앗x', '악마혼', '천�
     localStorage.setItem('fakefs:worldbot_chars/u_bh', JSON.stringify({ v: '1', u: 'u_bh', bh: '1', n: 'BOTHOST', c: 'knight', lv: '99', cp: '9999999', at: String(Date.now()), d: JSON.stringify({ n: 'BOTHOST', c: 'knight', lv: 99, cp: 9999999, cb: { hp: 5000, ac: -200, mr: 200, d: 200 }, eq: {}, pf: '', dl: '' }) }));
     F.DBG.settled = true; F.DBG.toff = 7200e3; F.snapReset(); F.snapNow(); await new Promise(r => setTimeout(r, 500)); const S = F.snap(), R = F.ref(), C = F.chars(), doc = JSON.parse(localStorage.getItem('fakefs:worldbot/s' + S.cur) || 'null');
     const e = document.getElementById('chat-in'); e.value = '/혈맹'; __T.CHAT.send(); await new Promise(r => setTimeout(r, 100));
-    return { slot: S.slot, cur: S.cur, src: R.src, n: R.n, lv: R.lv, c: R.copy.c, from: S.from, f: doc && doc.f, dn: doc && JSON.parse(doc.d).n, lists: C.lists, cn: C.n, top: C.top, rep: __T.log.map(l => l.t).filter(t => /봇 복사/.test(t)).slice(-1)[0] || '', elfW: F.stOf(F.roster().B.find(b => b.cls === 'elf' && b.pct === 1).uid).eq.weapon }; });
+    return { slot: S.slot, cur: S.cur, src: R.src, n: R.n, lv: R.lv, c: R.copy.c, from: S.from, f: doc && doc.f, dn: doc && JSON.parse(doc.d).n, lists: C.lists, cn: C.n, top: C.top, rep: __T.log.map(l => l.t).filter(t => /봇 복사/.test(t)).slice(-1)[0] || '', elfW: F.stOf(F.roster().B.find(b => b.cls === 'elf' && b.tier === 1).uid).eq.weapon }; });
   console.log('⑨ slot', JSON.stringify(r9));
   ok(r9.slot === r9.cur && r9.src === 'cloud' && r9.n === 'TOPGUY' && r9.lv === 60 && r9.c === 'elf' && r9.from === 'chars' && r9.f === 'chars' && r9.dn === 'TOPGUY' && r9.lists >= 1 && r9.cn === 2 && r9.elfW === 'lg_bow', `⑨ 새 구간 s${r9.cur}: 서버 캐릭터 목록(내 캐릭터 + TOPGUY · 봇 호스트 문서는 뺌) 중 cp 1등 TOPGUY(Lv60 요정)로 사진 → 요정 봇은 가이아의 격노`);
   ok(/서버 캐릭터 2명 중 1등/.test(r9.rep) && /TOPGUY Lv.60 요정/.test(r9.rep), '⑨ /혈맹: "봇 복사: TOPGUY Lv.60 요정 (다음 갱신 … · 서버 캐릭터 2명 중 1등)" ' + r9.rep);
@@ -117,7 +124,7 @@ const REST = ['킹받쥬', '불타는썽큰', 'x골리앗x', '악마혼', '천�
   const hp = await H.evaluate(() => [__T.hero.x, __T.hero.z]); await G.evaluate(([x, z]) => { const h = __T.hero; __T.TOWN.placeAt(x + 2, z + 1); h.lv = 55; h.baseHP = 1e5; __T.INV.render(); h.hp = h.max; __T.GOD_INV = false; __T.BUFF.invis = 0; }, hp);
   await H.waitForTimeout(1500);
   await H.evaluate(() => { const F = __FB, R = F.roster(); F.DBG.noEnsure = true; F.DBG.noAI = true; for (const q of F.bots()) q.gone = true; const o = __T.NET.others()[0], gi = Math.floor(o.pr.x), gj = Math.floor(o.pr.y);
-    const w = F.spawnTest(R.B.filter(b => b.cls === 'wizard' && b.pct === 1)[0].uid, gi + 2, gj), e = F.spawnTest(R.B.filter(b => b.cls === 'elf' && b.pct === 1)[0].uid, gi - 2, gj + 1); for (const f of [w, e]) f.max = f.hp = 1e5; });
+    const w = F.spawnTest(R.B.filter(b => b.cls === 'wizard' && b.tier === 1)[0].uid, gi + 2, gj), e = F.spawnTest(R.B.filter(b => b.cls === 'elf' && b.tier === 1)[0].uid, gi - 2, gj + 1); for (const f of [w, e]) f.max = f.hp = 1e5; });
   await H.waitForTimeout(1500);   // 게스트가 먼저 fbx를 한 번 받아 두게 (처음 받은 묶음은 재생하지 않음)
   const h10 = await H.evaluate(() => { const F = __FB, o = __T.NET.others()[0], T = __T.NET.proxyOf(o.peer), w = F.bots().find(q => q.bot.cls === 'wizard'), e = F.bots().find(q => q.bot.cls === 'elf');
     const S = F.stat(), mr = Math.random; try { Math.random = () => 0.01; F.castEf(w, T, 'wslow'); F.castEf(e, T, 'striker_gale'); } finally { Math.random = mr; } return { ok: S.efOk, on: S.efOn, imm: T.wslowImm > __T.time, gale: T.galeUntil > __T.time }; });
