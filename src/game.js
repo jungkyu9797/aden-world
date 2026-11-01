@@ -6374,7 +6374,7 @@ const INV = (() => {
   const beltWR = () => Math.min(50, sum('wr'));   // 벨트: 가방 무게 −%
   const wPct = () => Math.max(0, weight() * (1 - beltWR() / 100) / Math.max(1, maxW()) - (BUFF.decwt > 0 ? 0.1 : 0));   // 벨트 감소 후 · 디크리즈 웨이트: 10% 가볍게
   const $ = id => document.getElementById(id);
-  let invTab = 'all', invFL = null, invNow = false; const invCat = d => d.doll ? 'doll' : d.slot ? 'eq' : (d.use === 'heal' || d.use === 'haste' || d.use === 'mana' || d.use === 'cure' || d.use === 'antidote' || /^pot_/.test(d.icon || '') || /물약|해독제/.test(d.name)) ? 'pot' : (/scroll/.test(d.icon || '') || /^scr_/.test(d.icon || '') || /주문서/.test(d.name)) ? 'scr' : 'etc';   // v132: 인벤토리 탭
+  let invTab = 'all', invFL = null, invNow = false; const invCat = d => d.doll ? 'doll' : d.slot ? 'eq' : (d.gaho || /가호/.test(d.name || '')) ? 'gaho' : (d.use === 'heal' || d.use === 'haste' || d.use === 'mana' || d.use === 'cure' || d.use === 'antidote' || /^pot_/.test(d.icon || '') || /물약|해독제/.test(d.name)) ? 'pot' : (/scroll/.test(d.icon || '') || /^scr_/.test(d.icon || '') || /주문서/.test(d.name)) ? 'scr' : !d.use ? 'mat' : 'etc';   // v132: 인벤토리 탭 · 11/1 프로듀서: [재료](쓰는 기능이 없는 재료·전리품) · [가호](불멸의 가호·타버린 가호·보스 가호·가호조각) 탭
 const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) => k === d.slot) || [0, '장비'])[1]) : d.use === 'learn' ? ({ magic: '마법서', skill: '기술서', spirit: '정령수정' })[SK[d.learn].kind] : /scroll/.test(d.icon) || /^scr_/.test(d.icon) ? '주문서' : /^pot_/.test(d.icon) ? '물약' : '기타';
   function infoLines(e) { const d = ITEMS[e.id], L = [], en = e.en || 0;
     if (d.gonoff) { L.push('효과: 화룡의 둥지 용암·화산탄 피해 없음 · 강화·축복 없음', bag.includes(e) ? '가지고 있어서 적용 중' : '가방에 가지고 있으면 적용'); return L; }   // 피닉스의 가호: 켜짐/꺼짐
@@ -6556,7 +6556,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
     const grid = $('inv-grid'); if (!grid) return; if (!$('invwin').hidden) renderSkills();
     if (!$('invwin').hidden && !bagDrag && (invNow || !UI_TOUCH())) { invNow = false;
       grid.innerHTML = ''; const FL = invFL = invTab === 'all' ? bag.filter(x => invCat(ITEMS[x.id]) !== 'doll') : bag.filter(x => invCat(ITEMS[x.id]) === invTab),   /* 마법인형은 [마법인형] 칸에만 */ N = Math.max(96, Math.ceil((FL.length + 1) / 8) * 8);   // v113: 가방 칸 2배 (8줄 × 12) · v132: 탭이면 그 종류만
-      { const tb = $('inv-tabs'); if (tb) { const cnt = { all: 0, eq: 0, pot: 0, scr: 0, doll: 0 }; for (const x of bag) { const c_ = invCat(ITEMS[x.id]); if (c_ in cnt) cnt[c_]++; if (c_ !== 'doll') cnt.all++; } tb.querySelectorAll('button[data-t]').forEach(b => { b.setAttribute('aria-selected', b.dataset.t === invTab); const sp = b.querySelector('small'); if (sp) sp.textContent = cnt[b.dataset.t] || ''; }); } }
+      { const tb = $('inv-tabs'); if (tb) { const cnt = { all: 0, eq: 0, pot: 0, scr: 0, mat: 0, gaho: 0, doll: 0 }; for (const x of bag) { const c_ = invCat(ITEMS[x.id]); if (c_ in cnt) cnt[c_]++; if (c_ !== 'doll') cnt.all++; } tb.querySelectorAll('button[data-t]').forEach(b => { b.setAttribute('aria-selected', b.dataset.t === invTab); const sp = b.querySelector('small'); if (sp) sp.textContent = cnt[b.dataset.t] || ''; }); } }
       for (let k = 0; k < N; k++) { const e = FL[k], c = document.createElement('button'); c.type = 'button'; c.className = 'slot';
         c.ondragover = ev => { if ([...ev.dataTransfer.types].includes('text/x-bag')) { ev.preventDefault(); c.classList.add('dropk'); } }; c.ondragleave = () => c.classList.remove('dropk');
         c.ondrop = ev => { c.classList.remove('dropk'); const a = ev.dataTransfer.getData('text/x-bag'); if (a === '') return; ev.preventDefault(); ev.stopPropagation(); if (invTab !== 'all' || FL.length !== bag.length) { const to = e ? bag.indexOf(e) : -1; if (to >= 0) moveBag(+a, to); else if (invTab === 'all') moveBag(+a, bag.length); else render(); return; } moveBag(+a, k); };   // 칸끼리 끌어서 자리 바꾸기
@@ -6593,7 +6593,7 @@ const typeOf = d => d.slot ? (d.slot === 'ring' ? '반지' : (SLOTS.find(([k]) =
   // 정렬: 착용 장비 → 안 낀 장비 → 소모품 → 기타 (같은 묶음 안에서는 부위 순·이름 순)
   function sortBag() { const so = id => { const d = ITEMS[id], k = SLOTS.findIndex(([s]) => s === d.slot || (d.slot === 'ring' && s.startsWith('ring'))); return k < 0 ? 99 : k; };
     /* v160: 정렬 순서 — 착용 중 장비 → 장비(높은 등급 먼저 · 같은 등급은 강화 높은 것 먼저) → 그 밖의 아이템(높은 등급 먼저 · 같은 등급은 물약 → 주문서 → 잡템) */
-    const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : 2; }, RK = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 }, rk = id => RK[ITEMS[id].rar] || 0, CK = { pot: 0, scr: 1, etc: 2 };
+    const grp = e => { const d = ITEMS[e.id]; return d.slot ? (e.on ? 0 : 1) : 2; }, RK = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 }, rk = id => RK[ITEMS[id].rar] || 0, CK = { pot: 0, scr: 1, gaho: 2, mat: 3, etc: 4 };
     bag.sort((a, b) => grp(a) - grp(b) || rk(b.id) - rk(a.id) || (grp(a) <= 1 ? (b.en || 0) - (a.en || 0) : 0) ||   /* v181: 착용 장비도 높은 등급 먼저 */ (grp(a) === 2 ? (CK[invCat(ITEMS[a.id])] || 0) - (CK[invCat(ITEMS[b.id])] || 0) : 0) || so(a.id) - so(b.id) || ITEMS[a.id].name.localeCompare(ITEMS[b.id].name, 'ko'));
     render(); say('인벤토리를 정렬했습니다.', '#9c9682'); }
   // 스킬창: 1서클·2서클 마법(각 3칸) + 기사 기술 5칸. 안 배운 건 흐리게
