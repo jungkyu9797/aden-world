@@ -11405,7 +11405,7 @@ window.SAVER = (() => {
 //   → 워커 타이머(가려져도 안 느려짐)가 50ms마다 확인: 화면 프레임이 0.15초 넘게 안 왔으면 그리기 없이 게임만 한 걸음(frame · BGRUN) · 다시 보이면 원래대로 화면 프레임이 이어 감 (rAF는 화면 프레임에서만 예약 → 한 줄만 돎)
 let BGRUN = false, frameAt = performance.now(), rafAt = performance.now(), bgSteps = 0;   // rafAt: 마지막 화면 프레임 · frameAt: 마지막 게임 걸음(화면·백그라운드)
 { const BG_GAP = 150, tick = () => { if (typeof BOTHOST !== 'undefined' && BOTHOST.on && BOTHOST.on()) return; const now = performance.now(); if (now - rafAt < BG_GAP) return;
-    const n = Math.min(w ? 3 : 20, Math.max(1, Math.round((now - frameAt) / 50)));   // 워커를 못 쓰면(일반 타이머는 가려지면 1초에 한 번) 한 번에 최대 1초어치 for (let k = 0; k < n; k++) { BGRUN = true; try { frame(now - (n - 1 - k) * 50); bgSteps++; } catch (e) { console.warn('bg frame', e); } finally { BGRUN = false; } } };
+    const n = Math.min(w ? 3 : 20, Math.max(1, Math.round((now - frameAt) / 50))); /* 워커를 못 쓰면(일반 타이머는 가려지면 1초에 한 번) 한 번에 최대 1초어치 */ for (let k = 0; k < n; k++) { BGRUN = true; try { frame(now - (n - 1 - k) * 50); bgSteps++; } catch (e) { console.warn('bg frame', e); } finally { BGRUN = false; } } };
   let w = null; try { w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' }))); w.onmessage = tick; } catch (e) { w = null; }
   if (!w) setInterval(tick, 50); window.__bgInfo = () => ({ steps: bgSteps, timer: w ? 'worker' : 'interval' }); }
 function frame(now){
