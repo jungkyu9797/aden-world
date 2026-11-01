@@ -24,7 +24,7 @@ async function shot(p, gl, file) { const r = await S.redraw(p, gl); await p.wait
   for (const mode of ['still', 'fx']) {
     const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } }); const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (/\[GL\]/.test(m.text())) errs.push(m.text()); });
-    await p.addInitScript(() => { try { localStorage.setItem('aden_gl', 'force'); localStorage.setItem('aden_gl_bloom', '0'); /* 빛 번짐은 일부러 바뀌는 그림이라 정확도 비교에서는 끔 */ } catch (e) {} });
+    await p.addInitScript(() => { try { localStorage.setItem('aden_gl', 'force'); localStorage.setItem('aden_gl_bloom', '0'); localStorage.setItem('aden_gl_fx', '0'); /* 빛 번짐은 일부러 바뀌는 그림이라 정확도 비교에서는 끔 */ } catch (e) {} });
     await S.setup(p, { chars: 30, mobs: 30, fx: mode === 'fx', still: mode === 'still' });
     if (mode === 'still') await p.evaluate(() => { window.__glStill = true; });
     await p.waitForTimeout(mode === 'fx' ? 1500 : 4000);   // GL로 몇 프레임 그려 텍스처를 다 올려 둠

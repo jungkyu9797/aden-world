@@ -398,6 +398,7 @@ function strike(f, mode){ if (f && f.isRemote) return pvpStrike(f, mode); if (HW
     if (crit){ floatText(fx,top-12,'CRITICAL!',{color:'#ffd24a',size:14,big:true,life:1.1,rise:30}); floatText(fx,top+4,String(d),{color:'#ff9a3a',size:16,big:true,life:1.0}); bursts.push({x:fx,y:fy-headY(f)*0.5,t:0}); }
     else floatText(fx+(Math.random()*18-9),top-8,String(d),{color:'#ffffff',size:12}); }
   const [x,y]=W2P(f.x,f.z), hy=(S.hh||62*S.sc)*0.45; for (let k=0;k<(crit?16:9);k++){ const a=Math.random()*6.28, s=60+Math.random()*90; parts.push({x,y:y-hy,vx:Math.cos(a)*s,vy:Math.sin(a)*s*0.6-30,life:0.3,max:0.3,crit}); }
+  if (window.GLR) GLR.spark(x, y-hy, crit?30:14, crit?{c:'#ffd070',sp:190,life:0.5}:{c:'#fff0c8',sp:140,life:0.38});   // GL: 새 그래픽이 켜져 있을 때만 GPU 불티 (꺼져 있으면 아무것도 안 함)
   killCheck(f); }
 // ===== 강화 결과 대형 연출: 캐릭터를 중심으로 빛줄기·충격파·반짝이·화면 번쩍임 + 큰 결과 글씨 (화면 좌표로 그림)
 const BIGFX = [];
@@ -1902,7 +1903,7 @@ function drawArrowShape(g, x, y, ang, al) { g.save(); g.translate(x, y); g.rotat
   g.fillStyle = '#c0342a'; g.beginPath(); g.moveTo(-17, 0); g.lineTo(-25, -4.2); g.lineTo(-22.5, 0); g.closePath(); g.fill(); g.beginPath(); g.moveTo(-17, 0); g.lineTo(-25, 4.2); g.lineTo(-22.5, 0); g.closePath(); g.fill();
   g.strokeStyle = '#f4ece0'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-18, 0); g.lineTo(-24, -2.6); g.moveTo(-18, 0); g.lineTo(-24, 2.6); g.stroke(); g.restore(); }
 // 불덩이(오크 마법사)·마력탄(마법사) — 곧게 날아가는 빛 구슬 + 꼬리
-function fireBurst(x, y) { impact(x, y, 'bolt', '#ff7a2a'); for (let n = 0; n < 14; n++) { const an = Math.random() * 6.283, sp = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp * 0.6 - 30, life: 0.5, max: 0.5, ember: true }); }
+function fireBurst(x, y) { impact(x, y, 'bolt', '#ff7a2a'); if (window.GLR) GLR.spark(x, y, 26, { c: '#ff8a30', sp: 110, life: 0.8, g: -60, up: 20, sz: 2 });   /* GL: GPU 불티 (새 그래픽 켬일 때만) */ for (let n = 0; n < 14; n++) { const an = Math.random() * 6.283, sp = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp * 0.6 - 30, life: 0.5, max: 0.5, ember: true }); }
   if (AC && SFX_ON) { const t = AC.currentTime; nz(t, 0.25, 900, 300, 0.12); } }
 function drawOrb(g, a) { const k = Math.min(1, a.t / a.dur), P = q => [a.x0 + (a.x1 - a.x0) * q, a.y0 + (a.y1 - a.y0) * q - Math.sin(q * Math.PI) * 6], [x, y] = P(k), fire = a.kind === 'fireball';
   const C = fire ? ['255,120,30', '255,200,90', '255,250,220'] : (a.col || ['150,110,255', '170,200,255', '240,240,255']);
@@ -2311,6 +2312,7 @@ function drawWorld(g, vw, vh){
   for (const p of parts) if (p.dust){ const k=p.life/p.max; g.fillStyle=`rgba(150,128,96,${0.55*k})`; g.beginPath(); g.arc(p.x,p.y,1.4+(1-k)*2.2,0,7); g.fill(); }
   g.globalCompositeOperation='lighter';
   for (const p of parts){ if (p.dust) continue; const k=p.life/p.max; if (p.ember){ g.fillStyle=`rgba(255,${120+k*100},40,${k})`; g.fillRect(p.x,p.y,1.5,1.5); } else { g.strokeStyle=p.crit?`rgba(255,200,90,${k})`:`rgba(255,240,200,${k})`; g.lineWidth=1.2; g.beginPath(); g.moveTo(p.x,p.y); g.lineTo(p.x-p.vx*0.03,p.y-p.vy*0.03); g.stroke(); } }
+  if (window.GLR) GLR.sparks(g);   // GL: GPU 불티 그리기 (g가 새 그래픽 컨텍스트일 때만)
   g.globalCompositeOperation='source-over';
   for (const b of bursts){ const k=b.t/0.35, r=8+k*34; g.save(); g.globalCompositeOperation='lighter'; g.globalAlpha=1-k;
     const gr=g.createRadialGradient(b.x,b.y,0,b.x,b.y,r); gr.addColorStop(0,'rgba(255,240,180,.9)'); gr.addColorStop(0.5,'rgba(255,170,60,.45)'); gr.addColorStop(1,'rgba(255,120,30,0)');

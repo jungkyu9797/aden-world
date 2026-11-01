@@ -16,7 +16,7 @@
   let WANT = /[?&]gl=(1|force)\b/.test(QS) ? true : /[?&]gl=0\b/.test(QS) ? false : /^(1|force)$/.test(LSG('aden_gl') || '');
   let FAILED = false, LOST = false, why = '';
   // ---------------------------------------------------------------- 통계 (한 프레임)
-  const ZST = () => ({ tUp: 0, tRun: 0, tTxt: 0, abs: 0, stn: 0, shadow: 0, tShadow: 0, bloom: 0, bloomQ: 0, tBloom: 0, poly: 0, pline: 0, img: 0, imgR: 0, txt: 0, txtR: 0, txtNew: 0, rect: 0, rectR: 0, ell: 0, seg: 0, grad: 0, path: 0, other: 0, runs: 0, runPx: 0, defer: 0, batches: 0, quads: 0, up: 0, upPx: 0, approx: 0, ms: 0 });
+  const ZST = () => ({ tUp: 0, tRun: 0, tTxt: 0, abs: 0, stn: 0, spark: 0, shadow: 0, tShadow: 0, bloom: 0, bloomQ: 0, tBloom: 0, poly: 0, pline: 0, img: 0, imgR: 0, txt: 0, txtR: 0, txtNew: 0, rect: 0, rectR: 0, ell: 0, seg: 0, grad: 0, path: 0, other: 0, runs: 0, runPx: 0, defer: 0, batches: 0, quads: 0, up: 0, upPx: 0, approx: 0, ms: 0 });
   let ST = ZST(), LAST = ZST();
   const why_ = {};   // 그림이 GL 대신 2D로 간 이유 (누적 · 개발용)
   const note = k => { why_[k] = (why_[k] || 0) + 1; };
@@ -236,6 +236,50 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
       if (!DBG.nodraw) G.drawArrays(G.TRIANGLES, 0, 3); G.disable(G.SCISSOR_TEST); G.bindVertexArray(vao); ST.shadow++; ST.tShadow += performance.now() - t0; }
     for (const q of L) { for (let i = 0; i < 8; i++) { QX[i] = q.X[i]; QU[i] = q.U[i]; QG[i] = q.G[i]; } emitRaw(...q.a); }
     SHG.cap = cap0; }
+
+
+  // ---------------------------------------------------------------- 1단계: GPU 불티(파티클) — 위치는 셰이더가 시간으로 계산(쏘는 순간 한 번만 CPU) · 더하기 합성 + 빛 번짐
+  //   game.js: 맞을 때·불 터질 때 GLR.spark(x, y, n, {c, sp, life, g, sz, up}) (세계 좌표 = parts와 같음) · drawWorld의 parts 그리는 자리에서 GLR.sparks(g)
+  //   새 그래픽이 꺼져 있으면 아무것도 안 함(원래 parts만) · 끄기 localStorage aden_gl_fx=0
+  const SPK = { on: LSG('aden_gl_fx') !== '0', N: 8192, i: 0, F: 9, buf: null, f32: null, u32: null, lo: 1e9, hi: -1, pr: null, vao: null, vbo: null, u: {}, t0: performance.now(), live: 0, last: -1 };
+  const nowS = () => (performance.now() - SPK.t0) / 1000;
+  function spark(x, y, n, o) { if (!SPK.on || !on() || !gl || n <= 0) return; o = o || {}; if (!SPK.f32) { SPK.buf = new ArrayBuffer(SPK.N * SPK.F * 4 * 1); SPK.f32 = new Float32Array(SPK.buf); SPK.u32 = new Uint32Array(SPK.buf); }
+    const c = parseColor(o.c || '#ffe8b0') || [1, 0.9, 0.7, 1], col = ((c8(c[3]) << 24) | (c8(c[2]) << 16) | (c8(c[1]) << 8) | c8(c[0])) >>> 0, t = nowS(), sp = o.sp || 120, life = o.life || 0.5, gv = o.g === undefined ? 260 : o.g, sz = o.sz || 1.6, up = o.up || 0;
+    n = Math.min(n | 0, 256); for (let k = 0; k < n; k++) { const j = SPK.i, b = j * SPK.F, a = Math.random() * 6.2832, s = sp * (0.35 + 0.65 * Math.random());
+      SPK.f32[b] = x + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 1] = y + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 2] = Math.cos(a) * s; SPK.f32[b + 3] = Math.sin(a) * s * 0.6 - up - sp * 0.15;
+      SPK.f32[b + 4] = t + Math.random() * 0.03; SPK.f32[b + 5] = life * (0.6 + 0.4 * Math.random()); SPK.f32[b + 6] = sz * (0.7 + 0.6 * Math.random()); SPK.f32[b + 7] = gv; SPK.u32[b + 8] = col;
+      SPK.lo = Math.min(SPK.lo, j); SPK.hi = Math.max(SPK.hi, j); SPK.i = (j + 1) % SPK.N; if (SPK.i === 0) { /* 한 바퀴: 다음 그릴 때 통째 올림 */ SPK.lo = 0; SPK.hi = SPK.N - 1; } }
+    SPK.last = Math.max(SPK.last, t + life * 1.05); }
+  function sparkInit() { if (SPK.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
+      const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
+layout(location=0) in vec4 aPV; layout(location=1) in vec4 aTL; layout(location=2) in vec4 aC;
+uniform float uNow; uniform mat3 uM; uniform vec2 uR; out vec2 vQ; out vec4 vC;
+void main(){ float t=uNow-aTL.x; vec2 q=vec2(float(gl_VertexID&1)*2.-1., float((gl_VertexID>>1)&1)*2.-1.); vQ=q;
+  if(t<0.||t>aTL.y){ gl_Position=vec4(2.,2.,2.,1.); vC=vec4(0.); return; }
+  float k=1.-t/aTL.y; vec2 v=aPV.zw*(1.-.55*t/aTL.y)+vec2(0.,aTL.w*t); vec2 p=aPV.xy+aPV.zw*t*(1.-.275*t/aTL.y)+vec2(0.,.5*aTL.w*t*t);
+  float sp=length(v); vec2 u=sp>1e-3?v/sp:vec2(1.,0.), n=vec2(-u.y,u.x); float s=aTL.z*(.55+.45*k), L=s+sp*.022;
+  vec2 w=p+u*(q.x*L-sp*.011)+n*(q.y*s); vec3 d=uM*vec3(w,1.);
+  vC=vec4(aC.rgb*aC.a,aC.a)*k*k; gl_Position=vec4(d.x*2./uR.x-1.,1.-d.y*2./uR.y,0.,1.); }`));
+      G.attachShader(p, sh(G.FRAGMENT_SHADER, `#version 300 es
+precision mediump float; in vec2 vQ; in vec4 vC; out vec4 o;
+void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
+      G.linkProgram(p); if (!G.getProgramParameter(p, G.LINK_STATUS)) throw new Error(G.getProgramInfoLog(p));
+      SPK.pr = p; for (const k of ['uNow', 'uM', 'uR']) SPK.u[k] = G.getUniformLocation(p, k);
+      SPK.vao = G.createVertexArray(); G.bindVertexArray(SPK.vao); SPK.vbo = G.createBuffer(); G.bindBuffer(G.ARRAY_BUFFER, SPK.vbo); G.bufferData(G.ARRAY_BUFFER, SPK.N * SPK.F * 4, G.DYNAMIC_DRAW);
+      const S = SPK.F * 4; G.enableVertexAttribArray(0); G.vertexAttribPointer(0, 4, G.FLOAT, false, S, 0); G.vertexAttribDivisor(0, 1);
+      G.enableVertexAttribArray(1); G.vertexAttribPointer(1, 4, G.FLOAT, false, S, 16); G.vertexAttribDivisor(1, 1);
+      G.enableVertexAttribArray(2); G.vertexAttribPointer(2, 4, G.UNSIGNED_BYTE, true, S, 32); G.vertexAttribDivisor(2, 1);
+      G.bindVertexArray(vao); G.bindBuffer(G.ARRAY_BUFFER, vbo); return true;
+    } catch (e) { SPK.on = false; note('spark:' + String(e && e.message || e).slice(0, 60)); try { gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); } catch (x) {} return false; } }
+  // drawWorld 안에서 (g = GLR.ctx · 지금 변환 = 세계 → 기기)
+  function sparks(g) { if (g !== CTX || !SPK.on || !SPK.f32) return; const t = nowS(); if (t > SPK.last) return; if (!sparkInit()) return;
+    runFlush(); shFlush(); flush(); const G = gl, m = C.st.m;
+    G.bindBuffer(G.ARRAY_BUFFER, SPK.vbo); if (SPK.hi >= SPK.lo) { G.bufferSubData(G.ARRAY_BUFFER, SPK.lo * SPK.F * 4, SPK.f32, SPK.lo * SPK.F, (SPK.hi - SPK.lo + 1) * SPK.F); SPK.lo = 1e9; SPK.hi = -1; }
+    G.useProgram(SPK.pr); curProg = null; G.uniform1f(SPK.u.uNow, t); G.uniformMatrix3fv(SPK.u.uM, false, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]); G.uniform2f(SPK.u.uR, PW, PH);
+    G.bindVertexArray(SPK.vao); blendSet(1); const n = SPK.N;
+    if (!DBG.nodraw) { G.drawArraysInstanced(G.TRIANGLE_STRIP, 0, 4, n); if (BLM.on && BLM.w) { G.bindFramebuffer(G.FRAMEBUFFER, BLM.fb); G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, BLM.tA, 0); G.viewport(0, 0, BLM.w, BLM.h);
+      if (!BLM.used) { BLM.used = true; G.clearColor(0, 0, 0, 0); G.clear(G.COLOR_BUFFER_BIT); } G.drawArraysInstanced(G.TRIANGLE_STRIP, 0, 4, n); G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, PW, PH); } }
+    G.bindVertexArray(vao); G.bindBuffer(G.ARRAY_BUFFER, vbo); ST.spark = 1; }
 
   // ---------------------------------------------------------------- 배치
   const BL = { 'source-over': 0, lighter: 1, multiply: 2, screen: 3, 'destination-out': 4, 'source-atop': 5, 'destination-over': 6, clear: 7, copy: 8 };
@@ -592,6 +636,6 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG,
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, spark, sparks, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();
