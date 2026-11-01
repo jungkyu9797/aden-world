@@ -7266,7 +7266,7 @@ const TOWN = (() => {
       b.innerHTML = ks.map(k => `<canvas width="56" height="56" data-k="${k}"></canvas>`).join('') + '<em>출현</em>'; m.prepend(b); drawPortraits(b); }); }
   let sel = null;
   function openMap() {
-    closeAll(); $('wmap').hidden = false; const st = $('wm-stage');
+    closeAll(); $('wmap').hidden = false; const st = $('wm-stage'); setTimeout(dreamTimeMark, 0);   /* 11/1: 몽환의 섬 표시에 오늘 남은 시간 */
     if (!st.dataset.built) { st.dataset.built = 1;
       REGIONS.forEach(r => { const m = document.createElement('button'); m.type = 'button'; m.className = 'mk g' + ['초보', '중급', '상급'].indexOf(r[2]); m.style.left = r[4] / 12.8 + '%'; m.style.top = r[5] / 7.2 + '%';
         m.dataset.r = r[0]; m.innerHTML = `<i></i><b>${r[1]}</b><small>${r[2]} · 권장 Lv.${r[3]}</small>`; m.onclick = () => pick(r, m); st.appendChild(m); });
@@ -7319,11 +7319,15 @@ const TOWN = (() => {
           if (x1 <= x0) return; const bw = x1 - x0 + 1, bh = y1 - y0 + 1, sc = Math.min(50 / bw, 50 / bh); g.imageSmoothingEnabled = true; g.drawImage(t, x0, y0, bw, bh, 28 - bw * sc / 2, 53 - bh * sc, bw * sc, bh * sc); }
         else if (!dreamPortrait(g, k)) { g.fillStyle = '#3a2a18'; g.font = '800 22px "Nanum Myeongjo",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(MOB[k].name[0], 28, 30); } };
       if (I && !I.complete) I.addEventListener('load', draw, { once: true }); draw(); }); }
+  // 11/1 프로듀서: 월드맵 몽환의 섬 표시 아래·설명 칸에 오늘 남은 이용 시간 (4시간 · 새벽 5시 초기화)
+  const dreamHM = s => { s = Math.max(0, Math.ceil(s / 60)); const h = Math.floor(s / 60), m = s % 60; return (h ? h + '시간 ' : '') + m + '분'; };
+  const dreamLeftTxt = () => { const L = DRM.left(); return L > 0 ? `오늘 남은 시간 ${dreamHM(L)}` : '오늘 시간 다 씀 · 새벽 5시 초기화'; };
+  function dreamTimeMark() { const m = document.querySelector('#wm-stage .mk[data-r="dream_island"]'); if (!m) return; let t = m.querySelector('.wm-tl'); if (!t) { t = document.createElement('em'); t.className = 'wm-tl'; m.appendChild(t); } t.textContent = dreamLeftTxt(); t.classList.toggle('out', DRM.left() <= 0); }
   function pick(r, m) { sel = r; { const b = $('wm-go'), fee = feeOf(r); if (b) b.innerHTML = `사냥 시작 <small>(${fee ? fee.toLocaleString() + ' 골드' : '무료'})</small>`; } document.querySelectorAll('#wm-stage .mk').forEach(x => x.classList.toggle('on', x === m));
-    $('wm-name').textContent = r[1]; $('wm-grade').textContent = `${r[2]} 사냥터 · 권장 Lv.${r[3]}`; $('wm-grade').className = 'g' + ['초보', '중급', '상급'].indexOf(r[2]); $('wm-desc').textContent = r[6]; { const cx_ = $('wm-codex'); if (cx_) { cx_.innerHTML = codexHTML(r); drawPortraits(cx_); } }
+    $('wm-name').textContent = r[1]; $('wm-grade').textContent = `${r[2]} 사냥터 · 권장 Lv.${r[3]}` + (r[0] === 'dream_island' ? ` · ${dreamLeftTxt()}` : ''); $('wm-grade').className = 'g' + ['초보', '중급', '상급'].indexOf(r[2]); $('wm-desc').textContent = r[6]; { const cx_ = $('wm-codex'); if (cx_) { cx_.innerHTML = codexHTML(r); drawPortraits(cx_); } }
     $('wm-warn').hidden = hero.lv >= parseInt(r[3], 10) - 3; }
   const WM_FEE = 1000, feeOf = r => r && r[1] === '이야기섬' ? 0 : WM_FEE, feeShort = fee => say(`이동 비용 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a');
-  $('wm-go').onclick = () => { if (!sel) return; const r = sel, fee = feeOf(r); if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
+  $('wm-go').onclick = () => { if (!sel) return; const r = sel, fee = feeOf(r); if (r[0] === 'dream_island' && !DRM.canEnter()) return;   /* 시간을 다 썼으면 이동 비용을 내기 전에 막음 */ if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
   $('wm-town').onclick = () => askTown();
   function askTown() { if (SCENE === 'town') { closeAll(); return; } if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
