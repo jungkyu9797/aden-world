@@ -2453,6 +2453,10 @@ const TELE = (() => { const N = () => (window.native && native.logAppend) ? nati
   return { ev, flush, on: () => !!N(), kill: k => { kills[k] = (kills[k] || 0) + 1; }, use: id => { uses[id] = (uses[id] || 0) + 1; }, hurt: (k, d) => { taken[k] = (taken[k] || 0) + Math.round(d); }, xp: n => { xp += n; }, shot: () => { const n = N(); return n && n.logShot ? n.logShot() : Promise.resolve(false); } }; })();
 // 전체 공지: 게임 화면 위쪽 가운데에 큰 글씨로 6초간 (보스 등장·토벌, 영웅 아이템 획득, 고강화 성공) — 채팅창에도 남김
 const PNAME = () => hero.pname || (() => { try { return localStorage.getItem('aden_pname'); } catch (e) { return null; } })() || '용사';
+// 11/1 프로듀서: 화면 가운데 큰 안내 (잠깐 떴다가 사라짐 · 클릭은 통과) — 예: 자동사냥 시작
+function centerNote(big, sub, c = '#9fe0ff', ms = 4000) { let el = document.getElementById('cnote'); if (!el) { el = document.createElement('div'); el.id = 'cnote'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+  el.innerHTML = `<b></b>${sub ? '<small></small>' : ''}`; el.querySelector('b').textContent = big; if (sub) el.querySelector('small').textContent = sub; el.style.setProperty('--cn', c);
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), ms); }
 function announce(t, c = '#ffd86a', kind = '') {
   say('[공지] ' + t, c); try { GLOG.add(t, c); } catch (e) {}
   let box = document.getElementById('announce');
@@ -9898,7 +9902,7 @@ const AUTO = (() => {
       if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(anchor ? anchor.z : homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; backToHunt(); } } }
     } }
   function toggle() { if (state === 'off' && ADMIN.on()) { say('운영자는 자동사냥을 쓸 수 없어요.', '#ff86e0'); return; } if (state === 'off' && DUEL()) { say('결투장에서는 자동사냥을 쓸 수 없어요.', '#f08a7a'); return; } if (state !== 'off') { state = 'off'; hero.target = null; muteOff(); say('자동사냥을 껐습니다.', '#9c9682'); return; }
-    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; setAnchor(); state = 'hunting'; died = false; say(`자동사냥을 켰습니다. (마을에 다녀오면 이 자리(${hero.i}, ${hero.j}) 근처로 돌아와요)`, '#f2e6a8'); muteOn(); }
+    if (!inZ1()) { say('자동사냥은 각 지역의 1·2구간에서만 켤 수 있습니다.', '#f08a7a'); return; } home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; setAnchor(); state = 'hunting'; died = false; say(`자동사냥을 켰습니다. (마을에 다녀오면 이 자리(${hero.i}, ${hero.j}) 근처로 돌아와요)`, '#f2e6a8'); centerNote('현재 위치에서 자동사냥을 시작합니다', `자동 복귀도 현재 위치(${hero.i}, ${hero.j})로 진행합니다`, '#9fe0ff', 4000); muteOn(); }
   function status() { if (state === 'off') return inZ1() ? '이 구간에서 사용 가능' : '각 지역 1·2구간 전용'; if (state === 'hunting') return '사냥 중' + (hero.target && !hero.target.dead ? ' · ' + (hero.target.dispName || MOB[hero.target.kind].name) : ''); return `마을 대기 · HP ${pct()}% / ${C.backHp}%`; }
   const $h = id => document.getElementById(id);
   function sync() { const w = $h('huntwin'); if (!w) return;
