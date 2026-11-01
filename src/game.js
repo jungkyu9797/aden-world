@@ -9611,7 +9611,7 @@ const FBOT = (() => {
   const SPDL = { coc: 0.3, eruption: 0.35, sunburst: 0.65, disint: 0.45 };   // 맞는 시점 (연출에 맞춤)
   function wizPick(b, X) { if (X.mag > 0) return null; const lv = b.st.lv, ok = id => lv >= SK[id].lv && !((X.scd[id] || 0) > 0), c = WSP[Math.floor(Math.random() * WSP.length)]; if (ok(c)) return c; const L = WSP.filter(ok); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
   function castSp(f, X, T, id, pvp) { const b = f.bot; f.atkT = 0; X.cd = atkCd(b, pvp ? 1 : C.HUNT); X.mag = C.MAG_CD; X.scd[id] = wcd(id); STAT.sp[id] = (STAT.sp[id] || 0) + 1; let d, cr;
-    if (pvp) [d, cr] = rollD(f, spMul(id)); else { [d, cr] = huntHit(f, T, 'magic'); const P = SPELL[id], me = MOB[T.kind] && MOB[T.kind].el; d = d * spMul(id) * (P.el && me ? (ATTR_OPP[me] === P.el ? 1.5 : me === P.el ? 0.5 : 1) : 1); d = d > 0 ? Math.max(1, Math.round(d)) : 0; }
+    if (pvp) [d, cr] = rollD(f, spMul(id)); else { [d, cr] = huntHit(f, T, 'magic'); const P = SPELL[id], me = MOB[T.kind] && MOB[T.kind].el; d = d * spMul(id) * (P.el && me ? (ATTR_OPP[me] === P.el ? 1.5 : 1) : 1) /* 11/1: 같은 속성 마법도 피해 안 줄임 (유저와 같게) */; d = d > 0 ? Math.max(1, Math.round(d)) : 0; }
     PEND.push(pvp ? { at: time + SPDL[id], a: f, T, d, k: 'magic', cr, keep: 1 } : { at: time + SPDL[id], a: f, T, d, cr, mob: 1 }); fx(['m', f.uid, keyT(T), WSP.indexOf(id)]); }
   function pendTick() { for (let k = PEND.length - 1; k >= 0; k--) { const p = PEND[k]; if (time < p.at) continue; PEND.splice(k, 1); if (!p.a || p.a.gone || (p.a.dead && !p.keep)) continue; if (p.mob) mobDeal(p.a, p.T, p.d, p.cr); else deal(p.a, p.T, p.d, p.k, p.cr); } }
   // 지원 마법 (마법사 봇): 7칸 안 HP 50% 밑 아군 힐 · 싸우는 기사(반왕은 적 봇과 싸우는 플레이어도) 이뮨 투 함
