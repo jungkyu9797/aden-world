@@ -466,12 +466,12 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot*nightR()); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
 function killCheck(f){ if (f && f.fb) { if (f.hp <= 0 && !f.dead) FBOT.down(f); return; } if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
-  const D=NET.distribute(f,S); if (!D){ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=Math.round(rint(S.coin)*coinX()); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
+  const D=NET.distribute(f,S); if (!D){ if (window.SAVER && (!f.dmgBy || [...f.dmgBy.keys()].some(w => w === hero || (w && w.isPet)))) SAVER.kill();   /* 11/1: 혼자 잡은 몹도 절전 [처치]에 셈 (전에는 같은 지역에 다른 사람이 있을 때만 셈) */ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=Math.round(rint(S.coin)*coinX()); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
   GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, FB_KILLER || (D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()), !!FB_KILLER); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); reaperTry(f, S, D); }
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 const KNIGHT_PVE = 1.25;   // 11/1: 기사 — 몬스터에게 주는 피해 +25% (법사와 사냥 속도 맞춤 · 대인전 제외)
-function dmgMob(f, d, who, fixed){ if (!fixed && DEFMODE.atkMul !== 1 && d > 0 && (!who || who === hero)) d = Math.round(d * DEFMODE.atkMul); if (!fixed && CLASS === 'knight' && d > 0 && (!who || who === hero)) d = Math.round(d * KNIGHT_PVE);   /* fixed: 할로윈처럼 정해진 피해 (사냥터 배율·기사 ×1.25 안 붙음) */ if (f && f.bindUntil > time) return; if (f && f.ashT > 0) return; if (f && TWM.ally(f)) return; if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
+function dmgMob(f, d, who, fixed){ if (!fixed && DEFMODE.atkMul !== 1 && d > 0 && (!who || who === hero)) d = Math.round(d * DEFMODE.atkMul); if (!fixed && CLASS === 'knight' && d > 0 && (!who || who === hero)) d = Math.round(d * KNIGHT_PVE);   /* fixed: 할로윈처럼 정해진 피해 (사냥터 배율·기사 ×1.25 안 붙음) */ if (f && f.bindUntil > time) return; if (f && f.ashT > 0) return; if (f && TWM.ally(f)) return; if (f && (!who || who === hero || who.sum || who.isPet)) f.myHitAt = time;   /* 11/1: 절전 화면 '전투 중인 보스' */ if (NET.guestMob(f)) { NET.hit(f, d); f.hp=Math.max(1, f.hp-d); return; } addDmg(f, who||hero, Math.min(d, Math.max(0,f.hp))); f.hp-=d; }
 function mobHurt(f,d,color,src,crit){ if (!f||f.dead) return; if (f.ashT>0) return; if (TWM.ally(f)) return; if ((f.bot || f.twr) && d > 0) d = TWM.inDmg(f, d, 'magic'); if (f.bindUntil>time){ bindNo(f); return; } if ((!src||src===hero)&&d>0){ const gd=INV.gaho('dmg'); if (gd) d=Math.floor(d*(1+gd/100)+Math.random()); } if (!src||src===hero) breakInvis(); dmgMob(f, d, src||hero); f.flash=0.09; mobHitFx(f,!!crit); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); const [fx,fy]=W2P(f.x,f.z);
   if (crit){ floatText(fx,fy-headY(f)-20,'CRITICAL!',{color:'#ff8ae0',size:14,big:true,life:1.15,rise:32}); floatText(fx,fy-headY(f)-2,String(d),{color:'#ffd6f6',size:17,big:true,life:1.05}); bursts.push({x:fx,y:fy-headY(f)*0.5,t:0}); shake=Math.max(shake,0.16); if (AC&&SFX_ON){ const t=AC.currentTime; tone(t,'triangle',1760,2640,0.18,0.06); tone(t+0.05,'sine',2640,3520,0.22,0.05); } }   // 마법 치명타: 분홍빛 큰 글씨
   else floatText(fx,fy-headY(f)-4,String(d),{color:color||'#ffffff',size:12}); if (f.hp>0) MSFX(f.kind,'hit',0.4); killCheck(f); return d; }   // 10/31: 실제로 넣은 피해를 돌려줌 (전설 [심판])
@@ -8663,12 +8663,14 @@ const COLO = (() => {
   function bigText(g, x, y, big, sub, col, sc, al) { g.save(); g.globalAlpha = Math.max(0, Math.min(1, al)); g.translate(x, y); g.scale(sc, sc); g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
     g.font = '900 34px "Noto Serif KR","Nanum Myeongjo",serif'; g.lineWidth = 7; g.strokeStyle = 'rgba(0,0,0,.88)'; g.strokeText(big, 0, 0); const gr = g.createLinearGradient(0, -30, 0, 4); gr.addColorStop(0, '#fff8e0'); gr.addColorStop(1, col); g.fillStyle = gr; g.shadowColor = col; g.shadowBlur = 14; g.fillText(big, 0, 0); g.shadowBlur = 0;
     if (sub) { g.font = '800 15px "Noto Sans KR",sans-serif'; g.lineWidth = 4; g.strokeText(sub, 0, 28); g.fillStyle = '#f2e6c8'; g.fillText(sub, 0, 28); } g.restore(); }
-  function draw(g, vw, vh) { if (!S || !inArena()) return; let top = BOSSBAR_LY;
-    if (!top) { top = 46; try { const tb = document.querySelector('.topbar'), r = cv.getBoundingClientRect(); if (tb) top = (tb.getBoundingClientRect().bottom - r.top) / curZ + 6; } catch (e) {} }
-    const ph = S.ph, r = S.r, left = Math.max(0, (ph === 'fight' ? ROUND_T : ph === 'cd' ? CD_T : ph === 'win' ? LOOT_T : ph === 'end' ? END_T : CLEAR_T) - S.t); let txt;
+  function hudTxt() { const ph = S.ph, r = S.r, left = Math.max(0, (ph === 'fight' ? ROUND_T : ph === 'cd' ? CD_T : ph === 'win' ? LOOT_T : ph === 'end' ? END_T : CLEAR_T) - S.t); let txt;
     if (ph === 'fight') txt = `⚔ 콜로세움 ${r}라운드 · 보스 ${S.n}/${S.bs || r} (${bossName()}) · 남은 시간 ${mmss(left)}`;
     else if (ph === 'cd') txt = `⚔ 콜로세움 · ${r}라운드(보스 ${r}마리) 준비`; else if (ph === 'clear') txt = `⚔ 콜로세움 · ${r}라운드 클리어`; else if (ph === 'win') txt = `⚔ 콜로세움 클리어! · ${Math.ceil(left)}초 뒤 자동 퇴장 (전리품을 주우세요)`; else if (ph === 'fail') txt = '⚔ 콜로세움 · 실패 · [퇴장]을 누르세요';
     else txt = `⚔ 콜로세움 종료 · [퇴장]을 누르세요${S.t < AUTO_OUT ? ` (${Math.ceil(AUTO_OUT - S.t)}초 뒤 자동 퇴장)` : ''}`;
+    return { txt, left, ph, low: ph === 'fight' && left < 300 }; }
+  function draw(g, vw, vh) { if (!S || !inArena()) return; let top = BOSSBAR_LY;
+    if (!top) { top = 46; try { const tb = document.querySelector('.topbar'), r = cv.getBoundingClientRect(); if (tb) top = (tb.getBoundingClientRect().bottom - r.top) / curZ + 6; } catch (e) {} }
+    const { txt, left, ph } = hudTxt(), r = S.r;
     g.save(); g.font = '800 12px "Noto Sans KR",sans-serif'; const w = Math.min(vw - 30, g.measureText(txt).width + 28), x = Math.round(vw / 2 - w / 2), y = Math.round(top);
     g.fillStyle = 'rgba(14,9,6,.74)'; g.fillRect(x, y, w, 22); g.strokeStyle = ph === 'fight' && left < 30 ? `rgba(255,90,60,${0.6 + 0.4 * Math.sin(time * 8)})` : 'rgba(210,170,90,.7)'; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, w - 1, 21);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.9)'; g.strokeText(txt, vw / 2, y + 11.5); g.fillStyle = '#ffe2a0'; g.fillText(txt, vw / 2, y + 11.5); g.restore();
@@ -8683,6 +8685,7 @@ const COLO = (() => {
   { const b = id => $(id); if (b('colowin')) { b('co-join').onclick = () => wait ? start() : queue(); b('co-cancel').onclick = () => cancel(); b('co-solo').onclick = solo; b('co-x').onclick = () => { $('colowin').hidden = true; badge(); }; } }
   return { open, tick, draw, inArena, cancel, lockSay() { if (time - lockT < 4) return; lockT = time; say('콜로세움 입장 대기 중에는 채팅만 할 수 있어요. (대기 취소는 콜로세움 창에서)', '#f0c080'); },
     bossDown(f) { if (!S || !S.s || S.ph !== 'fight' || !f || !f.coloBoss || !NET.zoneHost() || ADMIN.on()) return; S.gk = (S.gk || []).concat([[f.uid, f.kind]]).slice(-9); publish(); },   // 보스 처치 기록 → 안에 있는 모두가 그 보스 가호 완성품 1개 (gotGaho)
+    svInfo: () => S && inArena() ? hudTxt() : null,   // 11/1: 절전 화면에 라운드·남은 시간
     entOut: () => entToday() > 0 ? { n: ent.n, d: ent.d } : null, entIn(o) { ent = o && o.d ? { n: Math.max(0, +o.n | 0), d: String(o.d) } : { n: 0, d: '' }; }, entLeft: () => Math.max(0, ENT_MAX - entToday()), busyN: () => fighters().length, cheer: () => cheerT > 0, dbg: () => S,
     recOut: () => bought() > 0 ? [{ id: 'col_buy', n: rec.n, d: rec.d }] : [], recIn(e) { rec = e && e.d ? { n: Math.max(0, Math.min(DAY_MAX, +e.n | 0)), d: String(e.d) } : { n: 0, d: '' }; } };
 })();
@@ -10490,7 +10493,7 @@ const ACCOUNT = (() => {
     if (rs && rs.exp > Date.now() && rs.acc && CLS_DEF[rs.cls]) { acc = rs.acc; chars = rs.chars || {}; srv = rs.srv || 'legacy'; if (rs.fb) CLOUD.restore(rs.fb); sel = rs.cls;   // 게임 중 업데이트 → 다시 켜지면 그 자리에서
       begin(rs.cls, rs.name).then(() => { if (!started) return; const p = rs.pos || {}; if (p.isle && ISLAND.def(p.isle)) TOWN.toZone(p.isle, p.x, p.z); else if (p.scene === 'town') TOWN.placeAt(p.x, p.z);
         if (rs.pt) NET.setParty(rs.pt); if (rs.mp) MPP.start(rs.mp);
-        for (const rid of rs.pets || []) { const e = INV.bag().find(x => x.pet && x.pet.rid === rid); if (e && e.pet.state === 'stored') PET.summon(e); } say(`***** 업데이트 완료 (v${GAME_VER}) — 그 자리에서 이어서 플레이합니다 *****`, '#9fd08a'); if (rs.auto) setTimeout(() => { if (!AUTO.on()) AUTO.toggle(); }, 800); }); return; }
+        for (const rid of rs.pets || []) { const e = INV.bag().find(x => x.pet && x.pet.rid === rid); if (e && e.pet.state === 'stored') PET.summon(e); } say(`***** 업데이트 완료 (v${GAME_VER}) — 그 자리에서 이어서 플레이합니다 *****`, '#9fd08a'); if (rs.auto) setTimeout(() => { if (!AUTO.on()) AUTO.toggle(); }, 800); if (rs.sv) setTimeout(() => { try { SAVER.resume(rs.sv); } catch (e) {} }, 1300); }); return; }
     if (boot && boot.acc && CLS_DEF[boot.cls]) { acc = boot.acc; chars = boot.chars || {}; srv = boot.srv || 'legacy'; if (boot.fb) CLOUD.restore(boot.fb); sel = boot.cls; begin(boot.cls, boot.name); return; }
     { let au = null; try { au = JSON.parse(store.get('aden_auto') || 'null'); } catch (e) {}
       if (au && au.acc && au.exp > Date.now() && (au.srv !== 'cloud' || (au.fb && au.fb.uid && au.fb.ref))) { acc = au.acc; chars = au.chars || {}; srv = au.srv || 'legacy'; if (au.fb) CLOUD.restore(au.fb); store.set('aden_acc', acc); openSel(false); csMsg('자동으로 로그인했어요. 다른 계정은 [로그아웃]을 누른 뒤 접속해 주세요.', true);
@@ -10501,7 +10504,8 @@ const ACCOUNT = (() => {
   function resumePos(p) { try { const d = p.z && ISLAND.def(p.z); if (d && !d.arena && !d.tw) { TOWN.toZone(p.z, p.x, p.y); say(`마지막 위치(${d.name})에서 이어서 시작합니다.`, '#9fd08a'); } else if (p.t && p.x != null) TOWN.placeAt(p.x, p.y); } catch (e) {} }
   function keepForUpdate() { if (!started) return false; const pos = { scene: SCENE, isle: ISLE ? ISLE.id : null, x: +hero.x.toFixed(2), z: +hero.z.toFixed(2) };
     const pets = INV.bag().filter(e => e.pet && e.pet.state === 'out').map(e => (e.pet.rid = e.pet.rid || 'p' + Math.random().toString(36).slice(2, 9)));
-    try { localStorage.setItem('aden_resume', JSON.stringify({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), pets, exp: Date.now() + 180000 })); return true; } catch (e) { return false; } }
+    let sv = null; try { sv = window.SAVER ? SAVER.keepOut() : null; } catch (e) {}   // 11/1: 절전 중 업데이트 → 다시 켜지면 절전과 그동안의 처치·경험치·획득 아이템을 이어서
+    try { localStorage.setItem('aden_resume', JSON.stringify({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), pets, sv, exp: Date.now() + 180000 })); return true; } catch (e) { return false; } }
   return { acc: () => acc, openSel, started: () => started, mode: () => srv, keepForUpdate };
 })();
 const AUTO = (() => {
@@ -12021,7 +12025,7 @@ window.DOLL = (() => {
 })();
 window.SAVER = (() => {
   const $ = id => document.getElementById(id), esc_ = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let on = false, t0 = 0, acc = 0, S = null, lastIn = performance.now(), el = null, home = false;
+  let on = false, t0 = 0, acc = 0, S = null, lastIn = performance.now(), el = null, home = false, keep = null;
   try { home = localStorage.getItem('aden_saver_home') === '1'; } catch (e) {}
   const fresh = () => ({ exp: 0, xp: 0, gold: 0, kills: 0, items: new Map(), notes: [], lv0: hero.lv, pct0: hero.exp / needExp(hero.lv), coins0: coins, dead: 0, ret: 0, buys: new Map(), pend: false, sc: SCENE });   // v176: 귀환·사망 횟수 · 상점 구매
   const fmtT = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ':' : '') + String(m).padStart(h ? 2 : 1, '0') + ':' + String(x).padStart(2, '0'); };
@@ -12029,13 +12033,13 @@ window.SAVER = (() => {
     el.innerHTML = `<div class="sv-top"><b class="sv-clock" id="sv-clock"></b><span>절전 모드</span><span class="sv-el" id="sv-el"></span></div>
       <div class="sv-upd" id="sv-upd" hidden><b>🔔 새 업데이트 <span id="sv-updv"></span> 이(가) 나왔어요!</b><small>저장한 뒤 새 버전을 받고, 다시 불러와서 지금 자리·자동사냥 그대로 이어져요.</small><button type="button" id="sv-updb">지금 업데이트</button></div>
       <div class="sv-card"><div class="sv-who" id="sv-who"></div><div class="sv-bar hp"><i id="sv-hp"></i><span id="sv-hpt"></span></div><div class="sv-bar mp"><i id="sv-mp"></i><span id="sv-mpt"></span></div>
-      <div class="sv-bar ex"><i id="sv-ex"></i><span id="sv-ext"></span></div><div class="sv-st" id="sv-st"></div>
+      <div class="sv-bar ex"><i id="sv-ex"></i><span id="sv-ext"></span></div><div class="sv-st" id="sv-st"></div><div class="sv-boss" id="sv-boss" hidden></div>
       <div class="sv-grid"><div><small>처치</small><b id="sv-k">0</b></div><div><small>경험치</small><b id="sv-x">0</b></div><div><small>시간당 경험치</small><b id="sv-xh">-</b></div><div><small>골드 변화</small><b id="sv-g">0</b></div><div><small>귀환</small><b id="sv-r">0</b></div><div><small>사망</small><b id="sv-d">0</b></div></div>
       <div class="sv-h">획득 아이템</div><ul class="sv-items" id="sv-items"></ul><div class="sv-h" id="sv-bh">상점 구매</div><ul class="sv-items sv-buys" id="sv-buys"></ul><ul class="sv-notes" id="sv-notes"></ul></div>
       <label class="sv-home"><input type="checkbox" id="sv-homec"> 절전 귀환 — 다른 유저에게 공격받으면 바로 마을로 귀환</label>
       <div class="sv-slide" id="sv-slide"><span>밀어서 절전 해제 ▶▶</span><b class="sv-knob" id="sv-knob">⏻</b></div>`;
     document.body.appendChild(el);
-    $('sv-updb').onclick = () => { exit(); const b = document.getElementById('btn-upd'); if (b && !b.hidden && !b.disabled) b.click(); };
+    $('sv-updb').onclick = () => { keep = snap(); if (keep) keep.at = Date.now(); exit(); const b = document.getElementById('btn-upd'); if (b && !b.hidden && !b.disabled) b.click(); };
     const hc = $('sv-homec'); hc.checked = home; hc.onchange = () => { home = hc.checked; try { localStorage.setItem('aden_saver_home', home ? '1' : '0'); } catch (e) {} };
     const sl = $('sv-slide'), kn = $('sv-knob'); let dr = null;
     const pos = x => { const r = sl.getBoundingClientRect(), w = r.width - kn.offsetWidth - 8; return Math.max(0, Math.min(w, x - r.left - kn.offsetWidth / 2 - 4)) / Math.max(1, w); };
@@ -12055,7 +12059,9 @@ window.SAVER = (() => {
     $('sv-who').innerHTML = `<b>${esc_(PNAME() || '')}</b> <small>${CLASS_NAME[CLASS] || ''} · Lv.${hero.lv}</small>`;
     const bar = (id, v, m) => { $(id).style.width = Math.max(0, Math.min(100, v / Math.max(1, m) * 100)) + '%'; $(id + 't').textContent = `${Math.max(0, Math.ceil(v)).toLocaleString()} / ${m.toLocaleString()}`; };
     bar('sv-hp', hero.hp, hero.max); bar('sv-mp', hero.mp, hero.maxmp); const ep = hero.exp / needExp(hero.lv) * 100; $('sv-ex').style.width = ep + '%'; $('sv-ext').textContent = `EXP ${ep.toFixed(2)}%`;
-    const hz = huntOn(); $('sv-st').innerHTML = `<span>${esc_(zoneTitle())}</span><span class="${hz ? 'ok' : 'no'}">${hz ? '자동사냥 중' : '자동사냥 꺼짐'}</span>${typeof DEATH !== 'undefined' && DEATH ? '<span class="no">쓰러짐</span>' : ''}`; $('sv-r').textContent = S.ret.toLocaleString() + '회'; $('sv-d').textContent = S.dead.toLocaleString() + '회';
+    const hz = huntOn(), tl = svLimit(); $('sv-st').innerHTML = `<span class="sv-loc">📍 ${esc_(svLoc())}${SCENE !== 'town' ? ` <small>(${hero.i}, ${hero.j})</small>` : ''}</span>${tl ? `<span class="sv-tl${tl.low ? ' low' : ''}">⏳ ${esc_(tl.t)}</span>` : ''}<span class="${hz ? 'ok' : 'no'}">${hz ? '자동사냥 중' : '자동사냥 꺼짐'}</span>${typeof DEATH !== 'undefined' && DEATH ? '<span class="no">쓰러짐</span>' : ''}`; $('sv-r').textContent = S.ret.toLocaleString() + '회'; $('sv-d').textContent = S.dead.toLocaleString() + '회';
+    { const BL = svBosses(), bx = $('sv-boss'); bx.hidden = !BL.length; bx.innerHTML = BL.map(f => { const M_ = MOB[f.kind] || {}, nm = f.dispName || M_.name || '보스', p = Math.max(0, Math.min(1, f.hp / Math.max(1, f.max))), ash = f.ashT > 0;
+      return `<div class="sv-bs"><div class="sv-bn">⚔ <b>${esc_(nm)}</b><span>${JOSA(nm, '과', '와').slice(nm.length)} 전투 중${ash ? ' · 잿더미에서 다시 살아나는 중' : ''}</span></div><div class="sv-bar boss"><i style="width:${(p * 100).toFixed(1)}%"></i><span>${Math.max(0, Math.ceil(f.hp)).toLocaleString()} / ${(f.max || 0).toLocaleString()} (${(p * 100).toFixed(1)}%)</span></div></div>`; }).join(''); }   /* 11/1: 전투 중인 보스와 남은 HP */
     $('sv-k').textContent = S.kills.toLocaleString(); $('sv-x').textContent = '+' + S.exp.toLocaleString(); $('sv-xh').textContent = sec > 60 ? '+' + (v => v.toFixed(v < 10 ? 2 : 1))(S.xp / sec * 3600) + '%' : '-';   /* v165: 시간당 경험치를 레벨 % 로 */
     const gd = coins - S.coins0; $('sv-g').textContent = (gd >= 0 ? '+' : '') + gd.toLocaleString();
     const L = [...S.items].sort((a, b) => (RO_[ITEMS[b[0]] && ITEMS[b[0]].rar] || 0) - (RO_[ITEMS[a[0]] && ITEMS[a[0]].rar] || 0) || b[1] - a[1]);
@@ -12064,6 +12070,15 @@ window.SAVER = (() => {
     $('sv-notes').innerHTML = S.notes.map(x => `<li style="color:${x.c}">${esc_(x.t)}</li>`).join('');
     { const nv = (typeof UPD !== 'undefined' && UPD.newVer) ? UPD.newVer() : 0, u = $('sv-upd'); if (nv > GAME_VER) { if (u.hidden) note(`새 업데이트 v${nv}이(가) 나왔어요.`, '#ffd86a'); u.hidden = false; $('sv-updv').textContent = 'v' + nv; } else u.hidden = true; } }   /* v167: 업데이트가 있으면 절전 화면 맨 위에 크게 */
   const RO_ = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 };
+  // 11/1 프로듀서: 지금 위치 (몽환의 섬은 방위 지역까지) · 시간 제한이 있는 곳이면 남은 시간 · 전투 중인 보스
+  function svLoc() { let t = zoneTitle(); try { if (SCENE !== 'town' && ISLE && ISLE.id === DREAM.ZID) t += dreamCenter(ISLE.N, hero.i, hero.j) ? ' · 가운데 제단 광장' : ' · ' + ({ E: '동쪽 불', W: '서쪽 물', S: '남쪽 땅', N: '북쪽 바람' })[dreamQuad(ISLE.N, hero.i, hero.j)] + ' 지역'; } catch (e) {} return t; }
+  function svLimit() { try { if (SCENE === 'town' || !ISLE) return null; if (HW()) { const L = HWM.left(); return { t: '할로윈 남은 시간 ' + DRM.fmt(L), low: L <= 600 }; }
+      if (ISLE.id === DREAM.ZID) { const L = DRM.left(); return { t: '몽환의 섬 남은 시간 ' + DRM.fmt(L), low: L <= 600 }; }
+      const c = COLO.svInfo && COLO.svInfo(); if (c) return { t: c.txt.replace(/^⚔\s*/, ''), low: c.low }; } catch (e) {} return null; }
+  function svBosses() { if (SCENE === 'town') return []; const L = []; for (const f of foxes) { if (f.dead || f.gone || f.bot || f.twr) continue; const M_ = MOB[f.kind]; if (!M_ || !(M_.boss || M_.midb) || M_.dummy) continue;
+      const d = cheb(f.i, f.j, hero.i, hero.j); if (f.coloBoss || (d <= 20 && (hero.target === f || time - (f.myHitAt ?? -1e9) < 20 || (f.aggro && !f.tgt && d <= 12)))) L.push(f); }
+    return L.sort((a, b) => (b === hero.target) - (a === hero.target) || (b.myHitAt || 0) - (a.myHitAt || 0)).slice(0, 3); }
+  function snap() { if (!S) return null; return { el: Math.round((performance.now() - t0) / 1000), exp: S.exp, xp: S.xp, kills: S.kills, items: [...S.items], gd: coins - S.coins0, dead: S.dead, ret: S.ret, buys: [...S.buys], lv0: S.lv0, pct0: S.pct0 }; }
   let lowT = 0;
   function tick(dt) { if (!on) { const m = +((AUTOH_CFG() || {}).saverMin || 0); if (m > 0 && huntOn() && performance.now() - lastIn > m * 60000 && !(typeof DEATH !== 'undefined' && DEATH)) enter(true); return; }
     acc += dt; lowT = Math.max(0, lowT - dt);
@@ -12075,6 +12090,12 @@ window.SAVER = (() => {
   { const b = $('btn-saver'); if (b) b.onclick = () => enter(false); }
   for (const t of ['pointerdown', 'keydown', 'wheel']) addEventListener(t, () => { lastIn = performance.now(); }, true);
   return { on: () => on, enter, exit, tick, note,
+    keepOut: () => on ? snap() : keep && Date.now() - (keep.at || 0) < 180000 ? keep : null,
+    resume(o) { if (!o || typeof o !== 'object') return; keep = null; if (!on) enter(true); if (!on || !S) return; const n = v => Math.max(0, +v || 0);   // 업데이트 전 절전 기록 이어 붙이기
+      S.exp += n(o.exp); S.xp += n(o.xp); S.kills += n(o.kills) | 0; S.dead += n(o.dead) | 0; S.ret += n(o.ret) | 0; if (o.lv0) { S.lv0 = o.lv0; S.pct0 = +o.pct0 || 0; } S.coins0 = coins - (+o.gd || 0);
+      for (const [id, c] of Array.isArray(o.items) ? o.items : []) if (ITEMS[id]) S.items.set(id, (S.items.get(id) || 0) + n(c));
+      for (const [id, v] of Array.isArray(o.buys) ? o.buys : []) { const w = S.buys.get(id) || { n: 0, g: 0 }; w.n += n(v && v.n); w.g += n(v && v.g); S.buys.set(id, w); }
+      t0 = performance.now() - Math.min(86400, n(o.el)) * 1000; S.notes = []; note(`업데이트(v${GAME_VER}) 뒤 절전 모드를 이어서 해요.`, '#9fd08a'); render(); },
     exp(n) { if (!on || !(n > 0)) return; S.exp += n; let r = n, lv = hero.lv, e = hero.exp; for (let k = 0; k < 6 && r > 0; k++) { const nd = needExp(lv), t = Math.min(r, Math.max(1, nd - e)); S.xp += t / nd * 100; r -= t; e = 0; lv++; } },   /* 레벨 % 로도 셈 (레벨이 오르면 나눠서) */ kill() { if (on) S.kills++; }, item(id, n) { if (!on || SCENE === 'town' || !ITEMS[id]) return; if (id === 'gold_pile') return; S.items.set(id, (S.items.get(id) || 0) + (n || 1)); if (ITEMS[id].rar === '영웅' || ITEMS[id].rar === '희귀') note(`${JOSA(ITEMS[id].name, '을', '를')} 얻었어요!`, rarC(id)); },
     death() { if (!on) return; S.dead++; S.pend = true; note('캐릭터가 쓰러졌어요.', '#ff5a4a'); render(); },
     buy(o) { if (!on || !S || !o || !(o.q > 0)) return; const k = o.id || '?', v = S.buys.get(k) || { n: 0, g: 0 }; v.n += o.q; v.g += o.g || 0; S.buys.set(k, v); },
