@@ -174,11 +174,11 @@ const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, e
     apply(o) { if (!o) return; set(o); SFX_ON = s.sfxOn; applySfxVol(); if (typeof TOWN !== 'undefined' && TOWN.setBgm) TOWN.setBgm(s.bgmOn); } }; })();
 SFX_ON = SND.get().sfxOn;
 function applySfxVol() { if (master) master.gain.value = SFX_ON ? 0.4 * SND.sfxK() : 0; }
-const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf','skeleton_archer','zombie','bugbear','cerberus','king_bugbear','baphomet','deathknight','fn_warrior','fn_archer','fn_golem','fn_bomb','fn_egg','fn_fly','fn_ashtazio','phoenix','fn_ifrit']), K2 = new Set(['deathknight','fn_ashtazio','phoenix','fn_ifrit']);   /* v179: 데스나이트 전용 합성음 (공격·스킬·피격·사망) */   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
-  const AL = { elmore_soldier: 'atuba_orc', elmore_warrior: 'orc_warrior', elmore_mage: 'orc_wizard', ettin: 'ogre', ice_golem: 'ogre', sabertooth: 'cerberus', ice_queen: 'orc_wizard', dg_kbugbear: 'king_bugbear', dg_cerberus: 'cerberus', ghoul: 'zombie', ungoliant: 'shelob', spartoi: 'skeleton_archer', necromancer: 'orc_wizard', kaspar: 'orc_wizard', merkyor: 'orc_wizard', balthazar: 'orc_wizard', sema: 'orc_wizard', dv_skel: 'skeleton_archer', dv_archer: 'skeleton_archer', dv_lizard: 'lizardman', wyvern: 'basilisk', drake: 'basilisk', lesser_dragon: 'baphomet', drake_king: 'baphomet', fn_salamander: 'basilisk', fn_hcerberus: 'cerberus', dr_fire: 'fn_ifrit', dr_gfire: 'fn_ifrit', dr_water: 'basilisk', dr_gwater: 'basilisk', dr_earth: 'fn_golem', dr_gearth: 'fn_golem', dr_wind: 'gast', dr_gwind: 'gast', unicorn: 'phoenix' };   /* 11/1 몽환의 섬: 전용 합성음 전까지 비슷한 소리로 */   /* v190: 화룡의 둥지 몹 소리는 dev/sfx/fn_sfx.py로 만든 전용 합성음 */
+const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf','skeleton_archer','zombie','bugbear','cerberus','king_bugbear','baphomet','deathknight','fn_warrior','fn_archer','fn_golem','fn_bomb','fn_egg','fn_fly','fn_ashtazio','phoenix','fn_ifrit','dr_fire','dr_water','dr_earth','dr_wind']), K2 = new Set(['deathknight','fn_ashtazio','phoenix','fn_ifrit']), DRK = new Set(['dr_fire','dr_water','dr_earth','dr_wind']);   /* 11/1 2차: 몽환의 섬 정령 전용 합성음 (dev/sfx_dream.py · 공격·피격·사망·대정령 마법 = cast) */   /* v179: 데스나이트 전용 합성음 (공격·스킬·피격·사망) */   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
+  const AL = { elmore_soldier: 'atuba_orc', elmore_warrior: 'orc_warrior', elmore_mage: 'orc_wizard', ettin: 'ogre', ice_golem: 'ogre', sabertooth: 'cerberus', ice_queen: 'orc_wizard', dg_kbugbear: 'king_bugbear', dg_cerberus: 'cerberus', ghoul: 'zombie', ungoliant: 'shelob', spartoi: 'skeleton_archer', necromancer: 'orc_wizard', kaspar: 'orc_wizard', merkyor: 'orc_wizard', balthazar: 'orc_wizard', sema: 'orc_wizard', dv_skel: 'skeleton_archer', dv_archer: 'skeleton_archer', dv_lizard: 'lizardman', wyvern: 'basilisk', drake: 'basilisk', lesser_dragon: 'baphomet', drake_king: 'baphomet', fn_salamander: 'basilisk', fn_hcerberus: 'cerberus', dr_gfire: 'dr_fire', dr_gwater: 'dr_water', dr_gearth: 'dr_earth', dr_gwind: 'dr_wind', unicorn: 'phoenix' };   /* 11/1 몽환의 섬: 대정령은 같은 속성 정령 소리 (11/1 2차 전용 합성음 dr_<속성>_*) · 유니콘은 피닉스 소리 */   /* v190: 화룡의 둥지 몹 소리는 dev/sfx/fn_sfx.py로 만든 전용 합성음 */
   const buf = {}, pend = {};   /* v124: 한 번만 받아서 해독해 두고 WebAudio로 재생 (재생할 때마다 Audio를 복제·해독하면 끊김) — 못 받으면 예전 방식 */
   function load(k) { if (pend[k]) return; pend[k] = fetch('assets/sound/sfx/' + k + '.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(a => new Promise((res, rej) => AC.decodeAudioData(a, res, rej))).then(b => { buf[k] = b; }).catch(() => { buf[k] = null; }); }
-  return (kind, type, vol = 0.55) => { kind = AL[kind] || kind; if (type === 'skill') type = K2.has(kind) ? 'attack2' : 'attack'; if (!has.has(kind) || !AC) return false; if (!SFX_ON) return true; const k = kind + '_' + type, b = buf[k];
+  return (kind, type, vol = 0.55) => { kind = AL[kind] || kind; if (type === 'skill') type = K2.has(kind) ? 'attack2' : DRK.has(kind) ? 'cast' : 'attack'; if (!has.has(kind) || !AC) return false; if (!SFX_ON) return true; const k = kind + '_' + type, b = buf[k];
     if (b) { const sN = AC.createBufferSource(), gN = AC.createGain(); sN.buffer = b; gN.gain.value = Math.min(1, vol * SND.sfxK()); sN.connect(gN); gN.connect(AC.destination); sN.start(); return true; }
     if (b === undefined) load(k); let base = pool[k];
     if (!base) { base = pool[k] = new Audio('assets/sound/sfx/' + k + '.mp3'); base.preload = 'auto'; }
@@ -2950,7 +2950,7 @@ const DREAM = {
   HILL_PL: 4, HILL_RD: 8,   // 북쪽 절벽 고원 수 · 둥근 언덕 수
   N_SPIRIT: 30, N_GREAT: 6,   // 사분면마다 정령 30 · 대정령 6 → 총 120 · 24 (5:1 · 넓이 2배라 밀도는 처음과 같음)
   // 속성 길 (바닥에 구움 · 걷는 데 영향 없음): 방향마다 두 갈래 · 폭 w칸 · 갈래 중심이 축에서 lane칸(끝으로 갈수록 +spread) · 물결 amp칸 · per번 굽이 · 갈래마다 따로 wob칸 · 가장자리까지 거리의 reach만큼 · 광장 안 상감은 반지름 inR부터
-  ROAD: { w: 2.0, lane: 2.6, spread: 1.6, amp: 3.2, per: 1.15, wob: 0.8, reach: 0.7, inR: 0.36 },
+  ROAD: { w: 2.0, lane: 2.6, spread: 1.6, amp: 3.2, per: 1.15, wob: 0.8, reach: 0.7, inR: 0.26 },
   // 정령: HP ×4 · 피해 ×1.6 · 경험치 ×3 · 골드 ×3 (사라만다 기준) · mac(몹 AC): 명중 식이 레벨 차(1레벨당 5%)에 민감해서 Lv58~60이 맞힐 수 있게 사라만다(1)보다 낮게 (10에 가까울수록 잘 맞음)
   SPIRIT: { lv: 60, hp: 9000, dmg: [144, 229], mac: 6, hit: 0.95, mr: 45, exp: 42450, coin: [9750, 15600], walk: 1.1, run: 3.0, cd: 1.42, elAdd: [24, 40] },
   // 대정령: HP ×6 · 피해 ×2 · 경험치 ×6 · 골드 ×6 · 선공 6칸
@@ -11723,9 +11723,9 @@ function dreamRoadPaint(g, d, N, sc, T) { const SR = DREAM.SAFE_R, W = DREAM.ROA
 // 광장 안 속성 상감 줄 (길과 이어짐 · 돌 테두리 + 색 줄 + 밝은 심 + 마름모 룬) · 광장 가장자리의 속성 문(두 갈래 사이 색 띠)
 const DREAM_INL = { fire: ['#3a0a04', '#d0441a', 'rgba(255,206,120,.95)'], water: ['#0e2a50', '#3a8ee0', 'rgba(224,246,255,.95)'], wind: ['#1c1c20', '#b8bcc0', 'rgba(244,248,252,.85)'], earth: ['#4a3010', '#d8a848', 'rgba(255,240,180,.9)'] };
 function dreamInlay(g, d, N, T) { const SR = DREAM.SAFE_R, C = N / 2, o = T(0, 0), ex = T(1, 0), ez = T(0, 1); g.save(); g.setTransform(ex[0] - o[0], ex[1] - o[1], ez[0] - o[0], ez[1] - o[1], o[0], o[1]); g.lineCap = 'round'; g.lineJoin = 'round';
-  for (const rd of d.roads) { const P = rd.pts.filter(p => p[2] <= SR + 0.6), c = DREAM_INL[rd.el]; if (P.length < 2) continue; const st = (w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); P.forEach((p, n) => n ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); };
+  for (const rd of d.roads) { const P = rd.pts.filter(p => p[2] <= SR + 0.6), c = DREAM_INL[rd.el], wk = rd.q === 'N' || rd.q === 'S' ? 0.6 : 1; if (P.length < 2) continue; const st = (w, col) => { g.strokeStyle = col; g.lineWidth = w * wk; g.beginPath(); P.forEach((p, n) => n ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); };   // 화면 위·아래(북·남) 줄은 등각이라 두 배 굵어 보여서 0.6배
     st(1.0, 'rgba(12,14,20,.7)'); st(0.78, c[0]); st(0.58, c[1]); st(0.15, c[2]);
-    for (let n = 4; n < P.length - 1; n += 5) { const [x, z] = P[n]; g.fillStyle = c[2]; g.beginPath(); g.moveTo(x - 0.2, z); g.lineTo(x, z - 0.2); g.lineTo(x + 0.2, z); g.lineTo(x, z + 0.2); g.closePath(); g.fill(); } }
+    for (let n = 4; n < P.length - 1; n += 5) { const [x, z] = P[n], r = 0.2 * wk; g.fillStyle = c[2]; g.beginPath(); g.moveTo(x - r, z); g.lineTo(x, z - r); g.lineTo(x + r, z); g.lineTo(x, z + r); g.closePath(); g.fill(); } }
   for (const q of DREAM.Q) { const [ux, uz] = DREAM_AX[q], a0 = Math.atan2(uz, ux), c = DREAM_INL[DREAM.EL[q]]; for (const [w, col] of [[0.95, 'rgba(12,14,20,.65)'], [0.66, c[1]], [0.16, c[2]]]) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.arc(C, C, SR - 0.55, a0 - 0.44, a0 + 0.44); g.stroke(); } }
   g.restore(); }
 // 소품 그림: 사분면 색으로 물들인 기존 소품 (한 번 만들어 저장) · 동쪽 고목 자리는 흑요석 기둥
@@ -11759,63 +11759,210 @@ function dreamMiniCol(i, j, L, blk, pt) { const N = ISLE.N, C = N / 2; if (Math.
   if (!blk) { if (ISLE.lava && ISLE.lava.has(j * 1000 + i)) return '#ff7a2a'; const b = Math.round(50 * L); return q === 'E' ? `rgb(${90 + b},${40 + b},${30 + b})` : q === 'W' ? `rgb(${200 + (b >> 1)},${214 + (b >> 2)},230)` : q === 'S' ? `rgb(${182 + b},${150 + b},${98 + b})` : `rgb(${78 + b},${76 + b},${72 + b})`; }
   if (ISLE.water && ISLE.water.has(j * 1000 + i)) return '#8ac8e8';
   return q === 'E' ? (pt === 'deadtree' ? '#1a1020' : '#3a1a14') : q === 'W' ? (pt === 'tree' ? '#2a4a3a' : '#7a8698') : q === 'S' ? (pt === 'cactus' ? '#4a7a32' : '#8a6040') : '#3a3834'; }
-// ----- 정령·대정령 그림 (코드) — 떠 있는 상체·팔·머리 + 땅에서 솟는 속성 소용돌이 · 대정령은 1.5배 + 속성 오로라(캔버스 한 번 만들어 재사용)
+// ----- 정령·대정령 색 · 대정령 오로라(캔버스 한 번 만들어 재사용) — 몸 그림은 아래 11/1 2차 DSPC
 const DREAM_PAL = { fire: { a: '#7a1004', b: '#e8481a', c: '#ffb03a', d: '#fff2c0', g: '255,120,40' }, water: { a: '#0a2a6a', b: '#2a78d8', c: '#7ad0ff', d: '#e8fbff', g: '90,180,255' }, earth: { a: '#3a2410', b: '#8a6230', c: '#c8a060', d: '#f2e2b8', g: '220,170,80' }, wind: { a: '#0e4a30', b: '#2a9a70', c: '#8af0c0', d: '#eafff2', g: '140,240,190' } };
 const DREAM_AUR = {};
 function dreamAura(g, el, x, y, k) { const W = 180, H = 230; let c = DREAM_AUR[el]; if (!c) { c = DREAM_AUR[el] = document.createElement('canvas'); c.width = W; c.height = H; const cg = c.getContext('2d'), P = DREAM_PAL[el];
     const gr = cg.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W / 2); gr.addColorStop(0, `rgba(${P.g},.5)`); gr.addColorStop(0.5, `rgba(${P.g},.2)`); gr.addColorStop(1, `rgba(${P.g},0)`); cg.fillStyle = gr; cg.save(); cg.translate(W / 2, H / 2); cg.scale(1, H / W); cg.translate(-W / 2, -H / 2); cg.beginPath(); cg.arc(W / 2, H / 2, W / 2, 0, 7); cg.fill(); cg.restore();
     cg.filter = 'blur(7px)'; for (let q = 0; q < 7; q++) { const x = W / 2 + (q - 3) * 19 + ((q * 7) % 5) - 2, h = H * (0.5 + 0.22 * Math.sin(q * 1.7)), gr2 = cg.createLinearGradient(0, H / 2 - h / 2, 0, H / 2 + h / 2); gr2.addColorStop(0, `rgba(${P.g},0)`); gr2.addColorStop(0.35, `rgba(${P.g},.5)`); gr2.addColorStop(0.65, `rgba(${P.g},.4)`); gr2.addColorStop(1, `rgba(${P.g},0)`); cg.fillStyle = gr2; cg.fillRect(x - 5, H / 2 - h / 2, 10 + (q % 3) * 3, h); } cg.filter = 'none'; }   // 오로라: 세로 빛띠 7개를 흐리게
   const s = 0.86 + 0.14 * Math.sin(time * 2.6 + x * 0.01); g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha *= 0.9 * k; g.drawImage(c, x - W / 2 * s, y - H / 2 * s, W * s, H * s); g.restore(); }
-function dreamColumn(g, el, P, t, wd, trail, dk) { const yT = -42, yB = 5, H = (yB - yT) * (1 - dk * 0.6), n = 12, tw = t * (el === 'earth' ? 1.4 : 5), rk = el === 'earth';
-  const cxk = k => Math.sin(tw * 0.5 + k * 3.2) * 2.2 * k + trail * k * k, hwk = k => (15 - 11 * Math.pow(k, 0.8)) * wd * (1 + 0.09 * Math.sin(tw + k * 9)) * (1 - dk * 0.5);
-  const cols = el === 'fire' ? [[1, 'rgba(122,16,4,.95)'], [0.78, 'rgba(232,72,26,.93)'], [0.52, 'rgba(255,176,58,.9)'], [0.26, 'rgba(255,242,192,.85)']] : el === 'water' ? [[1, 'rgba(10,42,106,.8)'], [0.78, 'rgba(42,120,216,.8)'], [0.52, 'rgba(122,208,255,.75)'], [0.26, 'rgba(232,251,255,.7)']] : rk ? [[1, 'rgba(58,36,16,.95)'], [0.8, 'rgba(110,80,44,.95)'], [0.55, 'rgba(160,122,70,.95)'], [0.28, 'rgba(200,160,96,.9)']] : [[1, 'rgba(14,74,48,.55)'], [0.78, 'rgba(42,154,112,.5)'], [0.52, 'rgba(138,240,192,.45)'], [0.26, 'rgba(234,255,242,.45)']];
-  for (const [m, col] of cols) { g.fillStyle = col; g.beginPath(); for (let i = 0; i <= n; i++) { const k = i / n, jag = (i % 2 ? 1.8 : -0.4) * m * Math.sin(tw * 1.3 + i) * (rk ? 1.6 : 1); g.lineTo(cxk(k) - hwk(k) * m - jag, yT + H * k); } for (let i = n; i >= 0; i--) { const k = i / n, jag = (i % 2 ? -0.4 : 1.8) * m * Math.sin(tw * 1.1 + i * 1.3); g.lineTo(cxk(k) + hwk(k) * m + jag, yT + H * k); } g.closePath(); g.fill(); }
-  if (rk) { g.strokeStyle = 'rgba(30,18,8,.6)'; g.lineWidth = 1.1; for (let q = 0; q < 6; q++) { const k = (q + 0.5) / 6, y = yT + H * k, w = hwk(k); g.beginPath(); g.moveTo(cxk(k) - w, y + 1); g.lineTo(cxk(k) + w * 0.9, y - 1.5); g.stroke(); g.beginPath(); g.moveTo(cxk(k) + (q % 2 ? 3 : -4), y - 2); g.lineTo(cxk(k) + (q % 2 ? 1 : -2), y + 2); g.stroke(); } return; }
-  g.globalCompositeOperation = 'lighter'; g.lineWidth = 1.7; for (let q = 0; q < 5; q++) { const ph = (t * 0.95 + q / 5) % 1, k = 1 - ph, y = yT + H * k, w = hwk(k), x0 = cxk(k); g.strokeStyle = `rgba(${P.g},${(0.6 * Math.sin(ph * Math.PI)).toFixed(2)})`; g.beginPath(); g.ellipse(x0, y, w * 0.92, w * 0.32, -0.25, 0.12 * Math.PI, 0.95 * Math.PI); g.stroke(); }
-  mxG(g, P.g, cxk(1), yT + H, 12, 0.5 * (1 - dk), 0.5);
-  if (el === 'wind') { g.strokeStyle = 'rgba(234,255,242,.55)'; g.lineWidth = 1.2; for (let q = 0; q < 3; q++) { const a0 = t * 3 + q * 2.1; g.beginPath(); g.ellipse(cxk(0.5), yT + H * 0.5, 16 * wd, 6, 0, a0, a0 + 2.2); g.stroke(); } }
-  g.globalCompositeOperation = 'source-over'; }
-function drawSpirit(g, f) { const S = MOB[f.kind], el = S.el, P = DREAM_PAL[el], A0 = g.globalAlpha, t = time + (f.hi || 0) * 0.7, d = DIRV[f.row] || [1, 0], dl = Math.hypot(d[0], d[1]) || 1, d0 = d[0] / dl, d1 = d[1] / dl;
-  const ux = (d0 - d1) / Math.SQRT2, uy = (d0 + d1) / Math.SQRT2, rx = -uy, rz = ux, front = uy > -0.3, wd = 0.62 + 0.38 * Math.abs(uy), sc = S.sc || 1, dead = !!f.dead, dk = dead ? Math.min(1, (f.deadT || 0) / 1.4) : 0, moving = f.t < 1 && !dead;
+// ----- 11/1 2차 정령 그림 (전부 코드로 직접 그린 오리지널 — 외부 게임 그림을 보거나 본뜨지 않음)
+//   불 = 겹겹이 일렁이는 불꽃 인간(어깨·머리에서 솟는 불꽃 혀 · 녹은 핵 · 불꽃 팔) · 물 = 투명한 물 인간(물결치는 하체 · 굴절 빛 · 속 거품 · 물방울)
+//   땅 = 바위·수정 거인(쌓인 바위 · 호박빛 틈 · 무거운 걸음) · 바람 = 반투명 소용돌이 몸(희미한 가면 · 리본 팔 · 도는 잎)
+//   대정령 = 1.5배 + 불꽃 왕관·날개 / 얼음 왕관 / 수정 가시 / 폭풍 고리 + 속성 오로라
+//   성능: 몸 전체를 (속성·대정령·동작·프레임·해상도)마다 한 번만 그려 캔버스에 저장(DSPC · 최대 750만 픽셀 = 30MB · 오래 안 쓴 것부터 지움 · PC에서 두 사분면 정령+대정령 72장이 다 들어감 · 대정령은 0.85배 해상도) → 매 프레임은 drawImage 한 번 + 그림자·빛·얼굴·알갱이만
+//   동작: idle 8프레임(속성마다 빠르기 다름) · atk 6프레임(0·1 = 들어 올림 · 2·3 = 내지름 · 4·5 = 거둠) · cast 4프레임(두 팔 위로) · 죽음은 저장된 그림을 속성대로 변형(꺼짐·무너짐·흩어짐)
+const DSPC = { m: new Map(), px: 0, MAX: 7.5e6, BOX: [[118, 152, 50, 140], [130, 162, 60, 150]], N: { idle: 8, atk: 6, cast: 4 }, FPS: { fire: 10, water: 6, earth: 5, wind: 9 }, t: -1, made: 0, live: 0 };
+const DS_TAU = Math.PI * 2, dsH = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };   // 고정 난수 (같은 프레임은 늘 같은 모양)
+function dsSmooth(g, pts) { const n = pts.length; g.beginPath(); g.moveTo((pts[n - 1][0] + pts[0][0]) / 2, (pts[n - 1][1] + pts[0][1]) / 2); for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; g.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2); } g.closePath(); }
+function dsScaled(g, cx, cy, s, fn) { g.save(); g.translate(cx, cy); g.scale(s, s); g.translate(-cx, -cy); fn(); g.restore(); }
+// 불꽃 혀: 밑 (x, y) · 폭 w · 높이 h · 끝 휨 lean · 일렁임 ph
+function dsFlame(g, x, y, w, h, lean, ph, col) { const tx = x + lean + Math.sin(ph) * w * 0.3, ty = y - h; g.fillStyle = col; g.beginPath(); g.moveTo(x - w / 2, y); g.bezierCurveTo(x - w * 0.62, y - h * 0.45, tx - w * 0.3 + Math.sin(ph * 2 + 1) * w * 0.12, y - h * 0.78, tx, ty); g.bezierCurveTo(tx + w * 0.22, y - h * 0.72, x + w * 0.66, y - h * 0.42, x + w / 2, y); g.closePath(); g.fill(); }
+// 팔·다리 마디 (둥근 끝 선을 여러 겹)
+function dsSeg(g, a, b, w, col) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+function dsRock(g, x, y, rx, ry, sd, cols, ol) { const n = 8, pts = []; for (let k = 0; k < n; k++) { const a = k / n * DS_TAU + dsH(sd, k) * 0.4, r = 0.82 + dsH(k, sd) * 0.3; pts.push([x + Math.cos(a) * rx * r, y + Math.sin(a) * ry * r]); }
+  g.fillStyle = cols[0]; g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); if (ol) { g.strokeStyle = ol; g.lineWidth = 1; g.stroke(); }
+  g.fillStyle = cols[1]; g.beginPath(); g.moveTo(pts[4][0] * 0.4 + x * 0.6, pts[4][1] * 0.4 + y * 0.6); for (const k of [4, 5, 6]) g.lineTo(pts[k][0] * 0.94 + x * 0.06, pts[k][1] * 0.94 + y * 0.06); g.lineTo(x + rx * 0.1, y - ry * 0.1); g.closePath(); g.fill();   // 위·왼쪽 밝은 면
+  g.fillStyle = cols[2]; g.beginPath(); g.moveTo(pts[0][0] * 0.9 + x * 0.1, pts[0][1] * 0.9 + y * 0.1); for (const k of [1, 2]) g.lineTo(pts[k][0] * 0.95 + x * 0.05, pts[k][1] * 0.95 + y * 0.05); g.lineTo(x + rx * 0.15, y + ry * 0.2); g.closePath(); g.fill(); }   // 아래·오른쪽 어두운 면
+function dsCrystal(g, x, y, w, h, a, cols) { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = cols[0]; g.beginPath(); g.moveTo(-w / 2, 0); g.lineTo(-w * 0.42, -h * 0.72); g.lineTo(0, -h); g.lineTo(w * 0.42, -h * 0.72); g.lineTo(w / 2, 0); g.closePath(); g.fill();
+  g.fillStyle = cols[1]; g.beginPath(); g.moveTo(-w / 2, 0); g.lineTo(-w * 0.42, -h * 0.72); g.lineTo(0, -h); g.lineTo(0, 0); g.closePath(); g.fill(); g.strokeStyle = cols[2]; g.lineWidth = 0.8; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -h); g.stroke(); g.restore(); }
+// 자세: 어깨·팔꿈치·손 (오른쪽 = 화면 오른쪽 · 왼쪽을 볼 때는 그림을 뒤집음) · 상체 기울기 · 머리 자리
+function dsPose(el, pose, fi, ph) { const E = el === 'earth', sy = E ? -74 : -80, sw = E ? 23 : 18; let R, L, lean = 0;
+  const sR = [sw, sy], sL = [-sw, sy];
+  if (pose === 'atk') { const K = [[[sw + 9, sy - 6], [sw + 4, sy - 22]], [[sw + 6, sy - 12], [sw - 6, sy - 28]], [[sw + 15, sy + 2], [sw + 28, sy + 6]], [[sw + 19, sy + 10], [sw + 38, sy + 16]], [[sw + 15, sy + 12], [sw + 30, sy + 24]], [[sw + 11, sy + 15], [sw + 15, sy + 29]]][fi];
+    lean = [0, -1.5, 2.5, 4.5, 3, 1][fi]; R = [sR, K[0], K[1]]; L = [sL, [-sw - 7, sy + 15], [-sw - 4, sy + 28]]; }
+  else if (pose === 'cast') { const w = Math.sin(ph) * 1.5; R = [sR, [sw + 9, sy - 15], [sw - 6 + w, sy - 34]]; L = [sL, [-sw - 9, sy - 15], [-sw + 6 - w, sy - 34]]; }
+  else { const a = Math.sin(ph) * (E ? 1 : 1.6), b = Math.cos(ph) * 0.8; R = [sR, [sw + 8 + b, sy + 16], [sw + 9 + b * 1.5, sy + 31 + a]]; L = [sL, [-sw - 8 - b, sy + 16], [-sw - 9 - b * 1.5, sy + 31 - a]]; }
+  if (E) { R[2][1] += 2; L[2][1] += 2; }
+  const hy = (E ? -90 : -96) + (pose === 'cast' ? -2 : 0) + (pose === 'idle' ? Math.sin(ph) * 0.6 : 0);
+  return { R: R.map(p => [p[0] + lean * 0.7, p[1]]), L: L.map(p => [p[0] + lean * 0.7, p[1]]), lean, head: [lean * 0.9, hy] }; }
+// ===== 불
+function dsFire(g, great, pose, fi, ph, A) { const lx = A.lean * 0.6, [hx, hy] = A.head;
+  if (great) for (const s of [-1, 1]) { for (const [m, col] of [[1, 'rgba(130,20,4,.85)'], [0.72, 'rgba(232,80,20,.8)'], [0.42, 'rgba(255,190,70,.75)']]) { g.fillStyle = col; g.beginPath(); const bx = lx + s * 10, by = -74; g.moveTo(bx, by + 6 * m);   // 불꽃 날개 (대정령)
+      for (let k = 0; k <= 5; k++) { const a = k / 5, x = bx + s * (10 + a * 36) * m, y = by - (8 + Math.sin(a * Math.PI) * 30 + a * 10) * m + Math.sin(ph * 2 + k * 1.3 + s) * 2.2; g.lineTo(x, y); g.lineTo(bx + s * (6 + a * 30) * m, y + 9 * m); } g.lineTo(bx + s * 6 * m, by + 14 * m); g.closePath(); g.fill(); } }
+  for (let k = -3; k <= 3; k++) dsFlame(g, lx + k * 6.5, -72 - Math.abs(k) * 2, 12, 28 + (great ? 10 : 0) + 8 * Math.sin(ph + k * 1.9) - Math.abs(k) * 3, -k * 1.5 - 3, ph * 2 + k, 'rgba(150,26,6,.88)');   // 등 뒤 큰 불꽃
+  for (let k = -2; k <= 2; k++) dsFlame(g, lx + k * 6, -74 - Math.abs(k) * 2, 8, 20 + 6 * Math.sin(ph * 2 + k * 2.3), -k - 2, ph * 2 + k * 3, 'rgba(240,96,24,.7)');
+  // 하체: 아래로 뾰족해지는 불꽃 꼬리 (네 겹 · 가장자리가 일렁임)
+  for (const [m, col] of [[1, '#7a1404'], [0.8, '#d03c0e'], [0.58, '#ff8424'], [0.34, '#ffd468']]) { const tip = Math.sin(ph) * 3, pts = [];
+    for (let k = 0; k <= 6; k++) { const a = k / 6, y = -52 + a * 48, w = (14 - a * 12) * m + (k % 2 ? 2.4 : -0.4) * m * (0.6 + 0.4 * Math.sin(ph * 2 + k)); pts.push([lx * (1 - a) - w + tip * a * a, y]); }
+    pts.push([tip, -2 + (1 - m) * 10]); for (let k = 6; k >= 0; k--) { const a = k / 6, y = -52 + a * 48, w = (14 - a * 12) * m + (k % 2 ? -0.4 : 2.4) * m * (0.6 + 0.4 * Math.sin(ph * 2 + k + 2)); pts.push([lx * (1 - a) + w + tip * a * a, y]); }
+    g.fillStyle = col; g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); }
+  for (let k = 0; k < 4; k++) { const y = -46 + k * 10, s = k % 2 ? 1 : -1; dsFlame(g, lx * (1 - k / 5) + s * (11 - k * 2.5), y, 6, 9 + 3 * Math.sin(ph * 2 + k), s * 3, ph * 2 + k, 'rgba(255,132,36,.85)'); }
+  const arm = (P, front) => { const [s, e, h] = P; for (const [w1, w2, col] of [[9.5, 6.8, '#7a1404'], [7.4, 5.2, '#e04a14'], [3.8, 2.8, '#ffb43c'], [1.4, 1, '#fff0b4']]) { dsSeg(g, s, e, w1, col); dsSeg(g, e, h, w2, col); }
+    for (let k = 0; k < 5; k++) { const a = (k + 0.3) / 5, [p0, p1, u] = a < 0.5 ? [s, e, a * 2] : [e, h, a * 2 - 1], x = p0[0] + (p1[0] - p0[0]) * u, y = p0[1] + (p1[1] - p0[1]) * u; dsFlame(g, x, y - 2, 6 - a * 2, 10 + (1 - a) * 4 + 4 * Math.sin(ph * 2 + k * 1.3 + (front ? 0 : 2)), -3 - a * 2, ph * 2 + k, k % 2 ? 'rgba(255,176,56,.9)' : 'rgba(236,84,20,.9)'); }   // 팔을 따라 뒤로 날리는 불꽃
+    const gr = g.createRadialGradient(h[0], h[1], 0.5, h[0], h[1], 5.5); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.4, '#ffe08a'); gr.addColorStop(0.8, '#ff7a1c'); gr.addColorStop(1, 'rgba(160,30,6,.85)'); g.fillStyle = gr; g.beginPath(); g.arc(h[0], h[1], 4.6, 0, 7); g.fill();
+    for (let k = -2; k <= 2; k++) dsFlame(g, h[0] + k * 2.2, h[1] - 2.5, 3.6, 6 + (2 - Math.abs(k)) * 2.5 + 2.5 * Math.sin(ph * 2 + k * 2), k * 1.2, ph + k, k % 2 ? 'rgba(255,214,110,.92)' : 'rgba(255,250,210,.9)'); };   // 주먹 = 터지는 불꽃
+  arm(A.L, false);
+  // 몸통: 넓은 어깨 · 잘록한 허리 (네 겹 · 가슴 쪽으로 밝아짐)
+  const T = [[-21, -80], [-24, -73], [-17, -62], [-11, -53], [-13, -46], [0, -43], [13, -46], [11, -53], [17, -62], [24, -73], [21, -80], [10, -85], [0, -86], [-10, -85]].map(([x, y]) => [x + lx, y]);
+  for (const [m, col] of [[1, '#8a1a06'], [0.84, '#d8420f'], [0.62, '#ff8a26'], [0.38, '#ffd26a']]) dsScaled(g, lx, -64, m, () => { g.fillStyle = col; dsSmooth(g, T); g.fill(); });
+  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) dsFlame(g, lx + s * (14 - k * 3), -70 + k * 9, 6, 10 + 3 * Math.sin(ph * 2 + k + s), s * 4, ph * 2 + k * 2, 'rgba(255,120,30,.9)');   // 옆구리 불꽃
+  g.strokeStyle = 'rgba(255,244,190,.85)'; g.lineWidth = 1.1; for (const [x0, y0, x1, y1] of [[-7, -58, -2, -52], [7, -58, 2, -52], [-5, -50, 5, -50], [0, -74, 0, -60]]) { g.beginPath(); g.moveTo(lx + x0, y0); g.quadraticCurveTo(lx + (x0 + x1) / 2 + 1, (y0 + y1) / 2 - 1, lx + x1, y1); g.stroke(); }   // 녹은 결
+  { const gr = g.createRadialGradient(lx, -68, 0, lx, -68, 13); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,240,170,.95)'); gr.addColorStop(0.7, 'rgba(255,160,60,.45)'); gr.addColorStop(1, 'rgba(255,120,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(lx, -68, 13, 0, 7); g.fill(); }   // 녹은 핵
+  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const x = lx + s * (13 + k * 4), y = -79 + k * 1.5; dsFlame(g, x, y, 7 - k, (great ? 26 : 17) - k * 3 + 5 * Math.sin(ph * 2 + k * 1.7 + s), s * (3 + k * 2), ph * 2 + k + s, k ? 'rgba(255,200,80,.9)' : 'rgba(240,90,20,.92)'); }   // 어깨에서 솟는 불꽃
+  // 머리: 물방울 꼴 + 뒤로 날리는 불꽃 머리칼
+  for (let k = -2; k <= 2; k++) dsFlame(g, hx + k * 3.2, hy - 5, 6, 18 + (2 - Math.abs(k)) * 5 + 5 * Math.sin(ph * 2 + k * 1.6), -4 - k, ph * 2 + k * 2, k % 2 ? 'rgba(255,170,50,.92)' : 'rgba(230,70,16,.92)');
+  for (const [r, col] of [[9.5, '#a8280a'], [7.6, '#f06a1c'], [5, '#ffc45a'], [2.6, '#fff4c8']]) { g.fillStyle = col; g.beginPath(); g.moveTo(hx, hy - r * 1.9); g.quadraticCurveTo(hx + r * 1.1, hy - r * 0.6, hx + r * 0.85, hy + r * 0.3); g.quadraticCurveTo(hx, hy + r * 1.15, hx - r * 0.85, hy + r * 0.3); g.quadraticCurveTo(hx - r * 1.1, hy - r * 0.6, hx, hy - r * 1.9); g.fill(); }
+  if (great) { for (let k = -3; k <= 3; k++) { const a = k / 3, x = hx + a * 9, y = hy - 9 - (1 - Math.abs(a)) * 2; dsFlame(g, x, y, 4.2, 15 + (1 - Math.abs(a)) * 12 + 4 * Math.sin(ph * 2 + k * 2.1), a * 4, ph * 2 + k, 'rgba(255,236,150,.95)'); dsFlame(g, x, y, 2, 9 + (1 - Math.abs(a)) * 8, a * 3, ph * 2 + k + 1, 'rgba(255,255,255,.9)'); }   // 불꽃 왕관
+    g.fillStyle = '#ffd25a'; g.beginPath(); g.ellipse(hx, hy - 8.5, 9.5, 2.4, 0, 0, 7); g.fill(); }
+  arm(A.R, true); }
+// ===== 물
+function dsCurve(g, pts) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length - 1; i++) g.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2); const e = pts[pts.length - 1]; g.lineTo(e[0], e[1]); }   // 열린 부드러운 선
+function dsWater(g, great, pose, fi, ph, A) { const lx = A.lean * 0.6, [hx, hy] = A.head, st = (pts, w, col) => { g.strokeStyle = col; g.lineWidth = w; dsCurve(g, pts); g.stroke(); };
+  if (great) { g.fillStyle = 'rgba(40,120,210,.42)'; g.beginPath(); g.moveTo(lx - 16, -80); for (let k = 0; k <= 6; k++) { const a = k / 6; g.lineTo(lx - 18 - a * 20 + Math.sin(ph + a * 4) * 3, -80 + a * 66); } for (let k = 6; k >= 0; k--) { const a = k / 6; g.lineTo(lx - 10 - a * 10 + Math.sin(ph + a * 4 + 1) * 2, -76 + a * 62); } g.closePath(); g.fill();   // 물결 망토 (대정령)
+    st([[lx - 16, -80], [lx - 26, -60 + Math.sin(ph) * 2], [lx - 36, -16]], 1.2, 'rgba(230,250,255,.6)'); }
+  // 바닥 물보라: 고인 물 + 물결 고리 + 튀는 물방울
+  g.fillStyle = 'rgba(120,200,255,.32)'; g.beginPath(); g.ellipse(0, -1, 21, 6, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(235,250,255,.65)'; g.lineWidth = 1.1; g.beginPath(); g.ellipse(0, -1, 17 + Math.sin(ph) * 2, 4.6, 0, 0.15, Math.PI - 0.15); g.stroke();
+  for (let k = 0; k < 4; k++) { const a = (fi / 8 + k / 4) % 1, x = (k % 2 ? 1 : -1) * (12 + k * 2 + a * 6), y = -3 - Math.sin(a * Math.PI) * 9; g.fillStyle = `rgba(200,240,255,${(0.9 - a * 0.5).toFixed(2)})`; g.beginPath(); g.ellipse(x, y, 1.1, 1.5, 0, 0, 7); g.fill(); }
+  // 하체: 허리에서 잘록해졌다가 바닥으로 퍼지는 물결 (아래 가장자리는 물마루 모양 · 세 겹 투명)
+  const half = a => a < 0.4 ? 11 - a / 0.4 * 4 : 7 + (a - 0.4) / 0.6 * 13;
+  for (const [m, col] of [[1, 'rgba(14,64,140,.66)'], [0.8, 'rgba(40,130,220,.58)'], [0.56, 'rgba(140,215,255,.5)']]) { const pts = [];
+    for (let k = 0; k <= 8; k++) { const a = k / 8; pts.push([lx * (1 - a) - half(a) * m + Math.sin(ph + a * 6) * 1.4 + Math.sin(ph + a * 3) * 2 * a, -50 + a * 46]); }
+    for (let k = 1; k < 8; k++) { const a = k / 8; pts.push([(-20 + a * 40) * m + Math.sin(ph) * 2, -4 + (k % 2 ? -3.2 : 0.8) * m + Math.sin(ph * 2 + k) * 0.8]); }
+    for (let k = 8; k >= 0; k--) { const a = k / 8; pts.push([lx * (1 - a) + half(a) * m + Math.sin(ph + a * 6 + 2) * 1.4 + Math.sin(ph + a * 3) * 2 * a, -50 + a * 46]); }
+    g.fillStyle = col; dsSmooth(g, pts); g.fill(); }
+  // 휘감아 내려가는 물마루 (허리 → 앞으로 돌아 → 바닥) · 하얀 거품 테
+  { const c0 = ph, W = [[lx - 12, -48], [lx - 5, -39 + Math.sin(c0) * 1.5], [lx + 8, -33], [lx + 14, -24 + Math.sin(c0 + 1) * 1.5], [lx + 9, -15], [lx + 2, -13]];
+    st(W, 5.2, 'rgba(36,120,214,.62)'); st(W, 2.6, 'rgba(170,230,255,.8)'); st(W.map(([x, y]) => [x, y - 2]), 1, 'rgba(255,255,255,.9)'); g.fillStyle = 'rgba(255,255,255,.85)'; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(lx + 2 - k * 2, -13 - k * 1.2, 1.1 - k * 0.25, 0, 7); g.fill(); } }
+  g.strokeStyle = 'rgba(240,252,255,.7)'; g.lineWidth = 1.1; for (let k = 0; k < 3; k++) { const a = ((fi / 8 + k / 3) % 1), y = -46 + a * 38, w = half(a * 0.85) - 1; g.beginPath(); g.moveTo(lx * (1 - a) - w, y); g.quadraticCurveTo(lx * (1 - a), y + 3, lx * (1 - a) + w, y - 1); g.stroke(); }   // 내려가는 물결 띠
+  const arm = (P, front) => { const [s, e, h] = P, c = [(s[0] + e[0]) / 2 + 1.5, (s[1] + e[1]) / 2 + Math.sin(ph + (front ? 0 : 2)) * 1.2], a1 = [s, c, e, h];
+    st(a1, 8.6, 'rgba(14,64,140,.72)'); st(a1, 6.4, 'rgba(50,140,225,.72)'); st(a1, 3, 'rgba(150,220,255,.72)'); st(a1.map(([x, y]) => [x - 2.2, y - 1.6]), 0.9, 'rgba(255,255,255,.72)');   // 굴절 빛
+    g.fillStyle = 'rgba(70,160,235,.85)'; g.beginPath(); g.moveTo(h[0], h[1] - 6); g.quadraticCurveTo(h[0] + 5.5, h[1] + 1, h[0], h[1] + 5.5); g.quadraticCurveTo(h[0] - 5.5, h[1] + 1, h[0], h[1] - 6); g.fill(); g.fillStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.arc(h[0] - 1.6, h[1], 1.2, 0, 7); g.fill();
+    for (let k = 0; k < 2; k++) { const a = (fi / 8 + k * 0.5 + (front ? 0 : 0.25)) % 1; g.fillStyle = `rgba(170,225,255,${(0.9 - a * 0.6).toFixed(2)})`; g.beginPath(); g.moveTo(h[0] + (k ? 1.5 : -1), h[1] + 5 + a * 22 - 2.2); g.quadraticCurveTo(h[0] + (k ? 1.5 : -1) + 1.4, h[1] + 5 + a * 22 + 0.6, h[0] + (k ? 1.5 : -1), h[1] + 5 + a * 22 + 1.6); g.quadraticCurveTo(h[0] + (k ? 1.5 : -1) - 1.4, h[1] + 5 + a * 22 + 0.6, h[0] + (k ? 1.5 : -1), h[1] + 5 + a * 22 - 2.2); g.fill(); } };   // 손끝 물방울
+  arm(A.L, false);
+  // 몸통: 투명한 물 (위·왼쪽이 밝음) + 안쪽 밝은 물 + 올라가는 거품 + 굴절 테
+  const T = [[-19, -80], [-22, -73], [-15, -62], [-9, -53], [-11, -47], [0, -45], [11, -47], [9, -53], [15, -62], [22, -73], [19, -80], [9, -85], [0, -86], [-9, -85]].map(([x, y]) => [x + lx, y]);
+  { const gr = g.createLinearGradient(lx - 20, -88, lx + 18, -46); gr.addColorStop(0, 'rgba(180,235,255,.72)'); gr.addColorStop(0.45, 'rgba(56,150,232,.66)'); gr.addColorStop(1, 'rgba(12,56,130,.78)'); g.fillStyle = gr; dsSmooth(g, T); g.fill(); g.strokeStyle = 'rgba(10,40,100,.5)'; g.lineWidth = 1; g.stroke(); }
+  dsScaled(g, lx + 2, -64, 0.55, () => { g.fillStyle = 'rgba(200,240,255,.24)'; dsSmooth(g, T); g.fill(); });
+  for (let k = 0; k < 8; k++) { const a = (fi / 8 + dsH(k, 3)) % 1, x = lx + (dsH(k, 7) - 0.5) * 18 * (1 - a * 0.4), y = -48 - a * 34, r = 0.9 + dsH(k, 9) * 1.7; g.fillStyle = 'rgba(255,255,255,.16)'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.strokeStyle = `rgba(240,252,255,${(0.8 * Math.sin(a * Math.PI)).toFixed(2)})`; g.lineWidth = 0.7; g.stroke(); }
+  st([[lx - 18, -79], [lx - 21, -71], [lx - 15, -62], [lx - 10, -55]], 1.6, 'rgba(255,255,255,.85)'); st([[lx + 14, -78], [lx + 19, -72], [lx + 16, -66]], 0.9, 'rgba(220,245,255,.5)');
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(lx - 10, -74, 2.6, 1.4, -0.6, 0, 7); g.fill();
+  // 머리: 뒤로 넘어가 말리는 물결 머리칼(끝에 거품) + 매끈한 타원 얼굴
+  { const w = Math.sin(ph) * 1.6, H = [[hx + 4, hy - 8], [hx - 4, hy - 13 + w * 0.5], [hx - 13, hy - 11], [hx - 19, hy - 3 + w], [hx - 17, hy + 5], [hx - 12, hy + 3], [hx - 14, hy - 2 + w * 0.6], [hx - 8, hy - 5], [hx - 3, hy + 3]];
+    g.fillStyle = 'rgba(40,130,220,.75)'; dsSmooth(g, H); g.fill(); g.strokeStyle = 'rgba(14,60,140,.5)'; g.lineWidth = 0.8; g.stroke();
+    st([[hx + 3, hy - 9], [hx - 5, hy - 13 + w * 0.5], [hx - 14, hy - 11], [hx - 19, hy - 3 + w]], 1.3, 'rgba(240,252,255,.85)'); g.fillStyle = 'rgba(255,255,255,.9)'; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(hx - 18 + k * 1.4, hy + 3 - k * 2.2 + w, 1.2 - k * 0.25, 0, 7); g.fill(); } }
+  { const gr = g.createRadialGradient(hx - 2.5, hy - 3, 1, hx, hy, 10); gr.addColorStop(0, 'rgba(225,248,255,.95)'); gr.addColorStop(0.5, 'rgba(90,180,245,.82)'); gr.addColorStop(1, 'rgba(20,80,170,.85)'); g.fillStyle = gr; g.beginPath(); g.ellipse(hx, hy, 7.4, 8.8, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(10,40,100,.5)'; g.lineWidth = 0.9; g.stroke(); }
+  g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.3; g.beginPath(); g.arc(hx, hy, 6.2, Math.PI * 1.0, Math.PI * 1.4); g.stroke();
+  if (great) { for (let k = -2; k <= 2; k++) dsCrystal(g, hx + k * 3.6, hy - 7.5 + Math.abs(k) * 0.8, 3.6, 12 + (2 - Math.abs(k)) * 5, k * 0.16, ['rgba(200,240,255,.95)', 'rgba(255,255,255,.95)', 'rgba(120,190,240,.9)']);   // 얼음 왕관
+    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) dsCrystal(g, lx + s * (15 + k * 4), -81 + k, 3.4, 10 - k * 2, s * (0.35 + k * 0.2), ['rgba(190,235,255,.92)', 'rgba(255,255,255,.9)', 'rgba(110,180,235,.9)']); }   // 어깨 얼음 조각
+  arm(A.R, true); }
+// ===== 땅
+function dsEarth(g, great, pose, fi, ph, A) { const lx = A.lean * 0.6, [hx, hy] = A.head, R0 = ['#6e5030', '#a07a4a', '#3e2a16'], R1 = ['#7c5a36', '#b08854', '#46301a'], OL = 'rgba(28,18,8,.7)', AMB = 'rgba(255,176,60,.95)';
+  const seam = (pts, w) => { g.strokeStyle = 'rgba(255,140,40,.28)'; g.lineWidth = w * 3.2; g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); g.strokeStyle = AMB; g.lineWidth = w; g.stroke(); g.strokeStyle = 'rgba(255,240,190,.9)'; g.lineWidth = w * 0.35; g.stroke(); };
+  if (great) for (const [x, y, h, a] of [[-14, -86, 30, -0.45], [-6, -90, 38, -0.12], [5, -89, 34, 0.18], [15, -85, 26, 0.5], [-20, -78, 18, -0.8], [21, -78, 18, 0.85]]) dsCrystal(g, lx + x, y, 7, h, a, ['rgba(232,150,40,.95)', 'rgba(255,214,120,.95)', 'rgba(255,246,210,.9)']);   // 등의 큰 수정 가시 (대정령)
+  // 다리: 짧고 굵은 바위 다리 (걸음마다 조금 들썩)
+  const st = Math.sin(ph) * 1.4; for (const s of [-1, 1]) { const ly = s * st; dsRock(g, s * 10, -16 + ly, 8.5, 9, 11 + s, R0, OL); dsRock(g, s * 11.5, -5 + ly * 0.4, 9.5, 5.5, 13 + s, R1, OL); }
+  dsRock(g, lx * 0.5, -32, 16, 10, 5, R1, OL); seam([[lx * 0.5 - 10, -30], [lx * 0.5 - 2, -33], [lx * 0.5 + 9, -29]], 1.2);
+  const arm = P => { const [s, e, h] = P; dsRock(g, (s[0] + e[0]) / 2, (s[1] + e[1]) / 2, 7.5, 7, 21 + s[0], R0, OL); dsRock(g, (e[0] + h[0]) / 2, (e[1] + h[1]) / 2, 7, 6.5, 23 + s[0], R1, OL); seam([[e[0] - 4, e[1]], [e[0] + 4, e[1] + 1]], 1.1); dsRock(g, h[0], h[1] + 2, 9.5, 8.5, 25 + s[0], R0, OL); seam([[h[0] - 4, h[1] + 1], [h[0] + 1, h[1] + 4], [h[0] + 4, h[1] + 2]], 1); };
+  arm(A.L);
+  // 몸통: 큰 가슴 바위 + 호박빛 틈
+  dsRock(g, lx, -58, 23, 19, 3, ['#7a5834', '#ae8650', '#44301a'], OL); dsRock(g, lx - 6, -67, 10, 8, 4, ['#866240', '#bc9460', '#4e381e']);
+  seam([[lx - 14, -66], [lx - 6, -60], [lx - 8, -50], [lx - 2, -44]], 1.5); seam([[lx + 4, -72], [lx + 9, -62], [lx + 6, -54], [lx + 12, -48]], 1.3); seam([[lx - 6, -60], [lx + 9, -62]], 1);
+  { const gr = g.createRadialGradient(lx + 1, -61, 0, lx + 1, -61, 9); gr.addColorStop(0, 'rgba(255,240,180,.95)'); gr.addColorStop(0.4, 'rgba(255,170,60,.6)'); gr.addColorStop(1, 'rgba(255,140,40,0)'); g.fillStyle = gr; g.beginPath(); g.arc(lx + 1, -61, 9, 0, 7); g.fill(); }   // 가슴 핵 (호박빛)
+  for (const s of [-1, 1]) { dsRock(g, lx + s * 23, -73, 11.5, 10, 7 + s, ['#806038', '#b48a54', '#46301a'], OL); seam([[lx + s * 18, -70], [lx + s * 24, -74], [lx + s * 28, -70]], 1);   // 어깨 바위 + 호박 수정
+    dsCrystal(g, lx + s * 25, -81, 4.5, great ? 18 : 12, s * 0.4, ['rgba(232,150,40,.95)', 'rgba(255,214,120,.95)', 'rgba(255,246,210,.9)']); dsCrystal(g, lx + s * 19, -82, 3.4, great ? 13 : 8, s * 0.15, ['rgba(214,136,36,.95)', 'rgba(255,200,100,.95)', 'rgba(255,240,200,.9)']); }
+  // 머리: 어깨 사이에 묻힌 작은 바위 + 이마 수정
+  dsRock(g, hx, hy, 10, 8.6, 9, ['#866240', '#bc9460', '#4e381e'], OL); g.fillStyle = 'rgba(30,18,8,.55)'; g.beginPath(); g.ellipse(hx, hy + 1, 7, 2.6, 0, 0, 7); g.fill();
+  dsCrystal(g, hx, hy - 6, 4, great ? 12 : 7, 0, ['rgba(232,150,40,.95)', 'rgba(255,214,120,.95)', 'rgba(255,246,210,.9)']);
+  if (great) for (const k of [-1, 1]) dsCrystal(g, hx + k * 5.5, hy - 5, 3.2, 9, k * 0.45, ['rgba(232,150,40,.95)', 'rgba(255,214,120,.95)', 'rgba(255,246,210,.9)']);   // 수정 왕관
+  arm(A.R);
+  g.fillStyle = 'rgba(200,170,110,.45)'; for (let k = 0; k < 6; k++) { const x = (dsH(k, fi) - 0.5) * 34, y = -3 - dsH(fi, k) * 6; g.beginPath(); g.arc(x, y, 0.8 + dsH(k + fi, 2) * 1.2, 0, 7); g.fill(); } }   // 발밑 모래 부스러기
+// ===== 바람
+function dsWind(g, great, pose, fi, ph, A) { const lx = A.lean * 0.6, [hx, hy] = A.head, rot = fi / 8 * DS_TAU;
+  if (great) { g.strokeStyle = 'rgba(90,120,130,.55)'; g.lineWidth = 5; g.beginPath(); g.ellipse(hx, hy - 4, 24, 7, 0, 0, 7); g.stroke();   // 폭풍 고리 (대정령): 먹구름 띠 + 번개
+    for (let k = 0; k < 14; k++) { const a = rot * 0.5 + k / 14 * DS_TAU, x = hx + Math.cos(a) * 24, y = hy - 4 + Math.sin(a) * 7, r = 3 + (k % 3) * 0.9; g.fillStyle = 'rgba(70,90,104,.8)'; g.beginPath(); g.arc(x, y + 0.8, r, 0, 7); g.fill(); g.fillStyle = `rgba(${170 + (k % 3) * 20},${190 + (k % 3) * 18},${200 + (k % 3) * 15},.8)`; g.beginPath(); g.arc(x - 0.6, y - 0.6, r * 0.75, 0, 7); g.fill(); }
+    for (const k of [fi % 3, (fi + 2) % 4 + 4]) { const a = k / 8 * DS_TAU + 0.4, x = hx + Math.cos(a) * 24, y = hy - 4 + Math.sin(a) * 7; g.strokeStyle = 'rgba(255,250,190,.95)'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 3, y + 5); g.lineTo(x - 1, y + 6); g.lineTo(x + 2, y + 12); g.stroke(); } }
+  // 소용돌이 몸: 깔때기 모양 반투명 + 도는 고리들
+  const FW = a => 21 - a * 18;   // 위(어깨 0) → 아래(바닥 1) 반폭
+  { const gr = g.createLinearGradient(0, -86, 0, 0); gr.addColorStop(0, 'rgba(210,255,236,.5)'); gr.addColorStop(0.6, 'rgba(120,220,180,.32)'); gr.addColorStop(1, 'rgba(120,220,180,.06)'); g.fillStyle = gr; const pts = [];
+    for (let k = 0; k <= 8; k++) { const a = k / 8; pts.push([lx * (1 - a) - FW(a) + Math.sin(rot + a * 6) * 2 * a, -80 + a * 78]); } for (let k = 8; k >= 0; k--) { const a = k / 8; pts.push([lx * (1 - a) + FW(a) + Math.sin(rot + a * 6) * 2 * a, -80 + a * 78]); } dsSmooth(g, pts); g.fill(); }
+  for (let k = 0; k < 11; k++) { const a = k / 11, y = -78 + a * 74, w = FW(a) * (0.95 + 0.1 * Math.sin(rot + k)), cx = lx * (1 - a) + Math.sin(rot + a * 6) * 2 * a, s0 = rot * (k % 2 ? 1 : -1) + k * 0.9;
+    g.strokeStyle = k % 3 === 0 ? 'rgba(40,150,110,.55)' : 'rgba(225,255,242,.72)'; g.lineWidth = 2.2 - a * 1.2; g.beginPath(); g.ellipse(cx, y, w, Math.max(1.2, w * 0.28), 0, s0, s0 + 3.6); g.stroke(); }
+  const arm = (P, front) => { const [s, e, h] = P, dx = h[0] - e[0], dy = h[1] - e[1], sx = Math.sign(h[0] - s[0] || 1), tl = [h[0] + dx * 0.9 + sx * (6 + Math.sin(rot + (front ? 0 : 2)) * 4), h[1] + dy * 0.7 + 2 + Math.cos(rot) * 3], pts = [];   // 리본 팔: 어깨 → 팔꿈치 → 손 → 펄럭이는 끝 (꼬이며 폭이 바뀜)
+    for (let k = 0; k <= 8; k++) { const u = k / 8, v = 1 - u; pts.push([v * v * s[0] + 2 * u * v * e[0] + u * u * h[0], v * v * s[1] + 2 * u * v * e[1] + u * u * h[1]]); }
+    for (let k = 1; k <= 4; k++) { const u = k / 4; pts.push([h[0] + (tl[0] - h[0]) * u + Math.sin(rot * 2 + k) * 1.5 * u, h[1] + (tl[1] - h[1]) * u]); }
+    const n = pts.length, Lp = [], Rp = []; pts.forEach((p, k) => { const a = pts[Math.max(0, k - 1)], b = pts[Math.min(n - 1, k + 1)], ddx = b[0] - a[0], ddy = b[1] - a[1], l = Math.hypot(ddx, ddy) || 1, w = (5.4 - 4.6 * k / (n - 1)) * (0.45 + 0.55 * Math.abs(Math.cos(k * 0.5 + rot))); Lp.push([p[0] - ddy / l * w, p[1] + ddx / l * w]); Rp.push([p[0] + ddy / l * w, p[1] - ddx / l * w]); });
+    g.fillStyle = 'rgba(160,245,212,.62)'; g.beginPath(); Lp.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); for (let k = n - 1; k >= 0; k--) g.lineTo(Rp[k][0], Rp[k][1]); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(245,255,252,.85)'; g.lineWidth = 0.9; g.beginPath(); Lp.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+    g.strokeStyle = 'rgba(40,150,110,.45)'; g.lineWidth = 0.7; g.beginPath(); Rp.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+    g.strokeStyle = 'rgba(230,255,245,.7)'; g.lineWidth = 1; for (let k = 0; k < 2; k++) { g.beginPath(); g.ellipse(h[0], h[1], 4.5 - k * 1.5, 1.8 - k * 0.5, rot + k, 0, 4.5); g.stroke(); } };   // 손 = 작은 회오리
+  arm(A.L, false);
+  // 가슴·어깨: 겹친 구름 덩어리 (반투명)
+  for (const [x, y, r, a] of [[-14, -78, 8, 0.32], [14, -78, 8, 0.32], [0, -76, 11, 0.38], [-6, -66, 8, 0.3], [6, -66, 8, 0.3], [0, -58, 7, 0.26]]) { const gr = g.createRadialGradient(lx + x - r * 0.3, y - r * 0.3, 0, lx + x, y, r); gr.addColorStop(0, `rgba(245,255,250,${a + 0.25})`); gr.addColorStop(1, `rgba(140,230,190,${a * 0.4})`); g.fillStyle = gr; g.beginPath(); g.arc(lx + x + Math.sin(rot + x) * 0.8, y, r, 0, 7); g.fill(); }
+  g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1.1; for (let k = 0; k < 2; k++) { const s0 = rot + k * 3.1; g.beginPath(); g.ellipse(lx, -70, 11 - k * 3, 4 - k, 0, s0, s0 + 2.6); g.stroke(); }
+  // 머리: 작은 소용돌이 구름 (가면은 앞을 볼 때 따로 그림)
+  { const gr = g.createRadialGradient(hx - 2, hy - 3, 0, hx, hy, 11); gr.addColorStop(0, 'rgba(250,255,252,.85)'); gr.addColorStop(0.6, 'rgba(190,250,225,.5)'); gr.addColorStop(1, 'rgba(120,225,185,.25)'); g.fillStyle = gr; g.beginPath(); g.ellipse(hx, hy, 9.5, 10.5, 0, 0, 7); g.fill(); }
+  g.strokeStyle = 'rgba(240,255,250,.75)'; g.lineWidth = 1.2; for (let k = 0; k < 3; k++) { const s0 = -rot * 1.3 + k * 2.1; g.beginPath(); g.ellipse(hx, hy - 9 - k * 2.5, 7 - k * 1.6, 2 - k * 0.4, 0, s0, s0 + 3.2); g.stroke(); }   // 머리 위로 말려 올라가는 바람
+  arm(A.R, true); }
+function dsprPaint(g, el, great, pose, fi) { const n = DSPC.N[pose], ph = fi / n * DS_TAU, A = dsPose(el, pose, fi, ph); (el === 'fire' ? dsFire : el === 'water' ? dsWater : el === 'earth' ? dsEarth : dsWind)(g, great, pose, fi, ph, A); }
+// 저장된 프레임 꺼내기 (없으면 그려서 저장 · 한 화면 프레임에 새로 3장까지만 → 넘치면 같은 동작의 다른 저장 프레임 · 그것도 없으면 바로 그림)
+function dsprGet(el, great, pose, fi, b) { const key = el + (great ? 'G' : 'n') + pose + fi + '@' + b, M = DSPC.m; let c = M.get(key); if (c) { M.delete(key); M.set(key, c); return c; }
+  if (DSPC.t !== time) { DSPC.t = time; DSPC.made = 0; } if (DSPC.made >= 2) { const kk = el + (great ? 'G' : 'n'); for (const [p2, n2] of [[pose, DSPC.N[pose]], ['idle', DSPC.N.idle]]) for (let k = 0; k < n2; k++) { const c2 = M.get(kk + p2 + ((fi + k) % n2) + '@' + b); if (c2) return c2; } return null; } DSPC.made++;   // 한 화면 프레임에 새로 2장까지 → 넘치면 같은 동작(없으면 서 있는 동작)의 저장 프레임
+  const [BW, BH, OX, OY] = DSPC.BOX[great ? 1 : 0]; c = document.createElement('canvas'); c.width = Math.ceil(BW * b); c.height = Math.ceil(BH * b); const x = c.getContext('2d'); x.setTransform(b, 0, 0, b, OX * b, OY * b); x.lineCap = 'round'; x.lineJoin = 'round'; dsprPaint(x, el, great, pose, fi);
+  M.set(key, c); DSPC.px += c.width * c.height; for (const [k2, c2] of M) { if (DSPC.px <= DSPC.MAX) break; if (k2 === key) continue; M.delete(k2); DSPC.px -= c2.width * c2.height; } return c; }
+// 얼굴 (앞을 볼 때만 · 작게 매 프레임): 불 = 하얗게 달아오른 눈 · 물 = 맑은 빛 눈 · 땅 = 호박빛 눈구멍 · 바람 = 희미한 가면
+function dsFace(g, el, A, open, t) { const [hx, hy] = A.head, G = (c, x, y, r, a) => mxG(g, c, x, y, r, a, 1);
+  if (el === 'wind') { g.fillStyle = 'rgba(245,255,250,.42)'; g.beginPath(); g.moveTo(hx - 6.5, hy - 4); g.quadraticCurveTo(hx, hy - 8, hx + 6.5, hy - 4); g.quadraticCurveTo(hx + 6, hy + 5, hx, hy + 8); g.quadraticCurveTo(hx - 6, hy + 5, hx - 6.5, hy - 4); g.fill();
+    g.strokeStyle = 'rgba(20,90,70,.75)'; g.lineWidth = 1.2; for (const s of [-1, 1]) { g.beginPath(); g.arc(hx + s * 3, hy - 0.5, 1.8, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } g.lineWidth = 0.9; g.beginPath(); g.moveTo(hx - 1.6, hy + 4); g.quadraticCurveTo(hx, hy + 4 + open * 1.5, hx + 1.6, hy + 4); g.stroke(); return; }
+  const ec = el === 'fire' ? '255,240,180' : el === 'water' ? '220,248,255' : '255,180,70', ey = hy + (el === 'earth' ? 0 : -0.5), ew = el === 'earth' ? 2.2 : 2;
+  g.globalCompositeOperation = 'lighter'; for (const s of [-1, 1]) G(ec, hx + s * 3.1, ey, 5, 0.75); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  g.fillStyle = el === 'fire' ? '#fffbe8' : el === 'water' ? '#ffffff' : '#ffd890'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(hx + s * 3.1, ey, ew, el === 'fire' ? 0.85 : 1.2, -s * (el === 'fire' ? 0.35 : 0.15), 0, 7); g.fill(); }
+  if (open > 0.2) { g.fillStyle = el === 'fire' ? '#fff2b0' : el === 'water' ? 'rgba(10,50,110,.7)' : 'rgba(40,20,6,.8)'; g.beginPath(); g.ellipse(hx, hy + 4.6, 2.4, open * 1.3, 0, 0, 7); g.fill(); } }
+function drawSpirit(g, f) { const S = MOB[f.kind], el = S.el, P = DREAM_PAL[el], great = !!S.great, A0 = g.globalAlpha, t = time + (f.hi || 0) * 0.7, d = DIRV[f.row] || [1, 0], dl = Math.hypot(d[0], d[1]) || 1, d0 = d[0] / dl, d1 = d[1] / dl;
+  const ux = (d0 - d1) / Math.SQRT2, uy = (d0 + d1) / Math.SQRT2, front = uy > -0.3, fl = ux < -0.12 ? -1 : 1, sc = S.sc || 1, dead = !!f.dead, dk = dead ? Math.min(1, (f.deadT || 0) / 1.4) : 0, moving = f.t < 1 && !dead;
   const ap = f.atkT != null && !dead ? Math.min(1, f.atkT / ATK_T) : -1, C = !dead && f.casting && f.casting.k ? f.casting : null, cp = C ? Math.min(1, Math.max(0, 1 - C.t / (C.k.cast || 1))) : 0;
-  let wind = 0, punch = 0; if (!C && ap >= 0) { if (ap < 0.17) { const e = ap / 0.17; punch = e * e; wind = 1 - punch; } else punch = Math.max(0, 1 - (ap - 0.17) / 0.83 * 1.6); } else if (!C && f.aggro && !moving && !dead && f.cool < 0.65) { const e = 1 - f.cool / 0.65; wind = e * e * (3 - 2 * e); }
-  const lift = C ? Math.min(1, cp * 2.5) : 0, br = Math.sin(t * 2.0), hv = 6 + Math.sin(t * 1.4) * 2.5, AL = A0 * (dead ? 1 - dk : 1), G = (c, x, y, r, a, sy) => { mxG(g, c, x, y, r, a * AL, sy); g.globalAlpha = AL; };
-  if (dead && !f._dfx) { f._dfx = 1; const [wx, wy] = W2P(f.x, f.z); for (let q = 0; q < 26; q++) { const a = Math.random() * 6.283, sp = mxR(40, 150), h = mxR(10, 100) * sc; mxP(wx + Math.cos(a) * 8 * sc, wy - h, { k: 'dot', c: P.g, s: mxR(2, 4), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5 - mxR(30, 90), life: mxR(0.5, 1.1), dr: 1.4 }); } }   // 죽는 순간: 속성 빛이 흩어짐
-  g.save(); g.scale(sc, sc); g.lineCap = 'round'; g.lineJoin = 'round';
-  g.fillStyle = `rgba(0,0,0,${(0.38 * (1 - dk)).toFixed(2)})`; g.beginPath(); g.ellipse(0, 1, 20, 7, 0, 0, 7); g.fill();
-  g.globalCompositeOperation = 'lighter'; mxG(g, P.g, 0, 0, 30 + lift * 10, (0.22 + 0.05 * br + cp * 0.3) * A0 * (1 - dk * 0.7), 0.42); g.globalAlpha = A0;
-  if (S.great && !dead) dreamAura(g, el, 0, -62, 1 - dk);
+  let pose = 'idle', fi = Math.floor(t * DSPC.FPS[el]) % DSPC.N.idle;   // 동작·프레임 고르기
+  if (dead) fi = 0; else if (C) { pose = 'cast'; fi = Math.floor(t * 10) % DSPC.N.cast; } else if (ap >= 0 && ap < 0.75) { pose = 'atk'; fi = ap < 0.08 ? 2 : ap < 0.3 ? 3 : ap < 0.5 ? 4 : 5; } else if (ap < 0 && f.aggro && !moving && f.cool < 0.5) { pose = 'atk'; fi = f.cool < 0.25 ? 1 : 0; }
+  const A = dsPose(el, pose, fi, fi / DSPC.N[pose] * DS_TAU), m = g.getTransform(), b = Math.max(1, Math.min(3.5, Math.round(Math.hypot(m.a, m.b) * sc * (great ? 0.85 : 1) * 2) / 2));
+  if (dead && !f._dfx) { f._dfx = 1; const [wx, wy] = W2P(f.x, f.z);   // 죽는 순간: 속성대로 흩어짐
+    for (let q = 0; q < 24; q++) { const a = Math.random() * 6.283, sp = mxR(40, 140), h = mxR(10, 95) * sc; mxP(wx + Math.cos(a) * 8 * sc, wy - h, el === 'fire' ? { k: q % 3 ? 'flame' : 'dot', c: P.g, s: mxR(3, 6), vx: Math.cos(a) * sp * 0.5, vy: -mxR(40, 110), life: mxR(0.4, 0.9), dr: 1.6 } : el === 'water' ? { k: 'dot', c: '170,225,255', s: mxR(2, 4), vx: Math.cos(a) * sp, vy: -mxR(60, 140), g: 380, life: mxR(0.5, 0.9) } : el === 'earth' ? { k: 'rock', c: q % 2 ? '120,88,52' : '170,130,80', s: mxR(2, 4.5), vx: Math.cos(a) * sp * 0.6, vy: -mxR(20, 90), g: 520, vr: mxR(-10, 10), life: mxR(0.5, 0.9), fl: wy + mxR(0, 6) } : { k: 'wisp', c: '220,255,240', s: mxR(3, 5), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.4 - mxR(20, 60), wob: 4, life: mxR(0.6, 1.1), dr: 0.6 }); }
+    if (el === 'earth') mxBurst(wx, wy - 6, 8, () => ({ k: 'smoke', c: '170,140,96', s: mxR(5, 9), life: mxR(0.7, 1.1), dr: 1.8, a0: 0.3 }), 20, 60, 20); else if (el === 'fire') mxBurst(wx, wy - 30 * sc, 6, () => ({ k: 'smoke', c: '70,60,56', s: mxR(5, 9), life: mxR(0.8, 1.2), dr: 1.6, a0: 0.25 }), 10, 40, 30); }
+  g.save(); g.scale(sc, sc);
+  g.fillStyle = `rgba(0,0,0,${(0.36 * (1 - dk)).toFixed(2)})`; g.beginPath(); g.ellipse(0, 1, el === 'earth' ? 24 : 19, 7, 0, 0, 7); g.fill();   // 그림자
+  g.globalCompositeOperation = 'lighter'; mxG(g, P.g, 0, 0, 30 + cp * 10, (0.2 + 0.05 * Math.sin(t * 2) + cp * 0.3) * A0 * (1 - dk), 0.42); g.globalAlpha = A0;
+  if (great && !dead) dreamAura(g, el, 0, -66, 1);
   if (C) { const rr = 22 + cp * 12; g.strokeStyle = `rgba(${P.g},${(0.35 + 0.5 * cp).toFixed(2)})`; g.lineWidth = 1.6 + cp * 1.4; g.beginPath(); g.ellipse(0, 0, rr, rr * 0.38, 0, 0, 7); g.stroke(); }
   g.globalCompositeOperation = 'source-over';
-  const lean = (moving ? 3 : 0) + punch * 5 - wind * 2; g.translate(ux * lean, -hv + uy * lean * 0.5 - dk * 30); if (dead) g.scale(1 - dk * 0.3, 1 - dk * 0.4);
-  g.globalAlpha = AL;
-  dreamColumn(g, el, P, t, wd, (moving ? -ux * 7 : 0) - ux * punch * 3, dk); g.globalAlpha = AL;
-  const TR = [[11, -38], [12.5, -48], [16.5, -59], [19, -68], [17, -75], [11.5, -81], [6, -85]], cx_ = ux * 1.2, P2 = TR.map(([x, y]) => [x * wd, y + (y < -60 ? br * 0.7 : 0)]);
-  const bodyFill = (x, y, r) => { const gr = g.createRadialGradient(x, y, 1, x, y + 2, r); gr.addColorStop(0, P.d); gr.addColorStop(0.3, P.c); gr.addColorStop(0.7, P.b); gr.addColorStop(1, P.a); return gr; };
-  const handAt = s => { const r0 = [rx * s * 24 + ux * 4, -46 + rz * s * 2], up = [rx * s * 16 - ux * 6, -104], hit = [rx * s * 8 + ux * 26, -40 + uy * 7], cast = [rx * s * 30 + ux * 2, -100]; let p = r0;
-    if (s > 0) p = [p[0] + (up[0] - r0[0]) * wind + (hit[0] - r0[0]) * punch, p[1] + (up[1] - r0[1]) * wind + (hit[1] - r0[1]) * punch]; if (lift) p = [p[0] + (cast[0] - p[0]) * lift, p[1] + (cast[1] - p[1]) * lift]; return [p[0], p[1] + br * 0.6 * (1 - lift)]; };
-  const arm = s => { const sx = rx * s * 18 + ux * 0.5, sy = -72 + rz * s * 1.5 + br * 0.7, [x, y] = handAt(s), ex = (sx + x) / 2 + rx * s * 7 + (s > 0 ? -ux * 3 * wind : 0), ey = (sy + y) / 2 + 5 - (s > 0 ? wind * 4 : 0) - lift * 4;
-    for (const [w1, w2, col] of [[10.5, 8.5, P.a], [8, 6.4, P.b], [3.2, 2.4, P.c]]) { g.strokeStyle = col; g.lineWidth = w1; g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke(); g.lineWidth = w2; g.beginPath(); g.moveTo(ex, ey); g.lineTo(x, y); g.stroke(); }
-    g.fillStyle = bodyFill(x - 1.5, y - 1.5, 6.5); g.beginPath(); g.arc(x, y, 5.4, 0, 7); g.fill();
-    g.globalCompositeOperation = 'lighter'; G(P.g, x, y, 7 + (s > 0 ? punch * 6 : 0), 0.5 + (s > 0 ? punch * 0.4 : 0), 1); if (s > 0 && ap >= 0.1 && ap < 0.34) { const k = (ap - 0.1) / 0.24; G(P.g, x, y + 2, 14 + k * 18, (1 - k) * 0.8, 0.5); } g.globalCompositeOperation = 'source-over'; };
-  for (const s of [-1, 1]) if (rz * s < -0.2) arm(s);
-  g.beginPath(); g.moveTo(cx_ - P2[6][0], P2[6][1]); for (let i = 5; i >= 0; i--) g.lineTo(cx_ - P2[i][0], P2[i][1]); g.quadraticCurveTo(cx_, -35, cx_ + P2[0][0], P2[0][1]); for (const p of P2) g.lineTo(cx_ + p[0], p[1]); g.closePath();
-  g.fillStyle = bodyFill(ux * 3 + cx_, -62, 32); g.fill(); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1; g.stroke();
-  if (front) { g.globalCompositeOperation = 'lighter'; const hb = 0.5 + 0.5 * Math.sin(t * 4), fx = ux * 3 + cx_; G(P.g, fx, -64, 8 + hb * 4, 0.7, 1); g.fillStyle = P.d; g.beginPath(); g.moveTo(fx, -70); g.lineTo(fx + 3, -64); g.lineTo(fx, -58); g.lineTo(fx - 3, -64); g.closePath(); g.fill(); g.globalCompositeOperation = 'source-over'; }   // 가슴 핵
-  for (const s of [-1, 1]) { const x = rx * s * 18 + ux * 0.5, y = -73 + rz * s * 1.5 + br * 0.7; g.fillStyle = bodyFill(x - 1, y - 2, 8); g.beginPath(); g.ellipse(x, y, 7, 6, 0, 0, 7); g.fill(); }   // 어깨
-  { const hx = ux * 3.2 + cx_, hy = -95 + br * 0.7, ew = Math.max(0.32, uy);   // 머리 · 눈 · 속성 왕관
-    g.fillStyle = bodyFill(hx + ux * 2, hy - 2, 11); g.beginPath(); g.ellipse(hx, hy, 7.6, 8.8, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 0.9; g.stroke();
-    if (front) { g.globalCompositeOperation = 'lighter'; const ex0 = hx + ux * 2.6; for (const s of [-1, 1]) { const x = ex0 + s * 3 * ew, y = hy - 1; G(P.g, x, y, 5, 0.8, 1); g.fillStyle = 'rgba(255,255,255,.95)'; g.beginPath(); g.ellipse(x, y, 1.8 * Math.max(0.55, ew), 0.9, -s * 0.3, 0, 7); g.fill(); } const mo = C ? 1.5 : punch * 1.2; if (mo > 0.2) { g.fillStyle = P.d; g.beginPath(); g.ellipse(ex0, hy + 5, 2.6 * ew + 0.4, mo, 0, 0, 7); g.fill(); } g.globalCompositeOperation = 'source-over'; }
-    g.globalCompositeOperation = 'lighter';
-    if (el === 'fire') { for (let q = -2; q <= 2; q++) { const x = hx + q * 3.2 * wd, h = 9 + 4 * Math.sin(t * 7 + q * 1.9) + (2 - Math.abs(q)) * 3; g.fillStyle = q % 2 ? 'rgba(255,176,58,.85)' : 'rgba(255,242,192,.8)'; g.beginPath(); g.moveTo(x - 2.2, hy - 6); g.quadraticCurveTo(x - 1.5, hy - 6 - h * 0.55, x - ux * 3, hy - 6 - h); g.quadraticCurveTo(x + 1.5, hy - 6 - h * 0.55, x + 2.2, hy - 6); g.fill(); } }
-    else if (el === 'water') { for (let q = -2; q <= 2; q++) { const x = hx + q * 3.4 * wd, h = 8 + (2 - Math.abs(q)) * 4; g.fillStyle = 'rgba(200,240,255,.85)'; g.beginPath(); g.moveTo(x - 2, hy - 6); g.lineTo(x + q * 0.6, hy - 6 - h); g.lineTo(x + 2, hy - 6); g.closePath(); g.fill(); g.strokeStyle = 'rgba(122,208,255,.9)'; g.lineWidth = 0.8; g.stroke(); } }
-    else if (el === 'earth') { g.globalCompositeOperation = 'source-over'; for (const s of [-1, 1]) { const x = hx + s * 5 * wd; g.fillStyle = '#6a4a22'; g.beginPath(); g.moveTo(x - 2.5, hy - 5); g.lineTo(x + s * 4, hy - 16); g.lineTo(x + 2.5, hy - 5); g.closePath(); g.fill(); g.strokeStyle = '#2a1808'; g.lineWidth = 0.8; g.stroke(); } g.fillStyle = 'rgba(200,160,96,.9)'; g.beginPath(); g.ellipse(hx, hy - 8, 6 * wd, 2.2, 0, 0, 7); g.fill(); }
-    else { g.strokeStyle = 'rgba(234,255,242,.7)'; g.lineWidth = 1.6; for (let q = 0; q < 4; q++) { const a0 = t * 4 + q * 1.6; g.beginPath(); g.ellipse(hx, hy - 7, (9 + q * 2) * wd, 3 + q, 0, a0, a0 + 2); g.stroke(); } }
+  const hov = el === 'earth' ? Math.abs(Math.sin(t * 2.4)) * (moving ? 1.6 : 0.4) : 5 + Math.sin(t * 1.4) * 2.5;   // 떠 있음 (땅은 무겁게 들썩)
+  // 바람: 몸 뒤쪽 반 바퀴의 잎·먼지 (앞쪽 반은 몸 뒤에 그림)
+  const leaves = el === 'wind' && !dead ? back => { for (let q = 0; q < 6; q++) { const a = t * (1.6 + q * 0.13) + q * 1.05, s = Math.sin(a); if ((s < 0) !== back) continue; const x = Math.cos(a) * (16 + q * 2.5), y = -12 - q * 12 - hov + s * 4; g.save(); g.translate(x, y); g.rotate(a * 2); g.fillStyle = q % 3 ? `rgba(${q % 2 ? '150,200,90' : '200,180,100'},${back ? 0.55 : 0.9})` : `rgba(230,240,230,${back ? 0.4 : 0.7})`; g.beginPath(); g.ellipse(0, 0, q % 3 ? 2.6 : 1.4, q % 3 ? 1.1 : 1.4, 0, 0, 7); g.fill(); g.restore(); } } : null;
+  if (leaves) leaves(true);
+  g.save(); g.translate(0, -hov); g.scale(fl, 1); if (moving) g.transform(1, 0, el === 'earth' ? -0.04 : -0.12, 1, 0, 0);   // 이동: 앞으로 기울임 (위쪽이 앞으로)
+  if (dead) { if (el === 'fire') { g.scale(1 - dk * 0.45, 1 - dk * 0.8); } else if (el === 'water') { g.scale(1 + dk * 0.6, 1 - dk * 0.85); } else if (el === 'earth') { g.translate(0, dk * 14); g.scale(1 + dk * 0.15, 1 - dk * 0.5); } else { g.scale(1 + dk * 0.9, 1 + dk * 0.25); g.translate(0, -dk * 10); } }   // 죽음: 불은 꺼지듯 · 물은 무너져 고임 · 땅은 주저앉음 · 바람은 흩어짐
+  g.globalAlpha = A0 * (1 - dk);
+  const cv = dsprGet(el, great, pose, fi, b), BX = DSPC.BOX[great ? 1 : 0]; if (cv) g.drawImage(cv, -BX[2], -BX[3], BX[0], BX[1]); else { DSPC.live++; dsprPaint(g, el, great, pose, fi); }
+  if (front && !dead) { g.globalAlpha = A0; dsFace(g, el, A, C ? 1 : pose === 'atk' && fi >= 2 && fi <= 3 ? 1 : 0, t); }
+  if (C) { const bx = A.head[0], by = A.head[1] - 22 - cp * 4, r = 4 + cp * 8; g.globalAlpha = A0; g.globalCompositeOperation = 'lighter'; mxG(g, P.g, bx, by, r * 3, 0.6 * A0, 1); g.globalAlpha = A0; g.fillStyle = P.d; g.beginPath(); g.arc(bx, by, r * 0.8, 0, 7); g.fill();   // 기술: 머리 위 속성 구슬 · 두 손에서 빛줄기
+    g.strokeStyle = `rgba(${P.g},${(0.3 + 0.5 * cp).toFixed(2)})`; g.lineWidth = 2; for (const H of [A.R[2], A.L[2]]) { g.beginPath(); g.moveTo(H[0], H[1]); g.quadraticCurveTo((H[0] + bx) / 2, Math.min(H[1], by) - 8 + Math.sin(t * 12 + H[0]) * 3, bx, by); g.stroke(); } g.globalCompositeOperation = 'source-over'; }
+  if (pose === 'atk' && fi === 3 && !dead) { g.globalCompositeOperation = 'lighter'; mxG(g, P.g, A.R[2][0] + 4, A.R[2][1], 16, 0.7 * A0, 0.6); g.globalCompositeOperation = 'source-over'; }   // 내지른 주먹 빛
+  g.restore();
+  if (leaves) leaves(false);
+  if (!dead) { g.globalCompositeOperation = 'lighter'; const k0 = el === 'fire' ? 8 : el === 'water' ? 5 : el === 'earth' ? 0 : 4;   // 알갱이: 불씨(올라감) · 물방울 빛(내려감) · 바람 먼지
+    for (let q = 0; q < k0; q++) { const ph = (t * (el === 'fire' ? 0.7 : 0.5) + q / k0) % 1, x = Math.sin(q * 2.3 + 1) * 15 + Math.sin(t * 2 + q) * 2, y = el === 'water' ? -70 + ph * 66 : -30 - (q * 9) % 50 - ph * 40;
+      g.fillStyle = `rgba(${el === 'fire' ? (q % 2 ? '255,200,90' : '255,120,40') : P.g},${(Math.sin(ph * Math.PI) * 0.9).toFixed(2)})`; g.fillRect(x, y - hov, el === 'fire' ? 1.8 : 1.5, el === 'fire' ? 1.8 : 1.5); }
     g.globalCompositeOperation = 'source-over'; }
-  for (const s of [-1, 1]) if (rz * s >= -0.2) arm(s);
-  if (C) { const bx = ux * 3, by = -118 - lift * 4, r = 4 + cp * 8; g.globalCompositeOperation = 'lighter'; G(P.g, bx, by, r * 3, 0.6, 1); g.fillStyle = P.d; g.beginPath(); g.arc(bx, by, r * 0.8, 0, 7); g.fill(); g.strokeStyle = `rgba(${P.g},${(0.55 * lift).toFixed(2)})`; g.lineWidth = 2; for (const s of [-1, 1]) { const [x, y] = handAt(s); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo((x + bx) / 2, Math.min(y, by) - 8 + Math.sin(t * 12 + s) * 3, bx, by); g.stroke(); } g.globalCompositeOperation = 'source-over'; }   // 기술: 머리 위 속성 구슬 · 두 손에서 빛줄기
-  g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 8; q++) { const ph = (t * 0.6 + q / 8) % 1, x = Math.sin(q * 2.3 + 1) * 16 * wd + Math.sin(t * 2 + q) * 2 - ux * ph * 8, y = -30 - (q * 9) % 55 - ph * 36; g.fillStyle = `rgba(${P.g},${(Math.sin(ph * Math.PI) * 0.9 * (1 - dk)).toFixed(2)})`; g.fillRect(x, y, 1.7, 1.7); } g.globalCompositeOperation = 'source-over';   // 떠오르는 빛 알갱이
-  g.restore(); }
+  if (el === 'earth' && moving && !dead) { g.fillStyle = 'rgba(190,160,110,.35)'; for (let q = 0; q < 3; q++) { const ph = (t * 1.2 + q / 3) % 1; g.beginPath(); g.ellipse(-fl * (8 + ph * 14), -2 - ph * 6, 3 + ph * 5, 1.5 + ph * 2.5, 0, 0, 7); g.fill(); } }   // 땅: 걸을 때 모래 먼지
+  g.restore(); g.globalAlpha = A0; }
 // ----- 유니콘 그림 (코드): 흰 말 + 나선 뿔 + 빛 갈기·꼬리 · 옆모습(바라보는 쪽으로 뒤집음) · 공격·기술 때 앞발 들기
 function dreamMane(g, pts, t, tail) { const A0 = g.globalAlpha; g.lineCap = 'round'; g.lineJoin = 'round';
   for (let pass = 0; pass < 3; pass++) { g.globalCompositeOperation = pass ? 'lighter' : 'source-over'; g.strokeStyle = pass === 0 ? 'rgba(200,214,255,.9)' : pass === 1 ? 'rgba(170,220,255,.5)' : 'rgba(255,240,255,.45)'; g.lineWidth = pass === 0 ? 6.5 : pass === 1 ? 3.6 : 1.4;
