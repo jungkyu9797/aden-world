@@ -8627,7 +8627,7 @@ const COLO = (() => {
   return { open, tick, draw, inArena, cancel, lockSay() { if (time - lockT < 4) return; lockT = time; say('콜로세움 입장 대기 중에는 채팅만 할 수 있어요. (대기 취소는 콜로세움 창에서)', '#f0c080'); },
     bossDown(f) { if (!S || !S.s || S.ph !== 'fight' || !f || !f.coloBoss || !NET.zoneHost() || ADMIN.on()) return; S.gk = (S.gk || []).concat([[f.uid, f.kind]]).slice(-9); publish(); },   // 보스 처치 기록 → 안에 있는 모두가 그 보스 가호 완성품 1개 (gotGaho)
     svInfo: () => S && inArena() ? hudTxt() : null,   // 11/1: 절전 화면에 라운드·남은 시간
-    entOut: () => entToday() > 0 ? { n: ent.n, d: ent.d } : null, entIn(o) { ent = o && o.d ? { n: Math.max(0, +o.n | 0), d: String(o.d) } : { n: 0, d: '' }; }, entLeft: () => Math.max(0, ENT_MAX - entToday()), busyN: () => fighters().length, cheer: () => cheerT > 0, dbg: () => S,
+    entOut: () => entToday() > 0 ? { n: ent.n, d: ent.d } : null, entIn(o) { ent = o && o.d ? { n: Math.max(0, +o.n | 0), d: String(o.d) } : { n: 0, d: '' }; }, entLeft: () => Math.max(0, ENT_MAX - entToday()), entMax: () => ENT_MAX, busyN: () => fighters().length, cheer: () => cheerT > 0, dbg: () => S,
     recOut: () => bought() > 0 ? [{ id: 'col_buy', n: rec.n, d: rec.d }] : [], recIn(e) { rec = e && e.d ? { n: Math.max(0, Math.min(DAY_MAX, +e.n | 0)), d: String(e.d) } : { n: 0, d: '' }; } };
 })();
 window.__COLO = COLO;
@@ -11333,10 +11333,10 @@ window.SAVER = (() => {
   function build() { if (el) return el; el = document.createElement('div'); el.id = 'saver'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '절전 모드');
     el.innerHTML = `<div class="sv-top"><b class="sv-clock" id="sv-clock"></b><span>절전 모드</span><span class="sv-el" id="sv-el"></span></div>
       <div class="sv-upd" id="sv-upd" hidden><b>🔔 새 업데이트 <span id="sv-updv"></span> 이(가) 나왔어요!</b><small>저장한 뒤 새 버전을 받고, 다시 불러와서 지금 자리·자동사냥 그대로 이어져요.</small><button type="button" id="sv-updb">지금 업데이트</button></div>
-      <div class="sv-card"><div class="sv-who" id="sv-who"></div><div class="sv-bar hp"><i id="sv-hp"></i><span id="sv-hpt"></span></div><div class="sv-bar mp"><i id="sv-mp"></i><span id="sv-mpt"></span></div>
+      <div class="sv-row"><div class="sv-card"><div class="sv-who" id="sv-who"></div><div class="sv-bar hp"><i id="sv-hp"></i><span id="sv-hpt"></span></div><div class="sv-bar mp"><i id="sv-mp"></i><span id="sv-mpt"></span></div>
       <div class="sv-bar ex"><i id="sv-ex"></i><span id="sv-ext"></span></div><div class="sv-st" id="sv-st"></div><div class="sv-boss" id="sv-boss" hidden></div>
       <div class="sv-grid"><div><small>처치</small><b id="sv-k">0</b></div><div><small>경험치</small><b id="sv-x">0</b></div><div><small>시간당 경험치</small><b id="sv-xh">-</b></div><div><small>골드 변화</small><b id="sv-g">0</b></div><div><small>귀환</small><b id="sv-r">0</b></div><div><small>사망</small><b id="sv-d">0</b></div></div>
-      <div class="sv-h">획득 아이템</div><ul class="sv-items" id="sv-items"></ul><div class="sv-h" id="sv-bh">상점 구매</div><ul class="sv-items sv-buys" id="sv-buys"></ul><ul class="sv-notes" id="sv-notes"></ul></div>
+      <div class="sv-h">획득 아이템</div><ul class="sv-items" id="sv-items"></ul><div class="sv-h" id="sv-bh">상점 구매</div><ul class="sv-items sv-buys" id="sv-buys"></ul><ul class="sv-notes" id="sv-notes"></ul></div><aside class="sv-todo" id="sv-todo" aria-label="오늘 할 일"></aside></div>
       <label class="sv-home"><input type="checkbox" id="sv-homec"> 절전 귀환 — 다른 유저에게 공격받으면 바로 마을로 귀환</label>
       <div class="sv-slide" id="sv-slide"><span>밀어서 절전 해제 ▶▶</span><b class="sv-knob" id="sv-knob">⏻</b></div>`;
     document.body.appendChild(el);
@@ -11368,9 +11368,17 @@ window.SAVER = (() => {
     const L = [...S.items].sort((a, b) => (RO_[ITEMS[b[0]] && ITEMS[b[0]].rar] || 0) - (RO_[ITEMS[a[0]] && ITEMS[a[0]].rar] || 0) || b[1] - a[1]);
     $('sv-items').innerHTML = L.length ? L.slice(0, 40).map(([id, n]) => { const it = ITEMS[id]; return `<li style="color:${rarC(id)}"><span class="ic">${ICON(it.icon)}</span>${esc_(it.name)} <b>×${n.toLocaleString()}</b></li>`; }).join('') : '<li class="none">아직 없음</li>';
     { const B = [...S.buys], tg = B.reduce((a, [, v]) => a + v.g, 0); $('sv-bh').textContent = tg ? `상점 구매 (−${tg.toLocaleString()} 골드)` : '상점 구매'; $('sv-buys').innerHTML = B.length ? B.map(([id, v]) => { const it = ITEMS[id]; return `<li><span class="ic">${it ? ICON(it.icon) : ''}</span>${esc_(it ? it.name : id)} <b>×${v.n.toLocaleString()}</b><small class="sv-bg">−${v.g.toLocaleString()}</small></li>`; }).join('') : '<li class="none">아직 없음</li>'; }
+    $('sv-todo').innerHTML = todoHTML();   // 11/1 프로듀서: 오늘 할 일 (일일 컨텐츠 남은 횟수·시간 · 특별 보상)
     $('sv-notes').innerHTML = S.notes.map(x => `<li style="color:${x.c}">${esc_(x.t)}</li>`).join('');
     { const nv = (typeof UPD !== 'undefined' && UPD.newVer) ? UPD.newVer() : 0, u = $('sv-upd'); if (nv > GAME_VER) { if (u.hidden) note(`새 업데이트 v${nv}이(가) 나왔어요.`, '#ffd86a'); u.hidden = false; $('sv-updv').textContent = 'v' + nv; } else u.hidden = true; } }   /* v167: 업데이트가 있으면 절전 화면 맨 위에 크게 */
   const RO_ = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 };
+  // ----- 오늘 할 일: 새벽 5시 초기화되는 일일 컨텐츠 — 남은 입장·시간과 거기서만 얻는 특별 보상 (지금 있는 곳은 표시)
+  const hmL = s => { const t = Math.ceil(Math.max(0, s) / 60), h = Math.floor(t / 60), m = t % 60; return h ? `${h}시간${m ? ' ' + m + '분' : ''}` : `${m}분`; };
+  function todoHTML() { const L = [];
+    try { const n = COLO.entLeft(), mx = COLO.entMax ? COLO.entMax() : 1; L.push({ nm: '콜로세움', rw: '가호 완성품', st: n > 0 ? `${n}/${mx}` : '완료', done: n <= 0, here: COLO.inArena && COLO.inArena() }); } catch (e) {}
+    try { const s = DRM.left(); L.push({ nm: '몽환의 섬', rw: '엘릭서·축데이·축젤', st: s > 0 ? '남은 시간 ' + hmL(s) : '완료', done: s <= 0, here: SCENE !== 'town' && !!ISLE && ISLE.id === DREAM.ZID }); } catch (e) {}
+    try { const s = HWM.left(), hat = INV.hwHat() >= 0; L.push({ nm: '할로윈 던전', rw: '호박 주머니·마법인형', st: s <= 0 ? '완료' : (hat ? '' : '모자 필요 · ') + '남은 시간 ' + hmL(s), done: s <= 0, here: HW() }); } catch (e) {}
+    return `<h4>오늘 할 일</h4><ul>${L.map(x => `<li class="${x.done ? 'done' : ''}${x.here ? ' here' : ''}"><b>${x.done ? '✔ ' : ''}${esc_(x.nm)}</b><small>${esc_(x.rw)}</small><span>${esc_(x.st)}${x.here ? ' · 지금 여기' : ''}</span></li>`).join('')}</ul><p>새벽 5시에 다시 채워져요</p>`; }
   // 11/1 프로듀서: 지금 위치 (몽환의 섬은 방위 지역까지) · 시간 제한이 있는 곳이면 남은 시간 · 전투 중인 보스
   function svLoc() { let t = zoneTitle(); try { if (SCENE !== 'town' && ISLE && ISLE.id === DREAM.ZID) t += dreamCenter(ISLE.N, hero.i, hero.j) ? ' · 가운데 제단 광장' : ' · ' + ({ E: '동쪽 불', W: '서쪽 물', S: '남쪽 땅', N: '북쪽 바람' })[dreamQuad(ISLE.N, hero.i, hero.j)] + ' 지역'; } catch (e) {} return t; }
   function svLimit() { try { if (SCENE === 'town' || !ISLE) return null; if (HW()) { const L = HWM.left(); return { t: '할로윈 남은 시간 ' + DRM.fmt(L), low: L <= 600 }; }
