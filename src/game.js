@@ -817,7 +817,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 205;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 207;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -2469,37 +2469,8 @@ function announce(t, c = '#ffd86a', kind = '') {
   if (AC && SFX_ON) { const t0 = AC.currentTime; tone(t0, 'triangle', kind === 'boss' ? 330 : 660, kind === 'boss' ? 220 : 990, 0.35, 0.07); tone(t0 + 0.18, 'triangle', kind === 'boss' ? 247 : 880, kind === 'boss' ? 165 : 1320, 0.45, 0.06); }
 }
 // 게임 기록: 전체 공지(보스 등장·토벌 · 영웅·전설 획득 · 고강화 성공 · 운영자 공지 …)를 시각과 함께 최대 200줄 — 이 기기에 저장, 상단 [게임 기록]으로 언제든 열기 (접속 알림은 뺌)
-const GLOG = (() => { const KEY = 'aden_glog', MAX = 200; let L = null; const g = id => document.getElementById(id), f2 = n => String(n).padStart(2, '0');
-  const load = () => { if (L) return L; try { L = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { L = []; } if (!Array.isArray(L)) L = []; L = L.filter(x => x && x.t && x.at); return L; };
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(L)); } catch (e) {} };
-  const isOpen = () => { const w = g('logwin'); return !!w && !w.hidden; };
-  function render(fresh) { const box = g('glog-list'); if (!box) return; load(); const fr = document.createDocumentFragment(), now = new Date(), today = now.toDateString(), yest = new Date(now.getTime() - 864e5).toDateString(); let day = '';
-    for (let i = L.length - 1; i >= 0; i--) { const x = L[i], d = new Date(x.at), ds = d.toDateString();
-      if (ds !== day) { day = ds; const h = document.createElement('div'); h.className = 'gl-day'; h.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일` + (ds === today ? ' · 오늘' : ds === yest ? ' · 어제' : ''); fr.appendChild(h); }
-      const r = document.createElement('div'); r.className = 'gl-row' + (fresh && i === L.length - 1 ? ' gl-new' : ''); const tm = document.createElement('time'); tm.textContent = `${f2(d.getHours())}:${f2(d.getMinutes())}`; tm.dateTime = d.toISOString(); const sp = document.createElement('span'); sp.textContent = x.t; if (x.c) sp.style.color = x.c; r.append(tm, sp); fr.appendChild(r); }
-    box.textContent = ''; if (!L.length) { const p = document.createElement('p'); p.className = 'gl-empty'; p.textContent = '아직 기록이 없어요. 보스 등장·토벌, 영웅·전설 획득, 고강화 성공 같은 전체 공지가 여기에 시각과 함께 쌓여요.'; box.appendChild(p); } else box.appendChild(fr);
-    const n = g('glog-n'); if (n) n.textContent = `${L.length} / ${MAX}줄`; if (fresh) box.scrollTop = 0; }   // 새 기록: 맨 위로 올리고 잠깐 빛남 (아래로 내려 보던 중에도 바로 보이게)
-  // 11/1: 서버(Firestore worldlog) 기록 — 공지가 뜨면 그 사람 게임이 한 줄 올리고, 게임을 켜거나 창을 열면 최근 200줄을 받아 와 합침 (같은 글 3분 안은 한 줄)
-  //   문서 id = 글 해시 + 2분 칸 → 여러 사람이 같은 공지를 올려도 한 번만 생김 (규칙: 로그인한 사람만 · 만들기만 · 고치기·지우기 안 됨)
-  const hx = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
-  const keyOf = (t, at) => hx(t) + '_' + Math.floor(at / 120000);
-  let srv = '', pullAt = 0, pulling = null, lastErr = '';
-  const cloudOn = () => { try { return typeof CLOUD !== 'undefined' && CLOUD.on() && typeof CLOUD.query === 'function'; } catch (e) { return false; } };
-  function share(x) { if (!cloudOn()) return; try { CLOUD.create('worldlog/' + keyOf(x.t, x.at), { t: x.t, c: x.c || '', at: String(x.at), u: CLOUD.uid() || '' }).then(ok => { if (ok && !srv) srv = 'on'; }).catch(e => { lastErr = String(e && e.message || e).slice(0, 80); }); } catch (e) {} }
-  const dup = (x, y) => x.t === y.t && Math.abs(x.at - y.at) < 180000;
-  function merge(rows) { load(); let n = 0; for (const r of rows) { const at = +r.at, t = String(r.t || '').slice(0, 200); if (!at || !t || /님이 접속했습니다/.test(t)) continue; const x = { at, t, c: /^#[0-9a-f]{3,8}$/i.test(r.c || '') ? r.c : '' }; const k = L.findIndex(y => dup(x, y)); if (k >= 0) { if (at < L[k].at) L[k].at = at; continue; } L.push(x); n++; }
-    L.sort((a, b) => a.at - b.at); if (L.length > MAX) L.splice(0, L.length - MAX); save(); return n; }
-  function pull(force) { if (!cloudOn()) { srv = ''; hdr(); return Promise.resolve(0); } if (pulling) return pulling; if (!force && Date.now() - pullAt < 45000) return Promise.resolve(0); pullAt = Date.now();
-    let fill = []; try { fill = (ISLAND.spawnLog && ISLAND.spawnLog()) || []; } catch (e) {}
-    pulling = CLOUD.query('worldlog', 'at', MAX).then(rows => { srv = 'on'; const have = rows.map(r => ({ t: r.t, at: +r.at })); for (const f of fill) if (!have.some(y => dup(f, y))) share(f); const n = merge(rows.concat(fill)); if (isOpen()) render(); else hdr(); return n; })
-      .catch(e => { srv = 'off'; lastErr = String(e && e.message || e).slice(0, 80); merge(fill); hdr(); return 0; }).finally(() => { pulling = null; });
-    return pulling; }
-  function hdr() { const s = g('glog-src'); if (!s) return; s.textContent = srv === 'on' ? '서버 기록 · 모든 사람 공지가 모여요' : srv === 'off' ? '이 기기 기록 (서버에 닿지 않아요)' : '이 기기 기록'; s.dataset.st = srv || 'local'; }
-  function add(t, c) { t = String(t || '').trim(); if (!t || /님이 접속했습니다/.test(t)) return; load(); const x = { at: Date.now(), t: t.slice(0, 200), c: /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '' }; L.push(x); if (L.length > MAX) L.splice(0, L.length - MAX); if (isOpen()) render(true); save(); if (!GLOG.mute) share(x); }
-  function open(v) { const w = g('logwin'); if (!w) return; w.hidden = v === undefined ? !w.hidden : !v; if (!w.hidden) { render(); hdr(); const b = g('glog-list'); if (b) b.scrollTop = 0; pull(); } }
-  setTimeout(function tk() { if (window.__gameOn) pull(); setTimeout(tk, 5 * 60000); }, 20000);   // 게임을 켜고 20초 뒤 · 그 뒤 5분마다 서버 기록 받아 오기
-  { const b = g('btn-glog'); if (b) b.onclick = () => open(); }
-  return { add, open, render, pull, mute: 0, src: () => srv, err: () => lastErr, list: () => load().slice() }; })();
+// 11/1 프로듀서: [게임 기록] 창 없앰 — 서버(Firestore worldlog) 읽기가 무료 한도를 넘겨 접속이 막혔던 원인. 공지는 채팅창에만 남고 서버에 올리거나 받아 오지 않음 (아래는 예전 호출이 남아 있어도 아무것도 안 하는 빈 껍데기)
+const GLOG = { add() {}, open() {}, render() {}, pull() { return Promise.resolve(0); }, mute: 0, src: () => '', err: () => '', list: () => [] };
 hero.lv = 1; hero.exp = 0; hero.baseHP = 16; hero.baseMP = 2; hero.hp = hero.max = 16; hero.mp = hero.maxmp = 2; hero.bonusPts = 0; let coins = 100, potions = 20, potCd = 0;
 // 단축키: 브라우저·윈도우 기본 기능(F5 새로고침 등)을 막고 게임 기능으로만 씀
 function usePotion(){ INV.usePotion(); }
@@ -7707,7 +7678,8 @@ const CLOUD = (() => {
   async function del(path) { const r = await fetch(FS + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await token() } }); return r.ok; }
   // 창을 닫을 때: 응답을 기다릴 수 없어서 keepalive로 한 번 보냄 (토큰이 아직 유효할 때만, 64KB 이하)
   function beacon(path, o, merge, pre) { if (!S || Date.now() > S.exp) return false; const body = JSON.stringify(enc(o)); if (body.length > 60000) return false; const q = [merge ? mask(o) : '', pre ? 'currentDocument.updateTime=' + encodeURIComponent(pre) : ''].filter(Boolean).join('&'); try { fetch(FS + path + (q ? '?' + q : ''), { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.tok }, body }); return true; } catch (e) { return false; } }
-  async function query(col, ord, n) { const r = await fetch(FS.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], orderBy: [{ field: { fieldPath: ord }, direction: 'DESCENDING' }], limit: n } }) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(Array.isArray(j) ? j[0] : j, r.status); return (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => dec(x.document)); }   // 11/1: 월드 게임 기록 (worldlog) 최신순
+  async function query(col, ord, n, gt) { const sq = { from: [{ collectionId: col }], orderBy: [{ field: { fieldPath: ord }, direction: 'DESCENDING' }], limit: n }; if (gt != null) sq.where = { fieldFilter: { field: { fieldPath: ord }, op: 'GREATER_THAN', value: { stringValue: String(gt) } } };   /* 11/1: gt = 그 값보다 큰 문서만 (새 글만 받아 읽기 수를 줄임 — Firestore 무료 한도) */
+    const r = await fetch(FS.replace(/\/$/, '') + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() }, body: JSON.stringify({ structuredQuery: sq }) }); const j = await r.json().catch(() => null); if (!r.ok) throw err(Array.isArray(j) ? j[0] : j, r.status); return (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => dec(x.document)); }   // 11/1: 월드 게임 기록 (worldlog) 최신순
   return { ping, signUp, signIn, get, set, create, del, beacon, query, uid: () => S && S.uid, on: () => !!S, out() { S = null; }, session: () => S, restore(s) { if (s && s.uid && s.ref) S = s; }, reachable: () => reach };
 })();
 // ============================================================ 캐릭터 저장: 레벨·경험치·능력치·가방·장비·골드·배운 마법·단축키·자동 설정 + 계정 창고 · 20초마다 바뀐 게 있으면 자동 저장
@@ -9434,6 +9406,8 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 207, items: ["[게임 기록] 창을 없앴어요. 서버에서 기록을 받아 오던 것이 접속 장애의 원인이라 서버 저장·읽기도 모두 멈췄어요. 보스·획득 공지는 지금처럼 채팅창에 떠요."] },
+    { v: 206, items: ["접속이 안 되던 문제를 고쳤어요. 게임 기록(서버 공지)을 5분마다 200줄씩 통째로 받아 와 서버 읽기 한도를 넘겼던 것을, 10분마다 새 글만 받도록 바꿨어요."] },
     { v: 205, items: ["전설 변신 카드(데스나이트·와이번·카스파·아크나이트·아크메이지·아크레인저)의 레벨 제한이 없어졌어요. 1레벨부터 변신할 수 있어요.", "요정은 1레벨부터 펫을 3마리까지 데리고 다닐 수 있어요. (40레벨이 되어도 3마리 그대로 · 다른 직업은 1마리, 40레벨부터 2마리)", "변신 창 [전설 재뽑기] 버튼에 재뽑기 비용이 보여요. (가진 전설 카드의 다음 비용 · 3번 다 한 카드는 [무료 고르기] · 골드가 모자라면 빨간 글자)"] },
     { v: 204, items: ["전설 무기의 가방·장비 칸 바탕이 깊은 파란색에서 황금빛 그라데이션으로 바뀌었어요.", "전설 무기의 가방·창고 칸 줄임말이 [집행] · [격노] · [수결]로 보여요. (다른 직업 전설 무기도 줄임말과 착용 직업이 함께 보여요)", "화룡의 둥지에서 아스타지오·이프리트 같은 큰 몬스터를 때리거나 대상으로 고르면 화면이 뚝뚝 끊기던 렉을 크게 줄였어요.", "채팅 기록이 길게 쌓였을 때 화면이 느려지던 것도 고쳤어요."] },
     { v: 203, items: ["변신 뽑기 결과 화면의 [다시 뽑기] 버튼에 이번에 쓸 골드와 지금 가진 골드가 보여요. (골드가 모자라면 빨간 글자)"] },
@@ -11571,7 +11545,7 @@ const MUI = (() => {
     const on = (id, f) => { const b = $m(id); if (b) b.addEventListener('click', ev => { ev.stopPropagation(); f(); }); };
     on('mob-chat-b', () => { menu(false); openChat(); }); on('mob-bag-b', () => { menu(false); INV.toggleWin('invwin'); }); on('mob-char-b', () => { menu(false); INV.toggleWin('charwin'); }); on('mob-map-b', () => { menu(false); $m('btn-map').click(); }); on('mob-menu-b', () => menu());
     const mm = (id, f, keep) => on(id, () => { f(); if (!keep) menu(false); else syncMenu(); });
-    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-poly', () => $m('btn-poly').click()); mm('mm-glog', () => GLOG.open(true)); mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
+    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-poly', () => $m('btn-poly').click());  mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
     mm('mm-saver', () => $m('btn-saver').click()); mm('mm-bgm', () => { $m('btn-bgm').click(); try { SND.set({ bgmOn: $m('btn-bgm').getAttribute('aria-pressed') === 'true' }); } catch (e) {} }, true);
     mm('mm-zoom', () => { const i = ZS.indexOf(MOB_ZS); MOB_ZS = ZS[(i + 1) % ZS.length]; try { localStorage.setItem('aden_mz', String(MOB_ZS)); } catch (e) {} zoomT = zoom = mobZ(); pixel = Number.isInteger(zoomT); say(`화면 크기: ${ZL[MOB_ZS]}`, '#9c9682'); }, true);
     mm('mm-q', () => { MOB_LOWQ = !MOB_LOWQ; try { localStorage.setItem('aden_lowq', MOB_LOWQ ? '1' : '0'); } catch (e) {} resize(); say(`화질: ${MOB_LOWQ ? '절약 (배터리·발열 줄임)' : '선명'}`, '#9c9682'); }, true);
