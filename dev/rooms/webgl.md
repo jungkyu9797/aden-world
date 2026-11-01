@@ -21,3 +21,12 @@
 4. **정확도 테스트** `dev/tests/gl_parity.js`: 같은 장면을 끔/켬으로 찍어 화면 차이를 수치로(평균 픽셀 차이·차이 큰 영역) + 스크린샷 `dev/out/gl_off.png`·`gl_on.png`·`gl_diff.png`.
 5. 기존 테스트 몇 개(polygacha·dream·fieldbot2 등)를 GL 꺼진 상태로 돌려 회귀 없음 확인.
 6. `dev/rooms/webgl.md`에 결정·구조·남은 단계(① 이펙트 빛·블룸 ② 코드 그림 몹 ③ UI ④ 기본값 켜기 기준) 정리.
+
+# ★ 11/1 프로듀서 결정 — WebGL은 **따로 여는 대화방(WebGL 방)**에서 진행
+메인방은 게임 업데이트·질문을 바로바로 받아야 해서, WebGL 작업은 프로듀서가 새로 연 대화방 하나가 맡는다. 그 방의 규칙:
+1. 시작: CLAUDE.md와 이 문서를 읽고 `git fetch && git checkout -B work/webgl origin/work/webgl` (지금 7090970: 0단계 시제품 `src/gl.js` = 기록용 가짜 2D 컨텍스트 → WebGL2 배치 · game.js frame 한 군데 연결 · 기본 꺼짐 · `dev/tests/gl_scene.js`·`gl_bench.js`는 작성 중이던 것 — 먼저 돌려 보고 이어서).
+2. **자기 갈래 work/webgl에만** commit·push. main에 push하지 않음 · 배포하지 않음 · 메인 테스트 페이지를 올리지 않음(메인방 몫).
+3. game.js 수정은 최소로, `// GL:` 표시. 다른 콘텐츠 작업과 부딪히지 않게 새 코드는 `src/gl.js`에.
+4. 진행할 때마다 작업판 카드 `tasks/webgl`의 `status`(doing)·`phase`·`next`·`note`·`updated`를 고침. 한 단계가 끝나 프로듀서가 테스트 페이지에서 볼 만하면 `origin/main`을 merge → 테스트 → push → 카드 status `test`(테스트 확인) + `next`에 "메인방이 테스트 판에 올려요" → 프로듀서에게 한 줄 + 휴대폰 알림. 전부 끝나 본서버에 넣을 때는 `ready`(승인 대기) + `notes`.
+5. 프로듀서가 이 방에 말하는 건 WebGL 관련만. 게임 업데이트·다른 질문은 메인방으로 안내.
+6. 단계: 0 시제품·30명 벤치마크(진행 중) → ① 이펙트 빛·블룸·파티클 → ② 코드 그림 몹·몽환의 섬 그림 → ③ UI → ④ 기본값 켜기. 라이브러리는 npm이 열리면 PixiJS(MIT) 가능, 아니면 직접 만든 WebGL2.
