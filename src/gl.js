@@ -156,8 +156,13 @@ void main(){ int sh=vM&3, pa=(vM>>2)&3; float d=length(vT); float w=max(length(v
     gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0); gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
     if (!same) { e.by = w * h * 4 * (mip ? 1.34 : 1); tAll += e.by; } e.mip = mip; e.w = w; e.h = h; e.v = v; ST.up++; ST.upPx += w * h;
     if (DBG.on) (ST.ul || (ST.ul = [])).push([String(new Error().stack).split('\n').slice(4, 8).map(s => (/at (\S+)/.exec(s) || [])[1]).join('<'), w, h, e.ups]); }
-  function sweep() { const lim = (window.matchMedia && matchMedia('(pointer:coarse)').matches ? 256 : 768) * 1048576, old = frameNo - 600;   // 10초 넘게 안 쓴 것 · 메모리 넘치면 더 빨리
-    for (const [s, e] of TX) if (e.f < old || (tAll > lim && e.f < frameNo - 60)) { for (const q of e.t || []) gl.deleteTexture(q.tex); tAll -= e.by; TX.delete(s); } }
+  // 그래픽카드 메모리 정리 (11/1 고침: 예전엔 한도(768MB)를 넘으면 1초만 안 써도 지워서, 공격 동작처럼 가끔 쓰는 큰 그림이 지워졌다 다시 올라가며 2초마다 끊겼음)
+  //   그림 파일은 60초, 캔버스는 10초 넘게 안 쓰면 지움 · 한도를 넘으면 오래 안 쓴 것부터(최소 5초 안 쓴 것만) 한도의 85%까지
+  const TLIM = (window.matchMedia && matchMedia('(pointer:coarse)').matches ? 320 : Math.max(256, +LSG('aden_gl_mb') || 1200)) * 1048576;
+  const dropTex = (s, e) => { for (const q of e.t || []) gl.deleteTexture(q.tex); tAll -= e.by; TX.delete(s); ST.drop = (ST.drop || 0) + 1; };
+  function sweep() { const fps = 60;
+    for (const [s, e] of TX) if (e.f < frameNo - (srcSize(s) && srcSize(s)[2] ? 10 : 60) * fps) dropTex(s, e);
+    if (tAll > TLIM) { const L = [...TX].filter(([, e]) => e.f < frameNo - 5 * fps).sort((a, b) => a[1].f - b[1].f); for (const [s, e] of L) { if (tAll <= TLIM * 0.85) break; dropTex(s, e); } } }
   // 그라데이션 색 띠 (256칸 한 줄 · 같은 색 목록은 한 번만)
   function rampRow(r) { if (!r.key) r.key = r.st.join('|'); let row = RAMP.m.get(r.key); if (row !== undefined) return row;
     if (RAMP.n >= RAMP.H) { shFlush(); flush(); RAMP.m.clear(); RAMP.n = 0; } row = RAMP.n++; const g = RAMP.g; g.clearRect(0, 0, 256, 1);
@@ -217,7 +222,8 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
       G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MIN_FILTER, G.LINEAR); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MAG_FILTER, G.LINEAR); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_WRAP_S, G.CLAMP_TO_EDGE); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_WRAP_T, G.CLAMP_TO_EDGE); SHG[k] = t; }
     SHG.w = PW; SHG.h = PH; }
   // 모아 둔 그림자 묶음 그리기
-  function shFlush() { const L = SHG.list; if (!L.length) return; SHG.list = []; const cap0 = SHG.cap; SHG.cap = false; flush();
+  function shFlush() { if (!SHG.list.length) return; const Q = new Float64Array(24); Q.set(QX, 0); Q.set(QU, 8); Q.set(QG, 16); try { shFlush_(); } finally { QX.set(Q.subarray(0, 8)); QU.set(Q.subarray(8, 16)); QG.set(Q.subarray(16, 24)); } }   // QX 저장·복원 (runFlush와 같은 이유)
+  function shFlush_() { const L = SHG.list; if (!L.length) return; SHG.list = []; const cap0 = SHG.cap; SHG.cap = false; flush();
     const G = gl, t0 = performance.now(), c = SHG.col, ox = SHG.ox, oy = SHG.oy, sg = SHG.sg, pad = Math.ceil(sg * 3) + 2;
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const q of L) for (let i = 0; i < 8; i += 2) { x0 = Math.min(x0, q.X[i]); x1 = Math.max(x1, q.X[i]); y0 = Math.min(y0, q.X[i + 1]); y1 = Math.max(y1, q.X[i + 1]); }
     const sx0 = Math.max(0, Math.floor(x0 + ox - pad)), sy0 = Math.max(0, Math.floor(y0 + oy - pad)), sx1 = Math.min(PW, Math.ceil(x1 + ox + pad)), sy1 = Math.min(PH, Math.ceil(y1 + oy + pad));
@@ -301,6 +307,7 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     if (SHG.cap) { SHG.list.push({ X: Float64Array.from(QX), U: Float64Array.from(QU), G: Float64Array.from(QG), a: [t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3] }); return; }
     if (SHG.list.length) shFlush(); emitRaw(t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3); }
   function emitRaw(t, s, bl, F, md, r, g_, b, a, p0, p1, p2, p3) {
+    if (DBG.big) { const x0 = Math.min(QX[0], QX[2], QX[4], QX[6]), x1 = Math.max(QX[0], QX[2], QX[4], QX[6]), y0 = Math.min(QX[1], QX[3], QX[5], QX[7]), y1 = Math.max(QX[1], QX[3], QX[5], QX[7]); if ((x1 - x0) * (y1 - y0) > DBG.big) (ST.big || (ST.big = [])).push([t === white ? 'white' : t === TA.tex ? 'TA' : t === layer ? 'layer' : t === RAMP.tex ? 'RAMP' : 'tex', md, s, bl, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), Array.from(QU).map(v => +v.toFixed(3)).join(','), String(new Error().stack).split('\n').slice(2, 6).map(s => (/at (\S+)/.exec(s) || [])[1]).join('<')]); }
     if (bl !== cBl || F !== cF || nQ >= MAXQ) { flush(); cBl = bl; cF = F; }
     let k = -1; for (let i = 0; i < slots.length; i++) if (slots[i].t === t && slots[i].s === s) { k = i; break; }
     if (k < 0) { if (slots.length >= NS) { flush(); cBl = bl; cF = F; } k = slots.length; slots.push({ t, s }); }
@@ -319,7 +326,10 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
   // ---------------------------------------------------------------- 보조 2D 캔버스 (복잡한 경로 등) 묶음
   const RUN = { open: false, bl: 0, x0: 0, y0: 0, x1: 0, y1: 0, n: 0, who: '' }, DBG = { on: false, fin: false, nodraw: false };   // 개발용 (dev/tests/gl_*.js)
   let V = null, Vc = null;
-  function runFlush() { if (!RUN.open) return; RUN.open = false;
+  // 11/1 버그 고침: 다른 그림이 QX(꼭짓점)를 채워 둔 채 gOpen → runFlush가 불리면 QX를 덮어써서 그 그림이 묶음 크기로 늘어나 그려졌음(보스 막대 글자·HP 막대) → 앞뒤로 저장·복원
+  const QS_ = new Float64Array(24);
+  function runFlush() { if (!RUN.open) return; QS_.set(QX, 0); QS_.set(QU, 8); QS_.set(QG, 16); try { runFlush_(); } finally { QX.set(QS_.subarray(0, 8)); QU.set(QS_.subarray(8, 16)); QG.set(QS_.subarray(16, 24)); } }
+  function runFlush_() { RUN.open = false;
     const x0 = Math.max(0, Math.floor(RUN.x0)), y0 = Math.max(0, Math.floor(RUN.y0)), x1 = Math.min(PW, Math.ceil(RUN.x1)), y1 = Math.min(PH, Math.ceil(RUN.y1)); if (x1 <= x0 || y1 <= y0) return;
     const w = x1 - x0, h = y1 - y0; flush();
     const t0 = performance.now(); gl.bindTexture(gl.TEXTURE_2D, layer); gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, y0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, V.getImageData(x0, y0, w, h).data); ST.tRun += performance.now() - t0;   // 그 부분만 읽어서 올림 (캔버스 통째 복사 안 함)
@@ -422,7 +432,7 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
   //   겹치는데 묶음이 작으면(코드로 그린 몹 하나 등) 그 그림도 2D 묶음에 넣어 버림 → true (부른 쪽이 2D로 그림) — 작은 묶음이 잘게 쪼개져 여러 번 올라가는 것을 막음
   const ABS = 512 * 512;
   function gOpen(x0, y0, x1, y1) { if (!RUN.open) return false; if (x1 <= RUN.x0 || x0 >= RUN.x1 || y1 <= RUN.y0 || y0 >= RUN.y1) { ST.defer++; return false; }
-    if (RUN.bl === C.st.bl && (Math.max(x1, RUN.x1) - Math.min(x0, RUN.x0)) * (Math.max(y1, RUN.y1) - Math.min(y0, RUN.y0)) <= ABS) { ST.abs++; return true; }
+    if (!DBG.noabs && RUN.bl === C.st.bl && (Math.max(x1, RUN.x1) - Math.min(x0, RUN.x0)) * (Math.max(y1, RUN.y1) - Math.min(y0, RUN.y0)) <= ABS) { ST.abs++; return true; }
     runFlush(); return false; }
   function gOpenNo(x0, y0, x1, y1) { if (RUN.open && !(x1 <= RUN.x0 || x0 >= RUN.x1 || y1 <= RUN.y0 || y0 >= RUN.y1)) runFlush(); }
   const gOpenQ = () => gOpen(Math.min(QX[0], QX[2], QX[4], QX[6]), Math.min(QX[1], QX[3], QX[5], QX[7]), Math.max(QX[0], QX[2], QX[4], QX[6]), Math.max(QX[1], QX[3], QX[5], QX[7]));
@@ -607,7 +617,7 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     V.font = '10px sans-serif'; V.textAlign = 'start'; V.textBaseline = 'alphabetic'; V.beginPath();
     return CTX; }
   function end() { if (C.stack.length) { while (C.stack.length) CTX.restore(); note('unbalanced'); }
-    runFlush(); shFlush(); flush(); if (BLM.on && BLM.w) bloomEnd(); ST.ms = performance.now() - ST.t0; if (DBG.fin) { const t = performance.now(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, DBG.px || (DBG.px = new Uint8Array(4))); ST.gpu = performance.now() - t; } LAST = ST; frameNo++; if (frameNo % 120 === 0) sweep(); return true; }
+    runFlush(); shFlush(); flush(); if (BLM.on && BLM.w) bloomEnd(); ST.ms = performance.now() - ST.t0; if (DBG.fin) { const t = performance.now(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, DBG.px || (DBG.px = new Uint8Array(4))); ST.gpu = performance.now() - t; } LAST = ST; frameNo++; if (frameNo % 60 === 0) sweep(); return true; }
 
   // ---------------------------------------------------------------- 게임이 부르는 것 (game.js의 frame 한 군데: // GL:)
   let LA = null;   // 마지막 프레임 인자 (시험용 _redraw)
@@ -636,6 +646,6 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, spark, sparks, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();
