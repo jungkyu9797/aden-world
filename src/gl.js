@@ -116,6 +116,7 @@ void main(){ int sh=vM&3, pa=(vM>>2)&3; float d=length(vT); float w=max(length(v
       if(abs(A)<1e-6){ t=Cc/(2.*B); if(r0+t*dr<0.) ok=0.; } else { float D=B*B-A*Cc; if(D<0.) ok=0.; else { float q=sqrt(D), t1=(B+q)/A, t2=(B-q)/A, tm=max(t1,t2), tn=min(t1,t2); if(r0+tm*dr>=0.) t=tm; else if(r0+tn*dr>=0.) t=tn; else ok=0.; } } }
     c=texture(uG,vec2((clamp(t,0.,1.)*255.+.5)/256.,vP.x))*ok; }
   if(uN>0){ float a=c.a; vec4 q=vec4(a>0.?c.rgb/a:vec3(0.),a); for(int k=0;k<4;k++){ if(k>=uN) break; q=clamp(uM[k]*q+uO[k],0.,1.); } c=vec4(q.rgb*q.a,q.a); }
+  if((vM&32)!=0) c*=tx(vT).a;   /* 2단계: 그라데이션 글자 (흰 글자 텍스처를 가림막으로) */
   if((vM&16)!=0) c=vec4(c.a);
   if(sh==1) c*=clamp((1.-d)/w+.5,0.,1.); else if(sh==2) c*=clamp(vP.w-abs((d-1.)/w)+.5,0.,1.); else if(sh==3) c*=clamp(vP.w-abs(vT.y)+.5,0.,1.)*clamp(vP.z-abs(vT.x)+.5,0.,1.);
   o=c*vC; }`;
@@ -663,7 +664,9 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
       tx4(st.m, x, y, w, h, QX); gOpenNo(Math.min(QX[0], QX[2], QX[4], QX[6]), Math.min(QX[1], QX[3], QX[5], QX[7]), Math.max(QX[0], QX[2], QX[4], QX[6]), Math.max(QX[1], QX[3], QX[5], QX[7])); uvRect(0, 0, 1, 1); emit(white, 0, 7, null, 0, 0, 0, 0, 0, 0, 0, 0, 0); }
     // ---- 글자: 같은 모양은 아틀라스에 한 번만 그림
     fillText(t, x, y, mw) { this._t(0, t, x, y, mw); } strokeText(t, x, y, mw) { this._t(1, t, x, y, mw); }
-    _t(sk, t, x, y, mw) { t = String(t); if (!t) return; const st = C.st, m = st.m, sty = sk ? V.strokeStyle : V.fillStyle;
+    _t(sk, t, x, y, mw) { t = String(t); if (!t) return; const st = C.st, m = st.m, sty0 = sk ? V.strokeStyle : V.fillStyle;
+      let GP = null; if (typeof sty0 !== 'string' && glOK() && !st.F) { const P = paint(sty0, false); if (P && P !== 'skip' && P.pa && !P.pat) GP = { pa: P.pa, gr: P.gr, r: P.r, g: P.g, b: P.b, a: P.a, p0: P.p0, p1: P.p1, p2: P.p2, p3: P.p3 || 0, ca: P.ca, sa: P.sa }; }   // 2단계: 그라데이션 글자 = 흰 글자 + 그라데이션 칠
+      const sty = GP ? '#ffffff' : sty0;
       if (glOK() && m[1] === 0 && m[2] === 0 && m[0] > 0 && Math.abs(m[0] - m[3]) < 1e-6 && typeof sty === 'string' && mw === undefined) {
         const s = m[0], ix = Math.round(m[0] * x + m[4]), iy = Math.round(m[3] * y + m[5]), fx = 0, fy = 0;   // 글자는 기기 픽셀에 맞춰 찍음 (올라가는 피해 숫자가 프레임마다 새로 그려지지 않게 · 2D와 0.5px 안 차이)
         const key = (sk ? 'S' + V.lineWidth + V.lineJoin : 'F') + '|' + V.font + '|' + V.textAlign + V.textBaseline + '|' + sty + '|' + s.toFixed(3) + '|' + t;
@@ -676,8 +679,10 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
             const t0 = performance.now(); bindTex(TA.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, p[0], p[1], w, h, gl.RGBA, gl.UNSIGNED_BYTE, g.getImageData(0, 0, w, h).data); ST.txtNew++; ST.tTxt += performance.now() - t0;
             e = { x: p[0], y: p[1], w, h, ox, oy }; if (TA.m.size > 6000) taReset(); TA.m.set(key, e); } }
         if (e) { const X = ix - e.ox, Y = iy - e.oy, S = TA.S, A = st.a; QX[0] = X; QX[1] = Y; QX[2] = X + e.w; QX[3] = Y; QX[4] = X + e.w; QX[5] = Y + e.h; QX[6] = X; QX[7] = Y + e.h;
-          if (!gOpen(X, Y, X + e.w, Y + e.h)) { ST.txt++; uvRect(e.x / S, e.y / S, (e.x + e.w) / S, (e.y + e.h) / S); emit(TA.tex, 0, st.bl, st.F, 0, A, A, A, A, 0, 0, 0, 0); return; } } }
-      ST.txtR++; note('text:' + (!glOK() ? 'state' : !(m[1] === 0 && m[2] === 0 && m[0] > 0 && Math.abs(m[0] - m[3]) < 1e-6) ? 'xf' : typeof sty !== 'string' ? 'paint' : mw !== undefined ? 'mw' : 'big/run')); const s = Math.max(Math.hypot(m[0], m[1]), 1), M = V.measureText(t), w = (Math.max(M.width, (M.actualBoundingBoxRight || 0) + (M.actualBoundingBoxLeft || 0)) + 40) * s, hh = 60 * s;
+          if (!gOpen(X, Y, X + e.w, Y + e.h)) { ST.txt++; uvRect(e.x / S, e.y / S, (e.x + e.w) / S, (e.y + e.h) / S);
+            if (GP) { if (!gradCoords(GP)) return; ST.grad++; emit(TA.tex, 0, st.bl, st.F, (GP.pa << 2) | 32, GP.r, GP.g, GP.b, GP.a, GP.p0, GP.p1, GP.p2, GP.p3); return; }
+            emit(TA.tex, 0, st.bl, st.F, 0, A, A, A, A, 0, 0, 0, 0); return; } } }
+      ST.txtR++; note('text:' + (!glOK() ? 'state' : !(m[1] === 0 && m[2] === 0 && m[0] > 0 && Math.abs(m[0] - m[3]) < 1e-6) ? 'xf' : typeof sty0 !== 'string' && !GP ? 'paint' : mw !== undefined ? 'mw' : 'big/run')); const s = Math.max(Math.hypot(m[0], m[1]), 1), M = V.measureText(t), w = (Math.max(M.width, (M.actualBoundingBoxRight || 0) + (M.actualBoundingBoxLeft || 0)) + 40) * s, hh = 60 * s;
       const X = m[0] * x + m[2] * y + m[4], Y = m[1] * x + m[3] * y + m[5]; const fx_ = rOpen(X - w, Y - hh, X + w, Y + hh); if (sk) { if (mw !== undefined) V.strokeText(t, x, y, mw); else V.strokeText(t, x, y); } else { if (mw !== undefined) V.fillText(t, x, y, mw); else V.fillText(t, x, y); } rClose(fx_); }
     measureText(t) { return V.measureText(t); }
     // ---- 그림
