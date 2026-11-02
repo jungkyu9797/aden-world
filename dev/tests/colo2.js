@@ -34,8 +34,12 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
     if (r === 1) await p.screenshot({ path: 'dev/out/colo2_r1.png' }); }
   await p.evaluate(() => { for (const d of __T.GROUND.list()) if (d.zone === 'isle14') d.t = 2000; }); await p.waitForTimeout(600);
   { const lg = await lootLeft(); ok('콜로세움 바닥 아이템은 10분이 지나도 안 사라짐', lg.left === lg.n); }
-  await p.evaluate(() => { window.__COLO.dbg().t = 30.5; }); await p.waitForTimeout(1500);
-  ok('3라운드 클리어 30초 뒤 자동 퇴장', await p.evaluate(() => __T.SCENE === 'town'));
+  { await p.waitForTimeout(5200); const w = await p.evaluate(() => ({ cn: (document.getElementById('cnote') || {}).textContent || '', on: !!(document.getElementById('cnote') || { classList: { contains: () => false } }).classList.contains('on'), log: __T.log.slice(-8).map(l => l.t).join(' | '), sv: (window.__COLO.svInfo() || {}).txt }));
+    console.log('win', JSON.stringify(w)); ok('3라운드 클리어: "5분 뒤 자동 퇴장" 안내(가운데·채팅) · 위쪽 표시 4:5x', /5분 뒤 자동으로 퇴장/.test(w.cn) && /5분 뒤 자동으로 퇴장합니다/.test(w.log) && /4:5\d 뒤 자동 퇴장/.test(w.sv));
+    await p.evaluate(() => { window.__COLO.dbg().t = 30.5; }); await p.waitForTimeout(1200); ok('30초 지나도 아직 안 나감 (5분까지)', await p.evaluate(() => __T.SCENE !== 'town'));
+    await p.evaluate(() => { window.__COLO.dbg().t = 240.5; }); await p.waitForTimeout(1200); ok('퇴장 1분 전 안내', await p.evaluate(() => /1분 뒤 자동 퇴장/.test(__T.log.slice(-6).map(l => l.t).join(' ')))); }
+  await p.evaluate(() => { window.__COLO.dbg().t = 300.5; }); await p.waitForTimeout(1500);
+  ok('3라운드 클리어 5분 뒤 자동 퇴장', await p.evaluate(() => __T.SCENE === 'town'));
   ok('클리어 뒤 퇴장하면 콜로세움 바닥 아이템 정리', await p.evaluate(() => !__T.GROUND.list().some(d => d.zone === 'isle14')));
   // 하루 1번
   await p.evaluate(() => window.__COLO.open(true)); await p.waitForTimeout(300);
