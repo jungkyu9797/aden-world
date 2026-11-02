@@ -303,6 +303,10 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
     } else if (type === 'imp') {
       if (id === 'bolt') { glow(x, y, 30, S.c || '#ffe066', 0.25, 0.6); spark(x, y, 10, { c: S.c || '#ffe066', sp: 150, life: 0.35, g: 120, sz: 1.4 }); }
       else if (id === 'quake') { spark(x, y, 40, { c: S.c || '#6a4a2a', sp: 160, life: 0.9, g: 280, up: 80, sz: 2.6, r: 40, a: 0.85 }); spark(x, y, 36, { c: 'rgba(255,220,160,1)', sp: 150, life: 0.5, g: 0, sz: 2, even: true, fy: 0.5, a: 0.5 }); glow(x, y, 80, 'rgba(255,150,70,1)', 0.35, 0.25); }
+    } else if (type === 'breath') {   // 보스 불길(용 숨결): 입에서 앞으로 번지는 불티·빛 (S = {dx, dy})
+      for (let i = 0; i <= 8; i++) { const u = i / 8, px = x + S.dx * u, py = y + S.dy * u - h * (1 - u) - 4, dl = u * 0.16;
+        spark(px, py, 10, { c: i % 2 ? '#ffb040' : '#ff6a20', sp: 40 + u * 70, life: 0.7, g: -80, up: 25, sz: 2.2, r: 10 + u * 34, dl });
+        glow(px, py, 26 + u * 40, 'rgba(255,120,40,1)', 0.55, 0.3, dl); } glow(x + S.dx * 0.6, y + S.dy * 0.6, 120, 'rgba(255,90,20,1)', 0.8, 0.18, 0.1);
     } else if (type === 'sfx') {
       if (id === 'levelup') { spark(x, y, 70, { c: '#ffe08a', sp: 60, life: 1.5, g: -90, up: 40, sz: 1.7, r: 40 }); spark(x, y, 40, { c: '#fff6d0', sp: 120, life: 0.6, g: 0, sz: 1.6, even: true, fy: 0.5 }); glow(x, y - 40, 70, 'rgba(255,220,120,1)', 0.8, 0.4); }
       else if (id === 'heal' || id === 'cure') spark(x, y, 20, { c: '#a8ffb8', sp: 15, life: 1.0, g: -80, up: 20, sz: 1.5, r: 30 });

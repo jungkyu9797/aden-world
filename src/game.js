@@ -724,6 +724,7 @@ function breathCone(f, len, dmg, o) { o = o || {}; const dx = BT.x - f.x, dz = B
     for (let q = 0; q < n; q++) { const s = (q - (n - 1) / 2) * (n === 2 ? sp * 2 : sp);
       AOES.push({ grp, kind: 'mag', c: '255,120,40', x: f.x + ux * k * 0.95 - uz * s, z: f.z + uz * k * 0.95 + ux * s, r, warn, t: 0, life: warn + 0.5, landed: false, dmg, fire: true, nofx: true, res: 'fire', nostun: true, quiet: !o.msg, msg: o.msg, onLand: first ? () => breathFx(f, ux, uz, len) : null }); first = false; } } }
 function breathFx(f, ux, uz, len) { const [x0, y0] = W2P(f.x + ux * 0.45, f.z + uz * 0.45), [x1, y1] = W2P(f.x + ux * (len + 0.4), f.z + uz * (len + 0.4)), h = Math.min(70, headY(f) * 0.5), dx = x1 - x0, dy = y1 - y0;
+  if (window.GLR) GLR.mx('breath', 0, x0, y0, h, { dx, dy });   // GL: 새 그래픽 켬일 때만 불길 빛·불티 더함
   for (let q = 0; q < 70; q++) { const u = Math.sqrt(Math.random()), jt = (Math.random() - 0.5) * 0.75 * u; setTimeout(() => mxP(x0 + dx * u - dy * jt, y0 + dy * u + dx * jt * 0.5 - h * (1 - u) - 4, { k: 'flame', s: mxR(6, 10) * (0.7 + u * 0.6), vx: dx * 0.4, vy: dy * 0.4 - 22, life: mxR(0.4, 0.65), dr: 1.8 }), u * 160); }   // 입에서 앞쪽으로 번지는 불길
   for (let k = 1; k <= len; k++) { const [bx, by] = W2P(f.x + ux * k, f.z + uz * k); setTimeout(() => mxBurst(bx, by - 8, 5 + k * 2, () => ({ k: 'flame', s: mxR(3, 6), life: mxR(0.25, 0.45), dr: 2 }), 20, 60 + k * 10, 30), 60 + k * 50); }
   mxAdd('scorch', mxAt(f.x + ux * len * 0.6, f.z + uz * len * 0.6, 0), { gnd: 1, r: len * K * 0.9, life: 2.5 });
