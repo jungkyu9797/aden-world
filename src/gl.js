@@ -349,6 +349,8 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
   //   캔버스 대신 GL 텍스처에 바로 그림 → 프레임마다 캔버스를 통째로 올리던 것(1~2MB)이 없어짐. game.js: const c = GLR.layer('gore', w, h) … g.drawImage(GLR.layerEnd(), 0, 0)
   //   층 안에서는 그림자 흐림·스텐실·빛 번짐은 안 씀(그런 그리기는 2D로 → 층에 얹힘)
   const LYM = new Map(); let LYC = null;
+  // 빛 번짐 빼기: 이미 넓게 번진 빛 그림(전설 변신 오로라 등)은 빛 번짐을 또 더하면 눈부심 → game.js가 그 그림 앞뒤로 GLR.noBloom(true/false) (11/2 프로듀서: 전설 변신 너무 밝음)
+  let NBF = false; function noBloom(v) { v = !!v; if (v === NBF || !gl) return; flush(); NBF = v; }
   function layerBegin(key, w, h) { w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h)); if (LYC) layerEnd();
     runFlush(); shFlush(); flush(); const G = gl; let L = LYM.get(key);
     if (!L) { L = { tex: G.createTexture(), w: 0, h: 0, fb: G.createFramebuffer(), obj: { __glLayer: true, width: 0, height: 0, tex: null } }; LYM.set(key, L); }
@@ -402,7 +404,7 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
     for (let i = 0; i < slots.length; i++) { const q = slots[i]; if (!q) continue; if (UT[i] !== q.t) { actTex(i); bindTex(q.t); } smpB(i, SMP[q.s]); }
     blendSet(cBl); const pr = bCx ? PR[1] : PR[0]; if (pr !== curProg) { G.useProgram(pr.p); curProg = pr; }
     if (bCx && pr.f !== cF) { pr.f = cF; if (cF) { G.uniform1i(pr.uN, cF.n); G.uniformMatrix4fv(pr.uM, false, cF.M); G.uniform4fv(pr.uO, cF.O); } else G.uniform1i(pr.uN, 0); }
-    if (!DBG.nodraw) { G.drawElements(G.TRIANGLES, nQ * 6, G.UNSIGNED_SHORT, 0); if (cBl === 1 && BLM.on && BLM.w && !STN && !LYC) { if (slots.some(x => x && x.t === layer)) bloomBatch(nQ); else BLQ.push({ d: new Uint32Array(VB, 0, nQ * 4 * FL).slice(), n: nQ, sl: slots, cx: bCx, F: cF }); } } /* nodraw: 시험용 (GPU 일을 빼고 CPU 쪽 비용만 잼) */ ST.batches++; ST.quads += nQ; nQ = 0; slots = []; nS = 0; bid++; bCx = false; }
+    if (!DBG.nodraw) { G.drawElements(G.TRIANGLES, nQ * 6, G.UNSIGNED_SHORT, 0); if (cBl === 1 && BLM.on && BLM.w && !STN && !LYC && !NBF) { if (slots.some(x => x && x.t === layer)) bloomBatch(nQ); else BLQ.push({ d: new Uint32Array(VB, 0, nQ * 4 * FL).slice(), n: nQ, sl: slots, cx: bCx, F: cF }); } } /* nodraw: 시험용 (GPU 일을 빼고 CPU 쪽 비용만 잼) */ ST.batches++; ST.quads += nQ; nQ = 0; slots = []; nS = 0; bid++; bCx = false; }
   // 사각형 하나: QX(기기 픽셀 네 꼭짓점) · QU(텍스처 좌표 또는 모양 안 좌표) · QG(그라데이션 좌표) — t: GL 텍스처, s: 표본, md: 모양|칠<<2, 색은 미리 곱한 RGBA(0~1)
   const QX = new Float64Array(8), QU = new Float64Array(8), QG = new Float64Array(8);
   const c8 = v => (v <= 0 ? 0 : v >= 1 ? 255 : Math.round(v * 255));
@@ -810,6 +812,6 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, mx, glow, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, mx, glow, noBloom, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();
