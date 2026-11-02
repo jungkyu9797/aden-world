@@ -189,7 +189,7 @@ void main(){ int sh=vM&3, pa=(vM>>2)&3; float d=length(vT); float w=max(length(v
 
   // ---------------------------------------------------------------- 1단계: 빛 번짐(블룸) — '더하기(lighter)'로 그린 것(불·마법·빛 효과)만 반 해상도 빛 버퍼에도 한 번 더 그려 흐리게 번진 빛을 화면에 더함
   //   게임 코드는 그대로 (지금 효과들이 lighter로 그리는 곳이 곧 빛나는 곳) · 끄기: localStorage aden_gl_bloom=0 · 세기 aden_gl_bloom=0.3~1.5
-  const BLM = { on: LSG('aden_gl_bloom') !== '0', k: Math.max(0, Math.min(2, parseFloat(LSG('aden_gl_bloom')) || 0.6)), fb: null, tA: null, tB: null, w: 0, h: 0, used: false, pr: null, vao: null, uS: null, uD: null, uK: null };
+  const BLM = { on: LSG('aden_gl_bloom') !== '0', k: Math.max(0, Math.min(2, parseFloat(LSG('aden_gl_bloom')) || 0.2)), fb: null, tA: null, tB: null, w: 0, h: 0, used: false, pr: null, vao: null, uS: null, uD: null, uK: null };
   function bloomInit() { if (BLM.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
       const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
 out vec2 v; void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); v=p; gl_Position=vec4(p*2.-1.,0.,1.); }`));
@@ -221,7 +221,7 @@ void main(){ vec4 c=texture(uS,v)*.227027; c+=(texture(uS,v+uD*1.3846)+texture(u
     G.bindFramebuffer(G.FRAMEBUFFER, BLM.fb); G.viewport(0, 0, BLM.w, BLM.h);
     const pass = (src, dst, dx, dy, k) => { G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, dst, 0); bindTex(src); G.uniform2f(BLM.uD, dx / BLM.w, dy / BLM.h); G.uniform1f(BLM.uK, k); G.drawArrays(G.TRIANGLES, 0, 3); };
     pass(BLM.tA, BLM.tB, 1, 0, 1); pass(BLM.tB, BLM.tA, 0, 1, 1); pass(BLM.tA, BLM.tB, 2.5, 0, 1);
-    G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, PW, PH); G.blendFunc(G.ONE, G.ONE); bindTex(BLM.tB); G.uniform2f(BLM.uD, 0, 2.5 / BLM.h); G.uniform1f(BLM.uK, BLM.k);
+    G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, PW, PH); G.blendFunc(G.ONE_MINUS_DST_COLOR, G.ONE); bindTex(BLM.tB);   /* 11/2: 더하기 → 스크린 합성 (이미 밝은 곳은 덜 밝아짐 · 화룡의 둥지 불 이펙트가 하얗게 타서 캐릭터가 안 보이던 것) */ G.uniform2f(BLM.uD, 0, 2.5 / BLM.h); G.uniform1f(BLM.uK, BLM.k);
     if (!DBG.nodraw) G.drawArrays(G.TRIANGLES, 0, 3); G.bindVertexArray(vao); ST.tBloom = performance.now() - t0; ST.bloom = 1; }
 
 
@@ -290,10 +290,10 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
   function mx(type, id, x, y, h, S, lite) { if (!SPK.on || !on() || !gl || !isFinite(x) || !isFinite(y)) return; S = S || {}; h = h || 40;
     const C1 = rgb(S.c), CL = rgb(S.l), CH = S.h || CL, k = lite ? 0.45 : 1, kind = type === 'hit' ? mxKind(id) : '';
     if (type === 'hit') {
-      glow(x, y, (16 + Math.min(40, h) * 0.45) * (lite ? 0.6 : 1), CL, 0.22, 0.5); glow(x, y, (34 + Math.min(40, h) * 0.6) * (lite ? 0.6 : 1), C1, 0.4, 0.35);
+      glow(x, y, (16 + Math.min(40, h) * 0.45) * (lite ? 0.6 : 1), CL, 0.22, 0.35); glow(x, y, (34 + Math.min(40, h) * 0.6) * (lite ? 0.6 : 1), C1, 0.4, 0.2);
       spark(x, y, Math.round(18 * k), { c: CH, sp: 170, life: 0.45, g: 160, sz: 1.5 });
       if (!lite) spark(x, y + h * 0.3, 28, { c: C1, sp: 95, life: 0.42, g: 0, sz: 1.3, even: true, fy: 0.5, a: 0.8 });
-      if (kind === 'fire') { spark(x, y, Math.round(26 * k), { c: '#ff9a3a', sp: 70, life: 1.0, g: -70, up: 30, sz: 2, r: 26 }); glow(x, y + h * 0.3, 60 * k, 'rgba(255,120,40,1)', 0.7, 0.3); }
+      if (kind === 'fire') { spark(x, y, Math.round(26 * k), { c: '#ff9a3a', sp: 70, life: 1.0, g: -70, up: 30, sz: 2, r: 26 }); glow(x, y + h * 0.3, 60 * k, 'rgba(255,120,40,1)', 0.7, 0.14); }
       else if (kind === 'ice') spark(x, y, Math.round(22 * k), { c: '#e8fbff', sp: 150, life: 0.6, g: 320, up: 60, sz: 1.4 });
       else if (kind === 'earth') { spark(x, y + h * 0.5, Math.round(34 * k), { c: '#c89a5a', sp: 130, life: 0.8, g: 260, up: 70, sz: 2.2, r: 30, a: 0.7 }); }
       else if (kind === 'bolt') { glow(x, y - 30, 70 * k, 'rgba(230,240,255,1)', 0.18, 0.4); spark(x, y, Math.round(24 * k), { c: '#f4f8ff', sp: 260, life: 0.3, g: 0, sz: 1.2 }); }
@@ -302,12 +302,12 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
     } else if (type === 'self') {
       spark(x, y, 30, { c: C1, sp: 80, life: 0.5, g: 0, sz: 1.5, even: true, fy: 0.5, a: 0.85 }); spark(x, y, 22, { c: CH, sp: 20, life: 1.1, g: -70, up: 15, sz: 1.6, r: 40 }); glow(x, y - h * 0.5, 40, CL, 0.5, 0.35);
     } else if (type === 'imp') {
-      if (id === 'bolt') { glow(x, y, 30, S.c || '#ffe066', 0.25, 0.6); spark(x, y, 10, { c: S.c || '#ffe066', sp: 150, life: 0.35, g: 120, sz: 1.4 }); }
-      else if (id === 'quake') { spark(x, y, 40, { c: S.c || '#6a4a2a', sp: 160, life: 0.9, g: 280, up: 80, sz: 2.6, r: 40, a: 0.85 }); spark(x, y, 36, { c: 'rgba(255,220,160,1)', sp: 150, life: 0.5, g: 0, sz: 2, even: true, fy: 0.5, a: 0.5 }); glow(x, y, 80, 'rgba(255,150,70,1)', 0.35, 0.25); }
+      if (id === 'bolt') { glow(x, y, 30, S.c || '#ffe066', 0.25, 0.3); spark(x, y, 10, { c: S.c || '#ffe066', sp: 150, life: 0.35, g: 120, sz: 1.4 }); }
+      else if (id === 'quake') { spark(x, y, 40, { c: S.c || '#6a4a2a', sp: 160, life: 0.9, g: 280, up: 80, sz: 2.6, r: 40, a: 0.85 }); spark(x, y, 36, { c: 'rgba(255,220,160,1)', sp: 150, life: 0.5, g: 0, sz: 2, even: true, fy: 0.5, a: 0.5 }); glow(x, y, 80, 'rgba(255,150,70,1)', 0.35, 0.12); }
     } else if (type === 'breath') {   // 보스 불길(용 숨결): 입에서 앞으로 번지는 불티·빛 (S = {dx, dy})
       for (let i = 0; i <= 8; i++) { const u = i / 8, px = x + S.dx * u, py = y + S.dy * u - h * (1 - u) - 4, dl = u * 0.16;
         spark(px, py, 10, { c: i % 2 ? '#ffb040' : '#ff6a20', sp: 40 + u * 70, life: 0.7, g: -80, up: 25, sz: 2.2, r: 10 + u * 34, dl });
-        glow(px, py, 26 + u * 40, 'rgba(255,120,40,1)', 0.55, 0.3, dl); } glow(x + S.dx * 0.6, y + S.dy * 0.6, 120, 'rgba(255,90,20,1)', 0.8, 0.18, 0.1);
+        glow(px, py, 26 + u * 40, 'rgba(255,120,40,1)', 0.55, 0.14, dl); } glow(x + S.dx * 0.6, y + S.dy * 0.6, 120, 'rgba(255,90,20,1)', 0.8, 0.08, 0.1);
     } else if (type === 'sfx') {
       if (id === 'levelup') { spark(x, y, 70, { c: '#ffe08a', sp: 60, life: 1.5, g: -90, up: 40, sz: 1.7, r: 40 }); spark(x, y, 40, { c: '#fff6d0', sp: 120, life: 0.6, g: 0, sz: 1.6, even: true, fy: 0.5 }); glow(x, y - 40, 70, 'rgba(255,220,120,1)', 0.8, 0.4); }
       else if (id === 'heal' || id === 'cure') spark(x, y, 20, { c: '#a8ffb8', sp: 15, life: 1.0, g: -80, up: 20, sz: 1.5, r: 30 });
@@ -349,6 +349,8 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
   //   캔버스 대신 GL 텍스처에 바로 그림 → 프레임마다 캔버스를 통째로 올리던 것(1~2MB)이 없어짐. game.js: const c = GLR.layer('gore', w, h) … g.drawImage(GLR.layerEnd(), 0, 0)
   //   층 안에서는 그림자 흐림·스텐실·빛 번짐은 안 씀(그런 그리기는 2D로 → 층에 얹힘)
   const LYM = new Map(); let LYC = null;
+  // 빛 번짐 빼기: 이미 넓게 번진 빛 그림(전설 변신 오로라 등)은 빛 번짐을 또 더하면 눈부심 → game.js가 그 그림 앞뒤로 GLR.noBloom(true/false) (11/2 프로듀서: 전설 변신 너무 밝음)
+  let NBF = false; function noBloom(v) { v = !!v; if (v === NBF || !gl) return; flush(); NBF = v; }
   function layerBegin(key, w, h) { w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h)); if (LYC) layerEnd();
     runFlush(); shFlush(); flush(); const G = gl; let L = LYM.get(key);
     if (!L) { L = { tex: G.createTexture(), w: 0, h: 0, fb: G.createFramebuffer(), obj: { __glLayer: true, width: 0, height: 0, tex: null } }; LYM.set(key, L); }
@@ -402,7 +404,7 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
     for (let i = 0; i < slots.length; i++) { const q = slots[i]; if (!q) continue; if (UT[i] !== q.t) { actTex(i); bindTex(q.t); } smpB(i, SMP[q.s]); }
     blendSet(cBl); const pr = bCx ? PR[1] : PR[0]; if (pr !== curProg) { G.useProgram(pr.p); curProg = pr; }
     if (bCx && pr.f !== cF) { pr.f = cF; if (cF) { G.uniform1i(pr.uN, cF.n); G.uniformMatrix4fv(pr.uM, false, cF.M); G.uniform4fv(pr.uO, cF.O); } else G.uniform1i(pr.uN, 0); }
-    if (!DBG.nodraw) { G.drawElements(G.TRIANGLES, nQ * 6, G.UNSIGNED_SHORT, 0); if (cBl === 1 && BLM.on && BLM.w && !STN && !LYC) { if (slots.some(x => x && x.t === layer)) bloomBatch(nQ); else BLQ.push({ d: new Uint32Array(VB, 0, nQ * 4 * FL).slice(), n: nQ, sl: slots, cx: bCx, F: cF }); } } /* nodraw: 시험용 (GPU 일을 빼고 CPU 쪽 비용만 잼) */ ST.batches++; ST.quads += nQ; nQ = 0; slots = []; nS = 0; bid++; bCx = false; }
+    if (!DBG.nodraw) { G.drawElements(G.TRIANGLES, nQ * 6, G.UNSIGNED_SHORT, 0); if (cBl === 1 && BLM.on && BLM.w && !STN && !LYC && !NBF) { if (slots.some(x => x && x.t === layer)) bloomBatch(nQ); else BLQ.push({ d: new Uint32Array(VB, 0, nQ * 4 * FL).slice(), n: nQ, sl: slots, cx: bCx, F: cF }); } } /* nodraw: 시험용 (GPU 일을 빼고 CPU 쪽 비용만 잼) */ ST.batches++; ST.quads += nQ; nQ = 0; slots = []; nS = 0; bid++; bCx = false; }
   // 사각형 하나: QX(기기 픽셀 네 꼭짓점) · QU(텍스처 좌표 또는 모양 안 좌표) · QG(그라데이션 좌표) — t: GL 텍스처, s: 표본, md: 모양|칠<<2, 색은 미리 곱한 RGBA(0~1)
   const QX = new Float64Array(8), QU = new Float64Array(8), QG = new Float64Array(8);
   const c8 = v => (v <= 0 ? 0 : v >= 1 ? 255 : Math.round(v * 255));
@@ -810,6 +812,6 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, mx, glow, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, mx, glow, noBloom, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();
