@@ -49,7 +49,9 @@ const BOTHOST = (() => {
       hero.target = null; moveGoal = null; S.phase = 'run'; } catch (e) { S.err = String(e && e.message || e).slice(0, 80); S.phase = 'fail'; } }
   return { on: () => on, zone: () => zone, started: () => started, S, frameDone, loop, start, fail(w) { S.err = String(w || '').slice(0, 80); S.phase = 'fail'; }, phase(p) { S.phase = p; } };
 })();
-const im = {}; for (const k in IMG){ const i = new Image(); i.src = IMG[k]; im[k] = i;
+// 11/2 메모리: 예전 통짜 기사 그림(knight_* · 부위별 그림이 늦을 때만 씀 72MB)·마을 사람 그림(villager_* 90MB)은 처음 쓸 때 받음 · 나머지(바닥·나무·바위·여우)는 그대로 미리
+const IM_LAZY = /^(knight_|villager_)/, IM0 = {}, im = new Proxy(IM0, { get(o, k) { if (typeof k === 'string' && !Object.prototype.hasOwnProperty.call(o, k) && IMG[k] && IM_LAZY.test(k)) { const i = new Image(); i.src = IMG[k]; o[k] = i; } return o[k]; } });
+for (const k in IMG){ if (IM_LAZY.test(k)) continue; const i = new Image(); i.src = IMG[k]; im[k] = i;
   // 나무·바위·덤불: 렌더 칸 경계에서 잘린 그림자가 네모로 보이지 않게 가장자리를 부드럽게 지움
   if (/^(tree|rock|bush)\d$/.test(k)) i.onload = () => { const w = i.naturalWidth, h = i.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.drawImage(i, 0, 0);
     x.globalCompositeOperation = 'destination-out'; const e = Math.round(Math.min(w, h) * 0.12);
@@ -1881,9 +1883,11 @@ const LOOK = {
   helm: { dk_helm: 'grayscale(1) brightness(.34) contrast(1.7)' }, armor: { dk_armor: 'grayscale(1) brightness(.34) contrast(1.7)' }, gloves: { dk_gloves: 'grayscale(1) brightness(.34) contrast(1.7)' }, boots: { dk_boots: 'grayscale(1) brightness(.34) contrast(1.7)' },
   shield: { wood_shield: null },
 };
-const TINTED = {};
-function tintSheet(img, f) { if (!f) return img; const k = img.src + '|' + f; if (TINTED[k]) return TINTED[k];
-  const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const g = c.getContext('2d'); g.filter = f; g.drawImage(img, 0, 0); return TINTED[k] = c; }
+// 11/2 메모리: 색 바꾼 통짜 그림(요정·법사 장비 색)은 그림 한 장 전체 크기라 봇이 많으면 끝없이 늘었음 → 오래 안 쓴 것부터 버림 (합계 3200만 화소 ≈ 128MB까지)
+const TINTED = new Map(); let TINTpx = 0;
+function tintSheet(img, f) { if (!f) return img; const k = img.src + '|' + f; let c = TINTED.get(k); if (c) { TINTED.delete(k); TINTED.set(k, c); return c; }
+  c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const g = c.getContext('2d'); g.filter = f; g.drawImage(img, 0, 0);
+  TINTED.set(k, c); TINTpx += c.width * c.height; while (TINTpx > 32e6 && TINTED.size > 1) { const k0 = TINTED.keys().next().value, c0 = TINTED.get(k0); TINTED.delete(k0); TINTpx -= c0.width * c0.height; } return c; }
 let klT = 0;
 function klPreload() { if (time - klT < 0.5 && klT) return; klT = time || 0.001; for (const a of ['idle', 'walk', 'attack', 'attack2', 'look']) klImg('body', a); for (const L of KL_LAYERS) { if (L === 'body') continue; const id = INV.equipped(KL_SLOT[L]); if (id) for (const a of ['idle', 'walk', 'attack', 'attack2', 'look']) klImg(klName(L, id), a); } }
 const CLS_FILE = { elf: 'elf', wizard: 'mage' }, CLSI = {};
@@ -2033,7 +2037,7 @@ const PRESC = new Map();
 function prescaled(img, sc) { const W0 = img && (img.naturalWidth || img.width); if (!W0 || sc >= 0.999) return sc >= 0.999 ? img : null; let m = PRESC.get(img); if (!m) PRESC.set(img, m = {}); const k = sc.toFixed(3); if (m[k]) return m[k];
   const w = Math.max(1, Math.round(W0 * sc)), h = Math.max(1, Math.round((img.naturalHeight || img.height) * sc)), c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, w, h); return (m[k] = c); }
 // 임시로 물들인 몬스터(오크숲): 그릴 크기로 줄인 프레임을 한 번 물들여 저장 (매 프레임 filter는 아주 느림)
-const TFR = new Map();
+const TFR = new Map(); let TFRpx = 0;   // 11/2 메모리: 개수(900)뿐 아니라 화소 합계(2000만 ≈ 80MB)로도 제한
 // 화룡의 둥지: 용암 피부 — 우리 스프라이트 위에 코드로 만든 용암 무늬(검붉은 바위 · 갈라진 틈이 빛남)를 입힘. 그림 원본 복사·트레이싱 없음 (무늬는 무작위 점으로 만든 보로노이 균열)
 //   mode 'rock' = 몸 전체가 용암 바위 (라바 골렘) · 'skin' = 그을린 몸에 빛나는 용암 균열 (불타는 전사·궁수)
 //   v2(10/30 다듬기): 2배로 그려 무늬를 만든 뒤 줄여 저장(가는 금까지 매끈) · 굵기가 바뀌는 큰 균열 + 가는 잔금 · 균열 주위 빛 번짐 · 원래 그림의 명암 유지(그늘진 쪽은 어둡게)
@@ -2080,11 +2084,11 @@ function lavaSkin(c, mode, fr, row, q) { const w = c.width, h = c.height, g = c.
   g.putImageData(SD, 0, 0); const cv = () => { const k = document.createElement('canvas'); k.width = w; k.height = h; return k; }, B = cv(), K = cv(), L = cv(), lg = L.getContext('2d'); B.getContext('2d').putImageData(E, 0, 0); K.getContext('2d').putImageData(MK, 0, 0);
   lg.globalCompositeOperation = 'lighter'; lg.filter = `blur(${1.5 * q}px)`; lg.globalAlpha = rock ? .5 : .42; lg.drawImage(B, 0, 0); lg.filter = `blur(${4.5 * q}px)`; lg.globalAlpha = rock ? .3 : .18; lg.drawImage(B, 0, 0);
   lg.filter = 'none'; lg.globalAlpha = 1; lg.globalCompositeOperation = 'destination-in'; lg.drawImage(K, 0, 0); g.globalCompositeOperation = 'lighter'; g.drawImage(L, 0, 0); g.globalCompositeOperation = 'source-over'; }   // 빛 번짐 (가까이·넓게 두 겹) — 몸 안에만 (밖으로 번지면 흐릿해 보임)
-function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) { TFR.delete(key); TFR.set(key, c); return c; } while (TFR.size >= 900) TFR.delete(TFR.keys().next().value);   /* 11/1: 가득 차면 다 지우던 것 → 오래 안 쓴 것부터 하나씩 (다 지우면 화둥처럼 몹 종류가 많은 곳에서 다시 만드느라 끊김) */
+function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) { TFR.delete(key); TFR.set(key, c); return c; } while (TFR.size >= 900 || (TFRpx > 20e6 && TFR.size)) { const k0 = TFR.keys().next().value, c0 = TFR.get(k0); TFR.delete(k0); TFRpx -= c0.width * c0.height; }   /* 11/1: 가득 차면 다 지우던 것 → 오래 안 쓴 것부터 하나씩 (다 지우면 화둥처럼 몹 종류가 많은 곳에서 다시 만드느라 끊김) */
   const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   if (M.lava) { const q = MOBILE ? 1 : 2, c2 = document.createElement('canvas'); c2.width = w * q; c2.height = h * q; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.imageSmoothingEnabled = true; g2.imageSmoothingQuality = 'high'; g2.filter = M.tint; g2.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w * q, h * q); g2.filter = 'none'; lavaSkin(c2, M.lava, fr, row, q); g.drawImage(c2, 0, 0, w, h); }   // 용암 몹: 2배로 그려 무늬를 만든 뒤 줄여서 (가는 금까지 매끈)
   else { g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; }
-  TFR.set(key, c); return c; }
+  TFR.set(key, c); TFRpx += c.width * c.height; return c; }
 // 10/30: 화룡의 둥지 불타는 전사·궁수·라바 골렘이 죽을 때 — 드래곤 플라이처럼 하얗게 바래며 재가 되고, 위에서부터 부스러져 흰 재 가루·불티로 날아올라 증발
 //   몸 그림(죽을 때는 늘 같은 한 장: 서 있는 1번 그림 · 방향별)에서 재 색·부스러지는 순서를 한 번만 만들어 두고(ASHC), 죽는 몹마다 작은 캔버스 하나를 1/30초마다 다시 칠함 · 가루는 코드로 몇십 개
 const ASH_DIE = new Set(['fn_warrior', 'fn_archer', 'fn_golem']), ASH_END = 1.85, ASHC = new Map(), ASHM = new WeakMap();
@@ -2391,7 +2395,7 @@ function drawWorld(g, vw, vh){
   list.push({d:hero.x+hero.z, f:()=>{ const [x,y]=W2P(hero.x,hero.z); const NF=a=>KN.anims[a].frames; let anim='idle', fr=Math.floor(time*6)%NF('idle');
     if (hero.atk){ anim=hero.atk.v||'attack'; const nf=KN.anims[anim]?NF(anim):8; fr=Math.min(nf-1,Math.floor(hero.atk.t/hero.atk.dur*nf)); if (!KN.anims[anim]&&CLASS==='knight') anim='attack'; } else if (hero.t<1){ anim='walk'; fr=Math.floor(hero.dist*4)%8; } else if (SCENE==='town' && KN.anims.look && CLASS==='knight'){ anim='look'; fr=Math.floor(time*2.5)%NF('look'); }
     const hf=hurt>0?'sepia(1) saturate(4) hue-rotate(-40deg)':null; const iv=BUFF.invis>0; if (iv){ g.save(); g.globalAlpha=0.42+0.1*Math.sin(time*5); }   // 투명: 반투명하게 아른거림
-    if (!drawHeroSprite(g, anim, fr, hero.row, x, y, hf)) { const ki=im['knight_'+anim]||im.knight_idle; if (ki) drawSheet(g, ki, KN, fr, hero.row, x, y, 1, hf); } if (iv) g.restore(); }});
+    if (!drawHeroSprite(g, anim, fr, hero.row, x, y, hf)) { const ki=IM0['knight_'+anim]||IM0.knight_idle; if (ki) drawSheet(g, ki, KN, fr, hero.row, x, y, 1, hf); } if (iv) g.restore(); }});
   // fire
   if (SCENE==='field' && !ISLE) { const [x,y]=W2P(META.fire[0]+0.5,META.fire[1]+0.5); list.push({d:META.fire[0]+META.fire[1]+1, f:()=>{ const fl=1+Math.sin(time*17)*0.12+Math.sin(time*29)*0.07;
     g.save(); g.globalCompositeOperation='lighter';
@@ -3087,8 +3091,14 @@ Object.assign(MOB, Object.fromEntries(Object.keys(DREAM_ELN).flatMap(el => [
   ['dr_' + el, { name: `${DREAM_ELN[el]}의 정령`, ...DREAM.SPIRIT, dmg: DREAM.SPIRIT.dmg.slice(), coin: DREAM.SPIRIT.coin.slice(), el, spirit: true, art: 'spirit', sc: 1.0, hw: 30, hh: 100, ring: 24, atkTxt: DREAM_ATK[el] }],
   ['dr_g' + el, { name: `${DREAM_ELN[el]}의 대정령`, ...DREAM.GREAT, dmg: DREAM.GREAT.dmg.slice(), coin: DREAM.GREAT.coin.slice(), el, spirit: true, great: true, skills: true, art: 'spirit', sc: DREAM.GREAT_SC, hw: 44, hh: Math.round(100 * DREAM.GREAT_SC), ring: 34, atkTxt: DREAM_ATK[el] }]])));
 MOB.unicorn = { name: '유니콘', ...DREAM.UNICORN, dmg: DREAM.UNICORN.dmg.slice(), coin: DREAM.UNICORN.coin.slice(), boss: true, solo: true, duo: true, art: 'unicorn', sc: 1.0, hw: 70, hh: 146, ring: 46, atkTxt: '뿔 찌르기' };
-const MIMG = {}; for (const k in MSHEET) { MIMG[k] = {}; for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_${a}.webp`; i.decode && i.decode().catch(() => {}); MIMG[k][a] = i; }
-  Object.assign(MOB[k], { art0: MOB[k].art, art: 'sheet', hh: MSHEET[k].hh, hw: MSHEET[k].hw }); }
+// 11/2 메모리: 예전엔 시작할 때 몬스터 111종 × 3동작 그림을 모두 받아 풀어 둠(풀면 약 1.2GB) → 그 몬스터가 처음 생기거나 그려질 때 받음 (MIMG[종류]를 읽는 순간)
+//   지역에 들어갈 때 그 지역 몬스터 그림만 미리 받고, 20초 넘게 안 그린 다른 몬스터 그림은 놓음 (MIMG_TRIM) · 도감·카드·가호 아이콘은 idle 한 장만 (mIdle)
+const MIMG0 = {}, MIMG = new Proxy(MIMG0, { get(o, k) { if (typeof k === 'string' && !Object.prototype.hasOwnProperty.call(o, k) && MSHEET[k]) { const S = o[k] = {};
+    for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_${a}.webp`; i.decode && i.decode().catch(() => {}); S[a] = i; } } const e = o[k]; if (e && typeof e === 'object') e.t = time; return e; } });
+function MIMG_TRIM(keep) { for (const k in MIMG0) { const e = MIMG0[k]; if (!keep.has(k) && !(time - (e.t || 0) < 20)) delete MIMG0[k]; } }
+const MIDLE = new Map(); function mIdle(k) { const o = MIMG0[k]; if (o) return o.idle; if (!MSHEET[k]) return null; let i = MIDLE.get(k); if (i) { MIDLE.delete(k); MIDLE.set(k, i); return i; }
+  i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_idle.webp`; MIDLE.set(k, i); while (MIDLE.size > 48) MIDLE.delete(MIDLE.keys().next().value); return i; }
+for (const k in MSHEET) Object.assign(MOB[k], { art0: MOB[k].art, art: 'sheet', hh: MSHEET[k].hh, hw: MSHEET[k].hw });
 const LEG_BLESS_P = 0.01, LEG_BLESS_MAX = 3, LEG_BLESS_SPD = 1;   // 11/1 프로듀서: 전설 장비 축복 부여 확률 1% · 전설 무기 축복 최대 3단 · 단마다 공격 속도 +1%
 const ATK_T = 0.8 / 0.7;   // 몬스터 공격 동작 길이(초)
 const rint = ([a, b]) => a + Math.floor(Math.random() * (b - a + 1));
@@ -4231,7 +4241,7 @@ const ISLAND = (() => {
   function build(id) { if (DEF[id] && DEF[id].tw) return buildTower(id, DEF[id]); if (DEF[id] && DEF[id].maze) return buildMaze(id, DEF[id]); if (DEF[id] && DEF[id].arena) return buildArena(id, DEF[id]); if (DEF[id] && DEF[id].duel) return duelZone(id, DEF[id]); const d = DEF[id], N = d.N || N0, B = Array.from({ length: N }, () => Array(N).fill(0)), P = [];
     const keep = [...Object.values(ARRIVE[id] || {}), ...d.portals.map(p => [p.i, p.j]), ...(d.altar ? [[d.altar.i, d.altar.j], [d.altar.i - 2, d.altar.j - 2], [d.altar.i + 2, d.altar.j + 2], [d.altar.i + 2, d.altar.j - 2], [d.altar.i - 2, d.altar.j + 2]] : [])];
     const nearKeep = (i, j) => keep.some(([a, b]) => Math.max(Math.abs(a - i), Math.abs(b - j)) <= 3);
-    if (d.tier === 1) d.hills = null; else if (d.dream) { DRA.load(); dreamPrep(d, N); } else if (d.tier === 2 && !d.hills) d.hills = genTerrain(d, N, keep);   /* 몽환의 섬: 북쪽 절벽 언덕 · 동쪽 용암 · 서쪽 호수 · 제단 돌기둥 */
+    if (d.tier === 1) d.hills = null; else if (d.dream) { dreamPrep(d, N); }   /* 11/2 메모리: 몽환의 섬 그림(73MB)은 들어갈 때 받음 (예전엔 유니콘 보스 시계 때문에 시작하자마자 받음) */ else if (d.tier === 2 && !d.hills) d.hills = genTerrain(d, N, keep);   /* 몽환의 섬: 북쪽 절벽 언덕 · 동쪽 용암 · 서쪽 호수 · 제단 돌기둥 */
     const R = rng(d.seed); let hmap = null, hf = null, face = () => false;
     if (d.hills && d.hills.length) { const w = N + 1; hmap = new Float32Array(w * w); hf = hillFn(d.hills); for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) hmap[j * w + i] = hf(i, j);
       face = faceOf(hf); for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) if (face(i, j)) B[j][i] = 1; }   // 절벽면(가장 가파른 한 줄)만 못 지나감
@@ -4399,8 +4409,11 @@ const ISLAND = (() => {
   const nextAt = k => { if (KT(k)) return respAt(k); const t = nowS(); let n = Math.floor(t / BOSS[k].P); if (atOf(k, n) <= t) n++; return atOf(k, n); };
   const BUID = k => 90000 + Object.keys(BOSS).indexOf(k);
   function removeBoss(k) { const B = BOSS[k], z = get(B.zone), e = B.ent; if (B.fam) for (const m of z.mobs.filter(m_ => B.fam.includes(m_.kind) && m_ !== e)) { m.dead = true; m.gone = true; z.mobs.splice(z.mobs.indexOf(m), 1); if (hero.target === m) hero.target = null; } if (e) { e.dead = true; e.gone = true; const i = z.mobs.indexOf(e); if (i >= 0) z.mobs.splice(i, 1); if (hero.target === e) hero.target = null; } B.ent = null; }
-  const get = id => Z[id] || (Z[id] = build(id));
-  function enter(id, from) { if (id === DREAM.ZID && !DRM.canEnter()) return; const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap);   /* 11/1: 몽환의 섬 하루 4시간 */
+  const get = id => Z[id] || (Z[id] = build(id)); let lastIsle = null;
+  function enter(id, from) { if (id === DREAM.ZID && !DRM.canEnter()) return; const z = get(id); for (const f of z.mobs) if (MSHEET[f.kind]) MIMG[f.kind];   /* 11/2 메모리: 이 지역 몬스터 그림만 받기 시작 */
+    if (ISLE && ISLE !== z) lastIsle = ISLE.id; for (const k in Z) { const q = Z[k]; if (q !== z && q.ground && +k !== lastIsle) q.ground = null; }
+    MIMG_TRIM(new Set(z.mobs.map(f => f.kind))); if (z.def.dream) DRA.load();   /* 11/2 메모리: 이 지역에 없고 20초 넘게 안 그린 몬스터 그림은 놓음 (다시 나오면 다시 받음) */   /* 11/2 메모리: 바닥 그림(30~60MB씩)은 지금 지역과 바로 전 지역만 남김 · 다시 오면 다시 만듦 */
+    if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap);   /* 11/1: 몽환의 섬 하루 4시간 */
     ISLE = z; setGeom(z.N); SCENE = 'field'; ZONE = z.name; blockedT = z.blocked; PROPS = z.props; foxes = z.mobs; arrows.length = 0;
     const [i, j] = ARRIVE[id][from] || ARRIVE[id].town || [37, 37];
     hero.i = hero.fi = i; hero.j = hero.fj = j; hero.x = i + 0.5; hero.z = j + 0.5; hero.t = 1; hero.target = null; hero.atk = null; moveGoal = null; holding = false; hero.row = 5;
@@ -4424,7 +4437,7 @@ const ISLAND = (() => {
       say(`***** 땅이 갈라지며 바로 근처에서 ${JOSA(B.title, '이', '가')} 튀어나왔습니다! *****`, '#ff5040'); } }
   function prebake(id) { const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap); }
   return {
-    enter, prebake, def: id => DEF[id],
+    enter, prebake, def: id => DEF[id], zones: () => Object.keys(Z).filter(k => Z[k].ground).map(Number),   /* zones: 바닥 그림이 남아 있는 지역 (메모리 확인용) */
     bossDown(kind, by, bot) { { const fk = Object.keys(BOSS).find(k => BOSS[k].fam && BOSS[k].fam.includes(kind)); if (fk) { const F = BOSS[fk], left = get(F.zone).mobs.filter(m => F.fam.includes(m.kind) && !m.dead && !m.gone).length;
         if (left) { if (!bot) say(`${MOB[kind].name}을(를) 쓰러뜨렸습니다! 카스파 패밀리가 아직 ${left}명 남았습니다.`, '#f2e6a8'); return; } kind = fk; } }
       const B = BOSS[kind || 'shelob']; if (!B) return; TELE.ev('bossdown', { b: kind || 'shelob', by: String(by || PNAME()).slice(0, 12) }); B.ent = null; KILL[kind] = { k: Math.max(killedK(kind), lastSlot(kind)), by: String(by || PNAME()).slice(0, 12), t: Math.floor(nowS()) }; keepK(); B.was = false; announce(`${KILL[kind].by}님이 ${JOSA(B.title, '을', '를')} 토벌했습니다!`, '#ffd86a', 'boss'); if (!bot) say(`${JOSA(B.title.split(' ').pop(), '을', '를')} 쓰러뜨렸습니다! (${B.againTxt} 다시 나타납니다)`, '#f2e6a8'); },   // 11/1 2단계 ②: bot = 필드 봇이 잡음 (토벌 공지는 그대로 · 내가 잡은 것처럼 보이는 줄은 없이)
@@ -5726,7 +5739,7 @@ for (const [b, nm, st, txt] of GAHO_DEF) {
   ITEMS['gaho_' + b] = { name: `${nm}의 가호`, icon: 'gaho_' + b, w: 0, rar: '영웅', gaho: b, gstat: st, gtxt: txt, desc: `가방에 가지고 있기만 하면 ${txt} +1% · 제작 장인의 [가호 조합]으로 강화하면 +1마다 +1% (최대 +${GAHO_MAX}) · 축복 부여 주문서로 축복하면 +1% · 같은 가호는 가장 높은 것 하나만 적용` }; }
 // 가호 아이콘: 보스 그림을 동그란 문장 안에 작게 (이모티콘처럼) · 조각은 깨진 조각 모양 — 몬스터 그림이 다 읽히면 채움 (그 전엔 이름 첫 글자)
 { const BG = { shelob: '#3a2448', queen_ant: '#6a4a14', ogre: '#33461e', baphomet: '#4a1010', deathknight: '#2a1416', ice_queen: '#183a5a', drake_king: '#5a1a0a' }, got = {};
-  const face = b => { const M = MSHEET[b], I = MIMG[b] && MIMG[b].idle; if (!M || !I || !I.complete || !I.naturalWidth) return null;
+  const face = b => { const M = MSHEET[b], I = mIdle(b); if (!M || !I || !I.complete || !I.naturalWidth) return null;
     try { const t = document.createElement('canvas'); t.width = M.W; t.height = M.H; const tg = t.getContext('2d', { willReadFrequently: true }); if (M.tint) tg.filter = M.tint; tg.drawImage(I, 0, 1 * M.H, M.W, M.H, 0, 0, M.W, M.H); tg.filter = 'none';
       const D = tg.getImageData(0, 0, M.W, M.H).data; let x0 = M.W, y0 = M.H, x1 = -1, y1 = -1;
       for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) { const o = (y * M.W + x) * 4; if (D[o + 3] > 60 && Math.max(D[o], D[o + 1], D[o + 2]) > 20) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
@@ -7439,7 +7452,7 @@ const TOWN = (() => {
       + `<h3 class="wc-h">보스 드랍 <small>${cnt(bossIds)}</small></h3><div class="wc-items">${bossIds.map(id => itemCell(id, bossSrc(id))).join('')}</div>`
       + `<h3 class="wc-h">일반 몬스터 드랍 <small>${cnt(normIds)}</small></h3><div class="wc-items">${normIds.map(id => itemCell(id, normSrc(id))).join('')}</div>`
       + `<p class="wc-note">아이콘에 마우스를 올리면 아이템 상세 정보가 보여요.</p>`; }
-  function drawPortraits(root) { root.querySelectorAll('canvas[data-k]').forEach(cv2 => { const k = cv2.dataset.k, g = cv2.getContext('2d'), M = MSHEET[k], I = MIMG[k] && MIMG[k].idle;
+  function drawPortraits(root) { root.querySelectorAll('canvas[data-k]').forEach(cv2 => { const k = cv2.dataset.k, g = cv2.getContext('2d'), M = MSHEET[k], I = mIdle(k);
       const draw = () => { g.clearRect(0, 0, 56, 56); if (M && I && I.complete && I.naturalWidth) { const t = document.createElement('canvas'); t.width = M.W; t.height = M.H; const tg = t.getContext('2d'); if (M.tint) tg.filter = M.tint; tg.drawImage(I, 0, 1 * M.H, M.W, M.H, 0, 0, M.W, M.H); tg.filter = 'none';
           const D = tg.getImageData(0, 0, M.W, M.H).data; let x0 = M.W, y0 = M.H, x1 = 0, y1 = 0; for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) if (D[(y * M.W + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
           if (x1 <= x0) return; const bw = x1 - x0 + 1, bh = y1 - y0 + 1, sc = Math.min(50 / bw, 50 / bh); g.imageSmoothingEnabled = true; g.drawImage(t, x0, y0, bw, bh, 28 - bw * sc / 2, 53 - bh * sc, bw * sc, bh * sc); }
@@ -7506,19 +7519,21 @@ const TOWN = (() => {
   function track(k) { if (T[k]) return T[k]; const t = T[k] = { buf: null, src: null, gain: null, loading: null, failed: false };
     t.loading = fetch(SRC[k]).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no))).then(buf => { t.buf = buf; }).catch(() => { t.failed = true; });
     return t; }
+  // 11/2 메모리: 예전엔 첫 클릭에 10곡을 모두 받아 소리 데이터(PCM)로 풀어 두어 약 500MB → 트는 곡만 받고, 안 트는 곡은 바로 전 곡 하나만 남기고 버림 (다시 틀면 다시 받아 풂 · 1초 안팎)
+  function trimBGM() { const ks = Object.keys(T).filter(k => k !== curWant && !T[k].src && !(T[k].fadeTil > performance.now())).sort((a, b) => (T[b].used || 0) - (T[a].used || 0)); for (const k of ks.slice(1)) delete T[k]; }
   function setVol(k, v) {
-    if (!AC) return; const t = track(k);
+    if (!AC) return; if (!(v > 0) && !T[k]) return; const t = track(k); if (v > 0) t.used = performance.now();
     if (t.failed) { const a = EL[k]; if (!a) return; if (v > 0) { if (a.paused) { if (a.preload !== 'auto') { a.preload = 'auto'; a.load(); } if (k === 'boss') a.currentTime = 0; a.play().catch(() => {}); }   /* 11/1: <audio>는 preload=none (배경음은 fetch로 받으므로 두 번 받지 않게 · 봇 호스트는 안 받게) — 폴백으로 쓸 때만 그때 받음 */ a.volume = v; } else if (!a.paused) a.pause(); return; }
     if (!t.buf) { if (v > 0) t.loading.then(() => { if (curWant === k) setVol(k, v); else if (t.failed) setVol(k, 0); }); return; }
     const now = AC.currentTime;
     if (v > 0 && !t.src) { t.gain = AC.createGain(); t.gain.gain.value = 0; t.gain.connect(AC.destination); t.src = AC.createBufferSource(); t.src.buffer = t.buf; t.src.loop = true; t.src.connect(t.gain); t.src.start(); }
     if (!t.src) return;
     t.gain.gain.cancelScheduledValues(now); t.gain.gain.setValueAtTime(t.gain.gain.value, now); t.gain.gain.linearRampToValueAtTime(v, now + 1.2);
-    if (v === 0) { const s0 = t.src, g0 = t.gain; t.src = null; t.gain = null; setTimeout(() => { try { s0.stop(); } catch (e) {} g0.disconnect(); }, 1300); }
+    if (v === 0) { const s0 = t.src, g0 = t.gain; t.src = null; t.gain = null; t.fadeTil = performance.now() + 1400; setTimeout(() => { try { s0.stop(); } catch (e) {} g0.disconnect(); }, 1300); }
   }
   const bossFight = () => foxes.some(f => !f.dead && MOB[f.kind] && MOB[f.kind].boss && f.aggro);   // 보스 전투 중이면 보스 음악
   function wantBGM() { return TITLE_SHOW ? 'title' : SCENE === 'town' ? 'town' : ARENA() || DUEL() || TW() ? 'colo' : bossFight() ? 'boss' : ISLE ? (ISLE.def && ISLE.def.valley && SRC.dungeon ? 'dungeon' : ISLE.def && ISLE.def.sand ? 'desert' : ISLE.def && ISLE.def.forest ? 'orc' : ISLE.def && (ISLE.def.gore || ISLE.def.maze) ? (ISLE.def.maze && SRC.dungeon ? 'dungeon' : 'bugbear') : ISLE.def && ISLE.def.snow && SRC.snow ? 'snow' : 'island') : null; }   // 사막 지역 = Desert Pulse
-  function syncBGM() { const want = curWant = wantBGM(), K = SND.bgmK(); for (const k in SRC) setVol(k, k === want && unlocked && !muted && K > 0 ? (k === 'boss' ? 0.6 : 0.5) * K * (window.__enhDuck ? 0.25 : 1) : 0); }
+  function syncBGM() { const want = curWant = wantBGM(), K = SND.bgmK(); for (const k in SRC) setVol(k, k === want && unlocked && !muted && K > 0 ? (k === 'boss' ? 0.6 : 0.5) * K * (window.__enhDuck ? 0.25 : 1) : 0); trimBGM(); }
   const fadeTo = () => syncBGM();
   $('inv-sort').onclick = () => INV.sortBag(); if ($('inv-bulk')) $('inv-bulk').onclick = () => INV.bulkOpen();
   { const tip = $('stat-tip'); document.querySelectorAll('#charwin dt[data-tip]').forEach(dt => {   // 능력치 설명 말풍선
@@ -7583,7 +7598,7 @@ const TOWN = (() => {
         draw(); } } }
   $('btn-bgm').onclick = ev => { muted = !muted; $('btn-bgm').setAttribute('aria-pressed', !muted); syncBGM(); if (ev && ev.isTrusted) SND.set({ bgmOn: !muted }); };   // 직접 누른 것만 저장 (자동사냥 음소거는 저장 안 함)
   $('btn-bgm').setAttribute('aria-pressed', !muted); api.syncBGM = () => syncBGM(); api.setBgm = on => { muted = !on; $('btn-bgm').setAttribute('aria-pressed', !!on); syncBGM(); };
-  api.unlockAudio = () => { if (unlocked || BOTHOST.on()) return; unlocked = true; initAudio(); for (const k in SRC) track(k); syncBGM(); };
+  api.unlockAudio = () => { if (unlocked || BOTHOST.on()) return; unlocked = true; initAudio(); syncBGM(); };   // 11/2 메모리: 10곡 미리 받기 없앰 (트는 곡만)
   // 소리는 사용자가 처음 뭔가를 눌러야 켤 수 있음 → 화면 어디를 누르든, 키를 누르든 바로 켜지게
   ['pointerdown', 'keydown'].forEach(t => addEventListener(t, () => { initAudio(); api.unlockAudio(); }, { capture: true }));
   api.bgmTick = () => { if (wantBGM() !== curWant) syncBGM(); };
@@ -11781,7 +11796,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
       if (x1 < 0) return null; g.putImageData(I, 0, 0); if (e.h) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.85; g.drawImage(e.h, e.hx, e.hy, e.h.width / e.hs, e.h.height / e.hs); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
       const S = 168, w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min((S - 14) / w, (S - 14) / h), o = document.createElement('canvas'); o.width = o.height = S; const og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high';
       og.drawImage(t, x0, y0, w, h, Math.round((S - w * sc) / 2), Math.round(S - 7 - h * sc), w * sc, h * sc); return (ART[id] = o.toDataURL('image/png')); } catch (err) { return null; } }
-  function art(id) { if (ART[id]) return ART[id]; if (PC_BY[id] && PC_BY[id].rc) return artRc(id); const M = MSHEET[id], I = MIMG[id] && MIMG[id].idle; if (!M || !I || !I.complete || !I.naturalWidth) return null;
+  function art(id) { if (ART[id]) return ART[id]; if (PC_BY[id] && PC_BY[id].rc) return artRc(id); const M = MSHEET[id], I = mIdle(id); if (!M || !I || !I.complete || !I.naturalWidth) return null;
     try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(I, 0, ROW * H, W, H, 0, 0, W, H);
       const d = g.getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = -1, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 30) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       if (x1 < 0) return null; const S = 168, w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min((S - 14) / w, (S - 14) / h), o = document.createElement('canvas'); o.width = o.height = S; const og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high';
@@ -11829,7 +11844,7 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   //   희귀 이상 = 모두 같은 금빛(등급 숨김) · [모두 열기] = 일반·고급만 뒤집힘 · 금빛 카드는 누르거나 [다음 열기] → 그 카드로 다가가 마법진 · 금이 가며 진짜 등급 색 → 산산조각 → 카드 공개
   //   연출 중 누르기·Space = 건너뛰기 → 한 번 더 = 홀로 · Esc = 그 연출 끝내기 / 다 열면 Space = 다시 뽑기 · Enter = 확인 · Esc = 닫기 · 자동 뽑기 = 연출 없이 전부 뒤집고 닫힘
   const ARTH = {};
-  function artHi(id) { if (ARTH[id]) return ARTH[id]; const c = PC_BY[id]; if (c && c.rc) return art(id); const M = MSHEET[id], I = MIMG[id] && MIMG[id].idle; if (!M || !I || !I.complete || !I.naturalWidth) return null;   // 공개 화면용 큰 그림 (바닥 그림자 빼고 · 캔버스)
+  function artHi(id) { if (ARTH[id]) return ARTH[id]; const c = PC_BY[id]; if (c && c.rc) return art(id); const M = MSHEET[id], I = mIdle(id); if (!M || !I || !I.complete || !I.naturalWidth) return null;   // 공개 화면용 큰 그림 (바닥 그림자 빼고 · 캔버스)
     try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(I, 0, ROW * H, W, H, 0, 0, W, H); g.filter = 'none';
       const Q = g.getImageData(0, 0, W, H), d = Q.data; let x0 = W, y0 = H, x1 = -1, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = (y * W + x) * 4; if (d[o + 3] < 200) { d[o + 3] = 0; continue; } if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       if (x1 < 0) return null; g.putImageData(Q, 0, 0); const w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min(3, 420 / h), o = document.createElement('canvas'); o.width = Math.ceil(w * sc); o.height = Math.ceil(h * sc);
@@ -12117,7 +12132,7 @@ window.DOLL = (() => {
         const sc = Math.min(58 / b[2], 58 / b[3]); cg.drawImage(img, b[0], (m.i * 8 + 1) * CH + b[1], b[2], b[3], (64 - b[2] * sc) / 2, (64 - b[3] * sc) / 2 + 2, b[2] * sc, b[3] * sc); const url = c.toDataURL('image/png'), C = DOLL_TC[t];
         CXI['doll_' + k] = `<rect x="1.5" y="1.5" width="31" height="31" rx="6" fill="${C[0]}" stroke="${C[1]}" stroke-width="1.3"/><image href="${url}" x="2.5" y="2.5" width="29" height="29"/><circle cx="28.4" cy="28.4" r="4.6" fill="${C[0]}" stroke="${C[1]}" stroke-width=".9"/><text x="28.4" y="31.2" text-anchor="middle" font-size="7.4" font-weight="900" fill="${C[1]}">${t}</text>`; iconOk[k] = 1; made = true; } catch (e) { all = false; } }
     if (made) try { INV.render(); } catch (e) {} return all; }
-  { let n = 0; const iv = setInterval(() => { [1, 2, 3].forEach(sheet); if ((icons() && Object.keys(M).length) || ++n > 200) clearInterval(iv); }, 1500); }
+  { let n = 0; const iv = setInterval(() => { [1, 2, 3].forEach(sheet); if ((icons() && Object.keys(M).length) || ++n > 200) { clearInterval(iv); for (const t of [1, 2, 3]) delete IMG[t]; } }, 1500); }   // 11/2 메모리: 가방 아이콘을 다 만들면 인형 그림 3장(76MB)은 놓음 — 인형을 끼고 있으면 그릴 때 그 단계만 다시 받음
   function drawDoll(g, dk, cx, cy, size, fr, row) { const m = M[dk], D = ITEMS['doll_' + dk]; if (!m || !D) return false; const img = sheet(D.tier); if (!img) return false; const b = m.bb || [0, 0, CW, CH], sc = size / Math.max(b[2], b[3]);
     g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, (fr || 0) * CW + b[0], (m.i * 8 + (row == null ? 1 : row)) * CH + b[1], b[2], b[3], cx - b[2] * sc / 2, cy - b[3] * sc / 2, b[2] * sc, b[3] * sc); return true; }
   return { addDraw, remote, drawDoll, meta: M };
