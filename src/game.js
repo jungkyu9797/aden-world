@@ -393,6 +393,47 @@ const floats=[], bursts=[];
 function floatText(x,y,text,o={}){ floats.push({x,y,text,t:0,life:o.life||0.9,color:o.color||'#fff',size:o.size||11,rise:o.rise||26,big:!!o.big,dx:(Math.random()-0.5)*8,tag:o.tag||null}); }
 function headY(f){ const S=MOB[f.kind]; if (!S) return 72; return (S.hh||Math.round(62*S.sc)); }
 let hitstop=0, shake=0, hurt=0; const parts=[];
+// ============================================================ 타격감 (11/2 · dev/rooms/hitfeel.md) — 내 화면에서만 보이는 연출 (게임 계산·네트워크는 그대로)
+//   설정 aden_hf: 2 강 · 1 보통(기본) · 0 끔(예전과 똑같음) · ESC [타격 연출]
+//   멈춤: 그리기만 잠깐 멈춤(게임 시간은 흐름) · 밀림 카메라: 맞은 쪽으로 몇 px · 확대: 1~3% 후 복귀 · 몹 찌그러짐 · 칼 궤적 · 치명타 소리 한 겹
+const HF = (() => { let lv = 1; try { const v = localStorage.getItem('aden_hf'); if (v === '0' || v === '2') lv = +v; } catch (e) {}
+  const K = [null, { stop: 0.04, kick: 3, zoom: 0.015, sq: 0.07, tr: 1 }, { stop: 0.07, kick: 5.5, zoom: 0.03, sq: 0.11, tr: 1.3 }];
+  let stopT = 0, kx = 0, ky = 0, kT = 0, zT = 0, zA = 0; const TR = [];
+  const quiet = () => (typeof BGRUN !== 'undefined' && BGRUN) || (window.SAVER && SAVER.on && SAVER.on()) || (typeof BOTHOST !== 'undefined' && BOTHOST && BOTHOST.on && BOTHOST.on());
+  const on = () => lv > 0 && !quiet();
+  // 맞힘: f = 맞은 것 · crit · big(스킬·보스급) · from = 때린 쪽 화면 좌표 [x, y] (없으면 나)
+  function hit(f, crit, big, from) { if (!on() || !f) return; const k = K[lv], [fx, fy] = W2P(f.x, f.z), S = MOB[f.kind] || {}, boss = !!S.boss;
+    f.hfT = time; f.hfS = k.sq * (big ? 1.2 : crit ? 1 : 0.55) * (boss ? 0.4 : 1);
+    if (!crit && !big) return;
+    const w = big ? 1 : 0.75; stopT = Math.max(stopT, k.stop * w * (MOBILE ? 0.7 : 1));
+    const [hx, hy] = from || W2P(hero.x, hero.z), dx = fx - hx, dy = fy - hy, L = Math.hypot(dx, dy) || 1; kx = dx / L * k.kick * w; ky = dy / L * k.kick * w * 0.6; kT = 0.14;
+    zA = k.zoom * w * (MOBILE ? 0.6 : 1); zT = 0.16; }
+  // 근접 휘두르기 궤적 (나 → 대상)
+  function swing(f, crit, mode) { if (!on() || !f) return; const [hx, hy] = W2P(hero.x, hero.z), [fx, fy] = W2P(f.x, f.z); TR.push({ x: hx, y: hy - 34, a: Math.atan2((fy - hy) * 1.6, fx - hx), t: 0, crit, dir: (TR.length & 1) ? 1 : -1, w: K[lv].tr, m: mode || '', tx: fx, ty: fy - Math.min(60, headY(f) * 0.55) }); if (TR.length > 6) TR.shift(); }
+  function critSnd() { if (!on() || !AC || !SFX_ON) return; const t = AC.currentTime; tone(t, 'triangle', 2400, 1500, 0.16, 0.06); tone(t + 0.02, 'sine', 70, 38, 0.22, 0.35); }
+  // frame(): 실제 시간으로 줄임 · 그리기 멈춤이면 true
+  function tick(dt) { if (kT > 0) kT = Math.max(0, kT - dt); if (zT > 0) zT = Math.max(0, zT - dt); for (let i = TR.length - 1; i >= 0; i--) { TR[i].t += dt; if (TR[i].t > 0.18) TR.splice(i, 1); }
+    if (stopT > 0) { stopT -= dt; return lv > 0; } return false; }
+  const off = () => { const k = kT / 0.14; return [kx * k * k, ky * k * k]; };
+  const zoomK = () => zT > 0 ? zA * Math.sin(Math.PI * (1 - zT / 0.16)) : 0;
+  // 몹 그리기 감싸기: 맞은 직후 발 기준으로 옆으로 퍼지고 위아래로 눌림 (0.12초)
+  function body(g, f, draw) { const u = f.hfT != null ? (time - f.hfT) / 0.12 : 9; if (u >= 1 || u < 0 || !f.hfS || lv === 0) { draw(g, f); return; }
+    const s = f.hfS * Math.sin(Math.PI * u) * (1 - u * 0.3), [x, y] = W2P(f.x, f.z); g.save(); g.translate(x, y); g.scale(1 + s, 1 - s); g.translate(-x, -y); try { draw(g, f); } finally { g.restore(); } }
+  function draw(g) { if (!TR.length || lv === 0) return; g.save(); g.globalCompositeOperation = 'lighter';
+    for (const q of TR) { const k = q.t / 0.18;
+      if (q.m === 'bow') { const u = Math.min(1, k * 2.2), x1 = q.x + (q.tx - q.x) * u, y1 = q.y + (q.ty - q.y) * u, u0 = Math.max(0, u - 0.35), x0 = q.x + (q.tx - q.x) * u0, y0 = q.y + (q.ty - q.y) * u0, gr = g.createLinearGradient(x0, y0, x1, y1);   /* 화살 꼬리 빛 */
+        gr.addColorStop(0, 'rgba(180,255,200,0)'); gr.addColorStop(1, q.crit ? `rgba(255,230,140,${0.9 * (1 - k)})` : `rgba(200,255,220,${0.7 * (1 - k)})`); g.strokeStyle = gr; g.lineWidth = 3 * q.w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); continue; }
+      if (q.m === 'magic') { const r = 10 + 18 * k, gr = g.createRadialGradient(q.x + 8, q.y - 4, 0, q.x + 8, q.y - 4, r); gr.addColorStop(0, `rgba(200,220,255,${0.8 * (1 - k)})`); gr.addColorStop(1, 'rgba(120,160,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(q.x + 8, q.y - 4, r, 0, 7); g.fill(); continue; }   /* 시전 손 빛 */
+      R = 44 + 12 * k, sw = 2.2, a0 = q.a - sw / 2 * q.dir, a1 = a0 + sw * q.dir * Math.min(1, k * 3.2), al = (1 - k) * (q.crit ? 0.9 : 0.6);
+      g.save(); g.translate(q.x, q.y); g.scale(1, 0.62); for (let i = 0; i < 3; i++) { g.strokeStyle = q.crit ? `rgba(255,${200 + i * 20},${90 + i * 60},${al * (1 - i * 0.3)})` : `rgba(${200 + i * 25},${225 + i * 10},255,${al * (1 - i * 0.3)})`;
+        g.lineWidth = (10 - i * 3.2) * q.w * (1 - k * 0.5); g.lineCap = 'round'; g.beginPath(); g.arc(0, 0, R - i * 1.5, Math.min(a0, a1), Math.max(a0, a1)); g.stroke(); } g.restore(); }
+    g.restore(); }
+  function set(v) { lv = v; try { localStorage.setItem('aden_hf', String(v)); } catch (e) {} sync(); }
+  function sync() { const b = document.getElementById('esc-hf'); if (b) b.textContent = '타격 연출: ' + ['끔', '보통', '강'][lv]; }
+  function addBtn() { if (document.getElementById('esc-hf')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
+    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-hf'; b.title = '때릴 때 화면 멈춤·흔들림·궤적 (내 화면에서만)'; b.onclick = () => set((lv + 1) % 3); ref.parentNode.insertBefore(b, ref.nextSibling); sync(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBtn); else setTimeout(addBtn, 0);
+  return { hit, swing, critSnd, tick, off, zoomK, body, draw, set, get lv() { return lv; } }; })();
 function heroHit(S, mode, f){ const st=INV.stat(), sb = mode==='bow' ? (st.dex>=16?0.05:0)+(st.dex>=18?0.05:0)+Math.max(0,Math.floor((st.dex-20)/2))*0.01 : mode==='magic' ? 0.12+(st.int>=16?0.05:0)+(st.int>=18?0.05:0) : (st.str>=16?0.05:0)+(st.str>=18?0.05:0)+Math.max(0,Math.floor((st.str-20)/2))*0.01;   /* v121: 힘(근거리)·민첩(활) 20 넘으면 2포인트마다 명중 +1% */
   return Math.max(0.2,Math.min(0.97, 0.6 + (BUFF.bounce>0&&!mode?0.15:0) + 0.05*(hero.lv-S.lv) + (10-(S.mac??10))*(mode==='magic'?-0.015:-0.03) + sb + INV.cx('hit')*0.03 + (mode==='magic'?0:INV.cx(mode==='bow'?'hitR':'hitM')*0.03) + (mode==='bow'&&BUFF.windshot>0?Math.min(0.1,0.05+Math.floor(hero.lv/10)*0.01):0) + (mode==='bow'&&f&&f.galeUntil>time?0.5:0))); }   /* v124: 윈드 샷 · 스트라이커 게일 */
 // 마법사 기본 공격(마력탄) 피해: 지능·SP·레벨
@@ -421,10 +462,10 @@ function pvpStrike(p, mode){ if (!PVPZ() || !NET.alive(p)) { hero.target = null;
   const crit = Math.random() < 0.12 + INV.cx('crit') / 100, DR = mode === 'magic' ? magicDmg() : INV.dmg(); let d = DR[0] + Math.floor(Math.random() * (DR[1] - DR[0] + 1)); if (crit) d = Math.round(d * 1.8); { const gd = INV.gaho('dmg'); if (gd) d = Math.floor(d * (1 + gd / 100) + Math.random()); }
   if (INV.blessHit() && Math.random() < 0.35) d += 1 + Math.floor(Math.random() * 2); d = Math.max(1, d); NET.pvp(p, d, { k: mode === 'magic' ? 'magic' : mode === 'bow' ? 'bow' : 'melee', c: crit });
   if (crit) { floatText(x, y - 120, 'CRITICAL!', { color: '#ffd24a', size: 14, big: true, life: 1.1, rise: 30 }); floatText(x, y - 104, String(d), { color: '#ff9a3a', size: 16, big: true, life: 1.0 }); } else floatText(x + (Math.random() * 18 - 9), y - 108, String(d), { color: '#ffffff', size: 12 });
-  impact(x, y - 40, 'hit', crit ? '#ffd24a' : '#ffffff'); hitstop = crit ? 0.1 : 0.05; if (mode === 'bow') { if (!MSFX('elf', 'arrowhit', crit ? 0.75 : 0.6)) sfx.hit(crit); } else sfx.hit(crit); hero.lastHitT = time; }
+  impact(x, y - 40, 'hit', crit ? '#ffd24a' : '#ffffff'); hitstop = crit ? 0.1 : 0.05; HF.hit(p, crit, false); HF.swing(p, crit, mode); if (crit) HF.critSnd(); if (mode === 'bow') { if (!MSFX('elf', 'arrowhit', crit ? 0.75 : 0.6)) sfx.hit(crit); } else sfx.hit(crit); hero.lastHitT = time; }
 function strike(f, mode){ if (f && f.isRemote) return pvpStrike(f, mode); if (HW() && f) return hwStrike(f); if (ADMIN.on()) { hero.target=null; return; } const S=MOB[f.kind]; breakInvis(); if (f.bindUntil>time){ bindNo(f); return; } if (!GOD_OHK && Math.random()>(f.bot || f.twr ? TWM.hitP(f, mode) : heroHit(S, mode, f))){ const [mx,my]=W2P(f.x,f.z); floatText(mx+(Math.random()*18-9),my-headY(f)-12,'MISS',{color:'#c8d0d8',size:11}); f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); return; } const crit=Math.random()<0.12+INV.cx('crit')/100; const DR=mode==='magic'?magicDmg():INV.dmg(); let d=DR[0]+Math.floor(Math.random()*(DR[1]-DR[0]+1)); { const A=mode!=='magic'&&INV.wAttr(); if (A){ const am=attrMult(A.el,f); d=Math.max(1,d+ATTR_DMG[A.lv]*(am-1)); if (am===2&&Math.random()<0.35){ const [ax,ay]=W2P(f.x,f.z); floatText(ax+16,ay-headY(f)-22,'약점!',{color:ATTR_C[A.el],size:10}); } } } if (S.spirit){ const A2=mode!=='magic'&&INV.wAttr(); if (A2) d=Math.max(1,Math.round(d*dreamElMul(S,A2.el))); }   /* 몽환의 섬 정령: 반대 속성 ×1.3 (같은 속성은 그대로) */ if (ISLE&&ISLE.def.sand) d+=INV.cx('sandDmg'); if (S.undead) d+=INV.cx('undeadDmg'); if (S.dragon) d+=INV.cx('dragonDmg'); if (crit) d=Math.round(d*1.8); if (S.pdr && mode!=='magic') d=Math.max(1,Math.round(d*(1-S.pdr))); { const gd=INV.gaho('dmg'); if (gd) d=Math.floor(d*(1+gd/100)+Math.random()); } { const ex=INV.cx('execDmg'); if (ex && !f.bot && !f.twr && f.max && f.hp<=f.max*0.3) d=Math.round(d*(1+ex/100)); }   /* 10/31 전설 양손검: HP 30% 이하 몬스터에게 주는 피해 +% */ if (f.bot || f.twr) d=TWM.inDmg(f, d, mode || 'melee'); if (GOD_OHK) d=Math.max(d,f.hp);
   dmgMob(f, d); if (mode!=='magic') judgeHit(f, d, false); if (INV.blessHit()&&f.hp>0&&Math.random()<0.35){ const ex=1+Math.floor(Math.random()*2); dmgMob(f, ex); const [ex1,ey1]=W2P(f.x,f.z); floatText(ex1+10,ey1-headY(f)-18,'추가 타격 '+ex,{color:'#ffd86a',size:11}); } cxProcs(f);
-  if (f.hp>0) MSFX(f.kind,'hit',0.5); f.flash=0.09; mobHitFx(f,crit); rcHitFx(f,crit); hero.lastHit=f; hero.lastHitT=time; if (f.tgt&&Math.random()<0.4&&!(PET.sumBal.tank&&f.tgt.sum&&!f.tgt.dead&&S.boss)) f.tgt=null; f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); hitstop=crit?0.12:0.07; if (crit) shake=0.18; if (S.dummy) {} else if (mode==='bow') { if (!MSFX('elf','arrowhit',crit?0.75:0.6)) sfx.hit(crit); } else sfx.hit(crit);   /* v124: 허수아비는 맞는 소리 없음 */
+  if (f.hp>0) MSFX(f.kind,'hit',0.5); f.flash=0.09; mobHitFx(f,crit); rcHitFx(f,crit); hero.lastHit=f; hero.lastHitT=time; if (f.tgt&&Math.random()<0.4&&!(PET.sumBal.tank&&f.tgt.sum&&!f.tgt.dead&&S.boss)) f.tgt=null; f.aggro=true; if (f.grp) f.grp.forEach(m=>{ if (!m.dead) m.aggro=true; }); hitstop=crit?0.12:0.07; if (crit) shake=0.18; HF.hit(f, crit, false); HF.swing(f, crit, mode); if (crit) HF.critSnd();   /* 타격감 (내 화면만) */ if (S.dummy) {} else if (mode==='bow') { if (!MSFX('elf','arrowhit',crit?0.75:0.6)) sfx.hit(crit); } else sfx.hit(crit);   /* v124: 허수아비는 맞는 소리 없음 */
   { const [fx,fy]=W2P(f.x,f.z), top=fy-headY(f)-4;
     if (crit){ floatText(fx,top-12,'CRITICAL!',{color:'#ffd24a',size:14,big:true,life:1.1,rise:30}); floatText(fx,top+4,String(d),{color:'#ff9a3a',size:16,big:true,life:1.0}); bursts.push({x:fx,y:fy-headY(f)*0.5,t:0}); }
     else floatText(fx+(Math.random()*18-9),top-8,String(d),{color:'#ffffff',size:12}); }
@@ -760,6 +801,7 @@ function breathCone(f, len, dmg, o) { o = o || {}; const dx = BT.x - f.x, dz = B
     for (let q = 0; q < n; q++) { const s = (q - (n - 1) / 2) * (n === 2 ? sp * 2 : sp);
       AOES.push({ grp, kind: 'mag', c: '255,120,40', x: f.x + ux * k * 0.95 - uz * s, z: f.z + uz * k * 0.95 + ux * s, r, warn, t: 0, life: warn + 0.5, landed: false, dmg, fire: true, nofx: true, res: 'fire', nostun: true, quiet: !o.msg, msg: o.msg, onLand: first ? () => breathFx(f, ux, uz, len) : null }); first = false; } } }
 function breathFx(f, ux, uz, len) { const [x0, y0] = W2P(f.x + ux * 0.45, f.z + uz * 0.45), [x1, y1] = W2P(f.x + ux * (len + 0.4), f.z + uz * (len + 0.4)), h = Math.min(70, headY(f) * 0.5), dx = x1 - x0, dy = y1 - y0;
+  if (window.GLR) GLR.mx('breath', 0, x0, y0, h, { dx, dy });   // GL: 새 그래픽 켬일 때만 불길 빛·불티 더함
   for (let q = 0; q < 70; q++) { const u = Math.sqrt(Math.random()), jt = (Math.random() - 0.5) * 0.75 * u; setTimeout(() => mxP(x0 + dx * u - dy * jt, y0 + dy * u + dx * jt * 0.5 - h * (1 - u) - 4, { k: 'flame', s: mxR(6, 10) * (0.7 + u * 0.6), vx: dx * 0.4, vy: dy * 0.4 - 22, life: mxR(0.4, 0.65), dr: 1.8 }), u * 160); }   // 입에서 앞쪽으로 번지는 불길
   for (let k = 1; k <= len; k++) { const [bx, by] = W2P(f.x + ux * k, f.z + uz * k); setTimeout(() => mxBurst(bx, by - 8, 5 + k * 2, () => ({ k: 'flame', s: mxR(3, 6), life: mxR(0.25, 0.45), dr: 2 }), 20, 60 + k * 10, 30), 60 + k * 50); }
   mxAdd('scorch', mxAt(f.x + ux * len * 0.6, f.z + uz * len * 0.6, 0), { gnd: 1, r: len * K * 0.9, life: 2.5 });
@@ -1084,7 +1126,7 @@ function spellSfx(id) { if (!AC || !SFX_ON) return; const t = AC.currentTime, T 
     default: T(0, 'triangle', 520, 1040, 0.25, 0.07); } }
 // ===== 마법 이펙트: 대상(나/몬스터)을 따라다니며 그림
 const SPELLFX = [];
-function spellFx(kind, ent, c) { SPELLFX.push({ kind, ent, c: c || '#ffffff', t: 0, life: ({ tshield: 0.9, heal: 1.1, shield: 0.9, light: 1.2, enchant: 1.0, stun: 0.6, aura: 0.9, cure: 0.9, cast: 0.35, levelup: 2.4, poly: 1.7, enok: 1.0, enbless: 1.3, earth: 1.4, puff: 0.8, boom: 1.2 })[kind] || 0.8 }); }
+function spellFx(kind, ent, c) { if (window.GLR && ent && GLR.on()) { const [gx, gy] = W2P(ent.x, ent.z); GLR.mx('sfx', kind, gx, gy, 0); }   /* GL: 새 그래픽 켬일 때만 */ SPELLFX.push({ kind, ent, c: c || '#ffffff', t: 0, life: ({ tshield: 0.9, heal: 1.1, shield: 0.9, light: 1.2, enchant: 1.0, stun: 0.6, aura: 0.9, cure: 0.9, cast: 0.35, levelup: 2.4, poly: 1.7, enok: 1.0, enbless: 1.3, earth: 1.4, puff: 0.8, boom: 1.2 })[kind] || 0.8 }); }
 function spellFxTick(dt) { for (let n = SPELLFX.length - 1; n >= 0; n--) { const f = SPELLFX[n]; f.t += dt; if (f.t >= f.life) SPELLFX.splice(n, 1); } }
 function drawSpellFx(g) { for (const f of SPELLFX) { const e = f.ent; if (!e || (e !== hero && e.dead && f.kind !== 'levelup')) continue; const [x, y] = W2P(e.x, e.z), k = f.t / f.life, a = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85, top = e === hero || e.pl ? y - 70 : y - headY(e);
     g.save(); g.globalCompositeOperation = 'lighter';
@@ -1187,7 +1229,7 @@ function healRange(id) { const [b0, r0] = HEAL_B[id], m = healMul(); return [Mat
 function skNow(id) { if (SPELL[id]) { const [a, b] = spellRange(id); return `지금 내 기준 피해 ${a}~${b}`; } if (HEAL_B[id]) { const [a, b] = healRange(id); return `지금 내 기준 회복 ${a}~${b}`; } return ''; }
 const coldK = P => P && P.el === 'water' ? 1 + INV.cx('coldMagic') / 100 : 1, magK = () => 1 + (INV.cx('allMagic') || 0) / 100;   // 10/31 magK: 공격 마법 피해 +% (전설 · 수정결정체 지팡이)   // v146: 냉기 마법 피해 +% (아이스 대거·콘 오브 콜드 등 수속성)
 function spellRange(id) { const P = SPELL[id], m = spellMul() * (P.mul || 1) * coldK(P) * magK(); return [Math.max(1, Math.round(P.dmg[0] * m)), Math.max(1, Math.round(P.dmg[1] * m))]; }
-function spellHit(f, id) { const P = SPELL[id]; if (!P || !f || f.dead) return; const st = INV.stat(), ib = Math.max(0, Math.floor((st.int - 12) / 2)), sp = INV.sp(); const [fx, fy] = W2P(f.x, f.z);
+function spellHit(f, id) { const P = SPELL[id]; if (!P || !f || f.dead) return; HF.hit(f, false, true);   /* 타격감: 내 마법이 맞을 때 */ const st = INV.stat(), ib = Math.max(0, Math.floor((st.int - 12) / 2)), sp = INV.sp(); const [fx, fy] = W2P(f.x, f.z);
   if (f.isRemote && (!PVPZ() || !NET.alive(f))) return;   /* v181: 유저를 직접 찍은 범위 마법(파이어볼·미티어)도 주변 유저·몬스터까지 범위로 */
   if (f.isRemote && !P.box) { let d = (P.dmg[0] + Math.floor(Math.random() * (P.dmg[1] - P.dmg[0] + 1))) * spellMulPvP() * coldK(P) * magK(); if (P.mul) d *= P.mul; const cr = Math.random() < spellCritP({}); if (cr) d *= 1.5; d = Math.max(1, Math.round(d)); NET.pvp(f, d, { k: 'magic', c: cr, sp: id }); floatText(fx, fy - 108, String(d), { color: P.col, size: cr ? 15 : 12, big: cr }); return; }   // v146: 결투장 — 유저에게 마법 피해 (상대 화면에서 MR·카운터 매직 적용)
   const L0 = P.box ? foxes.filter(m => !m.dead && !m.gone && Math.abs(m.x - f.x) <= P.box && Math.abs(m.z - f.z) <= P.box && DGLOS(f, m)) : [f], MUL = spellMul() * coldK(P) * magK(), MULP = spellMulPvP() * coldK(P) * magK();   // 파이어볼: 대상 중심 가로·세로 6칸 (던전은 벽 너머 X)
@@ -1334,6 +1376,7 @@ function mxStroke(g, L) { g.beginPath(); L.forEach(([x, y], i) => i ? g.lineTo(x
 
 // ---------- 시전: 발밑 마법진 + 빛기둥 + 떠오르는 빛 + 마법 이름
 function mxCast(id, e, noName) { const sch = MX_SCH[id] || 'arcane', S = MXS[sch], c = (SK[id] && SK[id].circle) || 1, r = 26 + Math.min(6, c) * 4.5, [x, y] = W2P(e.x, e.z);
+  if (window.GLR) GLR.mx('cast', id, x, y, 0, S);   // GL: 새 그래픽 켬일 때만 빛·불티 더함
   mxAdd('circle', e, { gnd: 1, sch, r, life: 0.55 + c * 0.06 }); mxAdd('cpillar', e, { sch, r, life: 0.5 + c * 0.05 });
   for (let i = 0; i < 10 + c * 2; i++) { const an = Math.random() * 6.283; mxP(x + Math.cos(an) * r * 0.8, y + Math.sin(an) * r * 0.4, { k: 'dot', c: S.l, s: mxR(1.6, 2.8), vy: -mxR(50, 110), vx: Math.cos(an) * 8, life: mxR(0.5, 0.9), dr: 0.6 }); }
   if (!noName && SK[id]) floatText(x, y - (e === hero || e.pl ? 112 : mxH(e) + 30), SK[id].name, { color: S.h, size: 15, big: true, life: 1.15, rise: 26 });
@@ -1372,6 +1415,7 @@ function mxBoltDraw(g, b) { const [x, y, an] = mxBoltPos(b); g.save(); g.globalC
 
 // ---------- 명중
 function mxHit(id, f) { if (!f) return; const [x, y0] = W2P(f.x, f.z), h = mxH(f), y = y0 - Math.max(26, Math.min(60, h * 0.55));
+  if (window.GLR) GLR.mx('hit', id, x, y, h, MXS[MX_SCH[id] || 'arcane'], MXLITE);   // GL: 새 그래픽 켬일 때만 빛·불티 더함
   if (L1.H[id]) { L1.H[id](f, x, y0, y, h); return; }   // v177
   switch (id) {
     case 'ebolt': if (MXLITE) { mxAdd('ring', f, { gnd: 1, c: '120,170,255', r0: 4, r1: 30, w: 2, life: 0.35 }); mxBurst(x, y, 14, () => ({ k: 'dot', c: '120,170,255', s: mxR(1.8, 3), life: mxR(0.2, 0.45), dr: 3 }), 30, 90); break; }   // 수호탑 봇: 작게
@@ -1501,7 +1545,7 @@ const L1 = (() => {
   const summon = p => { mxAdd('circle', p, { gnd: 1, sch: 'dark', r: 30, life: 1.1 }); mxAdd('l1rise', p, { life: 1.0, r: 16, hgt: mxH(p) + 30, c: '200,40,40', l: '255,170,150', S: seeds(12) }); const [x, y] = W2P(p.x, p.z); mxBurst(x, y - 6, 12, () => ({ k: 'smoke', c: '60,20,24', s: mxR(6, 10), life: mxR(0.7, 1.1), dr: 1.6, a0: 0.5, vy: -mxR(20, 50) }), 20, 60, 20); };
   return { S, H, A, K, B, summon, rub };
 })();
-function mxSelf(id, e) { if (!e) return; const [x, y] = W2P(e.x, e.z), h = mxH(e), S = MXS[MX_SCH[id] || 'arcane'];
+function mxSelf(id, e) { if (!e) return; const [x, y] = W2P(e.x, e.z), h = mxH(e), S = MXS[MX_SCH[id] || 'arcane']; if (window.GLR) GLR.mx('self', id, x, y, h, S);   /* GL: 새 그래픽 켬일 때만 */
   if (L1.S[id]) { L1.S[id](e, x, y, h); return; }   // v177
   switch (id) {
     case 'heal': case 'xheal': { const big = id === 'xheal'; mxAdd('healrain', e, { life: big ? 1.3 : 1.05, big }); mxAdd('ring', e, { gnd: 1, c: '120,255,150', r0: 8, r1: big ? 62 : 46, w: 3, life: 0.7 }); if (big) mxAdd('ring', e, { gnd: 1, c: '255,240,170', r0: 4, r1: 40, w: 2, life: 0.9 });
@@ -1917,7 +1961,7 @@ const KN=META.knight, FX=META.fox;
 const IMPACTS = [];
 function stunDing(f){ if (!AC||!SFX_ON||!DN.seen(f.i,f.j)) return; const d=Math.hypot(f.x-hero.x,f.z-hero.z), v=Math.max(0.25,1-d/14); const t=AC.currentTime;   // 스턴 중 머리 위 별: 띵·띵 종소리
   tone(t,'sine',2093,2093,0.16,0.05*v); tone(t,'triangle',4186,4186,0.08,0.012*v); tone(t+0.11,'sine',2637,2637,0.2,0.045*v); tone(t+0.11,'triangle',5274,5274,0.08,0.01*v); }
-function impact(x, y, kind, c) { IMPACTS.push({ x, y, t: 0, life: kind === 'quake' ? 2.2 : kind === 'bolt' ? 0.42 : kind === 'miss' ? 0.35 : 0.3, kind, c: c || '#ffe2a0', s: Math.random() * 6.28 }); }
+function impact(x, y, kind, c) { IMPACTS.push({ x, y, t: 0, life: kind === 'quake' ? 2.2 : kind === 'bolt' ? 0.42 : kind === 'miss' ? 0.35 : 0.3, kind, c: c || '#ffe2a0', s: Math.random() * 6.28 }); if (window.GLR) GLR.mx('imp', kind, x, y, 0, { c });   /* GL: 새 그래픽 켬일 때만 */ }
 function drawImpacts(g) { if (!IMPACTS.length) return; g.save(); g.globalCompositeOperation = 'lighter';
   for (const p of IMPACTS) { const k = p.t / p.life, a = 1 - k;
     if (p.kind === 'quake') { g.globalCompositeOperation = 'source-over'; const R = 18 + k * 40; g.strokeStyle = `rgba(30,18,8,${0.85 * a})`; g.lineWidth = 2.2; g.beginPath();
@@ -2304,7 +2348,7 @@ function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO
     const anim=moving&&!f.dead?'walk':'idle', fr=f.dead?0:moving?Math.floor(f.dist*4)%8:Math.floor(time*6+f.hi)%8;
     const img=tinted(f.kind,anim); if (img) drawSheet(g, img, {W:144,H:160,ax:72,ay:128,s:0.86*S.sc}, fr, f.row, 0, 0, al, fl); g.restore(); }
 function drawWorld(g, vw, vh){
-  const ox=Math.round(vw/2-cam[0]+(shake?(Math.random()-0.5)*4:0)), oy=Math.round(vh/2-cam[1]);
+  const hfo=HF.off(), ox=Math.round(vw/2-cam[0]+(shake?(Math.random()-0.5)*4:0)+hfo[0]), oy=Math.round(vh/2-cam[1]+hfo[1]);   // hfo: 타격감 밀림 카메라
   const SNOWBG=!!(ISLE&&ISLE.def&&ISLE.def.snow), DRBG=!!(ISLE&&ISLE.def&&ISLE.def.dream), FP=MAZE()||SNOWBG||DRBG||TW()?null:forestPat(g); if (DRBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#1c1a34'); bg.addColorStop(1,'#0a0912'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (MAZE()||TW()){ g.fillStyle=TW()?'#06070b':'#030203'; g.fillRect(0,0,vw,vh); } else if (SNOWBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#aebccc'); bg.addColorStop(1,'#d4dde6'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (FP){ g.save(); g.translate(ox,oy); g.fillStyle=FP; g.fillRect(-ox,-oy,vw,vh); g.restore(); } else { g.fillStyle='#141a10'; g.fillRect(0,0,vw,vh); }
   g.save(); g.translate(ox,oy);
   if (SCENE==='town') { if (TOWN.ground) g.drawImage(TOWN.ground,0,0); } else if (ISLE) { if (ISLE.ground){ g.save(); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(ISLE.ground,0,0,G.W,G.H); g.restore(); } } else if (im.ground.complete){ g.save(); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(im.ground,0,0,G.W,G.H); g.restore(); }
@@ -2330,7 +2374,7 @@ function drawWorld(g, vw, vh){
       if (!s || !im[p.type+p.v]){ const pc=propCanvas(p.type, p.v); if (pc){ g.save(); g.globalAlpha=fade?0.4:1; g.drawImage(pc.c, Math.round(x-pc.ax), Math.round(y-pc.ay), pc.w, pc.h); g.restore(); } if (p.type==='bonfire') campFlame(g,x,y); return; }   // 사막 소품(코드 그림) — im['cactus0'] 등 정식 그림이 들어오면 위의 스프라이트 경로로
       if (im[p.type+p.v].complete){ const pim = ISLE && ISLE.def.sand ? sandProp(p.type+p.v, p.type) : ISLE && ISLE.def.snow ? snowImg(im[p.type+p.v]) : im[p.type+p.v]; g.save(); g.globalAlpha=fade?0.4:1; const sc=s.s||1, ps=prescaled(pim, sc); if (ps) g.drawImage(ps, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc)); else { if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; } g.drawImage(pim, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc), s.W*sc, s.H*sc); } g.restore(); } }}); }
   if (ISLE && ISLE.def.altar){ const A=ISLE.def.altar; list.push({d:A.i+A.j-4, f:()=>drawAltar(g,A,0)}); list.push({d:A.i+A.j+1, f:()=>drawAltar(g,A,1)}); }   /* v126: 소환의 제단 */
-  for (const f of foxes){ if (f.dead&&f.deadT>(ASH_DIE.has(f.kind)?ASH_END:f.kind==='fn_ifrit'?IFRIT_END:1.4)) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>drawMobBody(g, f)}); }
+  for (const f of foxes){ if (f.dead&&f.deadT>(ASH_DIE.has(f.kind)?ASH_END:f.kind==='fn_ifrit'?IFRIT_END:1.4)) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>HF.body(g, f, drawMobBody)}); }   // HF.body: 맞은 직후 찌그러짐 (타격감)
   if (DEATH) {} else   // 무덤은 어둠 위(이름표 단계)에서 그림
   list.push({d:hero.x+hero.z, f:()=>{ const [x,y]=W2P(hero.x,hero.z); const NF=a=>KN.anims[a].frames; let anim='idle', fr=Math.floor(time*6)%NF('idle');
     if (hero.atk){ anim=hero.atk.v||'attack'; const nf=KN.anims[anim]?NF(anim):8; fr=Math.min(nf-1,Math.floor(hero.atk.t/hero.atk.dur*nf)); if (!KN.anims[anim]&&CLASS==='knight') anim='attack'; } else if (hero.t<1){ anim='walk'; fr=Math.floor(hero.dist*4)%8; } else if (SCENE==='town' && KN.anims.look && CLASS==='knight'){ anim='look'; fr=Math.floor(time*2.5)%NF('look'); }
@@ -2362,6 +2406,7 @@ function drawWorld(g, vw, vh){
   AMB.update(Math.min(0.05, 1/60), vw, vh); AMB.draw(g, vw, vh, ox, oy);
   desertFx(g, vw, vh); goreFx(g, vw, vh, ox, oy); DN.draw(g, vw, vh, ox, oy); snowFx(g, vw, vh); valleyFx(g, vw, vh); fireFx(g, vw, vh, ox, oy); hwFx(g, vw, vh); g.save(); g.translate(ox, oy); drawMxTop(g);
   // 이름·피바·피해 숫자·말풍선은 어둠·눈보라 위에 (던전 그림자에 묻히지 않게)
+  HF.draw(g);   // 타격감: 칼 궤적
   for (const f of floats){ const k=f.t/f.life, pop=f.big?(k<0.15?1+(0.15-k)*4:1):1, a=k<0.7?1:1-(k-0.7)/0.3, y=f.y-f.rise*Math.min(1,k*1.6);
     g.save(); g.globalAlpha=Math.max(0,a); g.font=`900 ${Math.round(f.size*pop)}px "Noto Sans KR",sans-serif`; g.textAlign='center'; g.lineJoin='round';
     g.lineWidth=3; g.strokeStyle='rgba(0,0,0,.85)'; g.strokeText(f.text,f.x+f.dx,y); g.fillStyle=f.color; g.fillText(f.text,f.x+f.dx,y); g.restore(); }
@@ -12155,12 +12200,12 @@ function frame(now){
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
     for (let k=IMPACTS.length-1;k>=0;k--){ IMPACTS[k].t+=dt; if (IMPACTS[k].t>=IMPACTS[k].life) IMPACTS.splice(k,1); } }
   const tgt=W2P(hero.x,hero.z); cam[0]+=(tgt[0]-cam[0])*Math.min(1,dt*7); cam[1]+=(tgt[1]-20-cam[1])*Math.min(1,dt*7);
-  const z = pixel ? Math.max(1,Math.round(zoom)) : zoom;
+  const HFSTOP = HF.tick(dt), z = pixel ? Math.max(1,Math.round(zoom)) : zoom * (1 + HF.zoomK());   // 타격감: 그리기만 잠깐 멈춤 · 큰 타격 살짝 확대
   // 기기 해상도로 그림: 배경은 확대(도트), 고해상도 캐릭터는 0.5배로 선명하게
   const vw=Math.ceil(W/z), vh=Math.ceil(H/z), pw=Math.ceil(W*DPR), ph=Math.ceil(H*DPR);
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
-  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BOTHOST.on() && !BGRUN) {   /* BGRUN: 창이 안 보일 때 게임만 진행 (그리기 없음) */   /* 봇 호스트 모드는 화면을 아예 안 그림 */   /* v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BOTHOST.on() && !BGRUN && !HFSTOP) {   /* BGRUN: 창이 안 보일 때 게임만 진행 (그리기 없음) · HFSTOP: 타격감 — 그리기만 잠깐 멈춤 · 봇 호스트 모드는 화면을 아예 안 그림 · v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
   // GL: 새 그래픽(시험 · src/gl.js) — 켜져 있으면 세계는 WebGL2, UI는 지금처럼 2D 캔버스로 그 위에 · 기본은 꺼짐 · 못 쓰거나 실패하면 false → 아래 원래 그리기 그대로
   if (!(window.GLR && GLR.on() && GLR.frame(drawWorld, drawUI, lc, ctx, low, cv, pw, ph, z*DPR, !pixel, vw, vh))) {
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);

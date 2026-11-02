@@ -116,6 +116,7 @@ void main(){ int sh=vM&3, pa=(vM>>2)&3; float d=length(vT); float w=max(length(v
       if(abs(A)<1e-6){ t=Cc/(2.*B); if(r0+t*dr<0.) ok=0.; } else { float D=B*B-A*Cc; if(D<0.) ok=0.; else { float q=sqrt(D), t1=(B+q)/A, t2=(B-q)/A, tm=max(t1,t2), tn=min(t1,t2); if(r0+tm*dr>=0.) t=tm; else if(r0+tn*dr>=0.) t=tn; else ok=0.; } } }
     c=texture(uG,vec2((clamp(t,0.,1.)*255.+.5)/256.,vP.x))*ok; }
   if(uN>0){ float a=c.a; vec4 q=vec4(a>0.?c.rgb/a:vec3(0.),a); for(int k=0;k<4;k++){ if(k>=uN) break; q=clamp(uM[k]*q+uO[k],0.,1.); } c=vec4(q.rgb*q.a,q.a); }
+  if((vM&32)!=0) c*=tx(vT).a;   /* 2단계: 그라데이션 글자 (흰 글자 텍스처를 가림막으로) */
   if((vM&16)!=0) c=vec4(c.a);
   if(sh==1) c*=clamp((1.-d)/w+.5,0.,1.); else if(sh==2) c*=clamp(vP.w-abs((d-1.)/w)+.5,0.,1.); else if(sh==3) c*=clamp(vP.w-abs(vT.y)+.5,0.,1.)*clamp(vP.z-abs(vT.x)+.5,0.,1.);
   o=c*vC; }`;
@@ -271,14 +272,47 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
   //   game.js: 맞을 때·불 터질 때 GLR.spark(x, y, n, {c, sp, life, g, sz, up}) (세계 좌표 = parts와 같음) · drawWorld의 parts 그리는 자리에서 GLR.sparks(g)
   //   새 그래픽이 꺼져 있으면 아무것도 안 함(원래 parts만) · 끄기 localStorage aden_gl_fx=0
   const SPK = { on: LSG('aden_gl_fx') !== '0', N: 8192, i: 0, F: 9, buf: null, f32: null, u32: null, lo: 1e9, hi: -1, pr: null, vao: null, vbo: null, u: {}, t0: performance.now(), live: 0, last: -1 };
-  const nowS = () => (performance.now() - SPK.t0) / 1000;
+  let SPA = 0, SPL = performance.now(); const nowS = () => { const n = performance.now(); SPA += (n - SPL) * (DBG.ts || 1); SPL = n; return SPA / 1000; };   // DBG.ts: 테스트에서 불티 시간을 느리게 (느린 소프트웨어 그래픽에서 눈으로 확인)
   function spark(x, y, n, o) { if (!SPK.on || !on() || !gl || n <= 0) return; o = o || {}; if (!SPK.f32) { SPK.buf = new ArrayBuffer(SPK.N * SPK.F * 4 * 1); SPK.f32 = new Float32Array(SPK.buf); SPK.u32 = new Uint32Array(SPK.buf); }
-    const c = parseColor(o.c || '#ffe8b0') || [1, 0.9, 0.7, 1], col = ((c8(c[3]) << 24) | (c8(c[2]) << 16) | (c8(c[1]) << 8) | c8(c[0])) >>> 0, t = nowS(), sp = o.sp || 120, life = o.life || 0.5, gv = o.g === undefined ? 260 : o.g, sz = o.sz || 1.6, up = o.up || 0;
-    n = Math.min(n | 0, 256); for (let k = 0; k < n; k++) { const j = SPK.i, b = j * SPK.F, a = Math.random() * 6.2832, s = sp * (0.35 + 0.65 * Math.random());
-      SPK.f32[b] = x + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 1] = y + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 2] = Math.cos(a) * s; SPK.f32[b + 3] = Math.sin(a) * s * 0.6 - up - sp * 0.15;
-      SPK.f32[b + 4] = t + Math.random() * 0.03; SPK.f32[b + 5] = life * (0.6 + 0.4 * Math.random()); SPK.f32[b + 6] = sz * (0.7 + 0.6 * Math.random()); SPK.f32[b + 7] = gv; SPK.u32[b + 8] = col;
+    const c = parseColor(o.c || '#ffe8b0') || [1, 0.9, 0.7, 1], ca = c[3] * (o.a == null ? 1 : o.a), col = ((c8(ca) << 24) | (c8(c[2]) << 16) | (c8(c[1]) << 8) | c8(c[0])) >>> 0, t = nowS() + (o.dl || 0), sp = o.sp == null ? 120 : o.sp, life = o.life || 0.5, gv = o.g === undefined ? 260 : o.g, sz = o.sz || 1.6, up = o.up || 0;
+    n = Math.min(n | 0, 256); for (let k = 0; k < n; k++) { const j = SPK.i, b = j * SPK.F, a = o.even ? (k + Math.random() * 0.3) / n * 6.2832 : Math.random() * 6.2832, s = o.even ? sp * (0.9 + 0.1 * Math.random()) : sp * (0.35 + 0.65 * Math.random());
+      SPK.f32[b] = x + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 1] = y + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 2] = Math.cos(a) * s; SPK.f32[b + 3] = Math.sin(a) * s * (o.fy || 0.6) - up - (o.even ? 0 : sp * 0.15);
+      SPK.f32[b + 4] = t + Math.random() * 0.03; SPK.f32[b + 5] = life * (0.6 + 0.4 * Math.random()); SPK.f32[b + 6] = sz * (o.even || n === 1 ? 1 : 0.7 + 0.6 * Math.random()); SPK.f32[b + 7] = gv; SPK.u32[b + 8] = col;
       SPK.lo = Math.min(SPK.lo, j); SPK.hi = Math.max(SPK.hi, j); SPK.i = (j + 1) % SPK.N; if (SPK.i === 0) { /* 한 바퀴: 다음 그릴 때 통째 올림 */ SPK.lo = 0; SPK.hi = SPK.N - 1; } }
     SPK.last = Math.max(SPK.last, t + life * 1.05); }
+  // ---------------------------------------------------------------- 2단계: 마법·타격 연출 (새 그래픽 켬일 때만 · 원래 그림 위에 빛·불티를 더함 · 꺼져 있으면 아무것도 안 함)
+  //   game.js: mxHit·mxCast·mxSelf·impact·spellFx에서 GLR.mx(종류, id, x, y, h, 색 묶음, 작게)
+  //   glow = 제자리 빛(속도 0 · 큰 점 하나) · ring = 고르게 퍼지는 고리 · 나머지는 불티
+  const MXF = { fire: ['meteor', 'fstorm', 'fball', 'farrow'], ice: ['blizzard', 'icedagger', 'lstorm', 'coc'], earth: ['quake', 'eruption', 'earth_bind'], bolt: ['sunburst', 'disint', 'clight', 'storm_shot'] };
+  const mxKind = id => { for (const k in MXF) if (MXF[k].includes(id)) return k; return ''; };
+  const rgb = (s, a) => s ? (s[0] === '#' || s[0] === 'r' ? s : 'rgba(' + s + ',' + (a == null ? 1 : a) + ')') : '#fff';
+  function glow(x, y, r, c, life, a, dl) { spark(x, y, 1, { c, sp: 0, g: 0, sz: r, life, r: 0, a: a == null ? 0.55 : a, dl }); }
+  function mx(type, id, x, y, h, S, lite) { if (!SPK.on || !on() || !gl || !isFinite(x) || !isFinite(y)) return; S = S || {}; h = h || 40;
+    const C1 = rgb(S.c), CL = rgb(S.l), CH = S.h || CL, k = lite ? 0.45 : 1, kind = type === 'hit' ? mxKind(id) : '';
+    if (type === 'hit') {
+      glow(x, y, (16 + Math.min(40, h) * 0.45) * (lite ? 0.6 : 1), CL, 0.22, 0.5); glow(x, y, (34 + Math.min(40, h) * 0.6) * (lite ? 0.6 : 1), C1, 0.4, 0.35);
+      spark(x, y, Math.round(18 * k), { c: CH, sp: 170, life: 0.45, g: 160, sz: 1.5 });
+      if (!lite) spark(x, y + h * 0.3, 28, { c: C1, sp: 95, life: 0.42, g: 0, sz: 1.3, even: true, fy: 0.5, a: 0.8 });
+      if (kind === 'fire') { spark(x, y, Math.round(26 * k), { c: '#ff9a3a', sp: 70, life: 1.0, g: -70, up: 30, sz: 2, r: 26 }); glow(x, y + h * 0.3, 60 * k, 'rgba(255,120,40,1)', 0.7, 0.3); }
+      else if (kind === 'ice') spark(x, y, Math.round(22 * k), { c: '#e8fbff', sp: 150, life: 0.6, g: 320, up: 60, sz: 1.4 });
+      else if (kind === 'earth') { spark(x, y + h * 0.5, Math.round(34 * k), { c: '#c89a5a', sp: 130, life: 0.8, g: 260, up: 70, sz: 2.2, r: 30, a: 0.7 }); }
+      else if (kind === 'bolt') { glow(x, y - 30, 70 * k, 'rgba(230,240,255,1)', 0.18, 0.4); spark(x, y, Math.round(24 * k), { c: '#f4f8ff', sp: 260, life: 0.3, g: 0, sz: 1.2 }); }
+    } else if (type === 'cast') {
+      spark(x, y, Math.round(14 * k), { c: CH, sp: 18, life: 0.8, g: -90, up: 25, sz: 1.5, r: 34, a: 0.85 }); glow(x, y - 4, 26, C1, 0.35, 0.3);
+    } else if (type === 'self') {
+      spark(x, y, 30, { c: C1, sp: 80, life: 0.5, g: 0, sz: 1.5, even: true, fy: 0.5, a: 0.85 }); spark(x, y, 22, { c: CH, sp: 20, life: 1.1, g: -70, up: 15, sz: 1.6, r: 40 }); glow(x, y - h * 0.5, 40, CL, 0.5, 0.35);
+    } else if (type === 'imp') {
+      if (id === 'bolt') { glow(x, y, 30, S.c || '#ffe066', 0.25, 0.6); spark(x, y, 10, { c: S.c || '#ffe066', sp: 150, life: 0.35, g: 120, sz: 1.4 }); }
+      else if (id === 'quake') { spark(x, y, 40, { c: S.c || '#6a4a2a', sp: 160, life: 0.9, g: 280, up: 80, sz: 2.6, r: 40, a: 0.85 }); spark(x, y, 36, { c: 'rgba(255,220,160,1)', sp: 150, life: 0.5, g: 0, sz: 2, even: true, fy: 0.5, a: 0.5 }); glow(x, y, 80, 'rgba(255,150,70,1)', 0.35, 0.25); }
+    } else if (type === 'breath') {   // 보스 불길(용 숨결): 입에서 앞으로 번지는 불티·빛 (S = {dx, dy})
+      for (let i = 0; i <= 8; i++) { const u = i / 8, px = x + S.dx * u, py = y + S.dy * u - h * (1 - u) - 4, dl = u * 0.16;
+        spark(px, py, 10, { c: i % 2 ? '#ffb040' : '#ff6a20', sp: 40 + u * 70, life: 0.7, g: -80, up: 25, sz: 2.2, r: 10 + u * 34, dl });
+        glow(px, py, 26 + u * 40, 'rgba(255,120,40,1)', 0.55, 0.3, dl); } glow(x + S.dx * 0.6, y + S.dy * 0.6, 120, 'rgba(255,90,20,1)', 0.8, 0.18, 0.1);
+    } else if (type === 'sfx') {
+      if (id === 'levelup') { spark(x, y, 70, { c: '#ffe08a', sp: 60, life: 1.5, g: -90, up: 40, sz: 1.7, r: 40 }); spark(x, y, 40, { c: '#fff6d0', sp: 120, life: 0.6, g: 0, sz: 1.6, even: true, fy: 0.5 }); glow(x, y - 40, 70, 'rgba(255,220,120,1)', 0.8, 0.4); }
+      else if (id === 'heal' || id === 'cure') spark(x, y, 20, { c: '#a8ffb8', sp: 15, life: 1.0, g: -80, up: 20, sz: 1.5, r: 30 });
+      else if (id === 'enbless' || id === 'enok') { spark(x, y - 30, 36, { c: id === 'enbless' ? '#ffe9a0' : '#bfe0ff', sp: 140, life: 0.6, g: 60, sz: 1.5 }); glow(x, y - 30, 40, '#fff4d0', 0.4, 0.5); }
+    } }
   function sparkInit() { if (SPK.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
       const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
 layout(location=0) in vec4 aPV; layout(location=1) in vec4 aTL; layout(location=2) in vec4 aC;
@@ -327,6 +361,35 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     while (C.stack.length) CTX.restore(); V.restore(); C.st = Y.st; C.stack = Y.stack; C.vd = true; ppRe(); PK.k = 0;
     PW = Y.PW; PH = Y.PH; G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, PW, PH); for (const pr of PR) { G.useProgram(pr.p); G.uniform2f(pr.uR, PW, PH); } curProg = null; ST.layer = (ST.layer || 0) + 1; return Y.L.obj; }
 
+
+  // ---------------------------------------------------------------- 11/2: GL 혼합으로 못 하는 합성(soft-light 등)으로 단색 사각형 칠하기 — 화면을 복사해(블릿) 셰이더가 아래 색을 읽어 계산
+  //   (사막필드 노을빛 soft-light: 예전엔 화면 전체를 2D로 그려 대충 맞춰서 색이 11% 달랐음)
+  const DBM = { 'soft-light': 0, overlay: 1, 'hard-light': 2, darken: 3, lighten: 4, difference: 5, exclusion: 6, 'color-dodge': 7, 'color-burn': 8 };
+  const DBK = { pr: null, vao: null, fb: null, tex: null, w: 0, h: 0, u: {} };
+  function dbInit() { if (DBK.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
+      const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
+void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); gl_Position=vec4(p*2.-1.,0.,1.); }`));
+      G.attachShader(p, sh(G.FRAGMENT_SHADER, `#version 300 es
+precision highp float; uniform sampler2D uD; uniform vec4 uC; uniform int uMd; uniform vec2 uR; out vec4 o;
+float D(float x){ return x<=.25?((16.*x-12.)*x+4.)*x:sqrt(x); }
+float B(float cb, float cs){ if(uMd==0) return cs<=.5?cb-(1.-2.*cs)*cb*(1.-cb):cb+(2.*cs-1.)*(D(cb)-cb); if(uMd==1) return cb<=.5?2.*cs*cb:1.-2.*(1.-cs)*(1.-cb);
+  if(uMd==2) return cs<=.5?2.*cs*cb:1.-2.*(1.-cs)*(1.-cb); if(uMd==3) return min(cb,cs); if(uMd==4) return max(cb,cs); if(uMd==5) return abs(cb-cs); if(uMd==6) return cb+cs-2.*cb*cs;
+  if(uMd==7) return cb<=0.?0.:(cs>=1.?1.:min(1.,cb/(1.-cs))); return cb>=1.?1.:(cs<=0.?0.:1.-min(1.,(1.-cb)/cs)); }
+void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mix(b,vec3(B(b.r,s.r),B(b.g,s.g),B(b.b,s.b)),uC.a),1.); }`));
+      G.linkProgram(p); if (!G.getProgramParameter(p, G.LINK_STATUS)) throw new Error(G.getProgramInfoLog(p));
+      DBK.pr = p; for (const k of ['uD', 'uC', 'uMd', 'uR']) DBK.u[k] = G.getUniformLocation(p, k); DBK.vao = G.createVertexArray(); DBK.fb = G.createFramebuffer(); return true;
+    } catch (e) { note('dstblend:' + String(e && e.message || e).slice(0, 60)); DBK.pr = false; return false; } }
+  // 기기 좌표 사각형 [x0,y0,x1,y1] · 색(0~1, 미리 안 곱함) · 투명도 a · 모드 번호 → true면 그렸음
+  function dstBlend(x0, y0, x1, y1, c, a, md) { if (LYC || DBK.pr === false || !dbInit()) return false; x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(PW, Math.ceil(x1)); y1 = Math.min(PH, Math.ceil(y1)); if (x1 <= x0 || y1 <= y0) return true;
+    runFlush(); shFlush(); flush(); const G = gl;
+    if (DBK.w !== PW || DBK.h !== PH) { if (DBK.tex) G.deleteTexture(DBK.tex); DBK.tex = G.createTexture(); bindTex(DBK.tex); G.texStorage2D(G.TEXTURE_2D, 1, G.RGB8, PW, PH); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MIN_FILTER, G.NEAREST); G.texParameteri(G.TEXTURE_2D, G.TEXTURE_MAG_FILTER, G.NEAREST);
+      G.bindFramebuffer(G.FRAMEBUFFER, DBK.fb); G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, DBK.tex, 0); G.bindFramebuffer(G.FRAMEBUFFER, null); DBK.w = PW; DBK.h = PH; }
+    const by0 = PH - y1, by1 = PH - y0;   // GL은 아래가 0
+    G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, DBK.fb); G.blitFramebuffer(x0, by0, x1, by1, x0, by0, x1, by1, G.COLOR_BUFFER_BIT, G.NEAREST); G.bindFramebuffer(G.FRAMEBUFFER, null);
+    if (G.getError() !== G.NO_ERROR) { note('dstblend:blit'); DBK.pr = false; return false; }
+    G.useProgram(DBK.pr); curProg = null; G.bindVertexArray(DBK.vao); actTex(0); bindTex(DBK.tex); smpB(0, null); G.uniform1i(DBK.u.uD, 0); G.uniform4f(DBK.u.uC, c[0], c[1], c[2], a); G.uniform1i(DBK.u.uMd, md); G.uniform2f(DBK.u.uR, PW, PH);
+    blendSet(8); G.enable(G.SCISSOR_TEST); G.scissor(x0, by0, x1 - x0, by1 - by0); if (!DBG.nodraw) G.drawArrays(G.TRIANGLES, 0, 3); G.disable(G.SCISSOR_TEST); G.bindVertexArray(vao); ST.dstb = (ST.dstb || 0) + 1; return true; }
+
   // ---------------------------------------------------------------- 배치
   const BL = { 'source-over': 0, lighter: 1, multiply: 2, screen: 3, 'destination-out': 4, 'source-atop': 5, 'destination-over': 6, clear: 7, copy: 8 };
   let nQ = 0, slots = [], nS = 0, rr = 0, cBl = 0, cF = null, curBl = -1;   // slots: 칸 번호 = 텍스처 단위 (빈칸 있음 · 이미 그 단위에 묶인 텍스처는 그 칸에 → 다시 안 묶음)
@@ -366,7 +429,7 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
   function taPut(w, h) { const S = TA.S; if (w > S || h > S) return null; if (TA.x + w > S) { TA.x = 0; TA.y += TA.rh + 1; TA.rh = 0; } if (TA.y + h > S) return null; const p = [TA.x, TA.y]; TA.x += w + 1; TA.rh = Math.max(TA.rh, h); return p; }
 
   // ---------------------------------------------------------------- 보조 2D 캔버스 (복잡한 경로 등) 묶음
-  const RUN = { open: false, bl: 0, x0: 0, y0: 0, x1: 0, y1: 0, n: 0, who: '' }, DBG = { on: false, fin: false, nodraw: false };   // 개발용 (dev/tests/gl_*.js)
+  const RUN = { open: false, bl: 0, x0: 0, y0: 0, x1: 0, y1: 0, n: 0, who: '' }, DBG = { on: false, fin: false, nodraw: false, spk: () => ({ i: SPK.i, last: SPK.last, now: nowS(), on: SPK.on, pr: !!SPK.pr, lo: SPK.lo, hi: SPK.hi }) };   // 개발용 (dev/tests/gl_*.js)
   let V = null, Vc = null;
   // 11/1 버그 고침: 다른 그림이 QX(꼭짓점)를 채워 둔 채 gOpen → runFlush가 불리면 QX를 덮어써서 그 그림이 묶음 크기로 늘어나 그려졌음(보스 막대 글자·HP 막대) → 앞뒤로 저장·복원
   const QS_ = new Float64Array(24);
@@ -581,14 +644,29 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
     isPointInPath(...a) { vs(); return V.isPointInPath(...a); } isPointInStroke(...a) { vs(); return V.isPointInStroke(...a); }
     // ---- 사각형
     fillRect(x, y, w, h) { if (!w || !h) return; const st = C.st;
+      if (st.bl < 0 && DBM[st.op] !== undefined && !st.clip && !st.sh && !st.F && st.m[1] === 0 && st.m[2] === 0 && typeof V.fillStyle === 'string') { const c = parseColor(V.fillStyle);   // soft-light 등: 화면을 읽어 셰이더로
+        if (c) { tx4(st.m, x, y, w, h, QX); if (dstBlend(Math.min(QX[0], QX[4]), Math.min(QX[1], QX[5]), Math.max(QX[0], QX[4]), Math.max(QX[1], QX[5]), c, c[3] * st.a, DBM[st.op])) return; } }
       if (glOK() && !st.F) { const P = paint(V.fillStyle, true); if (P === 'skip') return; if (P) { tx4(st.m, x, y, w, h, QX); if (fillQuad(P)) { ST.rect++; return; } } }
       ST.rectR++; const q = bb(tx4(st.m, x, y, w, h, Q8)), fx = rOpen(q[0], q[1], q[2], q[3]); V.fillRect(x, y, w, h); rClose(fx); }
-    strokeRect(x, y, w, h) { ST.rectR++; const m = C.st.m, k = V.lineWidth * Math.max(Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3])) + 2, q = bb(tx4(m, x, y, w, h, Q8)); const fx = rOpen(q[0] - k, q[1] - k, q[2] + k, q[3] + k); V.strokeRect(x, y, w, h); rClose(fx); }
+    strokeRect(x, y, w, h) { const st = C.st;   // 11/2: 사각형 테두리도 GL (보스 막대 등 · 예전엔 늘 2D라 주변 글자까지 2D 묶음으로 끌려감) — 지금 경로는 건드리지 않음
+      if (glOK() && !st.F && !st.dash && w && h && !DBG.nopath) { const P = paint(V.strokeStyle, false); if (P === 'skip') return;
+        if (P && P.pa < 2 && st.m[1] === 0 && st.m[2] === 0) { const m = st.m, hx = V.lineWidth * Math.abs(m[0]) / 2, hy = V.lineWidth * Math.abs(m[3]) / 2;   // 축에 맞는 사각형: 겹치지 않는 네 띠 (반투명이어도 모서리가 두 번 칠해지지 않음)
+          const ax = m[0] * x + m[4], bx = m[0] * (x + w) + m[4], ay = m[3] * y + m[5], by = m[3] * (y + h) + m[5], X0 = Math.min(ax, bx), X1 = Math.max(ax, bx), Y0 = Math.min(ay, by), Y1 = Math.max(ay, by);
+          if (X1 + hx < 0 || Y1 + hy < 0 || X0 - hx > PW || Y0 - hy > PH) return; if (!gOpen(X0 - hx, Y0 - hy, X1 + hx, Y1 + hy)) {
+            const B = Y1 - Y0 > 2 * hy ? [[X0 - hx, Y0 - hy, X1 + hx, Y0 + hy], [X0 - hx, Y1 - hy, X1 + hx, Y1 + hy], [X0 - hx, Y0 + hy, X0 + hx, Y1 - hy], [X1 - hx, Y0 + hy, X1 + hx, Y1 - hy]] : [[X0 - hx, Y0 - hy, X1 + hx, Y1 + hy]];
+            for (const q of B) { if (q[2] <= q[0] || q[3] <= q[1]) continue; QX[0] = q[0]; QX[1] = q[1]; QX[2] = q[2]; QX[3] = q[1]; QX[4] = q[2]; QX[5] = q[3]; QX[6] = q[0]; QX[7] = q[3]; uvRect(0, 0, 1, 1); if (P.pa && !gradCoords(P)) continue; emit(P.t, P.s, st.bl, null, P.pa << 2, P.r, P.g, P.b, P.a, P.p0, P.p1, P.p2, 0); }
+            ST.rect++; return; } }
+        else if (P && P.pa < 2) { const m = st.m, sc = Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])), sv = { s: PP.s, cur: PP.cur, bad: PP.bad, n: PP.n }; PP.s = []; PP.cur = null; PP.bad = false; PP.n = 0;
+          ppM(dvX(x, y), dvY(x, y)); ppL(dvX(x + w, y), dvY(x + w, y)); ppL(dvX(x + w, y + h), dvY(x + w, y + h)); ppL(dvX(x, y + h), dvY(x, y + h)); PP.cur.c = true;
+          const j0 = V.lineJoin; let ok; try { ok = ppStroke(P, V.lineWidth * sc / 2); } finally { PP.s = sv.s; PP.cur = sv.cur; PP.bad = sv.bad; PP.n = sv.n; } if (ok) { ST.rect++; return; } } }
+      ST.rectR++; const m = C.st.m, k = V.lineWidth * Math.max(Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3])) + 2, q = bb(tx4(m, x, y, w, h, Q8)); const fx = rOpen(q[0] - k, q[1] - k, q[2] + k, q[3] + k); V.strokeRect(x, y, w, h); rClose(fx); }
     clearRect(x, y, w, h) { const st = C.st; if (st.clip) { const q = bb(tx4(st.m, x, y, w, h, Q8)), fx = rOpen(q[0], q[1], q[2], q[3]); V.clearRect(x, y, w, h); rClose(fx); return; }
       tx4(st.m, x, y, w, h, QX); gOpenNo(Math.min(QX[0], QX[2], QX[4], QX[6]), Math.min(QX[1], QX[3], QX[5], QX[7]), Math.max(QX[0], QX[2], QX[4], QX[6]), Math.max(QX[1], QX[3], QX[5], QX[7])); uvRect(0, 0, 1, 1); emit(white, 0, 7, null, 0, 0, 0, 0, 0, 0, 0, 0, 0); }
     // ---- 글자: 같은 모양은 아틀라스에 한 번만 그림
     fillText(t, x, y, mw) { this._t(0, t, x, y, mw); } strokeText(t, x, y, mw) { this._t(1, t, x, y, mw); }
-    _t(sk, t, x, y, mw) { t = String(t); if (!t) return; const st = C.st, m = st.m, sty = sk ? V.strokeStyle : V.fillStyle;
+    _t(sk, t, x, y, mw) { t = String(t); if (!t) return; const st = C.st, m = st.m, sty0 = sk ? V.strokeStyle : V.fillStyle;
+      let GP = null; if (typeof sty0 !== 'string' && glOK() && !st.F) { const P = paint(sty0, false); if (P && P !== 'skip' && P.pa && !P.pat) GP = { pa: P.pa, gr: P.gr, r: P.r, g: P.g, b: P.b, a: P.a, p0: P.p0, p1: P.p1, p2: P.p2, p3: P.p3 || 0, ca: P.ca, sa: P.sa }; }   // 2단계: 그라데이션 글자 = 흰 글자 + 그라데이션 칠
+      const sty = GP ? '#ffffff' : sty0;
       if (glOK() && m[1] === 0 && m[2] === 0 && m[0] > 0 && Math.abs(m[0] - m[3]) < 1e-6 && typeof sty === 'string' && mw === undefined) {
         const s = m[0], ix = Math.round(m[0] * x + m[4]), iy = Math.round(m[3] * y + m[5]), fx = 0, fy = 0;   // 글자는 기기 픽셀에 맞춰 찍음 (올라가는 피해 숫자가 프레임마다 새로 그려지지 않게 · 2D와 0.5px 안 차이)
         const key = (sk ? 'S' + V.lineWidth + V.lineJoin : 'F') + '|' + V.font + '|' + V.textAlign + V.textBaseline + '|' + sty + '|' + s.toFixed(3) + '|' + t;
@@ -601,8 +679,10 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
             const t0 = performance.now(); bindTex(TA.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, p[0], p[1], w, h, gl.RGBA, gl.UNSIGNED_BYTE, g.getImageData(0, 0, w, h).data); ST.txtNew++; ST.tTxt += performance.now() - t0;
             e = { x: p[0], y: p[1], w, h, ox, oy }; if (TA.m.size > 6000) taReset(); TA.m.set(key, e); } }
         if (e) { const X = ix - e.ox, Y = iy - e.oy, S = TA.S, A = st.a; QX[0] = X; QX[1] = Y; QX[2] = X + e.w; QX[3] = Y; QX[4] = X + e.w; QX[5] = Y + e.h; QX[6] = X; QX[7] = Y + e.h;
-          if (!gOpen(X, Y, X + e.w, Y + e.h)) { ST.txt++; uvRect(e.x / S, e.y / S, (e.x + e.w) / S, (e.y + e.h) / S); emit(TA.tex, 0, st.bl, st.F, 0, A, A, A, A, 0, 0, 0, 0); return; } } }
-      ST.txtR++; note('text'); const s = Math.max(Math.hypot(m[0], m[1]), 1), M = V.measureText(t), w = (Math.max(M.width, (M.actualBoundingBoxRight || 0) + (M.actualBoundingBoxLeft || 0)) + 40) * s, hh = 60 * s;
+          if (!gOpen(X, Y, X + e.w, Y + e.h)) { ST.txt++; uvRect(e.x / S, e.y / S, (e.x + e.w) / S, (e.y + e.h) / S);
+            if (GP) { if (!gradCoords(GP)) return; ST.grad++; emit(TA.tex, 0, st.bl, st.F, (GP.pa << 2) | 32, GP.r, GP.g, GP.b, GP.a, GP.p0, GP.p1, GP.p2, GP.p3); return; }
+            emit(TA.tex, 0, st.bl, st.F, 0, A, A, A, A, 0, 0, 0, 0); return; } } }
+      ST.txtR++; note('text:' + (!glOK() ? 'state' : !(m[1] === 0 && m[2] === 0 && m[0] > 0 && Math.abs(m[0] - m[3]) < 1e-6) ? 'xf' : typeof sty0 !== 'string' && !GP ? 'paint' : mw !== undefined ? 'mw' : 'big/run')); const s = Math.max(Math.hypot(m[0], m[1]), 1), M = V.measureText(t), w = (Math.max(M.width, (M.actualBoundingBoxRight || 0) + (M.actualBoundingBoxLeft || 0)) + 40) * s, hh = 60 * s;
       const X = m[0] * x + m[2] * y + m[4], Y = m[1] * x + m[3] * y + m[5]; const fx_ = rOpen(X - w, Y - hh, X + w, Y + hh); if (sk) { if (mw !== undefined) V.strokeText(t, x, y, mw); else V.strokeText(t, x, y); } else { if (mw !== undefined) V.fillText(t, x, y, mw); else V.fillText(t, x, y); } rClose(fx_); }
     measureText(t) { return V.measureText(t); }
     // ---- 그림
@@ -719,16 +799,17 @@ void main(){ float r=dot(vQ,vQ); float a=clamp(1.-r,0.,1.); o=vC*(a*a); }`));
       ...(cz ? ['', '2D 묶음 (프레임당 · 누가):', ...cz.runs, '그림 올림 (프레임당 · 누가):', ...cz.ups, '2D로 간 이유/프레임: ' + cz.why] : []), '', '(아무 곳이나 누르면 닫힘)'].join('\n');
     box.onclick = () => box.remove(); return { on: on_, off: off_, info: I }; }
 
-  // ---------------------------------------------------------------- 테스트 페이지(DEMO) ESC 메뉴 버튼 [새 그래픽(시험)]
-  function syncBtn() { const b = document.getElementById('esc-gl'); if (!b) return; b.textContent = '새 그래픽(시험): ' + (on() ? '켬' : FAILED || LOST ? '못 씀 (원래 그래픽)' : '끔'); b.setAttribute('aria-pressed', on() ? 'true' : 'false'); }
-  function addBtn() { if (!window.DEMO_MODE || document.getElementById('esc-gl')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
-    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-gl'; b.title = 'WebGL로 화면을 그리는 시험 기능 (테스트 페이지 전용)'; b.onclick = () => { set(!WANT); }; ref.parentNode.insertBefore(b, ref.nextSibling);
+  // ---------------------------------------------------------------- ESC 메뉴 버튼 [새 그래픽(베타)] — 11/2 프로듀서: 본서버도 설정에서 켜고 끄기 (기본은 끔) · [진단]은 테스트 페이지에만
+  function syncBtn() { const b = document.getElementById('esc-gl'); if (!b) return; b.textContent = '새 그래픽(베타): ' + (on() ? '켬' : FAILED || LOST ? '못 씀 (원래 그래픽)' : '끔'); b.setAttribute('aria-pressed', on() ? 'true' : 'false'); }
+  function addBtn() { if (document.getElementById('esc-gl')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
+    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-gl'; b.title = '그래픽카드(WebGL)로 화면을 그려 더 부드럽게 · 빛 번짐·불꽃 효과 · 문제가 있으면 끄면 원래 그래픽'; b.onclick = () => { set(!WANT); }; ref.parentNode.insertBefore(b, ref.nextSibling);
+    if (!window.DEMO_MODE) { syncBtn(); return; }
     const d = document.createElement('button'); d.type = 'button'; d.id = 'esc-gldiag'; d.textContent = '새 그래픽 진단 (13초)'; d.title = '새 그래픽 켬/끔 속도를 재서 보여 줌'; d.onclick = () => { diag(); }; b.parentNode.insertBefore(d, b.nextSibling); syncBtn(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBtn); else addBtn();
   patchRec();   // 무늬·그라데이션 기록은 늘 (게임 도중에 켜도 바닥 무늬 등을 GL로)
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, mx, glow, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();

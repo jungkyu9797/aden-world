@@ -3,6 +3,8 @@
 //   다른 유저 대역: 직업 섞음 · 장비 무작위 · 일부는 걸어 다니고 1.2~2초마다 공격 동작
 // 로그인 (dev/tq.js와 같은 순서 · 페이지 주소만 바꿀 수 있게: 비교용 main 판은 dev/out/mainref/_kt2.html)
 async function login(p, { cls = 'knight', name, page = '/_kt2.html', q = '?mp=bc' } = {}) {
+  // v215 BGRUN(화면 프레임이 멈추면 워커 타이머로 게임만 진행): 장면을 멈출 때(freeze) 같이 멈추게 — 워커 대신 50ms 타이머로 돌게 하고 __bgOff면 건너뜀
+  await p.addInitScript(() => { try { window.Worker = function () { throw new Error('no worker (gl test)'); }; const si = window.setInterval; window.setInterval = function (f, ms, ...a) { if (ms === 50 && typeof f === 'function') { const g = f; f = (...b) => { if (!window.__bgOff) g(...b); }; } return si.call(window, f, ms, ...a); }; } catch (e) {} });
   await p.goto('http://127.0.0.1:' + (process.env.KT_PORT || 8766) + page + q);
   await p.waitForSelector('#lg-mode', { state: 'visible' }); await p.click('#lg-mode');
   const acc = 't' + Date.now() % 1e7; await p.fill('#lg-acc', acc); await p.fill('#lg-pw', 'abcd'); await p.fill('#lg-pw2', 'abcd'); await p.click('#lg-go');
@@ -44,5 +46,5 @@ exports.setup = async function setup(p, { chars = 30, mobs = 30, fx = true, zone
   info.peers = await p.evaluate(() => __T.NET.others().length);
   return info; };
 // 같은 장면을 멈춰 두고(게임 루프 멈춤 · 난수 고정) GL 끔/켬으로 한 번씩 그리기 — gl.js의 GLR._redraw (시험용)
-exports.freeze = p => p.evaluate(() => new Promise(res => { window.__glStill = true; const r0 = window.requestAnimationFrame; window.__raf0 = r0; window.requestAnimationFrame = cb => (cb && cb.name === 'frame' ? (window.__frozen = cb, 0) : r0.call(window, cb)); setTimeout(res, 300); }));
+exports.freeze = p => p.evaluate(() => new Promise(res => { window.__glStill = true; window.__bgOff = true; /* v215 BGRUN도 멈춤 */ const r0 = window.requestAnimationFrame; window.__raf0 = r0; window.requestAnimationFrame = cb => (cb && cb.name === 'frame' ? (window.__frozen = cb, 0) : r0.call(window, cb)); setTimeout(res, 300); }));
 exports.redraw = (p, gl) => p.evaluate(gl => { let s = 12345; const M = Math.random; Math.random = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; try { return GLR._redraw(gl); } finally { Math.random = M; } }, gl);

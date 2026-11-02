@@ -21,7 +21,7 @@ print(json.dumps({'mean': round(float(np.abs(a - b).mean()), 3), 'gt16': round(f
 function diff(a, b, o) { return JSON.parse(execFileSync('python3', ['-c', PY, a, b, o]).toString()); }
 async function shot(p, gl, file) { const r = await S.redraw(p, gl); await p.waitForTimeout(150); await p.screenshot({ path: file }); return r; }
 (async () => { const b = await chromium.launch({ args: S.ARGS }); const res = {};
-  for (const mode of ['still', 'fx']) {
+  for (const mode of (process.env.GLP_MODES || 'still,fx').split(',')) {
     const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } }); const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (/\[GL\]/.test(m.text())) errs.push(m.text()); });
     await p.addInitScript(() => { try { localStorage.setItem('aden_gl', 'force'); localStorage.setItem('aden_gl_bloom', '0'); localStorage.setItem('aden_gl_fx', '0'); /* 빛 번짐은 일부러 바뀌는 그림이라 정확도 비교에서는 끔 */ } catch (e) {} });
@@ -40,6 +40,7 @@ async function shot(p, gl, file) { const r = await S.redraw(p, gl); await p.wait
   for (const f of ['_gl_off2.png', '_gl_self.png', '_gl_dn.png']) try { fs.unlinkSync(path.join(OUT, f)); } catch (e) {}
   fs.writeFileSync(path.join(OUT, 'gl_parity.json'), JSON.stringify(res, null, 1));
   const ok = m => res[m] && res[m].diff.gt48 < 1.0 && !res[m].errors.length;
+  if (!res.still || !res.fx) { console.log(JSON.stringify(Object.keys(res))); await b.close(); return; }
   console.log(`\n정확도: 장면(still) 평균 차이 ${res.still.diff.mean} · 큰 차이 픽셀 ${res.still.diff.gt48}% (기준 잡음 ${res.still.self.gt48}% · 경로 GL 전 ${res.still.diffNoPath.gt48}%) → ${ok('still') ? '통과' : '확인 필요'}`);
   console.log(`정확도: 이펙트(fx)   평균 차이 ${res.fx.diff.mean} · 큰 차이 픽셀 ${res.fx.diff.gt48}% (기준 잡음 ${res.fx.self.gt48}% · 경로 GL 전 ${res.fx.diffNoPath.gt48}%) → ${ok('fx') ? '통과' : '확인 필요'}`);
   await b.close(); })();
