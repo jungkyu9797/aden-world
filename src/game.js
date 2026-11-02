@@ -1047,7 +1047,7 @@ function spellSfx(id) { if (!AC || !SFX_ON) return; const t = AC.currentTime, T 
     default: T(0, 'triangle', 520, 1040, 0.25, 0.07); } }
 // ===== 마법 이펙트: 대상(나/몬스터)을 따라다니며 그림
 const SPELLFX = [];
-function spellFx(kind, ent, c) { SPELLFX.push({ kind, ent, c: c || '#ffffff', t: 0, life: ({ tshield: 0.9, heal: 1.1, shield: 0.9, light: 1.2, enchant: 1.0, stun: 0.6, aura: 0.9, cure: 0.9, cast: 0.35, levelup: 2.4, poly: 1.7, enok: 1.0, enbless: 1.3, earth: 1.4, puff: 0.8, boom: 1.2 })[kind] || 0.8 }); }
+function spellFx(kind, ent, c) { if (window.GLR && ent && GLR.on()) { const [gx, gy] = W2P(ent.x, ent.z); GLR.mx('sfx', kind, gx, gy, 0); }   /* GL: 새 그래픽 켬일 때만 */ SPELLFX.push({ kind, ent, c: c || '#ffffff', t: 0, life: ({ tshield: 0.9, heal: 1.1, shield: 0.9, light: 1.2, enchant: 1.0, stun: 0.6, aura: 0.9, cure: 0.9, cast: 0.35, levelup: 2.4, poly: 1.7, enok: 1.0, enbless: 1.3, earth: 1.4, puff: 0.8, boom: 1.2 })[kind] || 0.8 }); }
 function spellFxTick(dt) { for (let n = SPELLFX.length - 1; n >= 0; n--) { const f = SPELLFX[n]; f.t += dt; if (f.t >= f.life) SPELLFX.splice(n, 1); } }
 function drawSpellFx(g) { for (const f of SPELLFX) { const e = f.ent; if (!e || (e !== hero && e.dead && f.kind !== 'levelup')) continue; const [x, y] = W2P(e.x, e.z), k = f.t / f.life, a = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85, top = e === hero || e.pl ? y - 70 : y - headY(e);
     g.save(); g.globalCompositeOperation = 'lighter';
@@ -1297,6 +1297,7 @@ function mxStroke(g, L) { g.beginPath(); L.forEach(([x, y], i) => i ? g.lineTo(x
 
 // ---------- 시전: 발밑 마법진 + 빛기둥 + 떠오르는 빛 + 마법 이름
 function mxCast(id, e, noName) { const sch = MX_SCH[id] || 'arcane', S = MXS[sch], c = (SK[id] && SK[id].circle) || 1, r = 26 + Math.min(6, c) * 4.5, [x, y] = W2P(e.x, e.z);
+  if (window.GLR) GLR.mx('cast', id, x, y, 0, S);   // GL: 새 그래픽 켬일 때만 빛·불티 더함
   mxAdd('circle', e, { gnd: 1, sch, r, life: 0.55 + c * 0.06 }); mxAdd('cpillar', e, { sch, r, life: 0.5 + c * 0.05 });
   for (let i = 0; i < 10 + c * 2; i++) { const an = Math.random() * 6.283; mxP(x + Math.cos(an) * r * 0.8, y + Math.sin(an) * r * 0.4, { k: 'dot', c: S.l, s: mxR(1.6, 2.8), vy: -mxR(50, 110), vx: Math.cos(an) * 8, life: mxR(0.5, 0.9), dr: 0.6 }); }
   if (!noName && SK[id]) floatText(x, y - (e === hero || e.pl ? 112 : mxH(e) + 30), SK[id].name, { color: S.h, size: 15, big: true, life: 1.15, rise: 26 });
@@ -1335,6 +1336,7 @@ function mxBoltDraw(g, b) { const [x, y, an] = mxBoltPos(b); g.save(); g.globalC
 
 // ---------- 명중
 function mxHit(id, f) { if (!f) return; const [x, y0] = W2P(f.x, f.z), h = mxH(f), y = y0 - Math.max(26, Math.min(60, h * 0.55));
+  if (window.GLR) GLR.mx('hit', id, x, y, h, MXS[MX_SCH[id] || 'arcane'], MXLITE);   // GL: 새 그래픽 켬일 때만 빛·불티 더함
   if (L1.H[id]) { L1.H[id](f, x, y0, y, h); return; }   // v177
   switch (id) {
     case 'ebolt': if (MXLITE) { mxAdd('ring', f, { gnd: 1, c: '120,170,255', r0: 4, r1: 30, w: 2, life: 0.35 }); mxBurst(x, y, 14, () => ({ k: 'dot', c: '120,170,255', s: mxR(1.8, 3), life: mxR(0.2, 0.45), dr: 3 }), 30, 90); break; }   // 수호탑 봇: 작게
@@ -1464,7 +1466,7 @@ const L1 = (() => {
   const summon = p => { mxAdd('circle', p, { gnd: 1, sch: 'dark', r: 30, life: 1.1 }); mxAdd('l1rise', p, { life: 1.0, r: 16, hgt: mxH(p) + 30, c: '200,40,40', l: '255,170,150', S: seeds(12) }); const [x, y] = W2P(p.x, p.z); mxBurst(x, y - 6, 12, () => ({ k: 'smoke', c: '60,20,24', s: mxR(6, 10), life: mxR(0.7, 1.1), dr: 1.6, a0: 0.5, vy: -mxR(20, 50) }), 20, 60, 20); };
   return { S, H, A, K, B, summon, rub };
 })();
-function mxSelf(id, e) { if (!e) return; const [x, y] = W2P(e.x, e.z), h = mxH(e), S = MXS[MX_SCH[id] || 'arcane'];
+function mxSelf(id, e) { if (!e) return; const [x, y] = W2P(e.x, e.z), h = mxH(e), S = MXS[MX_SCH[id] || 'arcane']; if (window.GLR) GLR.mx('self', id, x, y, h, S);   /* GL: 새 그래픽 켬일 때만 */
   if (L1.S[id]) { L1.S[id](e, x, y, h); return; }   // v177
   switch (id) {
     case 'heal': case 'xheal': { const big = id === 'xheal'; mxAdd('healrain', e, { life: big ? 1.3 : 1.05, big }); mxAdd('ring', e, { gnd: 1, c: '120,255,150', r0: 8, r1: big ? 62 : 46, w: 3, life: 0.7 }); if (big) mxAdd('ring', e, { gnd: 1, c: '255,240,170', r0: 4, r1: 40, w: 2, life: 0.9 });
@@ -1880,7 +1882,7 @@ const KN=META.knight, FX=META.fox;
 const IMPACTS = [];
 function stunDing(f){ if (!AC||!SFX_ON||!DN.seen(f.i,f.j)) return; const d=Math.hypot(f.x-hero.x,f.z-hero.z), v=Math.max(0.25,1-d/14); const t=AC.currentTime;   // 스턴 중 머리 위 별: 띵·띵 종소리
   tone(t,'sine',2093,2093,0.16,0.05*v); tone(t,'triangle',4186,4186,0.08,0.012*v); tone(t+0.11,'sine',2637,2637,0.2,0.045*v); tone(t+0.11,'triangle',5274,5274,0.08,0.01*v); }
-function impact(x, y, kind, c) { IMPACTS.push({ x, y, t: 0, life: kind === 'quake' ? 2.2 : kind === 'bolt' ? 0.42 : kind === 'miss' ? 0.35 : 0.3, kind, c: c || '#ffe2a0', s: Math.random() * 6.28 }); }
+function impact(x, y, kind, c) { IMPACTS.push({ x, y, t: 0, life: kind === 'quake' ? 2.2 : kind === 'bolt' ? 0.42 : kind === 'miss' ? 0.35 : 0.3, kind, c: c || '#ffe2a0', s: Math.random() * 6.28 }); if (window.GLR) GLR.mx('imp', kind, x, y, 0, { c });   /* GL: 새 그래픽 켬일 때만 */ }
 function drawImpacts(g) { if (!IMPACTS.length) return; g.save(); g.globalCompositeOperation = 'lighter';
   for (const p of IMPACTS) { const k = p.t / p.life, a = 1 - k;
     if (p.kind === 'quake') { g.globalCompositeOperation = 'source-over'; const R = 18 + k * 40; g.strokeStyle = `rgba(30,18,8,${0.85 * a})`; g.lineWidth = 2.2; g.beginPath();

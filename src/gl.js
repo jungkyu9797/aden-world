@@ -271,14 +271,43 @@ void main(){ vec4 c=vec4(0.); float ws=0.; for(int i=-64;i<=64;i++){ if(i<-uN||i
   //   game.js: 맞을 때·불 터질 때 GLR.spark(x, y, n, {c, sp, life, g, sz, up}) (세계 좌표 = parts와 같음) · drawWorld의 parts 그리는 자리에서 GLR.sparks(g)
   //   새 그래픽이 꺼져 있으면 아무것도 안 함(원래 parts만) · 끄기 localStorage aden_gl_fx=0
   const SPK = { on: LSG('aden_gl_fx') !== '0', N: 8192, i: 0, F: 9, buf: null, f32: null, u32: null, lo: 1e9, hi: -1, pr: null, vao: null, vbo: null, u: {}, t0: performance.now(), live: 0, last: -1 };
-  const nowS = () => (performance.now() - SPK.t0) / 1000;
+  let SPA = 0, SPL = performance.now(); const nowS = () => { const n = performance.now(); SPA += (n - SPL) * (DBG.ts || 1); SPL = n; return SPA / 1000; };   // DBG.ts: 테스트에서 불티 시간을 느리게 (느린 소프트웨어 그래픽에서 눈으로 확인)
   function spark(x, y, n, o) { if (!SPK.on || !on() || !gl || n <= 0) return; o = o || {}; if (!SPK.f32) { SPK.buf = new ArrayBuffer(SPK.N * SPK.F * 4 * 1); SPK.f32 = new Float32Array(SPK.buf); SPK.u32 = new Uint32Array(SPK.buf); }
-    const c = parseColor(o.c || '#ffe8b0') || [1, 0.9, 0.7, 1], col = ((c8(c[3]) << 24) | (c8(c[2]) << 16) | (c8(c[1]) << 8) | c8(c[0])) >>> 0, t = nowS(), sp = o.sp || 120, life = o.life || 0.5, gv = o.g === undefined ? 260 : o.g, sz = o.sz || 1.6, up = o.up || 0;
-    n = Math.min(n | 0, 256); for (let k = 0; k < n; k++) { const j = SPK.i, b = j * SPK.F, a = Math.random() * 6.2832, s = sp * (0.35 + 0.65 * Math.random());
-      SPK.f32[b] = x + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 1] = y + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 2] = Math.cos(a) * s; SPK.f32[b + 3] = Math.sin(a) * s * 0.6 - up - sp * 0.15;
-      SPK.f32[b + 4] = t + Math.random() * 0.03; SPK.f32[b + 5] = life * (0.6 + 0.4 * Math.random()); SPK.f32[b + 6] = sz * (0.7 + 0.6 * Math.random()); SPK.f32[b + 7] = gv; SPK.u32[b + 8] = col;
+    const c = parseColor(o.c || '#ffe8b0') || [1, 0.9, 0.7, 1], ca = c[3] * (o.a == null ? 1 : o.a), col = ((c8(ca) << 24) | (c8(c[2]) << 16) | (c8(c[1]) << 8) | c8(c[0])) >>> 0, t = nowS() + (o.dl || 0), sp = o.sp == null ? 120 : o.sp, life = o.life || 0.5, gv = o.g === undefined ? 260 : o.g, sz = o.sz || 1.6, up = o.up || 0;
+    n = Math.min(n | 0, 256); for (let k = 0; k < n; k++) { const j = SPK.i, b = j * SPK.F, a = o.even ? (k + Math.random() * 0.3) / n * 6.2832 : Math.random() * 6.2832, s = o.even ? sp * (0.9 + 0.1 * Math.random()) : sp * (0.35 + 0.65 * Math.random());
+      SPK.f32[b] = x + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 1] = y + (Math.random() - 0.5) * (o.r || 4); SPK.f32[b + 2] = Math.cos(a) * s; SPK.f32[b + 3] = Math.sin(a) * s * (o.fy || 0.6) - up - (o.even ? 0 : sp * 0.15);
+      SPK.f32[b + 4] = t + Math.random() * 0.03; SPK.f32[b + 5] = life * (0.6 + 0.4 * Math.random()); SPK.f32[b + 6] = sz * (o.even || n === 1 ? 1 : 0.7 + 0.6 * Math.random()); SPK.f32[b + 7] = gv; SPK.u32[b + 8] = col;
       SPK.lo = Math.min(SPK.lo, j); SPK.hi = Math.max(SPK.hi, j); SPK.i = (j + 1) % SPK.N; if (SPK.i === 0) { /* 한 바퀴: 다음 그릴 때 통째 올림 */ SPK.lo = 0; SPK.hi = SPK.N - 1; } }
     SPK.last = Math.max(SPK.last, t + life * 1.05); }
+  // ---------------------------------------------------------------- 2단계: 마법·타격 연출 (새 그래픽 켬일 때만 · 원래 그림 위에 빛·불티를 더함 · 꺼져 있으면 아무것도 안 함)
+  //   game.js: mxHit·mxCast·mxSelf·impact·spellFx에서 GLR.mx(종류, id, x, y, h, 색 묶음, 작게)
+  //   glow = 제자리 빛(속도 0 · 큰 점 하나) · ring = 고르게 퍼지는 고리 · 나머지는 불티
+  const MXF = { fire: ['meteor', 'fstorm', 'fball', 'farrow'], ice: ['blizzard', 'icedagger', 'lstorm', 'coc'], earth: ['quake', 'eruption', 'earth_bind'], bolt: ['sunburst', 'disint', 'clight', 'storm_shot'] };
+  const mxKind = id => { for (const k in MXF) if (MXF[k].includes(id)) return k; return ''; };
+  const rgb = (s, a) => s ? (s[0] === '#' || s[0] === 'r' ? s : 'rgba(' + s + ',' + (a == null ? 1 : a) + ')') : '#fff';
+  function glow(x, y, r, c, life, a, dl) { spark(x, y, 1, { c, sp: 0, g: 0, sz: r, life, r: 0, a: a == null ? 0.55 : a, dl }); }
+  function mx(type, id, x, y, h, S, lite) { if (!SPK.on || !on() || !gl || !isFinite(x) || !isFinite(y)) return; S = S || {}; h = h || 40;
+    const C1 = rgb(S.c), CL = rgb(S.l), CH = S.h || CL, k = lite ? 0.45 : 1, kind = type === 'hit' ? mxKind(id) : '';
+    if (type === 'hit') {
+      glow(x, y, (16 + Math.min(40, h) * 0.45) * (lite ? 0.6 : 1), CL, 0.22, 0.5); glow(x, y, (34 + Math.min(40, h) * 0.6) * (lite ? 0.6 : 1), C1, 0.4, 0.35);
+      spark(x, y, Math.round(18 * k), { c: CH, sp: 170, life: 0.45, g: 160, sz: 1.5 });
+      if (!lite) spark(x, y + h * 0.3, 28, { c: C1, sp: 95, life: 0.42, g: 0, sz: 1.3, even: true, fy: 0.5, a: 0.8 });
+      if (kind === 'fire') { spark(x, y, Math.round(26 * k), { c: '#ff9a3a', sp: 70, life: 1.0, g: -70, up: 30, sz: 2, r: 26 }); glow(x, y + h * 0.3, 60 * k, 'rgba(255,120,40,1)', 0.7, 0.3); }
+      else if (kind === 'ice') spark(x, y, Math.round(22 * k), { c: '#e8fbff', sp: 150, life: 0.6, g: 320, up: 60, sz: 1.4 });
+      else if (kind === 'earth') { spark(x, y + h * 0.5, Math.round(34 * k), { c: '#c89a5a', sp: 130, life: 0.8, g: 260, up: 70, sz: 2.2, r: 30, a: 0.7 }); }
+      else if (kind === 'bolt') { glow(x, y - 30, 70 * k, 'rgba(230,240,255,1)', 0.18, 0.4); spark(x, y, Math.round(24 * k), { c: '#f4f8ff', sp: 260, life: 0.3, g: 0, sz: 1.2 }); }
+    } else if (type === 'cast') {
+      spark(x, y, Math.round(14 * k), { c: CH, sp: 18, life: 0.8, g: -90, up: 25, sz: 1.5, r: 34, a: 0.85 }); glow(x, y - 4, 26, C1, 0.35, 0.3);
+    } else if (type === 'self') {
+      spark(x, y, 30, { c: C1, sp: 80, life: 0.5, g: 0, sz: 1.5, even: true, fy: 0.5, a: 0.85 }); spark(x, y, 22, { c: CH, sp: 20, life: 1.1, g: -70, up: 15, sz: 1.6, r: 40 }); glow(x, y - h * 0.5, 40, CL, 0.5, 0.35);
+    } else if (type === 'imp') {
+      if (id === 'bolt') { glow(x, y, 30, S.c || '#ffe066', 0.25, 0.6); spark(x, y, 10, { c: S.c || '#ffe066', sp: 150, life: 0.35, g: 120, sz: 1.4 }); }
+      else if (id === 'quake') { spark(x, y, 40, { c: S.c || '#6a4a2a', sp: 160, life: 0.9, g: 280, up: 80, sz: 2.6, r: 40, a: 0.85 }); spark(x, y, 36, { c: 'rgba(255,220,160,1)', sp: 150, life: 0.5, g: 0, sz: 2, even: true, fy: 0.5, a: 0.5 }); glow(x, y, 80, 'rgba(255,150,70,1)', 0.35, 0.25); }
+    } else if (type === 'sfx') {
+      if (id === 'levelup') { spark(x, y, 70, { c: '#ffe08a', sp: 60, life: 1.5, g: -90, up: 40, sz: 1.7, r: 40 }); spark(x, y, 40, { c: '#fff6d0', sp: 120, life: 0.6, g: 0, sz: 1.6, even: true, fy: 0.5 }); glow(x, y - 40, 70, 'rgba(255,220,120,1)', 0.8, 0.4); }
+      else if (id === 'heal' || id === 'cure') spark(x, y, 20, { c: '#a8ffb8', sp: 15, life: 1.0, g: -80, up: 20, sz: 1.5, r: 30 });
+      else if (id === 'enbless' || id === 'enok') { spark(x, y - 30, 36, { c: id === 'enbless' ? '#ffe9a0' : '#bfe0ff', sp: 140, life: 0.6, g: 60, sz: 1.5 }); glow(x, y - 30, 40, '#fff4d0', 0.4, 0.5); }
+    } }
   function sparkInit() { if (SPK.pr) return true; try { const G = gl, sh = (t, s) => { const o = G.createShader(t); G.shaderSource(o, s); G.compileShader(o); if (!G.getShaderParameter(o, G.COMPILE_STATUS)) throw new Error(G.getShaderInfoLog(o)); return o; };
       const p = G.createProgram(); G.attachShader(p, sh(G.VERTEX_SHADER, `#version 300 es
 layout(location=0) in vec4 aPV; layout(location=1) in vec4 aTL; layout(location=2) in vec4 aC;
@@ -395,7 +424,7 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
   function taPut(w, h) { const S = TA.S; if (w > S || h > S) return null; if (TA.x + w > S) { TA.x = 0; TA.y += TA.rh + 1; TA.rh = 0; } if (TA.y + h > S) return null; const p = [TA.x, TA.y]; TA.x += w + 1; TA.rh = Math.max(TA.rh, h); return p; }
 
   // ---------------------------------------------------------------- 보조 2D 캔버스 (복잡한 경로 등) 묶음
-  const RUN = { open: false, bl: 0, x0: 0, y0: 0, x1: 0, y1: 0, n: 0, who: '' }, DBG = { on: false, fin: false, nodraw: false };   // 개발용 (dev/tests/gl_*.js)
+  const RUN = { open: false, bl: 0, x0: 0, y0: 0, x1: 0, y1: 0, n: 0, who: '' }, DBG = { on: false, fin: false, nodraw: false, spk: () => ({ i: SPK.i, last: SPK.last, now: nowS(), on: SPK.on, pr: !!SPK.pr, lo: SPK.lo, hi: SPK.hi }) };   // 개발용 (dev/tests/gl_*.js)
   let V = null, Vc = null;
   // 11/1 버그 고침: 다른 그림이 QX(꼭짓점)를 채워 둔 채 gOpen → runFlush가 불리면 QX를 덮어써서 그 그림이 묶음 크기로 늘어나 그려졌음(보스 막대 글자·HP 막대) → 앞뒤로 저장·복원
   const QS_ = new Float64Array(24);
@@ -772,6 +801,6 @@ void main(){ vec3 b=texture(uD,gl_FragCoord.xy/uR).rgb; vec3 s=uC.rgb; o=vec4(mi
   if (WANT) patch();   // 처음부터 켜져 있으면 게임이 시작하기 전에 설치 (게임이 미리 만들어 두는 무늬·그라데이션도 기억) · 꺼져 있으면 아무것도 안 바꿈
 
   window.GLR = { on, set, frame, ctx: CTX, stats: () => LAST, why: () => ({ ...why_ }), info: () => ({ want: WANT, failed: FAILED, lost: LOST, why, maxTex: MAXT, slots: NS, tex: TX.size, texMB: Math.round(tAll / 1048576), text: TA.m.size, ramps: RAMP.m.size, frame: frameNo, renderer: gl ? (() => { try { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })() : null }),
-    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
+    _parseFilter: parseFilter, _redraw: redraw, _frameWith: frameWith, _dbg: DBG, diag, layer: layerBegin, layerEnd, _tex: () => [...TX].map(([s, e]) => [s instanceof HTMLImageElement ? (s.src || '').split('/').pop() : 'canvas', e.w, e.h, Math.round(e.by / 1048576), e.ups, e.mip, frameNo - e.f]).sort((a, b) => b[3] - a[3]).slice(0, 25), spark, sparks, mx, glow, fx: v => { if (v !== undefined) { SPK.on = !!v; try { localStorage.setItem('aden_gl_fx', v ? '1' : '0'); } catch (e) {} } return SPK.on; },
     bloom: (v, k) => { if (v !== undefined) { BLM.on = !!v; try { localStorage.setItem('aden_gl_bloom', v ? String(k || BLM.k) : '0'); } catch (e) {} } if (k !== undefined) BLM.k = +k; return { on: BLM.on, k: BLM.k }; } };
 })();
