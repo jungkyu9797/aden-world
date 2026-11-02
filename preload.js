@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('native', {
   update: () => ipcRenderer.invoke('update:run'),
   onUpdate: (fn) => ipcRenderer.on('update:progress', (_e, m) => fn(m)),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
+  gpuStatus: () => ipcRenderer.invoke('gpu:status'),
   onClosing: (fn) => ipcRenderer.on('app:closing', () => fn()),
   closeNow: () => ipcRenderer.invoke('app:close-now'),
   logAppend: (name, text) => ipcRenderer.invoke('log:append', name, text),

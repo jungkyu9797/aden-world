@@ -26,7 +26,7 @@ const REF = { lv: 55, fb: { lv: 55, c: 'knight', hp: 900, ac: -60, mr: 40, d: 45
   ok(b1.cv[0] === 1 && b1.cv[1] === 1 && !b1.ground && b1.imgs === 0 && !b1.imgComplete && !b1.imgList.some(n => /\.(webp|mp3)/.test(n)), `① 캔버스 1×1 · 바닥 캔버스 없음 · 그림(webp)·소리(mp3) 파일 0개 받음(Image 껍데기 · 배경음 preload 취소) ${JSON.stringify(b1.cv)}`);
   ok(b1.BH.fps >= 19 && b1.BH.fps <= 22 && b1.timer === 'worker' && b1.BH.errN === 0, `① 루프 ${b1.BH.fps}Hz (워커 타이머 50ms) · frame 오류 ${b1.BH.errN}`);
   ok(!b1.saveOn && b1.invis && b1.god && b1.extraBh === 1 && b1.meBh && b1.writer && !b1.top, '① 저장 꺼짐 · 투명·무적 · presence bh:1 · 사진 작성자(meBh)지만 cp 후보 아님');
-  ok(b1.prKeys.every(k => ['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'bk', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'an', 'fbx'].includes(k)) && !b1.prKeys.includes('e') && !b1.prKeys.includes('ah') && !b1.prKeys.includes('sd') && !b1.prKeys.includes('wq'), '① presence에 사람 표시 칸(장비 e·wq·변신 pf·세션 ah/sd·버프)이 없음 ' + b1.prKeys.join(','));
+  ok(b1.prKeys.every(k => ['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'bk', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'an', 'fbx', 'q'].includes(k)) && !b1.prKeys.includes('e') && !b1.prKeys.includes('ah') && !b1.prKeys.includes('sd') && !b1.prKeys.includes('wq'), '① presence에 사람 표시 칸(장비 e·wq·변신 pf·세션 ah/sd·버프)이 없음 ' + b1.prKeys.join(','));
   ok(b1.host && b1.bots > 0, `① 유저가 먼저 호스트였지만 봇 호스트가 들어오자 봇 호스트가 호스트 · 봇 ${b1.bots}명 계산 중`);
   const g1 = await B.evaluate(() => { __T.TOWN.goTown(); return __T.SCENE; }); ok(g1 === 'field', '① 봇 호스트는 귀환(goTown)이 막힘');
   // ② 유저 탭: 게스트가 됨 · 봇이 보임 · 봇 호스트는 접속자 목록에 없음
