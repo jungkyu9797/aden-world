@@ -5,6 +5,12 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 app.setAppUserModelId('com.local.adensurvivors');   // 작업 표시줄에 게임 아이콘이 나오게
+// 11/2 렉: 그래픽카드(드라이버)가 크롬 차단 목록에 있으면 게임 화면을 CPU로 그려서 매우 느림 → 차단 목록을 무시하고 그래픽카드로 그림
+//   그래픽카드 쪽이 비정상으로 죽으면 gpu_safe 파일을 남겨 다음 실행부터는 원래대로 (게임 폴더 밖 · 사용자 데이터 폴더)
+const GPU_SAFE = () => path.join(app.getPath('userData'), 'gpu_safe');
+let gpuSafe = false; try { gpuSafe = fs.existsSync(GPU_SAFE()); } catch (_) {}
+if (!gpuSafe) app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.on('child-process-gone', (_e, d) => { if (!d || d.type !== 'GPU' || d.reason === 'clean-exit' || gpuSafe) return; try { fs.mkdirSync(path.dirname(GPU_SAFE()), { recursive: true }); fs.writeFileSync(GPU_SAFE(), new Date().toISOString() + ' ' + d.reason); } catch (_) {} });
 let closeOk = false;
 const DEV_OK = () => process.argv.includes('--dev') || fs.existsSync(path.join(__dirname, 'admin_key.js'));
 const SAVE_DIR = () => path.join(app.getPath('userData'), 'saves');
@@ -97,6 +103,7 @@ ipcMain.handle('update:run', async (e) => {
   } catch (err) { return { ok: false, err: String(err.message || err) }; }
 });
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
+ipcMain.handle('gpu:status', () => { try { return { st: app.getGPUFeatureStatus(), safe: gpuSafe }; } catch (err) { return { st: {}, safe: gpuSafe }; } });   // 11/2: /렉 진단
 // ===== 관찰 기록기: 플레이 기록과 게임 창 캡처를 게임 폴더 logs/ 에 남김 (모니터 리포트용 · 이 PC에만 저장)
 const LOG_DIR = () => path.join(APP_DIR, 'logs');
 ipcMain.handle('log:append', (_e, name, text) => { try { if (typeof name !== 'string' || !/^[\w\-.]+\.jsonl$/.test(name) || typeof text !== 'string' || text.length > 2e6) return false; fs.mkdirSync(LOG_DIR(), { recursive: true }); const f = path.join(LOG_DIR(), name); try { if (fs.statSync(f).size > 40e6) return false; } catch (_) {} fs.appendFileSync(f, text, 'utf-8'); return true; } catch (err) { return false; } });

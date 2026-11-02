@@ -247,12 +247,24 @@ const MOBILE = (() => { const q = location.search; if (/[?&]mobile=1/.test(q)) r
   if (/Android|iPhone|iPad|iPod|Mobile|SamsungBrowser/i.test(ua)) return true; if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;   // 아이패드(데스크톱 모드)
   try { return matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches; } catch (e) { return false; } })();
 let MOB_LOWQ = (() => { try { return localStorage.getItem('aden_lowq') === '1'; } catch (e) { return false; } })(), MOB_ZS = (() => { try { return +localStorage.getItem('aden_mz') || 0; } catch (e) { return 0; } })();   // 화질 절약 · 화면 크기(0 = 자동)
+// 11/2 렉 (친구 PC 영상): 저사양 그래픽 — ESC [그래픽: 보통 / 저사양] · PC에서 화면이 계속 느리면(20초 동안 초당 24프레임 아래) 자동으로 켬
+//   켜면: 화면 배율 1(고해상도 노트북은 그릴 점이 1/2~1/4) · 화면 그리기 초당 30번(게임 계산은 그대로) · 재 가루·반딧불·몸 불꽃 알갱이·눈송이 줄임 · 타격 멈춤·흔들림 없음
+//   aden_low: '1' 켬 · '0' 끔 (직접 고름 — 자동으로 안 바꿈) · 'a' 자동으로 켜짐 · 없음 = 자동 감시
+const LOWG = (() => { let v = null; try { v = localStorage.getItem('aden_low'); } catch (e) {} let on = v === '1' || v === 'a', drawAt = -1e9; const LS = x => { v = x; try { localStorage.setItem('aden_low', x); } catch (e) {} };
+  const sync = () => { const b = document.getElementById('esc-low'); if (b) { b.textContent = '그래픽: ' + (on ? '저사양 (렉 줄임)' : '보통'); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } };
+  function addBtn() { if (MOBILE || document.getElementById('esc-low')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
+    const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-low'; b.title = '느린 컴퓨터용: 화면 배율 1 · 그리기 초당 30번 · 화면 입자(재 가루·반딧불·불꽃 알갱이) 줄임 · 타격 멈춤·흔들림 없음';
+    b.onclick = () => { on = !on; LS(on ? '1' : '0'); try { resize(); } catch (e) {} sync(); try { say(on ? '저사양 그래픽을 켰어요. (화면 효과를 줄여 렉을 줄여요)' : '그래픽을 보통으로 되돌렸어요.', '#9fd08a'); } catch (e) {} }; ref.parentNode.insertBefore(b, ref.nextSibling); sync(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBtn); else setTimeout(addBtn, 0);
+  return { on: () => on && !MOBILE, mode: () => v, set(x, auto) { on = !!x; LS(auto ? (on ? 'a' : '') : (on ? '1' : '0')); try { resize(); } catch (e) {} sync(); },
+    auto: () => !MOBILE && (v == null || v === '') && !navigator.webdriver,   /* 자동 테스트(웹드라이버)에서는 자동 전환 안 함 */
+    skip(now) { if (!on || MOBILE) return false; if (now - drawAt < 29 && now >= drawAt) return true; drawAt = now; return false; } }; })();
 if (MOBILE) document.documentElement.classList.add('mob');
 let UI_TOUCH_T = 0, UI_DOWN = 0; const UI_TOUCH = () => MOBILE && (UI_DOWN > 0 || performance.now() - UI_TOUCH_T < 650);   // 창 안을 누르는 중·막 뗐을 때는 가방 칸을 다시 그리지 않음 (톡·두 번 톡톡이 사라지지 않게)
 if (MOBILE) { const inW = ev => ev.target && ev.target.closest && ev.target.closest('.gw'); addEventListener('pointerdown', ev => { if (inW(ev)) { UI_DOWN++; UI_TOUCH_T = performance.now(); } }, true); for (const t of ['pointerup', 'pointercancel']) addEventListener(t, ev => { if (UI_DOWN > 0) { UI_DOWN--; UI_TOUCH_T = performance.now(); } }, true); }
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d'); let W=0,H=0,DPR=1;
 const low=document.createElement('canvas'), lc=low.getContext('2d');
-function resize(){ if (BOTHOST.on()) { DPR=1; W=H=1; cv.width=cv.height=1; return; } DPR=Math.min(MOBILE&&MOB_LOWQ?1:2,devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }   // 봇 호스트: 캔버스 1×1 · DPR 1
+function resize(){ if (BOTHOST.on()) { DPR=1; W=H=1; cv.width=cv.height=1; return; } DPR=Math.min(MOBILE&&MOB_LOWQ||LOWG.on()?1:2,devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }   // 봇 호스트: 캔버스 1×1 · DPR 1
 addEventListener('resize',resize); resize();
 let curZ=2, zoom=2, zoomT=2, pixel=true, cam=W2P(hero.x,hero.z), moveGoal=null, holding=false, hover=null;
 const mobZ = () => MOB_ZS || Math.max(1, Math.min(2, Math.floor(Math.min(W, H) / 330)));   // v168: 폰 = 1배 (화면에 더 넓게) · 태블릿 = 2배
@@ -400,7 +412,7 @@ const HF = (() => { let lv = 1; try { const v = localStorage.getItem('aden_hf');
   const K = [null, { stop: 0.04, kick: 3, zoom: 0.015, sq: 0.07, tr: 1 }, { stop: 0.07, kick: 5.5, zoom: 0.03, sq: 0.11, tr: 1.3 }];
   let stopT = 0, kx = 0, ky = 0, kT = 0, zT = 0, zA = 0; const TR = [];
   const quiet = () => (typeof BGRUN !== 'undefined' && BGRUN) || (window.SAVER && SAVER.on && SAVER.on()) || (typeof BOTHOST !== 'undefined' && BOTHOST && BOTHOST.on && BOTHOST.on());
-  const on = () => lv > 0 && !quiet();
+  const on = () => lv > 0 && !quiet() && !LOWG.on();   // 11/2: 저사양 그래픽이면 멈춤·흔들림·궤적 없음
   // 맞힘: f = 맞은 것 · crit · big(스킬·보스급) · from = 때린 쪽 화면 좌표 [x, y] (없으면 나)
   function hit(f, crit, big, from) { if (!on() || !f) return; const k = K[lv], [fx, fy] = W2P(f.x, f.z), S = MOB[f.kind] || {}, boss = !!S.boss;
     f.hfT = time; f.hfS = k.sq * (big ? 1.2 : crit ? 1 : 0.55) * (boss ? 0.4 : 1);
@@ -889,7 +901,7 @@ const AMB = (() => {
         g.globalAlpha = 0.9; g.strokeStyle = '#1a1814'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(x - 6, y - f); g.quadraticCurveTo(x - 3, y - 2 - f * 0.4, x, y); g.quadraticCurveTo(x + 3, y - 2 - f * 0.4, x + 6, y - f); g.stroke(); } g.restore(); }
   }
   let FLYSP = null; function flySpr() { if (FLYSP) return FLYSP; const c = document.createElement('canvas'); c.width = c.height = 24; const x = c.getContext('2d'), gr = x.createRadialGradient(12, 12, 0, 12, 12, 12); gr.addColorStop(0, 'rgba(220,255,140,1)'); gr.addColorStop(1, 'rgba(160,255,90,0)'); x.fillStyle = gr; x.fillRect(0, 0, 24, 24); return (FLYSP = c); }
-  function drawFlies(g, ox, oy) { if (!flies.length || MAZE()) return; g.save(); g.globalCompositeOperation = 'lighter';
+  function drawFlies(g, ox, oy) { if (!flies.length || MAZE() || LOWG.on()) return;   // 11/2 저사양: 반딧불 생략 g.save(); g.globalCompositeOperation = 'lighter';
     const sp = flySpr(); for (const f of flies) { const [x, y] = W2P(f.x, f.z), a = 0.45 + 0.55 * Math.max(0, Math.sin(f.ph * 2.3)); const X = x + ox, Y = y + oy - f.h * 30;
       g.globalAlpha = a; g.drawImage(sp, X - 6, Y - 6, 12, 12); }   /* 11/1: 반딧불 빛은 한 번 그려 둔 작은 그림으로 (매 프레임 그라데이션 수십 개 만들던 것) */
     g.restore(); }
@@ -2591,7 +2603,14 @@ const LEATHER = (() => { const c = document.createElement('canvas'); c.width = c
   for (let k = 0; k < 14; k++) { g.strokeStyle = `rgba(0,0,0,${0.08 + Math.random() * 0.08})`; g.lineWidth = 0.6; g.beginPath(); let x = Math.random() * 128, y = Math.random() * 128; g.moveTo(x, y); for (let q = 0; q < 4; q++) { x += (Math.random() - 0.5) * 30; y += (Math.random() - 0.5) * 30; g.lineTo(x, y); } g.stroke(); }
   return c; })();
 let LEATHER_P = null;
-function ornate(g,x,y,w,h,inner){   // 금장 이중 테두리 + 모서리 장식 + 가죽 바탕
+// 11/2 렉: 아래 UI 금장 틀(가죽 무늬·이중 테두리·모서리 4개)을 매 프레임 그리던 것 → 크기·배율마다 한 번 그려 둔 그림으로 (프레임당 그리기 약 80번 줄임)
+const ORNC = new Map();
+function ornate(g,x,y,w,h,inner){ const m = g.getTransform ? g.getTransform() : null, s = m ? m.a : 0;
+  if (m && s > 0 && Math.abs(m.b) < 1e-6 && Math.abs(m.c) < 1e-6 && Math.abs(m.d - s) < 1e-6 && w > 0 && h > 0 && w * s < 4096 && h * s < 4096) { const k = w + '|' + h + '|' + (inner || '') + '|' + s.toFixed(3); let c = ORNC.get(k);
+    if (!c) { if (ORNC.size > 24) ORNC.clear(); c = document.createElement('canvas'); c.width = Math.ceil(w * s); c.height = Math.ceil(h * s); const q = c.getContext('2d'); q.scale(c.width / w, c.height / h); ornate0(q, 0, 0, w, h, inner); ORNC.set(k, c); }
+    g.drawImage(c, x, y, w, h); return; }
+  ornate0(g,x,y,w,h,inner); }
+function ornate0(g,x,y,w,h,inner){   // 금장 이중 테두리 + 모서리 장식 + 가죽 바탕
   if (!LEATHER_P) LEATHER_P = g.createPattern(LEATHER, 'repeat');
   g.save(); g.fillStyle = LEATHER_P; g.fillRect(x,y,w,h); if (inner){ g.fillStyle = inner; g.fillRect(x+3,y+3,w-6,h-6); }
   const gr = g.createLinearGradient(x,y,x,y+h); gr.addColorStop(0,'#e8c878'); gr.addColorStop(0.5,'#8a6a34'); gr.addColorStop(1,'#c9a24a');
@@ -3520,7 +3539,7 @@ function fireFx(g, vw, vh, ox, oy) { if (!ISLE || !ISLE.def.fire) { FASH.length 
   { g.globalCompositeOperation = 'lighter'; const L = ISLE.def.lavaList || []; for (let k = 0; k < L.length; k++) { const o = L[k], [px, py] = W2P(o.x, o.z), x = px + ox, y = py + oy, r = o.r * K * 1.5; if (x < -r * 2 || y < -r || x > vw + r * 2 || y > vh + r) continue; const q = 0.5 + 0.5 * Math.sin(time * 1.6 + k * 1.7); mxG(g, '255,110,25', x, y, r * (1.15 + 0.1 * q), (o.st ? 0.3 : 0.42) + 0.14 * q, 0.5); mxG(g, '255,200,90', x, y, r * 0.55, (o.st ? 0.16 : 0.24) + 0.1 * q, 0.5); } g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }   // 용암 빛: 안개 위로 (더해서 밝게)
   let gr = g.createLinearGradient(0, 0, 0, vh * 0.55); gr.addColorStop(0, `rgba(170,36,8,${(0.26 + 0.06 * pu).toFixed(3)})`); gr.addColorStop(1, 'rgba(170,36,8,0)'); g.fillStyle = gr; g.fillRect(0, 0, vw, vh * 0.55);
   gr = g.createLinearGradient(0, vh, 0, vh * 0.6); gr.addColorStop(0, `rgba(255,90,20,${(0.12 + 0.05 * pu).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,90,20,0)'); g.globalCompositeOperation = 'lighter'; g.fillStyle = gr; g.fillRect(0, vh * 0.6, vw, vh * 0.4);
-  g.globalCompositeOperation = 'source-over'; const dt = 1 / 60; while (FASH.length < 90) FASH.push({ x: Math.random() * vw, y: Math.random() * vh, v: 14 + Math.random() * 22, s: 0.8 + Math.random() * 1.8, ph: Math.random() * 6.283 });
+  g.globalCompositeOperation = 'source-over'; if (LOWG.on()) { FASH.length = 0; g.restore(); return; }   /* 11/2 저사양: 재 가루 생략 */ const dt = 1 / 60; while (FASH.length < 90) FASH.push({ x: Math.random() * vw, y: Math.random() * vh, v: 14 + Math.random() * 22, s: 0.8 + Math.random() * 1.8, ph: Math.random() * 6.283 });
   for (const p of FASH) { p.y += p.v * dt; p.x += Math.sin(time * 0.6 + p.ph) * 0.4 - 0.15; if (p.y > vh + 6) { p.y = -6; p.x = Math.random() * vw; } g.fillStyle = 'rgba(120,112,108,.5)'; g.fillRect(p.x, p.y, p.s * 1.6, p.s); }
   g.restore(); }
 // 흑요석 기둥 (용의 계곡의 고목 자리) · 화룡의 뼈 (살육터 해골 더미 자리) · 알 껍질 (꽂힌 무기 자리)
@@ -3546,6 +3565,7 @@ function fnDrawProp(g, p, x, y, fade) { const t = p.type === 'deadtree' ? 'obsid
 // 몸 둘레 불꽃 (S.flame: 1 약하게 · 2 크게 · 3 피닉스 날개 불길)
 function fnFlame(g, f, S) { const h = (S.hh || 60), k = S.flame, t = time * 6 + (f.hi || 0), pu = 0.5 + 0.5 * Math.sin(t); g.save(); g.globalCompositeOperation = 'lighter';
   mxG(g, '255,110,30', 0, -h * 0.45, (S.hw || 30) * (0.9 + 0.35 * k) * (1 + 0.1 * pu), 0.18 + 0.08 * k, 1);
+  if (LOWG.on()) { g.restore(); return; }   // 11/2 저사양: 불꽃 알갱이 생략 (몸 빛만)
   for (let q = 0; q < 2 + k * 2; q++) { const ph = (time * (1.4 + q * 0.17) + q * 0.29 + (f.hi || 0) * 0.1) % 1, a = q * 2.4 + (f.hi || 0), r = (S.hw || 30) * 0.6; g.globalAlpha = Math.sin(ph * Math.PI) * 0.75; g.fillStyle = ph < 0.5 ? '#ffd070' : '#ff6a20';
     g.beginPath(); g.arc(Math.cos(a) * r * (1 - ph * 0.3), -h * (0.15 + 0.7 * ((q * 0.31) % 1)) - ph * 18, (2 + k) * (1 - ph * 0.6), 0, 7); g.fill(); }
   g.restore(); }
@@ -3867,15 +3887,15 @@ function drawAsh(g, f) { const k = 1 - Math.max(0, f.ashT) / 4, pu = 0.5 + 0.5 *
   for (let q = 0; q < 10; q++) { const ph = (time * 0.8 + q / 10) % 1; g.globalAlpha = Math.sin(ph * Math.PI) * (0.4 + 0.6 * k); g.fillStyle = q % 2 ? '#ffd070' : '#ff7a2a'; g.beginPath(); g.arc(Math.sin(q * 2.1) * 34 * (1 - ph * 0.5), -6 - ph * (40 + 60 * k), 1.6 + k * 1.6, 0, 7); g.fill(); }
   g.restore(); }
 const EMBF = [];
-function valleyFx(g, vw, vh) { if (!ISLE || !ISLE.def.valley) { EMBF.length = 0; return; } const dt = 1 / 60;
-  while (EMBF.length < 80) EMBF.push({ x: Math.random() * vw, y: Math.random() * vh, v: 18 + Math.random() * 42, s: 0.8 + Math.random() * 1.7, ph: Math.random() * 6.283, a: 0.35 + Math.random() * 0.5, ash: Math.random() < 0.3 });
+function valleyFx(g, vw, vh) { if (!ISLE || !ISLE.def.valley) { EMBF.length = 0; return; } const lo = LOWG.on(), dt = lo ? 1 / 30 : 1 / 60, NE = lo ? 24 : 80; if (EMBF.length > NE) EMBF.length = NE;   // 11/2 저사양: 불티 24개 (그리기 초당 30번이라 한 번에 두 배씩)
+  while (EMBF.length < NE) EMBF.push({ x: Math.random() * vw, y: Math.random() * vh, v: 18 + Math.random() * 42, s: 0.8 + Math.random() * 1.7, ph: Math.random() * 6.283, a: 0.35 + Math.random() * 0.5, ash: Math.random() < 0.3 });
   g.save();
   for (const p of EMBF) { p.y -= p.v * dt * (p.ash ? 0.35 : 1); p.x += Math.sin(time * 0.7 + p.ph) * 0.35 + (p.ash ? 0.25 : 0.1); if (p.y < -8 || p.x > vw + 8) { p.y = vh + 4; p.x = Math.random() * vw; }
     if (p.ash) { g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.fillStyle = `rgba(70,62,58,${(p.a * 0.45).toFixed(3)})`; g.fillRect(p.x, p.y, p.s * 1.5, p.s * 1.2); continue; }
     const fl = 0.55 + 0.45 * Math.sin(time * 7 + p.ph); g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(255,${(110 + 70 * fl) | 0},40,${(p.a * fl).toFixed(3)})`; g.beginPath(); g.arc(p.x, p.y, p.s, 0, 6.283); g.fill(); }
   g.restore(); }
-function snowFx(g, vw, vh) { if (!ISLE || !ISLE.def.snow) { SNOWF.length = 0; return; } const dt = 1 / 60; snowGustT -= dt; if (snowGustT <= 0) { snowGust = snowGust > 0 ? 0 : 1; snowGustT = snowGust ? 4 + Math.random() * 3 : 14 + Math.random() * 10; }
-  const gk = (window.__gk = (window.__gk || 0) + ((snowGust ? 1 : 0) - (window.__gk || 0)) * Math.min(1, dt * 1.2)), want = Math.round(180 + 260 * gk), wind = 60 + 260 * gk;
+function snowFx(g, vw, vh) { if (!ISLE || !ISLE.def.snow) { SNOWF.length = 0; return; } const lo = LOWG.on(), dt = lo ? 1 / 30 : 1 / 60; snowGustT -= dt; if (snowGustT <= 0) { snowGust = snowGust > 0 ? 0 : 1; snowGustT = snowGust ? 4 + Math.random() * 3 : 14 + Math.random() * 10; }
+  const gk = (window.__gk = (window.__gk || 0) + ((snowGust ? 1 : 0) - (window.__gk || 0)) * Math.min(1, dt * 1.2)), want = Math.round((180 + 260 * gk) * (lo ? 0.35 : 1)), wind = 60 + 260 * gk;   /* 11/2 저사양: 눈송이 35% */
   while (SNOWF.length < want) SNOWF.push({ x: Math.random() * vw, y: Math.random() * vh, z: 0.3 + Math.random() * 0.7, ph: Math.random() * 6.28 });
   if (SNOWF.length > want) SNOWF.length = want;
   g.save(); g.globalCompositeOperation = 'source-over'; g.fillStyle = `rgba(200,220,245,${0.06 + 0.1 * gk})`; g.fillRect(0, 0, vw, vh);   // 차가운 빛
@@ -7735,6 +7755,7 @@ const CHAT = (() => {
     if (e._k !== L + '|' + T + '|' + W) { e._k = L + '|' + T + '|' + W; Object.assign(e.style, { left: L + 'px', top: T + 'px', width: W + 'px', height: H + 'px', fontSize: Math.round(12 * z) + 'px' }); } }
   function send() { const e = el(), t = e.value.trim(); e.value = ''; if (!t) return;
     if (/^\/운영자\s*(등록)?$/.test(t)) { ADMIN.devRequest(); return; }
+    if (/^\/(렉|fps|FPS)\s*$/.test(t)) { PERF.report(); return; }   // 11/2: 렉 진단 (초당 프레임·그래픽카드·호스트)
     if (/^\/혈맹\s*$/.test(t)) { FBOT.report(); return; }   // v191: 혈맹·필드 봇이 어디서 사냥 중인지   // v190: 운영자 기기 등록 요청 (채팅으로 안 보냄)
     const all = t[0] === '!' && t.length > 1, tt = all ? t.slice(1).trim() : t; if (!tt) return; say(`${all ? '[전체] ' : ''}${PNAME()}: ${tt}`, all ? '#ffd28a' : '#ffffff', 1); hero.chat = { t: tt, until: time + 5 }; NET.chat(t); if (logScroll) logScroll = 0; }
   function bubble(g, h) { const [hx, hy] = W2P(h.x, h.z); g.save(); g.font = '700 11px "Noto Sans KR",sans-serif'; const maxW = 170, words = [...h.chat.t], lines = []; let cur = '';
@@ -8154,12 +8175,12 @@ const NET = (() => {
     const G0 = GROUND.here(), GL = ARENA() ? G0.filter(d => !/potion/.test(d.id)).concat(G0.filter(d => /potion/.test(d.id))) : G0;   // 11/1: 콜로세움은 보스 전리품을 먼저 (물약 뭉치가 많아도 전리품이 게스트 화면에서 안 빠지게)
     for (const d of GL) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
-  const BH_KEEP = new Set(['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'bk', 'an', 'fbx']);   // 봇 호스트 presence에 남기는 칸 (게스트가 받아야 하는 호스트 데이터 + 지역·이름)
+  const BH_KEEP = new Set(['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'bk', 'an', 'fbx', 'q']);   // 봇 호스트 presence에 남기는 칸 (게스트가 받아야 하는 호스트 데이터 + 지역·이름)
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
       e: eqIds(), eg: glowOut(), xp: xpOut(), wq: wqOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; if (ADMIN.cert()) P.adm.c = ADMIN.cert(); P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
     { const now = Date.now(); arOut = arOut.filter(x => now - x[4] < 20000); P.ar = arOut.length ? arOut.map(x => x.slice(0, 4)) : null; }
-    Object.assign(P, extra); const rw = {}, gv = {}; for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
+    Object.assign(P, extra); P.q = ++pubQ % 1e6; const rw = {}, gv = {};   /* q: 보낸 번호 (받는 쪽이 새 패킷인지 앎 · 11/2) */ for (const k in rwOut) if (OTH.some(o => o.peer === k) && rwOut[k].length) rw[k] = rwOut[k].slice(-8); for (const k in gvOut) if (OTH.some(o => o.peer === k) && gvOut[k].length) gv[k] = gvOut[k].slice(-8); P.rw = Object.keys(rw).length ? rw : null; P.gv = Object.keys(gv).length ? gv : null;
     if (ISLE && isHost() && watchersInZone().length) { { const now = Date.now(), A = aoOut.filter(x => now - x[8] < 4000).map(x => x.slice(0, 8)); P.ao = A.length ? A : null; } P.m = mobsOut(); P.mz = zk(); P.bt = btOut(); { const now = Date.now(), A = tkOut.filter(x => now - x[4] < 6000).map(x => x.slice(0, 4)); P.tk = A.length ? A : null; } const d = {}; for (const k in toRemote) if (OTH.some(o => o.peer === k)) d[k] = toRemote[k].slice(-10); P.d = d; const G = groundOut(); P.gi = G.gi; P.go = G.go; } else { P.m = null; P.mz = null; P.d = null; P.gi = null; P.go = null; P.bt = null; P.tk = null; }
     if (BOTHOST.on()) for (const k in P) if (!BH_KEEP.has(k)) delete P[k];   // 11/1 봇 호스트: 사람 표시용 칸(장비·변신·인형·버프·채팅·세션)은 빼고 호스트 데이터만
     const sz = () => TE.encode(JSON.stringify(P)).length, CAP = window.__bigNet ? 60000 : 3900;   /* v185: 전용 서버는 60KB까지 (공용 MQTT·아티팩트는 3.9KB) */
@@ -8167,10 +8188,11 @@ const NET = (() => {
     if (P.fbx && sz() > CAP) { P.fbx = Object.assign({}, P.fbx, { L: (P.fbx.L || []).slice(-3) }); if (sz() > CAP) P.fbx = null; }   // v191: 필드 봇 연출도 먼저 줄이고 몬스터·봇 목록은 지킴   // 수호탑 대전: 패킷이 넘치면 연출부터 줄이고 봇·수호탑 목록은 지킴
     while (sz() > CAP && ((P.gi && P.gi.length) || (P.m && P.m.length))) { if (P.gi && P.gi.length > 10) P.gi.splice(-5); else if (P.m && P.m.length) P.m.splice(-5); else P.gi.splice(-1); } return P; }
   // ----- 게스트: 호스트 몬스터·바닥 아이템 반영
-  function applyHost(o) { const list = o.pr.m; const seen = new Set(); { const M = new Map(Array.isArray(o.pr.bt) ? o.pr.bt : []); for (const f of foxes) if (f.uid != null && MOB[f.kind] && MOB[f.kind].boss) f.netAg = M.get(f.uid) || ''; } applyTk(o);
+  let hostPr = null, hostQ = null, hostAt = 0, hostGap = 0.1, pubQ = 0;   // 11/2 렉: 호스트 패킷이 새로 올 때마다 간격을 재서 몹마다 실제 이동 속도(nv)를 구함 → follow가 그 속도로 따라감
+  function applyHost(o) { const list = o.pr.m; const seen = new Set(), fresh = o.pr.q != null ? o.pr.q !== hostQ : o.pr !== hostPr; if (fresh) { hostPr = o.pr; hostQ = o.pr.q; hostGap = Math.min(0.5, Math.max(0.04, time - hostAt)); hostAt = time; } { const M = new Map(Array.isArray(o.pr.bt) ? o.pr.bt : []); for (const f of foxes) if (f.uid != null && MOB[f.kind] && MOB[f.kind].boss) f.netAg = M.get(f.uid) || ''; } applyTk(o);
     for (const [uid, k, x10, z10, row, pct, fl] of list) { seen.add(uid); let f = foxes.find(q => q.uid === uid);
       if (!f) { const kind = KINDS[k]; if (!MOB[kind]) continue; f = mkMob(kind, Math.floor(x10 / 10), Math.floor(z10 / 10)); f.uid = uid; f.home = [f.i, f.j]; f.x = x10 / 10; f.z = z10 / 10; f.netNew = true; if (isRpUid(uid)) rpTag(f, REAPERS.get(uid) || null); if (kind.startsWith('tw_')) TWM.tag(f); else if (kind.startsWith('fb_')) FBOT.tag(f); foxes.push(f); }
-      f.nx = x10 / 10; f.nz = z10 / 10; f.row = row; f.netMove = !!(fl & 4); const dead = !!(fl & 1);
+      { const nx = x10 / 10, nz = z10 / 10; if (fresh && f.nx != null) { const dd = Math.hypot(nx - f.nx, nz - f.nz), v = dd < 3 ? dd / hostGap : 0; f.nv = f.nv > 0 ? f.nv * 0.5 + v * 0.5 : v; } f.nx = nx; f.nz = nz; } f.row = row; f.netMove = !!(fl & 4); const dead = !!(fl & 1);
       if (dead && !f.dead) netDeath(f); else if (!dead && f.dead) { f.dead = false; f.deadT = 0; f.hp = f.max; f.flash = 0; f.x = f.nx; f.z = f.nz; f.atkT = null; }
       if (!dead) { const hh = Math.max(1, Math.round(f.max * pct / 100)); f.hp = f.predUntil > time ? Math.min(f.hp, hh) : hh; }
       if ((fl & 2) && !f.wasAtk && !dead) { f.atkT = 0; MSFX(f.kind, 'attack', 0.35); } f.wasAtk = !!(fl & 2);
@@ -8190,7 +8212,7 @@ const NET = (() => {
     if (f.stunT > 0) { f.stunT -= dt; if (!(f.bindUntil > time)) { f.dingT = (f.dingT || 0) - dt; if (f.dingT <= 0 && f.stunT > 0.05) { f.dingT = 0.45; stunDing(f); } } } if (f.slowT > 0) f.slowT -= dt; if (f.wslowT > 0) f.wslowT -= dt; if (f.hitDn > 0) f.hitDn -= dt;   // v139: 게스트 화면 상태 시간
     if (f.bleed) { const B = f.bleed; B.t -= dt; B.acc = (B.acc || 0) + dt; if (B.acc >= 1) { B.acc -= 1; dmgMob(f, B.dps); const [bx, by] = W2P(f.x, f.z); floatText(bx + 8, by - headY(f) - 4, String(B.dps), { color: B.psn ? '#9fe070' : '#ff5a5a', size: 11 }); } if (B.t <= 0) f.bleed = null; }
     if (f.nx == null) return; const dx = f.nx - f.x, dz = f.nz - f.z, d = Math.hypot(dx, dz);
-    if (d > 3) { f.x = f.nx; f.z = f.nz; } else if (d > 0.01) { const st = Math.min(d, dt * 4.2); f.x += dx / d * st; f.z += dz / d * st; f.dist = (f.dist || 0) + st; }
+    if (d > 3) { f.x = f.nx; f.z = f.nz; } else if (d > 0.01) { const st = Math.min(d, dt * Math.min(14, Math.max((f.nv || 0) * 1.1, d * 2.5, 0.8))); f.x += dx / d * st; f.z += dz / d * st; f.dist = (f.dist || 0) + st; }   /* 11/2 렉: 예전엔 4.2칸/초 고정 → 빠른 몹·봇(대각선·광폭·이동 속도)은 뒤처지다 3칸 넘으면 순간이동 · 느린 몹은 0.1초마다 갔다 섰다 → 호스트에서 잰 속도(nv)로 따라감 */
     f.i = f.fi = Math.floor(f.x); f.j = f.fj = Math.floor(f.z); f.t = d > 0.06 || f.netMove ? 0.5 : 1; f.flash = Math.max(0, f.flash - dt); if (f.atkT != null) { f.atkT += dt; if (f.atkT >= ATK_T) f.atkT = null; } }
   // 게스트 화면의 몬스터 죽음: 효과만 (보상은 호스트가 공헌도대로 보내 줌)
   function netDeath(f) { f.dead = true; f.deadT = 0; f.hp = 0; f.stunT = 0; f.atkT = null; f.myDmg = 0; if (!MSFX(f.kind, 'death', 0.6)) sfx.die(); if (hero.target === f) hero.target = null; }
@@ -8297,7 +8319,7 @@ const NET = (() => {
     fx, tick, addDraw, guestMob, guest, follow, hit, alive, nearRemote, hitRemote, hitRaw, distribute, assignLoot, gahoGive, requestPick, peerAt, openMenu, invite, leaveParty, healPeer, buffParty, buffPeer, partyNear, status,
     zoneHost: () => isHost(), guestIn: z => !!room && !!myPeer && zk() === z && !isHost() && !!hostCache, me: () => myPeer, nameOf: p => p === myPeer ? PNAME() : FBOT.ownerName(p) || nmOf(prOf(p)), stunRaw, lvOf: p => p === myPeer ? hero.lv : (+((prOf(p) || {}).lv) || hero.lv), inParty: () => !!partyId,
     setHover(o) { hoverPeer = o ? o.peer : null; }, partyOk(o) { return !!(o && o.pr && partyId && o.pr.pt === partyId && o.pr.z === zk()); }, peerObj(peer) { return OTH.find(q => q.peer === peer) || null; }, hoverParty() { if (SELF_CAST) return null; if (FORCE_PM) return FORCE_PM; const o = hoverPeer && OTH.find(q => q.peer === hoverPeer); return o && partyId && o.pr.pt === partyId && o.pr.z === zk() ? o : null; },
-    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t, k) { anSeq++; anText = String(t).slice(0, 90); anL.push(k ? [anSeq, anText, String(k).slice(0, 12)] : [anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, bhs: () => BHS, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; } };
+    chat(t) { chatSeq++; lastChat = String(t).slice(0, 80); sendT = 0; }, announceAll(t, k) { anSeq++; anText = String(t).slice(0, 90); anL.push(k ? [anSeq, anText, String(k).slice(0, 12)] : [anSeq, anText]); if (anL.length > 5) anL.shift(); sendT = 0; }, count: () => room ? OTH.length + 1 : 1, setRoom, hasArtRoom: () => artRoom, others: () => OTH, bhs: () => BHS, drawTombs, reviveReq, reviveNear, admRespond, poke: () => { sendT = 0; }, hostInfo: () => ({ gap: hostGap, ago: time - hostAt, guest: !!hostCache, bot: !!hostCache && BHS.includes(hostCache) }) };
 })();
 // ============================================================ v128: 운영자 — 운영자 PC의 게임 폴더에 있는 admin_key.js(서명 키) + 운영자 계정으로 접속하면 켜짐
 // 다른 유저에게 보이지 않음(몬스터도 못 봄) · 접속자 살펴보기 · 아이템/골드/레벨 지급·회수 · 회복 · 마을로 · 부르기 · 메시지 · 추방 · 전체 공지 · 캐릭터 복사 코드(11/1 · 테스트 페이지에 붙여 넣는 코드)
@@ -12191,6 +12213,29 @@ let BGRUN = false, frameAt = performance.now(), rafAt = performance.now(), bgSte
     const n = Math.min(w ? 3 : 20, Math.max(1, Math.round((now - frameAt) / 50))); /* 워커를 못 쓰면(일반 타이머는 가려지면 1초에 한 번) 한 번에 최대 1초어치 */ for (let k = 0; k < n; k++) { BGRUN = true; try { frame(now - (n - 1 - k) * 50); bgSteps++; } catch (e) { console.warn('bg frame', e); } finally { BGRUN = false; } } };
   let w = null; try { w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' }))); w.onmessage = tick; } catch (e) { w = null; }
   if (!w) setInterval(tick, 50); window.__bgInfo = () => ({ steps: bgSteps, timer: w ? 'worker' : 'interval' }); }
+// 11/2 렉: 프레임 기록 — /렉 진단(초당 프레임·계산/그리기 ms·그래픽카드·호스트) · 저사양 그래픽 자동 전환(PC에서 10초씩 두 번 연속 초당 24프레임 아래면)
+const PERF = (() => { const N = 300, GAP = new Float32Array(N), UP = new Float32Array(N), DR = new Float32Array(N); let k = 0, n = 0, last = 0, tMid = 0, win = [], winT = 0, slow = 0, gpu = null;
+  const med = a => { const b = Array.from(a).sort((x, y) => x - y); return b.length ? b[b.length >> 1] : 0; }, sayOut = (t, c) => say(t, c);
+  function mid() { tMid = performance.now(); }
+  function drawn() { const t = performance.now(); if (last) { const g = t - last; GAP[k] = g; UP[k] = tMid - frameAt; DR[k] = t - tMid; k = (k + 1) % N; n = Math.min(N, n + 1); watch(g); } last = t; }
+  function watch(g) { if (!LOWG.auto() || LOWG.on() || !window.__gameOn || document.visibilityState !== 'visible' || (window.SAVER && SAVER.on())) { win = []; winT = 0; return; }
+    if (g > 1000) { win = []; winT = 0; return; }   /* 불러오기·창 전환 같은 멈춤은 빼고 */
+    win.push(g); winT += g; if (winT < 10000) return; const fps = 1000 / med(win); win = []; winT = 0; slow = fps < 24 ? slow + 1 : 0;
+    if (slow >= 2) { slow = 0; LOWG.set(true, true); const m = `화면이 느려서(초당 약 ${Math.round(fps)}프레임) 저사양 그래픽으로 바꿨어요. ESC → [그래픽]에서 되돌릴 수 있어요.`; say(m, '#ffd86a'); try { centerNote('저사양 그래픽으로 바꿨어요', '렉을 줄이려고 화면 효과를 줄였어요 · ESC → [그래픽]에서 되돌리기', '#ffd86a', 5000); } catch (e) {} } }
+  function gpuName() { if (gpu) return gpu; try { const I = window.GLR && GLR.info && GLR.info(); if (I && I.renderer) return (gpu = I.renderer); const c = document.createElement('canvas'), gl = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!gl) return (gpu = '못 찾음 (WebGL 없음)');
+      const d = gl.getExtension('WEBGL_debug_renderer_info'); gpu = String(d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)); const l = gl.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); } catch (e) { gpu = '?'; } return gpu; }
+  function stats() { const m = Math.min(n, 180), G = [], U = [], D = []; for (let q = 1; q <= m; q++) { const i = (k - q + N) % N; G.push(GAP[i]); U.push(UP[i]); D.push(DR[i]); } const sum = G.reduce((s, x) => s + x, 0);
+    return { frames: m, fps: m ? +(1000 * m / sum).toFixed(1) : 0, gapMed: +med(G).toFixed(1), gapMax: +(G.length ? Math.max(...G) : 0).toFixed(1), slowPct: m ? Math.round(G.filter(x => x > 40).length / m * 100) : 0, upd: +med(U).toFixed(1), draw: +med(D).toFixed(1) }; }
+  async function report() { const s = stats(), hi = NET.hostInfo ? NET.hostInfo() : {}, mobs = foxes.filter(f => !f.dead && !f.gone).length, C = '#9fe0ff', L = [], say = (t, c) => { L.push(t.replace('[렉 진단] ', '')); sayOut(t, c); };
+    say(`[렉 진단] 초당 프레임 ${s.fps} · 프레임 간격 보통 ${s.gapMed}ms / 최악 ${s.gapMax}ms · 느린 프레임(40ms↑) ${s.slowPct}% · 계산 ${s.upd}ms · 그리기 ${s.draw}ms`, C);
+    say(`[렉 진단] 창 ${innerWidth}×${innerHeight} · 배율 ${(devicePixelRatio || 1).toFixed(2)} → 그림 배율 ${DPR} (${cv.width}×${cv.height}) · 그래픽 ${LOWG.on() ? '저사양' + (LOWG.mode() === 'a' ? '(자동)' : '') : '보통'} · 새 그래픽(베타) ${window.GLR && GLR.on && GLR.on() ? '켬' : '끔'} · 타격 연출 ${['끔', '보통', '강'][HF.lv] || '-'}${LOWG.on() ? '(저사양: 꺼짐)' : ''}`, C);
+    let gs = ''; try { if (window.native && native.gpuStatus) { const r = await native.gpuStatus(); const st = (r && r.st) || {}; gs = ` · 2D 그림 ${st['2d_canvas'] || '?'} · 합성 ${st.gpu_compositing || '?'}${r && r.safe ? ' · (안전 모드)' : ''}`; } } catch (e) {}
+    say(`[렉 진단] 그래픽카드: ${gpuName()}${gs}`, C);
+    say(`[렉 진단] ${zoneTitle()} · 몹 ${mobs} · 접속 ${NET.count()}명 · 몬스터 계산: ${!hi.guest ? '내 컴퓨터' : hi.bot ? '봇 서버' : '다른 플레이어'}${hi.guest ? ` (받는 간격 ${Math.round((hi.gap || 0) * 1000)}ms)` : ''} — 이 채팅을 찍어서 보내 주세요`, C);
+    { let b = document.getElementById('lag-diag'); if (b) b.remove(); b = document.createElement('div'); b.id = 'lag-diag'; b.setAttribute('role', 'dialog'); b.style.cssText = 'position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:99999;background:rgba(10,8,4,.94);color:#f0e0b0;font:12px/1.6 "Noto Sans KR",sans-serif;padding:12px 16px;border:1px solid #c8a050;border-radius:6px;white-space:pre-wrap;width:min(720px,calc(100vw - 32px));box-sizing:border-box;cursor:pointer';
+      b.textContent = ['렉 진단 (이 화면을 찍어서 보내 주세요 · 누르면 닫힘)', ...L.map(x => '· ' + x.replace(' — 이 채팅을 찍어서 보내 주세요', ''))].join('\n'); b.onclick = () => b.remove(); document.body.appendChild(b); }
+    return s; }
+  return { mid, drawn, stats, report, gpuName }; })();
 function frame(now){
   frameAt = performance.now(); if (!BGRUN) rafAt = frameAt; holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
@@ -12206,11 +12251,11 @@ function frame(now){
   const vw=Math.ceil(W/z), vh=Math.ceil(H/z), pw=Math.ceil(W*DPR), ph=Math.ceil(H*DPR);
   if (low.width!==pw||low.height!==ph){ low.width=pw; low.height=ph; }
   lc.setTransform(z*DPR,0,0,z*DPR,0,0); lc.imageSmoothingEnabled=!pixel; lc.imageSmoothingQuality='high';
-  SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BOTHOST.on() && !BGRUN && !HFSTOP) {   /* BGRUN: 창이 안 보일 때 게임만 진행 (그리기 없음) · HFSTOP: 타격감 — 그리기만 잠깐 멈춤 · 봇 호스트 모드는 화면을 아예 안 그림 · v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
+  PERF.mid(); SAVER.tick(dt); if (!SAVER.on() && !window.__pcgCover && !BOTHOST.on() && !BGRUN && !HFSTOP && !LOWG.skip(now)) {   /* LOWG.skip: 저사양 그래픽 — 그리기는 초당 30번 (11/2) */   /* BGRUN: 창이 안 보일 때 게임만 진행 (그리기 없음) · HFSTOP: 타격감 — 그리기만 잠깐 멈춤 · 봇 호스트 모드는 화면을 아예 안 그림 · v164: 절전 모드에서는 화면을 그리지 않음 (사냥·저장은 그대로) · 변신 카드 결과 화면이 덮고 있는 동안도 (연출을 부드럽게) */
   // GL: 새 그래픽(시험 · src/gl.js) — 켜져 있으면 세계는 WebGL2, UI는 지금처럼 2D 캔버스로 그 위에 · 기본은 꺼짐 · 못 쓰거나 실패하면 false → 아래 원래 그리기 그대로
   if (!(window.GLR && GLR.on() && GLR.frame(drawWorld, drawUI, lc, ctx, low, cv, pw, ph, z*DPR, !pixel, vw, vh))) {
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
-  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); } }
+  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); } PERF.drawn(); }
   curZ = z; if (BOTHOST.on()) BOTHOST.frameDone(dt); else if (!BGRUN) requestAnimationFrame(frame);
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
