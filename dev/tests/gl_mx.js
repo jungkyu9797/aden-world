@@ -4,7 +4,7 @@ const { chromium } = require('playwright'); const S = require('./gl_scene.js'); 
 const IDS = (process.env.MXI || 'meteor,blizzard,quake,ebolt,sunburst,heal,levelup,crit,breath').split(',');
 (async () => { const b = await chromium.launch({ args: S.ARGS }); const p = await (await b.newContext({ viewport: { width: 1000, height: 640 } })).newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.addInitScript(() => { try { localStorage.setItem('aden_gl', 'force'); } catch (e) {} });
-  await S.setup(p, { chars: 3, mobs: 8, fx: false }); await p.waitForTimeout(2500);
+  await S.setup(p, { chars: 3, mobs: 8, fx: false }); await p.waitForTimeout(2500); if (process.env.NOBLOOM) await p.evaluate(() => GLR.bloom(false)); if (process.env.NOMX) await p.evaluate(() => { GLR.mx = () => {}; });
   for (const id of IDS) {
     await S.freeze(p); await p.evaluate(() => { GLR._dbg.spk(), GLR._dbg.ts = 0.0001; });   // 불티 시간 거의 멈춤 → 나온 직후 모습
     await p.evaluate(id => { const T = __T, hq = T.W2P(T.hero.x, T.hero.z), dd = m => { const q = T.W2P(m.x, m.z); return Math.hypot(q[0] - hq[0] - 140, q[1] - hq[1] + 40); }, f = T.foxes.filter(m => !m.dead && !T.MOB[m.kind].boss).sort((a, b) => dd(a) - dd(b))[0]; GLR._dbg.spk(), GLR._dbg.ts = 1; const t0 = performance.now(); while (performance.now() - t0 < 60); GLR._dbg.spk(), GLR._dbg.ts = 0.0001;
