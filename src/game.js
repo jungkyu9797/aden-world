@@ -9695,10 +9695,11 @@ const FBOT = (() => {
   function onDmg(f, who, d) { if (!f.fb || !who || !(d > 0)) return; const w = who.isPet ? hero : who; if (neuOf(w)) return; if (f.bx && (w === hero || w.isRemote)) { f.bx.hitBy = w; f.bx.hitByT = time; } engage(w, f); fightMark(w, f); if (!who.isPet && host()) counter(f, w, d); }
   // ----- 전체 채팅 알림: 전투가 시작되면 (지역 호스트만 · 같은 지역은 3분에 한 번 · 받는 쪽도 같은 지역 3분 안이면 무시)
   const ALERT = new Map();
-  function engage(a, T) { if (SIM || !here() || !host()) return; const A = sideOf(a), B = sideOf(T); if (!A || !B || A.t === B.t || A.t === 'N' || B.t === 'N') return; const ban = A.t === 'A' ? A : B, lin = A.t === 'A' ? B : A, k = 'fb:' + ISLE.id, now = Date.now();
+  function engage(a, T) { if (SIM || !here() || !host() || (a && a.fb && T && T.fb)) return; const A = sideOf(a), B = sideOf(T);   /* 11/3 프로듀서: 봇끼리 싸우는 건 전체 알림 안 함 (유저가 끼면 알림) */ if (!A || !B || A.t === B.t || A.t === 'N' || B.t === 'N') return; const ban = A.t === 'A' ? A : B, lin = A.t === 'A' ? B : A, k = 'fb:' + ISLE.id, now = Date.now();
     if (now - (ALERT.get(k) || 0) < C.ALERT * 1000) return; ALERT.set(k, now);
     const t = `${zoneTitle()}에서 [반왕 혈맹] ${jo(ban.n, '이', '가')} [라인 혈맹] ${jo(lin.n, '과', '와')} 전투 중입니다`; if (STAT.alerts.push(t) > 50) STAT.alerts.shift(); say('[전체] ' + t, '#ffb070', 1); NET.announceAll(t, k); }
-  function onAlert(t, k) { const now = Date.now(); if (now - (ALERT.get(k) || 0) < (String(k).startsWith('fbb:') ? 5 : C.ALERT - 10) * 1000) return; ALERT.set(k, now); if (STAT.alerts.push(t) > 50) STAT.alerts.shift(); say('[전체] ' + String(t).slice(0, 90), '#ffb070', 1); }
+  const botBattle = t => { const m = /\[반왕 혈맹\] (.+?)[이가] \[라인 혈맹\] (.+?)[과와] 전투 중입니다/.exec(String(t || '')); if (!m) return false; const N = new Set(roster().all.map(b => b.name)); return N.has(m[1]) && N.has(m[2]); };   // 11/3: 예전 판 호스트가 보낸 봇끼리 전투 알림도 안 띄움
+  function onAlert(t, k) { if (botBattle(t)) return; const now = Date.now(); if (now - (ALERT.get(k) || 0) < (String(k).startsWith('fbb:') ? 5 : C.ALERT - 10) * 1000) return; ALERT.set(k, now); if (STAT.alerts.push(t) > 50) STAT.alerts.shift(); say('[전체] ' + String(t).slice(0, 90), '#ffb070', 1); }
   // ----- 봇 판단 (호스트 · 초당 약 3~5회) · 행동 (매 프레임)
   const ATK = { knight: 0.9, elf: 1.0, wizard: 1.15 }, RNG = { knight: 1, elf: 8, wizard: 7 }, AGR = { knight: 7, elf: 9, wizard: 9 };
   const SPD = () => 3.2 * GSPD * C.SPD;
