@@ -5,20 +5,24 @@ const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + m); if (!c) pro
 const petNeed = lv => Math.round(18 * Math.pow(lv, 1.55));
 (async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1100, height: 680 } }); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await login(p, { cls: 'knight', name: 'petc' });
-  const exEvo = (() => { let s = Math.round(0.924 * 2 * petNeed(363)); for (let l = 61; l < 363; l++) s += 2 * petNeed(l); return s; })(), exB = (() => { let s = 100; for (let l = 61; l < 70; l++) s += petNeed(l); return s; })();
+  const sumN = (a, b, k) => { let s = 0; for (let l = a; l < b; l++) s += petNeed(l) * k; return s; };
+  const exEvo = Math.round(0.924 * 2 * petNeed(363)) + sumN(61, 363, 2) + sumN(61, 173, 1), exB = 100 + sumN(61, 70, 1), exD = sumN(61, 120, 1);   /* 진화 펫: 진화 뒤 61~363 (×2) + 진화 전 61~173 · D: 진화 레벨 120 → 61 구간만 */
   const r = await p.evaluate(({ exE }) => { const T = __T; T.GOD_INV = true; T.hero.lv = 61; T.hero.exp = Math.round(T.needExp(61) * 0.248);
-    const A = Object.assign(T.mkPetData('doberman', 60), { name: '망고', evo: 1, eb: { hp: 220, dmg: [10, 20], lv: 60 }, lv: 363, exp: Math.round(0.924 * 2 * Math.round(18 * Math.pow(363, 1.55))), maxhp: 220 + 10 * 362, hp: 220 + 10 * 362 });
+    const A = Object.assign(T.mkPetData('doberman', 60), { name: '망고', evo: 1, eb: { hp: 615, dmg: [26, 54], lv: 173 }, lv: 363, exp: Math.round(0.924 * 2 * Math.round(18 * Math.pow(363, 1.55))), maxhp: 615 + 10 * 362, hp: 615 + 10 * 362 });   /* 실제 망고: Lv.173에서 진화 (Lv.363 화면 값과 맞음) */
+    const D = Object.assign(T.mkPetData('doberman', 60), { name: '두부', evo: 1, eb: { hp: 446, dmg: [19, 40], lv: 120 }, lv: 40, maxhp: 446 + 390, hp: 446 + 390 });
     const B = Object.assign(T.mkPetData('doberman', 70), { name: '바둑', exp: 100 }), C = Object.assign(T.mkPetData('doberman', 30), { name: '초코' });
-    T.INV.load({ bag: [A, B, C].map(pet => ({ id: 'pet_collar', n: 1, pet })), bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } });
-    const e0 = T.hero.exp; T.PET.capCheck(); const L = T.INV.bag().filter(e => e.pet).map(e => ({ n: e.pet.name, lv: e.pet.lv, mh: e.pet.maxhp, exp: e.pet.exp, ok: e.pet.capOk }));
-    return { L, gained: T.hero.exp - e0, lv: T.hero.lv, pct: +(100 * T.hero.exp / T.needExp(T.hero.lv)).toFixed(1), msg: T.log.slice(-3).map(l => l.t).join(' / ') }; }, { exE: exEvo });
+    T.INV.load({ bag: [A, B, C, D].map(pet => ({ id: 'pet_collar', n: 1, pet })), bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } });
+    T.log.length = 0; const e0 = T.hero.exp; T.PET.capCheck(); const L = T.INV.bag().filter(e => e.pet).map(e => ({ n: e.pet.name, lv: e.pet.lv, mh: e.pet.maxhp, exp: e.pet.exp, ok: e.pet.capOk, eb: e.pet.eb || null, rng: T.PET.range(e.pet), cha: T.PET.mxh(e.pet) / e.pet.maxhp }));
+    return { L, gained: T.hero.exp - e0, lv: T.hero.lv, pct: +(100 * T.hero.exp / T.needExp(T.hero.lv)).toFixed(1), msg: T.log.map(l => l.t).join(' / ') }; }, { exE: exEvo });
   console.log('  ', JSON.stringify(r).slice(0, 400));
-  const [A, B, C] = r.L;
-  ok(A.lv === 61 && A.mh === 220 + 10 * 60, `진화 펫 Lv.363 → Lv.61 · 최대 HP ${A.mh} (진화 기본 220 + 레벨당 10)`);
+  const [A, B, C, D] = r.L;
+  ok(A.lv === 61 && A.eb.lv === 61 && A.eb.hp === 223 && A.eb.dmg.join() === '10,20' && A.mh === 223 + 10 * 60, `진화 펫 Lv.363(Lv.173에서 진화) → Lv.61 · Lv.61에서 진화한 기준(HP 223 · 10~20) · 최대 HP ${A.mh}`);
+  ok(A.cha === 1 && A.rng.join() === '36,73', `Lv.61 진화 펫 공격 ${A.rng.join('~')} (카리스마 보너스 없을 때 · 카리스마 24면 ×1.24 = 45~91)`);
+  ok(D.lv === 40 && D.eb.lv === 61 && D.mh === 223 + 10 * 39, `레벨은 낮아도 높은 레벨(120)에서 진화한 펫 → 진화 기준만 Lv.61로 · 최대 HP ${D.mh}`);
   ok(B.lv === 61 && B.mh === 26 + 7 * 60, `일반 펫 Lv.70 → Lv.61 · 최대 HP ${B.mh}`); ok(C.lv === 30, '주인보다 낮은 펫(Lv.30)은 그대로');
-  ok(r.gained === exEvo + exB, `넘은 펫 경험치를 주인에게: ${r.gained.toLocaleString()} (계산 ${(exEvo + exB).toLocaleString()})`);
-  ok(r.lv === 61 && Math.abs(r.pct - 73.5) < 1.5, `주인 Lv.61 24.8% → Lv.${r.lv} ${r.pct}%`);
-  ok(/주인 레벨을 넘을 수 없어서 Lv\.363 → Lv\.61/.test(r.msg) && /주인에게 넘겼어요/.test(r.msg), '채팅 안내');
+  ok(r.gained === exEvo + exB + exD, `넘은 펫 경험치를 주인에게: ${r.gained.toLocaleString()} (계산 ${(exEvo + exB + exD).toLocaleString()})`);
+  ok(r.lv === 61 && r.pct > 75 && r.pct < 80, `주인 Lv.61 24.8% → Lv.${r.lv} ${r.pct}% (망고만이면 약 76.4%)`);
+  ok(/망고: 펫은 주인 레벨을 넘을 수 없어서 Lv\.363 → Lv\.61로 맞췄어요 \(Lv\.173에서 했던 진화도 Lv\.61에서 진화한 능력치로\)/.test(r.msg) && /주인에게 넘겼어요/.test(r.msg), '채팅 안내');
   // 다시 확인해도 또 주지 않음 · 거래로 넘어온 펫(이미 확인 표시)은 레벨만
   const r2 = await p.evaluate(() => { const T = __T, e0 = T.hero.exp; T.PET.capCheck(); const g1 = T.hero.exp - e0; const B = T.INV.bag().find(e => e.pet && e.pet.name === '바둑').pet; B.lv = 80; B.exp = 500; const e1 = T.hero.exp; T.PET.capCheck(); return { g1, g2: T.hero.exp - e1, lv: B.lv, mh: B.maxhp }; });
   ok(r2.g1 === 0, '두 번째 확인: 경험치 다시 안 줌'); ok(r2.g2 === 0 && r2.lv === 61 && r2.mh === 26 + 7 * 60, '거래로 넘어온 높은 펫: 레벨만 61로 · 경험치는 안 넘김');
