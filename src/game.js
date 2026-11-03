@@ -9412,16 +9412,18 @@ const FBOT = (() => {
   const PCT_R = { A: { 1: [0.95, 1], 0.9: [0.85, 0.95], 0.8: [0.75, 0.85], 0.7: [0.65, 0.75] }, B: { 1: [0.85, 0.95], 0.9: [0.75, 0.85], 0.8: [0.65, 0.75], 0.7: [0.65, 0.75] } };
   function pctOf(b) { if (b._pct != null) return b._pct; const s = slotOf(Date.now()); if (b._ps !== s) { const r = (PCT_R[b.team] || {})[b.tier] || [b.tier, b.tier], u = (h => { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; })(hsh('pct:' + s + ':' + b.uid)); b._ps = s; b._pv = Math.round((r[0] + (r[1] - r[0]) * u) * 100) / 100; } return b._pv; }
   let RO = null;
-  function roster() { if (RO) return RO;
+  const ptSlot = () => Math.floor((Date.now() + 4 * 3600e3) / 7200e3);   // 11/3: 봇끼리 파티는 2시간 구간(세기 갱신과 같은 05·07·09…시)마다 새로 짬 (slotOf와 같은 식 · 위에서 쓰려고 따로)
+  function roster() { const ps = ptSlot(); if (RO && RO.ps === ps) return RO; if (RO) { ptBuild(RO, ps); return RO; }
     const team = t => TAB[t].map(([name, cls, tier], n) => { const b = { team: t, n, uid: UID0[t] + n, cls, tier, name, lk: hsh('lk' + (UID0[t] + n)), clan: CLAN[t], fb: true }; Object.defineProperty(b, 'pct', { get() { return pctOf(this); }, set(v) { this._pct = v; }, enumerable: true, configurable: true }); return b; });
-    RO = { A: team('A'), B: team('B') }; RO.all = RO.A.concat(RO.B); RO.by = new Map(RO.all.map(b => [b.uid, b]));
+    RO = { A: team('A'), B: team('B') }; RO.all = RO.A.concat(RO.B); RO.by = new Map(RO.all.map(b => [b.uid, b])); ptBuild(RO, ps); return RO; }
+  function ptBuild(RO, ps) { RO.ps = ps; for (const b of RO.all) { delete b.pt; delete b.pk; }
     // 11/1 2단계 ②: 파티 — 혈맹마다 PT_N 크기로(섞인 직업: 기사 1·법사 1 먼저, 나머지 무작위) · 리더 = 첫 번째(기사) · pk = 대형 자리 번호 · 명단과 다른 씨앗이라 1단계 명단(이름·직업·비율)은 그대로
-    const R2 = K_.rngS(1101 * 7919 + 7); RO.pt = [];
+    const R2 = K_.rngS(1101 * 7919 + 7 + ps * 104729); RO.pt = [];   /* 11/3: 씨앗에 2시간 구간 — 모든 PC가 같은 파티 */
     for (const t of ['A', 'B']) { const pool = RO[t].slice(); C.PT_N[t].forEach((sz, q) => { const id = t + (q + 1), mem = [];
       for (const c of ['knight', 'wizard']) { const ks = pool.filter(b => b.cls === c); if (ks.length && mem.length < sz) { const b = ks[Math.floor(R2() * ks.length)]; pool.splice(pool.indexOf(b), 1); mem.push(b); } }
       while (mem.length < sz && pool.length) mem.push(pool.splice(Math.floor(R2() * pool.length), 1)[0]);
       if (mem.length < 2) return; mem.forEach((b, k) => { b.pt = id; b.pk = k; }); RO.pt.push({ id, team: t, uids: mem.map(b => b.uid), lead: mem[0].uid }); }); }
-    RO.ptBy = new Map(RO.pt.map(p => [p.id, p])); return RO; }
+    RO.ptBy = new Map(RO.pt.map(p => [p.id, p])); }
   // ----- 사냥터 (월드맵 도감의 구간별 권장 레벨) — 수호탑 대전·마을·안전·이벤트·결투장·콜로세움·소환의 제단은 도감에 없어서 자동으로 빠짐
   //   11/1 프로듀서 결정: 봇은 각 사냥터의 2구역(본토던전은 2층)에만 · 1구역은 전투 없는 잠수 사냥용이라 봇 없음 → 2·4·6·8·10·12·17·23번 (/혈맹 일정표도 같은 목록)
   let HZ = null;
