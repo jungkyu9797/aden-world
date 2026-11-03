@@ -72,6 +72,8 @@ const DEFAULT_BASE = 'https://raw.githubusercontent.com/jungkyu9797/aden-world/m
 const updateBase = () => { const c = readJSON(path.join(APP_DIR, 'update.json')) || {}; const b = String(c.base || '').trim() || DEFAULT_BASE; return b.endsWith('/') ? b : b + '/'; };
 const sha = buf => crypto.createHash('sha256').update(buf).digest('hex');
 const shaFile = f => { try { return sha(fs.readFileSync(f)); } catch (e) { return null; } };
+const BOOT_SHA = { 'main.js': shaFile(path.join(APP_DIR, 'main.js')), 'preload.js': shaFile(path.join(APP_DIR, 'preload.js')) };   // 11/3: 켤 때의 main.js·preload.js — 받다가 실패한 뒤 다시 받아도 '다시 시작'이 필요한지 알 수 있게
+const needRestart = () => Object.keys(BOOT_SHA).some(rel => BOOT_SHA[rel] && shaFile(path.join(APP_DIR, rel)) !== BOOT_SHA[rel]);
 const safeRel = rel => typeof rel === 'string' && !rel.includes('..') && !path.isAbsolute(rel) && /^[\w\-./ ]+$/.test(rel) && rel !== 'version.json';
 async function getBuf(url) { const r = await net.fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return Buffer.from(await r.arrayBuffer()); }
 // raw.githubusercontent.com 은 새로 올린 직후 몇 분간 예전 파일을 줄 수 있어서, 가장 최근 커밋 번호로 고정한 주소를 씀 (실패하면 원래 주소)
@@ -80,7 +82,7 @@ async function pinBase(base) { const g = /^https:\/\/raw\.githubusercontent\.com
   return base; }
 async function manifest(base) { return JSON.parse((await getBuf(base + 'version.json?t=' + Date.now())).toString('utf-8')); }
 ipcMain.handle('update:check', async () => {
-  const base0 = updateBase(); if (!base0) return { ok: false, err: 'nobase' }; const base = await pinBase(base0);
+  const base0 = updateBase(); if (!base0) return { ok: false, err: 'nobase' }; const base = base0;   // 11/3: 확인(2분마다)은 커밋 고정 안 함 — api.github.com 한 시간 60번 제한 (몇 분 늦게 알아도 됨 · 받을 때만 고정)
   try { const m = await manifest(base); return { ok: true, ver: m.ver | 0 }; } catch (e) { return { ok: false, err: String(e.message || e) }; }
 });
 ipcMain.handle('update:run', async (e) => {
@@ -97,10 +99,10 @@ ipcMain.handle('update:run', async (e) => {
       if (!buf) throw new Error('STALE 파일이 아직 예전 것이에요: ' + rel);
       const dst = path.join(APP_DIR, rel); fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.writeFileSync(dst + '.tmp', buf); fs.renameSync(dst + '.tmp', dst);
-      if (rel === 'main.js' || rel === 'preload.js') restart = true; done++;
+      done++;
     }
     fs.writeFileSync(path.join(APP_DIR, 'version.json'), JSON.stringify({ ver: m.ver | 0, name: m.name || '' }), 'utf-8');
-    return need.length ? { ok: true, ver: m.ver | 0, n: need.length, restart } : { ok: true, latest: true, ver: m.ver | 0 };
+    restart = needRestart(); return need.length ? { ok: true, ver: m.ver | 0, n: need.length, restart } : { ok: true, latest: true, ver: m.ver | 0, restart };
   } catch (err) { return { ok: false, err: String(err.message || err) }; }
 });
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });

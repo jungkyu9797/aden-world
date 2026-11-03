@@ -10259,7 +10259,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
   const updErr = e => { e = String(e || ''); return /손상|STALE/.test(e) ? '방금 나온 업데이트라 파일이 아직 서버에 퍼지는 중이에요. 1~2분 뒤에 다시 눌러 주세요.' : /EPERM|EACCES|EBUSY/.test(e) ? '게임 폴더에 파일을 쓸 수 없어요. 게임 폴더를 바탕화면이나 다운로드 폴더처럼 쓰기 가능한 곳으로 옮긴 뒤 다시 해 주세요.' : '업데이트하지 못했어요. 인터넷 연결을 확인해 주세요. (' + e.slice(0, 60) + ')'; };
   const msg = (t, c) => { const m = $('lg-upmsg'); if (m) { m.textContent = t; m.style.color = c || '#cfc4a8'; } };
   const btn = (t, on) => { const b = $('lg-update'); if (!b) return; b.textContent = t; b.classList.toggle('new', !!on); };
-  async function run() { if (busy) return; const n = N();
+  async function run() { if (busy || gBusy) return; const n = N();
     if (!n || !n.update) { msg('최신 버전으로 다시 불러옵니다…', '#9fd08a'); setTimeout(() => location.reload(), 500); return; }
     busy = true; $('lg-update').disabled = true; msg('최신 버전을 확인하는 중…');
     let r; try { r = await n.update(); } catch (e) { r = { ok: false, err: String(e && e.message || e) }; }
@@ -10274,26 +10274,54 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     if (n && n.updateCheck) n.updateCheck().then(r => { if (r && r.ok && r.ver > GAME_VER) { btn(`업데이트 (새 버전 v${r.ver})`, true); msg('새 버전이 나왔어요. 업데이트를 눌러 주세요.', '#ffd86a'); } }).catch(() => {}); }
   // 게임 중: 5분마다 새 버전 확인 → 위쪽 [업데이트] 버튼 → 누르면 저장 → 받기 → 다시 불러온 뒤 같은 자리·같은 파티·같은 방에서 이어서
   let newVer = 0, gBusy = false;
-  async function checkIn() { const n = N(); if (!n || !n.updateCheck || gBusy) return; try { const r = await n.updateCheck(); const b = $('btn-upd'); if (r && r.ok && r.ver > GAME_VER && b) { const first = b.hidden; newVer = r.ver; b.hidden = false; b.textContent = `⬇ 업데이트 (v${r.ver})`; if (first && ACCOUNT.started()) say(`새 버전(v${r.ver})이 나왔어요. 화면 위의 [업데이트]를 누르면 접속을 유지한 채 바로 업데이트돼요.`, '#ffd86a'); } } catch (e) {} }
-  async function runIn() { const n = N(), b = $('btn-upd'); if (!n || !n.update || gBusy) return; gBusy = true; b.disabled = true; b.textContent = '업데이트 중…'; say('업데이트를 받는 중입니다… (캐릭터를 먼저 저장해요)', '#ffd86a');
+  async function checkIn() { const n = N(); if (!n || !n.updateCheck || gBusy) return; try { const r = await n.updateCheck(); const b = $('btn-upd'); if (r && r.ok && r.ver > GAME_VER && b) { const first = b.hidden; newVer = r.ver; b.hidden = false; if (arm(r.ver)) return; b.textContent = `⬇ 업데이트 (v${r.ver})`; if (first && ACCOUNT.started()) say(`새 버전(v${r.ver})이 나왔어요. 화면 위의 [업데이트]를 누르면 접속을 유지한 채 바로 업데이트돼요.`, '#ffd86a'); } } catch (e) {} }   // 11/3: 새 버전이면 자동 업데이트 예약 (arm)
+  async function runIn(auto) { const n = N(), b = $('btn-upd'); if (!n || !n.update || gBusy) return; AU.v = 0; gBusy = true; b.disabled = true; b.textContent = '업데이트 중…'; say('업데이트를 받는 중입니다… (캐릭터를 먼저 저장해요)', '#ffd86a');
     ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {}
     let r; try { r = await n.update(); } catch (e) { r = { ok: false, err: String(e && e.message || e) }; }
     const stale = r.ok && r.latest && r.ver > GAME_VER;   // v141: 파일은 이미 새 버전인데 실행 중인 게임만 예전 버전 → 다시 불러오기
     if (!r.ok || (r.latest && !stale)) { try { localStorage.removeItem('aden_resume'); } catch (e) {} }
-    if (!r.ok) { gBusy = false; b.disabled = false; b.textContent = `⬇ 업데이트 (v${newVer})`; say(updErr(r.err), '#f08a7a'); return; }
-    if (stale) { say(`v${r.ver} 파일은 이미 받아져 있어요. 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => location.reload(), 800); return; }
-    if (r.latest) { gBusy = false; b.hidden = true; b.disabled = false; say('이미 최신 버전이에요.', '#9fd08a'); return; }
-    say(`v${r.ver} 업데이트 완료! 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a'); setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 800); }
+    if (!r.ok) { gBusy = false; b.disabled = false; b.textContent = `⬇ 업데이트 (v${newVer})`; say(updErr(r.err), '#f08a7a'); if (auto) retry(newVer); return; }
+    if (r.latest && !stale) { gBusy = false; b.hidden = true; b.disabled = false; say('이미 최신 버전이에요.', '#9fd08a'); return; }
+    await waitSafe(auto, b, r.ver); say(stale ? `v${r.ver} 파일은 이미 받아져 있어요. 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…` : `v${r.ver} 업데이트 완료! 잠깐 다시 불러온 뒤 그 자리에서 이어집니다…`, '#9fd08a');
+    setTimeout(() => r.restart && n.relaunch ? n.relaunch() : location.reload(), 800); }
+  // 11/3: 받는 동안 게임은 계속 돌아가므로, 다시 불러오기 바로 전에 다시 확인 — 자동이면 위험한 때(unsafe) 전부 · 직접 누른 것도 쓰러짐·교환은 기다림 → 그 뒤 위치·상태를 다시 저장
+  async function waitSafe(auto, b, v) { if (!ACCOUNT.started()) return; let said = 0; for (;;) { const why = unsafe(true); if (!why || (!auto && why !== '쓰러진 상태' && why !== '교환')) break;
+      if (b) b.textContent = `⬇ 업데이트 받음 (v${v}) · ${why} 끝나면 다시 시작`; if (!said) { said = 1; say(`[업데이트] 새 파일을 받았어요. 지금 하던 것(${why})이 끝나면 다시 불러와요.`, '#ffd86a'); } await new Promise(res => setTimeout(res, 1000)); }
+    ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {} }
   // v122: 웹(아티팩트)도 게임 중 5분마다 새 버전 확인 → [업데이트] → 저장 후 다시 불러와 같은 자리·파티·자동사냥 그대로 (PC와 같은 이어하기)
   const VER_URL = 'https://raw.githubusercontent.com/jungkyu9797/aden-world/main/version.json';
   let tried = 0; try { tried = +(localStorage.getItem('aden_patch_to') || 0); localStorage.removeItem('aden_patch_to'); } catch (e) {}
   async function webVer() { try { const r = await fetch((window.ADEN_VER_URL || VER_URL) + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return 0; const m = /"ver"\s*:\s*(\d+)/.exec((await r.text()).slice(0, 300)); return m ? +m[1] : 0; } catch (e) { return 0; } }
-  async function checkWeb() { if (gBusy) return; const v = await webVer(), b = $('btn-upd'); if (!(v > GAME_VER) || !b) return; const first = b.hidden; newVer = v; b.hidden = false; b.textContent = `⬇ 업데이트 (v${v})`;
+  async function checkWeb() { if (gBusy) return; const v = await webVer(), b = $('btn-upd'); if (!(v > GAME_VER) || !b) return; const first = b.hidden; newVer = v; b.hidden = false; if (tried < v && arm(v)) return; b.textContent = `⬇ 업데이트 (v${v})`;   // 11/3: 자동 업데이트 예약 (이미 한 번 다시 불러왔는데도 예전 판이면 자동은 안 하고 버튼만)
     if (first && ACCOUNT.started()) say(tried >= v ? `새 버전(v${v})이 아직 이 페이지에 반영되지 않았어요. 잠시 뒤 [업데이트]를 다시 누르거나 페이지를 닫았다가 다시 열어 주세요.` : `새 버전(v${v})이 나왔어요. 화면 위의 [업데이트]를 누르면 저장한 뒤 다시 불러와서 그 자리에서 이어서 플레이해요.`, '#ffd86a'); }
-  async function runWeb() { const b = $('btn-upd'); if (gBusy || !b) return; gBusy = true; b.disabled = true; b.textContent = '업데이트 중…'; say('캐릭터를 저장하고 새 버전을 불러옵니다… (잠깐 뒤 그 자리에서 이어져요)', '#ffd86a');
+  async function webFresh() { try { const [g] = await Promise.all([fetch('src/game.js', { cache: 'reload' }).then(r => r.ok ? r.text() : ''), fetch('src/map_data.js', { cache: 'reload' }).catch(() => null), fetch('src/gl.js', { cache: 'reload' }).catch(() => null), fetch(location.href.split('#')[0], { cache: 'reload' }).catch(() => null)]); const m = /const GAME_VER = (\d+)/.exec(g || ''); return m ? +m[1] : 0; } catch (e) { return 0; } }   // 11/3: 새 파일을 미리 받아 둠(브라우저 캐시 갱신) + 그 파일의 버전
+  async function runWeb(auto) { const b = $('btn-upd'); if (gBusy || !b) return; gBusy = true; AU.v = 0; b.disabled = true; b.textContent = '업데이트 중…';
+    const fv = await webFresh(); if ((fv && fv < newVer) || (!fv && auto)) { gBusy = false; b.disabled = false; b.textContent = `⬇ 업데이트 (v${newVer})`; say(`새 버전(v${newVer}) 파일이 아직 서버에 퍼지는 중이에요. ${auto ? '1분 뒤 자동으로 다시 해요.' : '1~2분 뒤에 다시 눌러 주세요.'}`, '#f0c080'); if (auto) retry(newVer); return; }
+    if (!ACCOUNT.started()) { if (auto && unsafe(true)) { gBusy = false; b.disabled = false; AU.v = newVer; AU.at = Date.now() + 3000; return; } location.reload(); return; }
+    if (auto && unsafe(true)) { gBusy = false; b.disabled = false; AU.v = newVer; AU.at = Date.now() + 5000; return; }   /* 받는 사이에 위험해졌으면 다시 기다림 */
+    say('캐릭터를 저장하고 새 버전을 불러옵니다… (잠깐 뒤 그 자리에서 이어져요)', '#ffd86a');
     ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {} try { localStorage.setItem('aden_patch_to', String(newVer)); } catch (e) {} setTimeout(() => location.reload(), 500); }
-  { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = runIn; setTimeout(checkIn, 8000); setInterval(checkIn, 5 * 60 * 1000); }
-    else if (b && !n && !window.ADEN_DEMO) { b.onclick = runWeb; setTimeout(checkWeb, 15000); setInterval(checkWeb, 5 * 60 * 1000); }
+  // 11/3 프로듀서: 새 버전이 나오면 자동 업데이트 — 2분마다 확인 · 안전할 때(쓰러짐·보스 전투·교환·콜로세움·수호탑·할로윈·몽환의 섬·결투·입력 중·HP 40% 아래가 아닐 때) 20초 알림 뒤 저장 → 받기 → 그 자리·파티·자동사냥 그대로
+  //   [업데이트]를 누르면 바로 · 운영자 모드·봇 호스트(러너가 따로 새로 고침)·테스트 페이지는 자동 안 함 · 파일이 아직 안 퍼졌으면 1분 뒤 다시(최대 5번)
+  const AU = { v: 0, at: 0, said: 0, saidH: 0, held: '', n: 0, next: 0 }, AU_SEC = 20;
+  const auOk = () => (!(window.ADEN_DEMO || window.DEMO_MODE) || window.__AU_TEST) && !(typeof BOTHOST !== 'undefined' && BOTHOST.on()) && !(typeof ADMIN !== 'undefined' && ADMIN.on());
+  const auTry = v => { try { const o = JSON.parse(sessionStorage.getItem('aden_au') || 'null'); return o && o.v === v ? o.n | 0 : 0; } catch (e) { return 0; } }, auMark = v => { try { sessionStorage.setItem('aden_au', JSON.stringify({ v, n: auTry(v) + 1 })); } catch (e) {} };   // 같은 버전으로 자동 업데이트를 2번 했는데도 예전 판이면 자동은 그만 (다시 불러오기 반복 방지)
+  function arm(v) { if (!(v > GAME_VER) || !auOk() || AU.n >= 5 || auTry(v) >= 2) return false; if (AU.v !== v && !gBusy) { if (AU.lastV !== v) { AU.lastV = v; AU.n = 0; AU.next = 0; } AU.v = v; AU.at = Math.max(Date.now() + AU_SEC * 1000, AU.next); AU.said = 0; AU.saidH = 0; AU.held = ''; } return true; }
+  function retry(v) { AU.n++; if (AU.n >= 5) return; AU.next = Date.now() + 60000 * Math.pow(2, AU.n - 1); AU.v = v; AU.at = AU.next; AU.said = 1; AU.saidH = 1; }
+  function unsafe(any) { const ae = document.activeElement, typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && String(ae.value || '').trim(); if (!ACCOUNT.started()) return typing ? '글자 입력' : '';   /* 로그인·캐릭터 화면: 아이디·비밀번호·이름을 쓰는 중이면 기다림 */
+    if (DEATH || !(hero.hp > 0)) return '쓰러진 상태'; const d = ISLE && ISLE.def; if (SCENE === 'field' && d) { if (d.arena || COLO_LOCK) return '콜로세움'; if (d.tw) return '수호탑 대전'; if (d.hw) return '할로윈 던전'; if (d.dream) return '몽환의 섬'; if (d.duel || d.pvp) return '결투'; } else if (COLO_LOCK) return '콜로세움 입장 대기';
+    try { if (TRADE.active()) return '교환'; } catch (e) {} try { if (INV.targeting()) return '아이템 사용'; } catch (e) {}
+    if (typing) return '글자 입력';   /* 채팅칸은 늘 포커스라 글자를 쓰고 있을 때만 */
+    if (foxes.some(f => !f.dead && !f.gone && MOB[f.kind] && (MOB[f.kind].boss || MOB[f.kind].midb) && (f.tgt === hero || hero.target === f || (f.myHitAt && time - f.myHitAt < 30)))) return '보스 전투';
+    if (hero.hp < hero.max * 0.4) return 'HP 회복'; return ''; }
+  function auTick() { if (!AU.v || gBusy || gateOn || busy || Date.now() < AU.next) return; if (!auOk() || !(AU.v > GAME_VER)) { AU.v = 0; return; } const b = $('btn-upd'), n = N();
+    if (!ACCOUNT.started()) { if (Date.now() < AU.at - (AU_SEC - 3) * 1000 || unsafe()) return; if (n && n.update) msg(`새 버전(v${AU.v})을 자동으로 받는 중…`, '#ffd86a'); auMark(AU.v); if (n && n.update) runIn(true); else runWeb(true); return; }   /* 로그인·캐릭터 고르기 화면: 3초 뒤 바로 */
+    const why = unsafe(); if (why) { AU.at = Math.max(AU.at, Date.now() + 5000); if (b) b.textContent = `⬇ 업데이트 (v${AU.v}) · ${why} 끝나면 자동`; if (AU.held !== why) { AU.held = why; if (!AU.saidH) { AU.saidH = 1; say(`[업데이트] 새 버전(v${AU.v})이 나왔어요. 지금 하던 것(${why})이 끝나면 자동으로 업데이트해요. 바로 하려면 화면 위 [업데이트]를 눌러 주세요.`, '#ffd86a'); } } return; }
+    AU.held = ''; const left = Math.ceil((AU.at - Date.now()) / 1000);
+    if (left > 0) { if (b) b.textContent = `⬇ 자동 업데이트 ${left}초 (v${AU.v})`; if (!AU.said) { AU.said = 1; say(`[업데이트] 새 버전(v${AU.v})이 나왔어요. ${left}초 뒤 자동으로 업데이트해요. 저장한 뒤 그 자리·파티·자동사냥 그대로 이어져요. (바로 하려면 화면 위 [업데이트])`, '#ffd86a'); } return; }
+    auMark(AU.v); if (n && n.update) runIn(true); else runWeb(true); }
+  { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = () => runIn(); setTimeout(checkIn, 8000); setInterval(checkIn, 2 * 60 * 1000); setInterval(auTick, 1000); }
+    else if (b && !n && !window.ADEN_DEMO) { b.onclick = () => runWeb(); setTimeout(checkWeb, 15000); setInterval(checkWeb, 2 * 60 * 1000); setInterval(auTick, 1000); }
     if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
   // v151: PC 게임을 켜면 로그인 화면보다 먼저 최신 버전 확인 → 새 버전이면 자동으로 받고 다시 시작 (예전 버전으로 접속해서 아이템이 사라지는 일 방지)
   let gateOn = false;
@@ -10312,7 +10340,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     let u; try { u = await n.update(); } catch (e) { u = { ok: false, err: String(e && e.message || e) }; }
     if (u && u.ok && (!u.latest || u.ver > GAME_VER)) { T(`v${u.ver} 업데이트 완료! 다시 시작합니다…`); await new Promise(res => setTimeout(res, 800)); if (u.restart && n.relaunch) n.relaunch(); else location.reload(); return new Promise(() => {}); }
     return done(updErr(u && u.err) + ' 지금 버전으로 접속합니다.', 3000); }
-  return { run, check: checkIn, gate, newVer: () => newVer }; })();
+  return { run, check: checkIn, gate, newVer: () => newVer, au: AU, arm, unsafe, auTick, checkWeb, webFresh }; })();
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
