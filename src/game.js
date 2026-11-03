@@ -214,7 +214,7 @@ const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer
 function mk(kind,i,j){ return {kind,i,j,fi:i,fj:j,t:1,x:i+0.5,z:j+0.5,row:0,dist:0,hp:kind==='fox'?10:100,max:kind==='fox'?10:100,atk:null,cool:0,target:null,flash:0,dead:false,deadT:0,aggro:false,wander:Math.random()*3,hi:i,hj:j}; }
 const hero = mk('hero', META.spawn[0], META.spawn[1]); hero.row = 1;
 let foxes = []; const FIELD_FOXES = foxes;
-let PETS_HERE = [];   // 지금 지역에 나와 있는 내 펫 (PET 모듈이 매 프레임 갱신)
+let PETS_HERE = [], PBHIT = null;   /* PBHIT: 11/3 지역 호스트가 다른 PC의 파티 봇 피해를 넣는 동안 그 파티 봇 대리 개체 (카운터 배리어 반사를 파티장 대신 봇에게) */   // 지금 지역에 나와 있는 내 펫 (PET 모듈이 매 프레임 갱신)
 let PB_HERE = [];   // 11/3 혈맹 파티: 지금 지역에 나와 있는 내 파티 봇 (FBOT이 매 프레임 갱신)
 let PEER_OCC = null;   // 다른 플레이어가 서 있는 칸 (NET 이 채움)
 const SWAPB = o => !!(o && o.bot && o.bot.team === 'A' && !o.dead);   // 수호탑 대전: 아군 봇은 길을 막지 않음 (나와 자리를 바꿈) · v191: 필드의 반왕 혈맹 봇도
@@ -524,7 +524,7 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):'')+(pk_<1?' (봇 파티 ×'+(+pk_.toFixed(3))+')':''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
 function killCheck(f){ if (f && f.fb) { if (f.hp <= 0 && !f.dead) FBOT.down(f); return; } if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
   const D=NET.distribute(f,S); if (!D){ if (window.SAVER && (!f.dmgBy || [...f.dmgBy.keys()].some(w => w === hero || (w && w.isPet)))) SAVER.kill();   /* 11/1: 혼자 잡은 몹도 절전 [처치]에 셈 (전에는 같은 지역에 다른 사람이 있을 때만 셈) */ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=Math.round(rint(S.coin)*coinX()*FBOT.pbK(S)); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, FB_KILLER || (D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()), !!FB_KILLER); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else { if (Math.random()<FBOT.pbDropK(S, D)) { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); } reaperTry(f, S, D); }   /* 11/3 혈맹 파티: 일반 몬스터 드랍 확률 × 1/N × 1.1 (보스는 위에서 그대로) */
+  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, FB_KILLER || (D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()), !!FB_KILLER); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else { if (Math.random()<FBOT.pbDropK(S, D)) { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); } if (Math.random()<FBOT.pbDropK(S, D)) reaperTry(f, S, D); }   /* 11/3: 리퍼(영혼석)도 봇 파티 몫만큼 */   /* 11/3 혈맹 파티: 일반 몬스터 드랍 확률 × 1/N × 1.1 (보스는 위에서 그대로) */
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 const KNIGHT_PVE = 1.25;   // 11/1: 기사 — 몬스터에게 주는 피해 +25% (법사와 사냥 속도 맞춤 · 대인전 제외)
@@ -8293,7 +8293,7 @@ const NET = (() => {
   function applyHits(o) { const L = o.pr.h; if (!L || !L.length || !ISLE || o.pr.z !== zk()) return; const last = seenHit.get(o.peer) || 0; let mx = last;
     for (const [sq, uid, dmg, st, pu] of L) { if (sq <= last) continue; mx = Math.max(mx, sq); const f = foxes.find(q => q.uid === uid); if (!f || f.dead) continue; if (f.fb && FBOT.neuLv(o.pr.lv)) continue; const p = proxy(o.peer);   /* 11/3: 중립 유저는 혈맹 봇을 못 때림 */
       if (st) { if (st.s > 0) { f.stunT = Math.max(f.stunT || 0, st.s); f.stunMax = Math.max(f.stunMax || 0, st.s); } if (st.w > 0) f.slowT = Math.max(f.slowT || 0, st.w); if (st.b > 0) { f.bindUntil = time + st.b; f.bindImm = time + st.b + 6; f.dingT = 99; } f.aggro = true; if (!(dmg > 0)) continue; }
-      if (f.bindUntil > time) continue; addDmg(f, p, Math.min(dmg, Math.max(0, f.hp))); f.hp -= dmg; f.flash = 0.09; mobHitFx(f, false); f.aggro = true; if (!f.tgt || (f.tgt === hero && Math.random() < 0.4)) f.tgt = p; if (pu) { const pe = pbView(o.peer, pu); if (pe) { if (f.fb) { if (f.bx) { f.bx.hitBy = pe; f.bx.hitByT = time; } } else if (f.tgt === p || Math.random() < 0.5) f.tgt = pe; } }   /* 11/3: 파티 봇이 때렸으면 그 봇을 노림 */ if (f.grp) f.grp.forEach(m => { if (!m.dead) m.aggro = true; });
+      if (f.bindUntil > time) continue; PBHIT = pu ? pbView(o.peer, pu) : null; try { addDmg(f, p, Math.min(dmg, Math.max(0, f.hp))); } finally { PBHIT = null; } f.hp -= dmg; f.flash = 0.09; mobHitFx(f, false); f.aggro = true; if (!f.tgt || (f.tgt === hero && Math.random() < 0.4)) f.tgt = p; if (pu) { const pe = pbView(o.peer, pu); if (pe) { if (f.fb) { if (f.bx) { f.bx.hitBy = pe; f.bx.hitByT = time; } } else if (f.tgt === p || Math.random() < 0.5) f.tgt = pe; } }   /* 11/3: 파티 봇이 때렸으면 그 봇을 노림 */ if (f.grp) f.grp.forEach(m => { if (!m.dead) m.aggro = true; });
       const [fx, fy] = W2P(f.x, f.z); floatText(fx, fy - headY(f) - 4, String(dmg), { color: RCOL, size: 12 }); if (f.hp > 0) MSFX(f.kind, 'hit', 0.4); killCheck(f); }
     seenHit.set(o.peer, mx); }
   function applyPicks(o) { const L = o.pr.pk; if (!L || !L.length || o.pr.z !== zk()) return; const last = seenPk.get(o.peer) || 0; let mx = last;
@@ -9597,7 +9597,7 @@ const FBOT = (() => {
   const isLead = uid => { const b = roster().by.get(uid); return !!(b && b.pt && roster().ptBy.get(b.pt).lead === uid); };
   function ensure() { const P = plan(), zid = ISLE.id, now = Date.now(), want = []; for (const b of roster().all) if (P.at[b.uid] === zid || VIS.has(b.uid)) want.push(b.uid); want.sort((a, b) => isLead(b) - isLead(a));   // 리더 먼저 (파티원이 리더 옆에 나오게)
     for (const f of foxes) { if (!f.fb || f.gone) continue; if (!f.bot || f.bot.stRef !== refNow().st) tag(f); if (!want.includes(f.uid) && !f.dead) leave(f); }   // 기준 유저가 바뀌면 능력치 다시 (HP 비율은 그대로)
-    let n = 0, cnt = foxes.filter(f => f.fb && !f.gone).length; for (const uid of want) { if (foxes.some(f => f.uid === uid && !f.gone)) continue; if ((AWAY.get(uid) || 0) > now) continue; if (cnt >= C.ZONE_CAP) break; if (n++ >= 2) break; const V = VIS.get(uid); if (spawn(roster().by.get(uid), V ? edgeSpot() : null, V)) cnt++; } }   // 한 번에 2명씩 (우르르 나타나지 않게) · 지역당 ZONE_CAP(12)까지
+    let n = 0, cnt = foxes.filter(f => f.fb && !f.gone).length; for (const uid of want) { if (foxes.some(f => f.uid === uid && !f.gone)) continue; if ((AWAY.get(uid) || 0) > now) continue; if (pbTaken(uid)) continue; if (cnt >= C.ZONE_CAP) break; if (n++ >= 2) break;   /* 11/3: 유저 파티에 든 봇이 다른 봇 나오는 순번을 막지 않게 */ const V = VIS.get(uid); if (spawn(roster().by.get(uid), V ? edgeSpot() : null, V)) cnt++; } }   // 한 번에 2명씩 (우르르 나타나지 않게) · 지역당 ZONE_CAP(12)까지
   // 지원군이 들어오는 자리: 지역 가장자리(2~3칸 안쪽) 중 플레이어에게서 10칸 넘게 떨어진 곳 (없으면 아무 빈자리)
   function edgeSpot() { const N = MAP, Pp = playersPos(), por = (ISLE && ISLE.portals) || [], farP = (i, j) => !Pp.some(([x, z]) => cheb(i, j, Math.floor(x), Math.floor(z)) < 10);
     if (por.length) for (let t = 0; t < 120; t++) { const q = por[Math.floor(Math.random() * por.length)], i = q.i + Math.round((Math.random() * 2 - 1) * 5), j = q.j + Math.round((Math.random() * 2 - 1) * 5); if (i > 1 && j > 1 && i < N - 2 && j < N - 2 && walkable(i, j) && !occ(i, j) && (farP(i, j) || t > 80)) return [i, j]; }   // 포털 옆은 길이 이어져 있음 (가장자리 아무 데나는 절벽 안쪽일 수 있음)
@@ -9649,6 +9649,7 @@ const FBOT = (() => {
   function counter(T, a, d) { if (!T || !T.fb || !(T.fbBf & 4) || !a || !(d > 0) || T.dead || a === T) return; const rd = Math.max(1, Math.round(d * 0.3));
     if (a === hero) { if (!heroOk() || BUFF.counter > 0) return; STAT.refl += rd; hurtHero(rd, T, 'melee'); return; }
     if (a.isRemote) { const o = NET.peerObj(a.peer); if (!NET.alive(a) || (o && o.pr.bf && o.pr.bf.counter > 0)) return; STAT.refl += rd; NET.hitRaw(a, T, rd, false); return; }
+    if (a.pbR) { if (a.dead || !(a.hp > 0)) return; STAT.refl += rd; NET.pbHit(a, T, rd); return; }   /* 11/3: 다른 PC의 파티 봇 → 그 PC로 */
     if (a.fb) { if (!live(a) || (a.fbBf & 4)) return; STAT.refl += rd; a.hp -= rd; a.flash = 0.08; a.fbD = (a.fbD || 0) + rd; showD(a, rd, false, '#e08a8a'); if (a.hp <= 0) botDie(a, T); return; }
     if (!a.dead && !a.gone && a.uid != null && MOB[a.kind] && !a.isPet) { STAT.refl += rd; mobDeal(T, a, rd, false); } }
   // 몬스터에게: 명중은 몬스터 방어(AC)·레벨 차 (유저와 비슷) · 피해는 기준 유저 평균 피해 × 비율 · 플레이어가 함께 때렸으면 보상은 기존 몹 규칙(플레이어 몫) · 봇 혼자 잡으면 보상·드랍 없음
@@ -9718,7 +9719,7 @@ const FBOT = (() => {
     return { top, drop: true }; }
   function killMsg(f, drop) { const b = f.bot; say(`[${b.clan} 혈맹] ${jo(b.name, '을', '를')} 쓰러뜨렸습니다! ${drop ? JOSA(ITEMS.burnt_ward.name, '이', '가') + ' 떨어졌습니다.' : '(이 봇은 10분 안에 이미 ' + ITEMS.burnt_ward.name + '를 떨어뜨렸어요)'}`, '#ffd86a'); if (near(f, 20)) { const [x, y] = W2P(f.x, f.z); floatText(x, y - 120, '처치!', { color: '#ffd86a', size: 15, big: true, life: 1.2 }); } }
   function down(f) { if (!f || f.dead) return; botDie(f, (f.bx && f.bx.hitBy) || null); }   // 플레이어에게 쓰러짐 (killCheck)
-  function onDmg(f, who, d) { if (!f.fb || !who || !(d > 0)) return; const w = who.isPet ? hero : who; if (neuOf(w)) return; if (f.bx && (w === hero || w.isRemote || w.pbot)) { f.bx.hitBy = w; f.bx.hitByT = time; } engage(w, f); fightMark(w, f); if (!who.isPet && host()) counter(f, w, d); }
+  function onDmg(f, who, d) { if (!f.fb || !who || !(d > 0)) return; const w = who.isPet ? hero : who.isRemote && PBHIT ? PBHIT : who; if (neuOf(w)) return; if (f.bx && (w === hero || w.isRemote || w.pbot)) { f.bx.hitBy = w; f.bx.hitByT = time; } engage(w, f); fightMark(w, f); if (!who.isPet && host()) counter(f, w, d); }
   // ----- 전체 채팅 알림: 전투가 시작되면 (지역 호스트만 · 같은 지역은 3분에 한 번 · 받는 쪽도 같은 지역 3분 안이면 무시)
   const ALERT = new Map();
   function engage(a, T) { if (SIM || !here() || !host() || (a && a.fb && T && T.fb)) return; const A = sideOf(a), B = sideOf(T);   /* 11/3 프로듀서: 봇끼리 싸우는 건 전체 알림 안 함 (유저가 끼면 알림) */ if (!A || !B || A.t === B.t || A.t === 'N' || B.t === 'N') return; const ban = A.t === 'A' ? A : B, lin = A.t === 'A' ? B : A, k = 'fb:' + ISLE.id, now = Date.now();
@@ -10067,7 +10068,7 @@ const FBOT = (() => {
   const pbPct = (a, b) => Math.max(0, Math.min(100, a / Math.max(1, b) * 100));
   const pbHM = ms => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}:${String(m).padStart(2, '0')}` : m ? `${m}분` : `${s}초`; };
   const pbCp = b => { const R = refNow(), c = R.cp > 0 && R.cp < 1e7 ? R.cp : (myCP().total || 0); return Math.round(c * b.pct); };   /* 투력 = 복사 대상 전투력 × 봇 비율 */
-  function pbWhy(b) { if (!b || b.team !== 'A') return '반왕만'; if (pbIn(b.uid)) return '내 파티'; if (BOTHOST.on()) return '봇 서버'; if (neuMe()) return `Lv.${NEU_LV + 1}부터`; if (NET.inParty()) return '사람 파티 중';
+  function pbWhy(b) { if (!b || b.team !== 'A') return '반왕만'; if (pbIn(b.uid)) return '내 파티'; if (BOTHOST.on()) return '봇 서버'; if (ADMIN.on()) return '운영자 모드'; if (neuMe()) return `Lv.${NEU_LV + 1}부터`; if (NET.inParty()) return '사람 파티 중';
     if (b.pt) return '봇끼리 파티 중'; if (NET.pbTaken && NET.pbTaken(b.uid)) return '다른 유저 파티'; const now = nowMs(), cd = PBS.cd[b.uid] || 0; if (cd > now) return `${Math.ceil((cd - now) / 60000)}분 뒤 초대`;
     if ((PBS.aw[b.uid] || 0) > now) return '귀환 중'; if (PBS.m.length >= PBC.MAX) return '파티 가득'; return ''; }
   function pbList() { return roster().A.map(b => ({ b, cp: pbCp(b), lv: elvOf(b), why: pbWhy(b) })).sort((x, y) => y.cp - x.cp || (x.b.name < y.b.name ? -1 : x.b.name > y.b.name ? 1 : 0)); }
@@ -10152,7 +10153,7 @@ const FBOT = (() => {
     if (e.stunT > 0) { e.stunT -= dt; e.atkT = null; return; } if (e.bindUntil > time) return;
     X.cd -= dt * (e.wslowT > 0 ? 0.75 : 1); X.pot -= dt; X.mag -= dt; for (const k in X.scd) X.scd[k] -= dt;
     pbPotion(e, X);
-    const md = PBS.mode; if (md === 'fight') { if ((X.th -= dt) <= 0 || (X.tgt && !pbOk(X.tgt))) { X.th = 0.25; const was = X.tgt; X.tgt = pbPick(e); if (X.tgt && !was) X.potAt = rr(C.POT_AT); } } else X.tgt = null;
+    const md = DEATH ? 'move' : PBS.mode; if (md === 'fight') {   /* 11/3: 파티장이 쓰러져 있으면 싸우지 않음 */ if ((X.th -= dt) <= 0 || (X.tgt && !pbOk(X.tgt))) { X.th = 0.25; const was = X.tgt; X.tgt = pbPick(e); if (X.tgt && !was) X.potAt = rr(C.POT_AT); } } else X.tgt = null;
     if (e.t < 1) return;
     const dh = cheb(e.i, e.j, hero.i, hero.j); if (md !== 'wait' && dh > PBC.TELE) { pbPlace(e); pbAppear(e); return; }
     if (md === 'wait') return;
@@ -10162,7 +10163,7 @@ const FBOT = (() => {
   function pbConflict() { if (!NET.pbClaims) return; const M = NET.pbClaims(), me = myId(); for (const m of PBS.m.slice()) { const L = M.get(m.uid); if (L && L.some(o => o.at < m.at || (o.at === m.at && o.peer < me))) pbLeave(m.uid, 'lost'); } }
   function pbSweep() { const h = host() && here(); for (const f of foxes) { if (!f.fb || f.gone || f.dead || f.pbot) continue; if (h ? !pbTaken(f.uid) : !pbIn(f.uid)) continue; if (h) fx(['r', f.uid]); else if (near(f, 14)) recallFx(f); leave(f, true); } }
   function pbTick(dt) { if (BOTHOST.on()) { if ((pbChkT -= dt) <= 0) { pbChkT = 0.5; pbSweep(); } return; } const now = nowMs();
-    if (PBS.m.length && now >= PBS.end) pbEnd('expire');
+    if (PBS.m.length && now >= PBS.end) pbEnd('expire'); else if (PBS.m.length && (neuMe() || ADMIN.on())) pbEnd(neuMe() ? 'neutral' : 'admin');   /* 11/3: 레벨이 55 이하로 바뀌거나 운영자 모드면 해산 */
     if ((pbChkT -= dt) <= 0) { pbChkT = 0.5; if (PBS.m.length && !SIM) pbConflict(); pbSweep(); }
     if (!PBS.m.length) { if (PB_HERE.length) PB_HERE = []; PBP.length = 0; if (!SIM) { pbPub(dt); pbUiTick(dt); } return; }
     if ((pbTagT -= dt) <= 0) { pbTagT = 1; for (const e of PBE.values()) if (!e.bot || e.bot.stRef !== refNow().st) tag(e); }   /* 2시간마다 복사 갱신 → 능력치도 새로 (HP 비율은 그대로) */
@@ -11122,8 +11123,8 @@ const OFFL = (() => {
   const kst = ms => new Date(ms + (9 - 5) * 3600e3).toISOString().slice(0, 10);   // 하루 = 한국 시간 새벽 5시 기준 (v146 · 모든 일일 초기화 새벽 5시)
   const fmt = m => { m = Math.max(0, Math.round(m)); const h = Math.floor(m / 60), mm = m % 60; return (h ? h + '시간' : '') + (h && mm ? ' ' : '') + (mm || !h ? mm + '분' : ''); };
   const lowAt = (lv, S) => 1;   /* 11/3: 낮은 레벨 패널티 없앰 (오프라인 사냥 정산도 같게) */
-  const live = () => !settling && AUTO.on() && !NET.inParty() && !GOD && hero.hp > 0;
-  const arm = () => AUTO.on() && AUTO.conf().ofl !== false && !NET.inParty() && !GOD && rec.length >= NEED;
+  const live = () => !settling && AUTO.on() && !NET.inParty() && !FBOT.pbOn() && !GOD && hero.hp > 0;
+  const arm = () => AUTO.on() && AUTO.conf().ofl !== false && !NET.inParty() && !FBOT.pbOn() && !GOD && rec.length >= NEED;   /* 11/3: 봇 파티 중 사냥도 오프라인 사냥 기록에서 뺌 (사람 파티와 같이 · 드랍이 1/N로 안 줄어서) */
   const leftToday = () => (day === kst(Date.now()) ? Math.max(0, DAY - used) : DAY);
   const rec_ = () => cur && live();
   function tick(dt) { if (!SAVE.on()) return;
