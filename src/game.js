@@ -4716,7 +4716,9 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
     say(`${nm(d)}: ${({ attack: '공격 — 내가 공격하는 몬스터를 함께 공격합니다', wait: '공격 대기 — 따라다니기만 하고 공격하지 않습니다', rest: '휴식 — 이 자리에서 기다립니다' })[m]}`, '#9fe0ff'); sfxBark(); refresh(); }
   function scatter() { let n = 0; for (const p of PETS_HERE) { if (p.dead) continue; let t = null; for (let k = 0; k < 40 && !t; k++) { const r = 2 + Math.floor(Math.random() * 3), a = Math.random() * 6.283, i = Math.round(p.i + Math.cos(a) * r), j = Math.round(p.j + Math.sin(a) * r); if (cheb(i, j, p.i, p.j) >= 2 && walkable(i, j) && !occ(i, j)) t = [i, j]; }
       if (t) { p.scatter = t; p.scatterT = 5; p.target = null; n++; } } say(n ? '펫이 흩어집니다. (산개)' : '흩어질 펫이 없습니다.', '#9fe0ff'); }
-  // 펫 물약: 체력 물약은 내 가방 것을 같이 먹음 (HP 50% 아래) · 가속 물약만 펫 가방에 넣어 두면 펫이 따로 먹음
+  // 펫 물약: 체력 물약은 내 가방 것을 같이 먹음 (HP 50% 아래 · 11/3부터 펫 창에서 10~90% 조정 = d.potPct) · 가속 물약만 펫 가방에 넣어 두면 펫이 따로 먹음
+  const potPct = d => { const v = Math.round((+(d && d.potPct) || 50) / 10) * 10; return Math.max(10, Math.min(90, v)); };   /* 예전 펫(값 없음)은 50% */
+  function setPot(e, v) { const d = e && e.pet; if (!d) return false; d.potPct = Math.max(10, Math.min(90, Math.round((+v || 50) / 10) * 10)); refresh(); return d.potPct; }
   const petItemOK = id => { const d = ITEMS[id]; return d && d.use === 'haste'; };
   const HEAL_IDS = () => { const pref = (INV.auto('hp') || {}).id; return [pref, 'red_potion', 'orange_potion', 'clear_potion', ...Object.keys(ITEMS).filter(id => ITEMS[id].use === 'heal')].filter((id, k, a) => id && ITEMS[id] && ITEMS[id].use === 'heal' && a.indexOf(id) === k); };
   function giveItem(e, id, n) { const d = e.pet; if (id === 'pet_fruit') { evolve(e); return; } if (!d || !petItemOK(id)) { say(ITEMS[id] && ITEMS[id].use === 'heal' ? '체력 물약은 펫 가방에 넣지 않아도 돼요. 펫이 내 가방의 물약을 같이 먹어요.' : '펫 가방에는 가속 물약만 넣을 수 있습니다.', '#f0c080'); return; } n = Math.min(n, INV.count(id)); if (n <= 0) return;
@@ -4724,7 +4726,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
     INV.take(id, n); d.inv[slot] = d.inv[slot] ? { id, n: d.inv[slot].n + n } : { id, n }; say(`${nm(d)}의 가방에 ${ITEMS[id].name} ${n}개를 넣었습니다.`, '#cfe4a8'); refresh(); }
   function takeItem(e, k) { const d = e.pet, it = d && d.inv[k]; if (!it) return; INV.add(it.id, it.n, true); d.inv[k] = null; say(`${nm(d)}의 가방에서 ${ITEMS[it.id].name} ${it.n}개를 꺼냈습니다.`, '#cfe4a8'); refresh(); }
   function petUse(p) { const d = p.d; if (p.potCd > 0) return;
-    if (d.hp < MXH(d) * 0.5) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'heal'); let I = null;
+    if (d.hp < MXH(d) * potPct(d) / 100) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'heal'); let I = null;
       if (k >= 0) { const it = d.inv[k]; I = ITEMS[it.id]; if (--it.n <= 0) d.inv[k] = null; }   // 예전에 펫 가방에 넣어 둔 체력 물약부터
       else { const id = HEAL_IDS().find(x => INV.count(x) > 0); if (id && INV.take(id, 1)) I = ITEMS[id]; }   // 없으면 내 가방 물약
       if (I) { const h = Math.min(MXH(d) - d.hp, rint(I.heal)); d.hp += h; p.potCd = 1.5;
@@ -4787,14 +4789,15 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       <div class="pw-bar hp"><i style="width:${Math.round(100 * d.hp / MXH(d))}%"></i><span>HP ${Math.ceil(d.hp)} / ${MXH(d)}</span></div><div class="pw-bar ex"><i style="width:${Math.round(100 * d.exp / need)}%"></i><span>EXP ${(100 * d.exp / need).toFixed(1)}%</span></div></div></div>
       ${d.state === 'out' ? `<div class="pw-cmd">${mb('attack', '공격')}${mb('wait', '공격 대기')}${mb('rest', '휴식')}<button type="button" data-pm="scatter" class="sc">산개</button></div>` : d.state === 'dead' ? `<div class="pw-cmd"><button type="button" data-pm="revive" class="rv">부활 주문서 사용 (${INV.count('revive_scroll')}개)</button></div>` : `<p class="pw-note">펫상인 루피에게서 '펫을 찾는다'로 소환할 수 있습니다.</p>`}
       ${!d.evo && (INV.count('pet_fruit') > 0 || d.lv >= 50) ? `<div class="pw-cmd"><button type="button" data-pm="evolve" class="rv"${d.lv >= 50 && INV.count('pet_fruit') > 0 && d.state !== 'dead' ? '' : ' disabled'}>★ 펫 진화의 열매 사용 ${d.lv < 50 ? '(50레벨부터)' : INV.count('pet_fruit') > 0 ? `(${INV.count('pet_fruit')}개 · 진화 가능)` : '(열매 없음 · 펫상인 50만 골드)'}</button></div>` : ''}
-      <div class="pw-inv-t">펫 가방 <small>가속 물약을 넣어 두면 스스로 먹어요 · 체력 물약은 내 가방 것을 같이 먹어요 (HP 50% 아래) · 칸 클릭: 꺼내기</small></div><div class="pw-inv">${d.inv.map((it, k) => `<button type="button" class="slot pw-slot" data-k="${k}"${it ? ` title="${ITEMS[it.id].name} ${it.n}개 [${ITEMS[it.id].rar}]" style="border-color:${rarC(it.id)}"` : ' aria-label="빈 칸"'}>${it ? `%ICON${k}%<b>${it.n}</b>` : ''}</button>`).join('')}</div>
+      <div class="pw-inv-t">펫 가방 <small>가속 물약을 넣어 두면 스스로 먹어요 · 체력 물약은 내 가방 것을 같이 먹어요 · 칸 클릭: 꺼내기</small></div>${(pp => `<div class="pw-pot"><span>체력 물약 먹는 HP</span><button type="button" data-pp="-10" aria-label="10% 낮추기"${pp <= 10 ? ' disabled' : ''}>◀</button><b>${pp}%</b><button type="button" data-pp="10" aria-label="10% 올리기"${pp >= 90 ? ' disabled' : ''}>▶</button><span>아래</span></div>`)(potPct(d))}<div class="pw-inv">${d.inv.map((it, k) => `<button type="button" class="slot pw-slot" data-k="${k}"${it ? ` title="${ITEMS[it.id].name} ${it.n}개 [${ITEMS[it.id].rar}]" style="border-color:${rarC(it.id)}"` : ' aria-label="빈 칸"'}>${it ? `%ICON${k}%<b>${it.n}</b>` : ''}</button>`).join('')}</div>
       ${bagPots.length ? `<div class="pw-give">${bagPots.map(id => `<button type="button" data-give="${id}" title="${ITEMS[id].name} 5개 넣기">%GIVE_${id}%<span>${INV.count(id)}</span></button>`).join('')}<small>눌러서 5개씩 넣기 · 가방에서 끌어다 놓아도 됩니다</small></div>` : ''}`;
     if (html === w.dataset.h) return; w.dataset.h = html;
     $('pw-body').innerHTML = html.replace(/%ICON(\d)%/g, (_, k) => ICON(ITEMS[d.inv[k].id].icon)).replace(/%GIVE_(\w+)%/g, (_, id) => ICON(ITEMS[id].icon));
     const fc = $('pw-face'), g = fc.getContext('2d'), img = tinted(PET_KIND[d.kind].mob, 'Survey'); if (img) { g.imageSmoothingEnabled = true; const M = FX, k = 1.15; g.drawImage(img, 0, 2 * M.H, M.W, M.H, 38 - M.ax * k, 64 - M.ay * k, M.W * k, M.H * k); }
     w.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { const m = b.dataset.pm; if (m === 'scatter') scatter(); else if (m === 'revive') revive(e); else if (m === 'evolve') evolve(e); else setMode(e, m); });
     w.querySelectorAll('.pw-slot').forEach(b => { const k = +b.dataset.k; b.onclick = () => takeItem(e, k); b.ondragover = ev => ev.preventDefault(); b.ondrop = ev => { ev.preventDefault(); const id = ev.dataTransfer.getData('text/plain'); if (ITEMS[id]) giveItem(e, id, 10); }; });
-    w.querySelectorAll('[data-give]').forEach(b => b.onclick = () => giveItem(e, b.dataset.give, 5)); }
+    w.querySelectorAll('[data-give]').forEach(b => b.onclick = () => giveItem(e, b.dataset.give, 5));
+    w.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => setPot(e, potPct(d) + +b.dataset.pp)); }
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   function rename(e, name) { const d = e.pet; name = String(name || '').trim().slice(0, 8); if (!d) return false; if (!name) { say('펫 이름을 1~8글자로 정해 주세요.', '#f08a7a'); return false; } d.name = name; say(`펫 이름을 '${name}'(으)로 바꿨습니다.`, '#9fe0ff'); refresh(); return true; }
   // 펫상인 메뉴: 펫을 찾는다(보관소 → 소환) / 펫을 맡긴다(소환 → 보관소)
