@@ -130,7 +130,7 @@ const nightUp = S => false;   // v197: 언데드만 밤에 공격 1.5배·명중
 const NIGHT_K = 1.2, nightK = () => DN.isNight() && SCENE !== 'town' && !(ISLE && ISLE.def && (ISLE.def.duel || ISLE.def.tw || ISLE.def.hw)) ? NIGHT_K : 1   /* 11/1: 콜로세움(arena)도 밤 효과 (보스가 필드와 같게) */, nightR = () => nightK() > 1 ? 1.2 : 1;   // 밤: 보스 포함 모든 몬스터 · 밤 보상(경험치·골드) +20% (던전도 바깥 시각을 따름 · 결투장·콜로세움·수호탑·이벤트 지역은 없음)
 const ENR_SPD = 1.5, ENR_DMG = 1.2, enrMul = f => (f && f.enraged ? ENR_DMG : 1) * (f && !f.bot && !f.twr && !f.fb ? nightK() : 1);   /* v197: 밤 공격력 +20% (몬스터의 근접·화살·마법·범위 공격 모두 여기를 거침) */   /* v126: 보스 광폭화 */
 const mobDmg = (S, f) => Math.round(rint(S.dmg) * (nightUp(S) ? 1.5 : 1) * (S.boss ? 1.5 : 1) * (S.solo ? SOLO_MUL : 1) * (S.atkMul || 1) * enrMul(f));   // v109: 보스 기본 공격 ×1.5 · v112: 단일 보스 ×1.4 더
-const lowLvMul = S => { if (S && S.hwEv) return 1; const d = hero.lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };   // v111: 내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치 −5% (최대 −50%) · 할로윈 이벤트 몹(호박괴물·호박대장)은 없음
+const lowLvMul = S => 1;   /* 11/3 프로듀서: 낮은 레벨 몬스터 경험치 패널티 없앰 (예전: 6레벨 이상 낮으면 1레벨마다 −5% · 최대 −50%) — 높은 사냥터일수록 HP 1당 경험치가 훨씬 커서 패널티 없이도 낮은 사냥터가 더 좋아지지 않음 */   // v111: 내 레벨보다 6레벨 이상 낮은 몬스터는 1레벨마다 경험치 −5% (최대 −50%) · 할로윈 이벤트 몹(호박괴물·호박대장)은 없음
 const gahoExp = n => { const g = n > 0 ? INV.gaho('exp') : 0, r = g ? Math.round(n * (1 + g / 100)) : n; return n > 0 && BUFF.hwexp > 0 ? Math.round(r * (1 + HWC.CANDY_EXP / 100)) : r; };   // 할로윈 호박 사탕: 경험치 +%   // v153: 드레이크 킹의 가호 — 몬스터 처치 경험치 +%
 let OFFL_HOOK = null, TITLE_SHOW = false;   /* v120: 오프라인 사냥 기록기 (아래 OFFL) — 정의되기 전에 불려도 안전하게 */
 const lowLvTag = S => { const m = lowLvMul(S); return m < 1 ? ` (낮은 레벨 −${Math.round((1 - m) * 100)}%)` : ''; };
@@ -10902,7 +10902,7 @@ const OFFL = (() => {
   const r2 = v => Math.round(v * 100) / 100;
   const kst = ms => new Date(ms + (9 - 5) * 3600e3).toISOString().slice(0, 10);   // 하루 = 한국 시간 새벽 5시 기준 (v146 · 모든 일일 초기화 새벽 5시)
   const fmt = m => { m = Math.max(0, Math.round(m)); const h = Math.floor(m / 60), mm = m % 60; return (h ? h + '시간' : '') + (h && mm ? ' ' : '') + (mm || !h ? mm + '분' : ''); };
-  const lowAt = (lv, S) => { const d = lv - ((S && S.lv) || 1); return d >= 6 ? Math.max(0.5, 1 - 0.05 * (d - 5)) : 1; };
+  const lowAt = (lv, S) => 1;   /* 11/3: 낮은 레벨 패널티 없앰 (오프라인 사냥 정산도 같게) */
   const live = () => !settling && AUTO.on() && !NET.inParty() && !GOD && hero.hp > 0;
   const arm = () => AUTO.on() && AUTO.conf().ofl !== false && !NET.inParty() && !GOD && rec.length >= NEED;
   const leftToday = () => (day === kst(Date.now()) ? Math.max(0, DAY - used) : DAY);
