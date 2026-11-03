@@ -202,7 +202,7 @@ const SND = (() => { const s = { bgmOn: true, sfxOn: true, bgm: 100, sfx: 100, e
 SFX_ON = SND.get().sfxOn;
 function applySfxVol() { if (master) master.gain.value = SFX_ON ? 0.4 * SND.sfxK() : 0; }
 const MSFX = (() => { const pool = {}, has = new Set(['goblin','orc','orc_archer','dwarf','hobgoblin','orc_warrior','werewolf','shelob','lizardman','giant_ant','fire_ant','scorpion','basilisk','queen_ant','roba_orc','dudamara_orc','orc_wizard','dark_elf','atuba_orc','gast','ogre','elf','skeleton_archer','zombie','bugbear','cerberus','king_bugbear','baphomet','deathknight','fn_warrior','fn_archer','fn_golem','fn_bomb','fn_egg','fn_fly','fn_ashtazio','phoenix','fn_ifrit','dr_fire','dr_water','dr_earth','dr_wind']), K2 = new Set(['deathknight','fn_ashtazio','phoenix','fn_ifrit']), DRK = new Set(['dr_fire','dr_water','dr_earth','dr_wind']);   /* 11/1 2차: 몽환의 섬 정령 전용 합성음 (dev/sfx_dream.py · 공격·피격·사망·대정령 마법 = cast) */   /* v179: 데스나이트 전용 합성음 (공격·스킬·피격·사망) */   // 사막 6종 · 오크숲 7종 (코드 합성음·기존 소리 변형)
-  const AL = { elmore_soldier: 'atuba_orc', elmore_warrior: 'orc_warrior', elmore_mage: 'orc_wizard', ettin: 'ogre', ice_golem: 'ogre', sabertooth: 'cerberus', ice_queen: 'orc_wizard', dg_kbugbear: 'king_bugbear', dg_cerberus: 'cerberus', ghoul: 'zombie', ungoliant: 'shelob', spartoi: 'skeleton_archer', necromancer: 'orc_wizard', kaspar: 'orc_wizard', merkyor: 'orc_wizard', balthazar: 'orc_wizard', sema: 'orc_wizard', dv_skel: 'skeleton_archer', dv_archer: 'skeleton_archer', dv_lizard: 'lizardman', wyvern: 'basilisk', drake: 'basilisk', lesser_dragon: 'baphomet', drake_king: 'baphomet', fn_salamander: 'basilisk', fn_hcerberus: 'cerberus', dr_gfire: 'dr_fire', dr_gwater: 'dr_water', dr_gearth: 'dr_earth', dr_gwind: 'dr_wind', unicorn: 'phoenix' };   /* 11/1 몽환의 섬: 대정령은 같은 속성 정령 소리 (11/1 2차 전용 합성음 dr_<속성>_*) · 유니콘은 피닉스 소리 */   /* v190: 화룡의 둥지 몹 소리는 dev/sfx/fn_sfx.py로 만든 전용 합성음 */
+  const AL = { elmore_soldier: 'atuba_orc', elmore_warrior: 'orc_warrior', elmore_mage: 'orc_wizard', ettin: 'ogre', ice_golem: 'ogre', sabertooth: 'cerberus', ice_queen: 'orc_wizard', dg_kbugbear: 'king_bugbear', dg_cerberus: 'cerberus', ghoul: 'zombie', ungoliant: 'shelob', spartoi: 'skeleton_archer', necromancer: 'orc_wizard', kaspar: 'orc_wizard', merkyor: 'orc_wizard', balthazar: 'orc_wizard', sema: 'orc_wizard', dv_skel: 'skeleton_archer', dv_archer: 'skeleton_archer', dv_lizard: 'lizardman', wyvern: 'basilisk', drake: 'basilisk', lesser_dragon: 'baphomet', drake_king: 'baphomet', fn_salamander: 'basilisk', fn_hcerberus: 'cerberus', dr_gfire: 'dr_fire', dr_gwater: 'dr_water', dr_gearth: 'dr_earth', dr_gwind: 'dr_wind', unicorn: 'phoenix', fg_bugbear: 'bugbear', fg_delf: 'dark_elf', fg_ettin: 'ogre', fg_gast: 'gast', fg_shelob: 'shelob', fg_drake: 'basilisk', fg_giant: 'ogre' };   /* 11/1 몽환의 섬: 대정령은 같은 속성 정령 소리 (11/1 2차 전용 합성음 dr_<속성>_*) · 유니콘은 피닉스 소리 */   /* v190: 화룡의 둥지 몹 소리는 dev/sfx/fn_sfx.py로 만든 전용 합성음 */
   const buf = {}, pend = {};   /* v124: 한 번만 받아서 해독해 두고 WebAudio로 재생 (재생할 때마다 Audio를 복제·해독하면 끊김) — 못 받으면 예전 방식 */
   function load(k) { if (pend[k]) return; pend[k] = fetch('assets/sound/sfx/' + k + '.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(a => new Promise((res, rej) => AC.decodeAudioData(a, res, rej))).then(b => { buf[k] = b; }).catch(() => { buf[k] = null; }); }
   return (kind, type, vol = 0.55) => { kind = AL[kind] || kind; if (type === 'skill') type = K2.has(kind) ? 'attack2' : DRK.has(kind) ? 'cast' : 'attack'; if (!has.has(kind) || !AC) return false; if (!SFX_ON) return true; const k = kind + '_' + type, b = buf[k];
@@ -325,12 +325,13 @@ cv.addEventListener('pointerdown',ev=>{ if (ev.button!==0) return; initAudio(); 
     if (op && (SCENE==='town' || (op.pr.dd>0 && !DEATH))){ NET.openMenu(op, ev.clientX, ev.clientY); return; } }   // v131: 필드에서도 무덤을 누르면 메뉴(부활 주문서)
   if (DEATH) { deadSay(); return; }   // 다른 플레이어 클릭 → 파티 초대 메뉴 (마을에서만 · 필드는 오른쪽 클릭)
   if (SCENE==='town' && TOWN.click(sx,sy)) return;
+  if (SCENE==='field' && ISLE && ISLE.def && ISLE.def.fgi && FGM.click(sx,sy)) return;   /* 11/3 잊혀진 섬: 섬지기·상인 */
   if (INV.targeting()) return;
   if (PET.click(sx,sy)) return;
   { const gd=GROUND.at(sx,sy); if (gd){ GROUND.go(gd); return; } }
   const f=(ev.altKey||ADMIN.on())?null:pickFox(sx,sy); if (f){ hero.target=f; moveGoal=null; holding=false; return; } const t=pickTile(sx,sy); if (!walkable(...t)) return; hero.target=null; moveGoal=t; holding=true; mark={t,life:0.5}; });
 cv.addEventListener('pointermove',ev=>{ const r=cv.getBoundingClientRect(), sx=ev.clientX-r.left, sy=ev.clientY-r.top;
-  if (hotDrag){ hotDrag.mx=sx/curZ; hotDrag.my=sy/curZ; if (Math.hypot(hotDrag.mx-hotDrag.sx,hotDrag.my-hotDrag.sy)>4) hotDrag.moved=true; cv.style.cursor='grabbing'; return; } const gh=GROUND.hoverAt(sx,sy,ev.clientX,ev.clientY); const ph=gh?null:NET.peerAt(sx,sy); NET.setHover(ph); const phT=ph&&SCENE==='town'; hover=gh||phT||ev.altKey||ADMIN.on()?null:pickFox(sx,sy); const th=SCENE==='town'?TOWN.hoverAt(sx,sy):null; const zr=ZONERECT.some(([x,y,w,h])=>sx/curZ>=x&&sx/curZ<=x+w&&sy/curZ>=y&&sy/curZ<=y+h); cv.style.cursor=zr||gh||phT?'pointer':hover?SWORD_CUR:(th?'pointer':'default'); mouse=[sx,sy];
+  if (hotDrag){ hotDrag.mx=sx/curZ; hotDrag.my=sy/curZ; if (Math.hypot(hotDrag.mx-hotDrag.sx,hotDrag.my-hotDrag.sy)>4) hotDrag.moved=true; cv.style.cursor='grabbing'; return; } const gh=GROUND.hoverAt(sx,sy,ev.clientX,ev.clientY); const ph=gh?null:NET.peerAt(sx,sy); NET.setHover(ph); const phT=ph&&SCENE==='town'; hover=gh||phT||ev.altKey||ADMIN.on()?null:pickFox(sx,sy); const th=SCENE==='town'?TOWN.hoverAt(sx,sy):SCENE==='field'&&ISLE&&ISLE.def&&ISLE.def.fgi?FGM.hoverAt(sx,sy):null; const zr=ZONERECT.some(([x,y,w,h])=>sx/curZ>=x&&sx/curZ<=x+w&&sy/curZ>=y&&sy/curZ<=y+h); cv.style.cursor=zr||gh||phT?'pointer':hover?SWORD_CUR:(th?'pointer':'default'); mouse=[sx,sy];
   if (holding){ const t=pickTile(sx,sy); if (walkable(...t)) moveGoal=t; } });
 cv.addEventListener('pointerup',ev=>{ holding=false; if (!hotDrag) return; const D=hotDrag; hotDrag=null; cv.style.cursor='default'; if (!D.moved) return;
   const r=cv.getBoundingClientRect(), lx=(ev.clientX-r.left)/curZ, ly=(ev.clientY-r.top)/curZ, k2=HOTRECT.findIndex(([x,y,w,h])=>lx>=x&&lx<=x+w&&ly>=y&&ly<=y+h);
@@ -524,7 +525,7 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):'')+(pk_<1?' (봇 파티 ×'+(+pk_.toFixed(3))+')':''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
 function killCheck(f){ if (f && f.fb) { if (f.hp <= 0 && !f.dead) FBOT.down(f); return; } if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
   const D=NET.distribute(f,S); if (!D){ if (window.SAVER && (!f.dmgBy || [...f.dmgBy.keys()].some(w => w === hero || (w && w.isPet)))) SAVER.kill();   /* 11/1: 혼자 잡은 몹도 절전 [처치]에 셈 (전에는 같은 지역에 다른 사람이 있을 때만 셈) */ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=Math.round(rint(S.coin)*coinX()*FBOT.pbK(S)); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
-  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, FB_KILLER || (D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()), !!FB_KILLER); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else { if (Math.random()<FBOT.pbDropK(S, D)) { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); } reaperTry(f, S, D); }   /* 11/3 혈맹 파티: 일반 몬스터 드랍 확률 × 1/N × 1.1 (보스는 위에서 그대로) */
+  GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(f.kind, FB_KILLER || (D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()), !!FB_KILLER); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else if (S.fgi) fgLoot(f, D);   /* 11/3 잊혀진 섬: 희귀 4% · 영웅 0.5% · 드레이크 고대의 주문서·빛바랜 벨트 3%씩 (고급·일반 없음) */ else { if (Math.random()<FBOT.pbDropK(S, D)) { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); } reaperTry(f, S, D); }   /* 11/3 혈맹 파티: 일반 몬스터 드랍 확률 × 1/N × 1.1 (보스는 위에서 그대로) */
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
 function bindNo(f){ if ((f._bnT||0)>time) return; f._bnT=time+0.5; const [x,y]=W2P(f.x,f.z); floatText(x,y-headY(f)-10,'어스 바인드 — 피해 없음',{color:'#ffd870',size:11}); }
 const KNIGHT_PVE = 1.25;   // 11/1: 기사 — 몬스터에게 주는 피해 +25% (법사와 사냥 속도 맞춤 · 대인전 제외)
@@ -2366,7 +2367,7 @@ function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO
     const img=tinted(f.kind,anim); if (img) drawSheet(g, img, {W:144,H:160,ax:72,ay:128,s:0.86*S.sc}, fr, f.row, 0, 0, al, fl); g.restore(); }
 function drawWorld(g, vw, vh){
   const hfo=HF.off(), ox=Math.round(vw/2-cam[0]+(shake?(Math.random()-0.5)*4:0)+hfo[0]), oy=Math.round(vh/2-cam[1]+hfo[1]);   // hfo: 타격감 밀림 카메라
-  const SNOWBG=!!(ISLE&&ISLE.def&&ISLE.def.snow), DRBG=!!(ISLE&&ISLE.def&&ISLE.def.dream), FP=MAZE()||SNOWBG||DRBG||TW()?null:forestPat(g); if (DRBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#1c1a34'); bg.addColorStop(1,'#0a0912'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (MAZE()||TW()){ g.fillStyle=TW()?'#06070b':'#030203'; g.fillRect(0,0,vw,vh); } else if (SNOWBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#aebccc'); bg.addColorStop(1,'#d4dde6'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (FP){ g.save(); g.translate(ox,oy); g.fillStyle=FP; g.fillRect(-ox,-oy,vw,vh); g.restore(); } else { g.fillStyle='#141a10'; g.fillRect(0,0,vw,vh); }
+  const SNOWBG=!!(ISLE&&ISLE.def&&ISLE.def.snow), DRBG=!!(ISLE&&ISLE.def&&ISLE.def.dream), SEABG=!!(ISLE&&ISLE.def&&ISLE.def.isle), FP=MAZE()||SNOWBG||DRBG||SEABG||TW()?null:forestPat(g); if (SEABG) fgSea(g,vw,vh,ox,oy); else if (DRBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#1c1a34'); bg.addColorStop(1,'#0a0912'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (MAZE()||TW()){ g.fillStyle=TW()?'#06070b':'#030203'; g.fillRect(0,0,vw,vh); } else if (SNOWBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#aebccc'); bg.addColorStop(1,'#d4dde6'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (FP){ g.save(); g.translate(ox,oy); g.fillStyle=FP; g.fillRect(-ox,-oy,vw,vh); g.restore(); } else { g.fillStyle='#141a10'; g.fillRect(0,0,vw,vh); }
   g.save(); g.translate(ox,oy);
   if (SCENE==='town') { if (TOWN.ground) g.drawImage(TOWN.ground,0,0); } else if (ISLE) { if (ISLE.ground){ g.save(); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(ISLE.ground,0,0,G.W,G.H); g.restore(); } } else if (im.ground.complete){ g.save(); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(im.ground,0,0,G.W,G.H); g.restore(); }
   const tile=(i,j)=>{ const a=W2P(i,j),b=W2P(i+1,j),c=W2P(i+1,j+1),d=W2P(i,j+1); g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.lineTo(...c); g.lineTo(...d); g.closePath(); };
@@ -2661,6 +2662,7 @@ const MM = (() => { let on = true, op = 0.85, key = '', img = null, rect = [0, 0
     const dot = (i, j, r, c, ring) => { const [px, py] = P(i, j); const X = x0 + px * k, Y = yy + (py + S / 2) * k; g.fillStyle = c; g.beginPath(); g.arc(X, Y, r, 0, 7); g.fill(); if (ring) { g.strokeStyle = ring; g.lineWidth = 0.8; g.stroke(); } return [X, Y]; };
     if (SCENE === 'town') for (const m of TOWN.mapMarks()) m.portal ? dot(m.i + 0.5, m.j + 0.5, 2.6, '#9fc8ff', '#e8f2ff') : dot(m.i + 0.5, m.j + 0.5, 1.6, m.c);
     else for (const q of ISLE.portals) { if (ISLE.def.maze && !(ISLE.explored && ISLE.explored[q.j * N + q.i])) continue; dot(q.i + 0.5, q.j + 0.5, 2.6, q.stairs ? '#ffb070' : '#9fc8ff', '#fff2e0'); }
+    if (SCENE !== 'town' && ISLE && ISLE.def.fgi) for (const m of FGM.marks()) dot(m.i + 0.5, m.j + 0.5, 2.4, m.c, '#ffffff');   // 11/3 잊혀진 섬: 섬지기·상인
     for (const f of foxes) { if (f.dead || cheb(f.i, f.j, hero.i, hero.j) > RANGE || (ISLE && ISLE.def.maze && !DN.seen(f.i, f.j))) continue; const b = MOB[f.kind].boss || f.twr, al_ = f.twr === 'A' || (f.bot && f.bot.team === 'A'); dot(f.x, f.z, b ? 2.8 + Math.sin(time * 6) * 0.6 : 1.4, al_ ? '#5ab8ff' : b ? '#ff3020' : '#ff5a4a', b ? '#ffd0c0' : null); }
     for (const m of PARTY) dot(m.x, m.z, 2.4, '#6cf08a', '#eaffef');
     for (const pt of PETS_HERE) dot(pt.x, pt.z, 1.7, pt.dead ? '#6a7a8a' : '#5ab8ff', '#e0f4ff');
@@ -3094,6 +3096,54 @@ Object.assign(MOB, Object.fromEntries(Object.keys(DREAM_ELN).flatMap(el => [
   ['dr_' + el, { name: `${DREAM_ELN[el]}의 정령`, ...DREAM.SPIRIT, dmg: DREAM.SPIRIT.dmg.slice(), coin: DREAM.SPIRIT.coin.slice(), el, spirit: true, art: 'spirit', sc: 1.0, hw: 30, hh: 100, ring: 24, atkTxt: DREAM_ATK[el] }],
   ['dr_g' + el, { name: `${DREAM_ELN[el]}의 대정령`, ...DREAM.GREAT, dmg: DREAM.GREAT.dmg.slice(), coin: DREAM.GREAT.coin.slice(), el, spirit: true, great: true, skills: true, art: 'spirit', sc: DREAM.GREAT_SC, hw: 44, hh: Math.round(100 * DREAM.GREAT_SC), ring: 34, atkTxt: DREAM_ATK[el] }]])));
 MOB.unicorn = { name: '유니콘', ...DREAM.UNICORN, dmg: DREAM.UNICORN.dmg.slice(), coin: DREAM.UNICORN.coin.slice(), boss: true, solo: true, duo: true, art: 'unicorn', sc: 1.0, hw: 70, hh: 146, ring: 46, atkTxt: '뿔 찌르기' };
+// ============================================================ 11/3 잊혀진 섬 (지역 25 · dev/rooms/forgotten.md) — 수치는 전부 여기 FGI 상수에서 바꿈
+//   프로듀서 기획: 월드맵 입장료 50만 골드 · 크기 = 몽환의 섬(N 133) · 맵 한가운데 도착 · 가운데 섬지기(탈출 NPC · [섬을 탈출한다] → 마을) · 옆에 떠돌이 상인(물약만 · 본토 마을 값의 2배)
+//   몹: 전부 무속성 · 선공 · 이동 속도 일반 몹의 2배 · HP·공격·경험치·골드 = 화룡의 둥지 2구역 평균(사라만다·혼 켈베로스·아시타지오)의 3배 · 방어는 아래 MAC
+//   귀환·순간이동 불가 (귀환 부적·순간이동 주문서·월드맵 이동·자동사냥 귀환·절전 귀환) — 섬을 벗어나는 길은 섬지기 · 사망(마을 부활)뿐 · 필드 봇 없음(nobot) · 혈맹 파티 봇·펫·서먼은 들어옴
+//   분위기: '노래하는 섬'(게임에 없는 지역 → 이야기섬 1·2구간의 바닥·나무 그대로 + 둘레 바다·모래톱) · 1차는 평지
+const FGI = {
+  ZID: 25, N: 133, SEED: 2525, FEE: 500000,
+  SAFE_R: 6,          // 가운데 광장 반지름 (소품 없음 · NPC 둘)
+  NO_SPAWN_R: 11,     // 이 안에는 몹 스폰 없음 (도착 자리·NPC 주변만 비움)
+  NEAR_R: 28,         // 'near' 몹은 NO_SPAWN_R~NEAR_R 고리에 몰려 있음 → 광장을 조금만 벗어나면 몹 떼
+  N_NEAR: 20, N_FAR: 28, D_NEAR: 20, D_FAR: 28,   // 일반 5종 × (고리 20 + 섬 나머지 28) = 240 · 드레이크 고리 20 + 나머지 28 = 48 → 288 = 몽환의 섬(144)의 2배 · 일반:드레이크 = 5:1 (정령:대정령과 같음)
+  X: 3,               // 화둥 2구역 평균의 몇 배 (HP·공격·경험치·골드)
+  MAC: -2,            // 몹 AC — 화둥 평균 약 +1.3. '방어 3배'를 명중 식 그대로(AC −16) 하면 누구나 최저 명중 20%라서 AC −2(명중 약 −10%p) + 레벨 60~64(레벨 차로 −25%p 더)로 (아침에 조정)
+  HIT: 0.96, MR_K: 1.5, SPD: 2,   // 몹 명중 · MR = 화둥 평균 × 1.5 · 이동 속도 = 원래 몹 × 2
+  RARE_P: 0.04, HERO_P: 0.005, RARE_GEAR: 0.5, HERO_GEAR: 0.75,   // 일반 몹(드레이크 포함): 희귀 4%(장비 50% · 희귀 주문서 50%) · 영웅 0.5%(장비 75% · 축데이 25%) — 고급·일반 아이템 없음 · 혈맹 파티 봇이 있으면 × 1/N × 1.1
+  RARE_SCR: ['bscroll_armor', 'scroll_acc', 'bless_scroll', 'scroll_earth', 'scroll_water', 'scroll_fire', 'scroll_wind'], HERO_SCR: ['bscroll_weapon'],
+  SCROLL_P: 0.03, FADED_P: 0.03,  // 드레이크: 고대의 주문서 3% · 빛을 바랜 전설의 벨트 3% (따로 굴림 · 파티 봇 배율 안 받음)
+  ROLL: [0.03, 0.27, 0.70],       // 고대의 주문서 → 빛바랜 벨트: 전설 에이션트 자이언트의 반지 3% · 영웅 벨트 27% · 희귀 벨트 70%
+  BOSS_LEG_P: 0.03, BOSS_FADED: [1, 5], BOSS_SCROLL: [1, 5],   // 에이션트 자이언트: 전설 벨트 3% · 빛바랜 벨트 1~5 · 고대의 주문서 1~5 (반드시) + 나머지는 피닉스와 비슷
+  BOSS_P: 21600, BOSS_R: 3600, BOSS_RP: 18000, BOSS_RR: 3600,   // 에이션트 자이언트: 피닉스와 같은 시간표 (6시간 구간 · 잡힌 뒤 5~6시간)
+  MSG: '주변의 에너지가 공간을 차단하고 있습니다.', HINT: '섬을 벗어나려면 맵 가운데의 섬지기 로렌에게 말을 거세요.',
+  NPC: { exit: [-2, -2], shop: [1, -3] },   // 가운데 칸(N>>1)에서 떨어진 자리 [di, dj] · 화면에서 탈출 NPC = 도착 자리 바로 위 · 상인 = 오른쪽 위
+};
+const FG_BASE = (() => { const K = ['fn_salamander', 'fn_hcerberus', 'fn_ashtazio'], av = f => K.reduce((a, k) => a + f(MOB[k]), 0) / K.length;   // 화둥 2구역 평균 (파이어에그는 복권 몹이라 뺌)
+  return { hp: av(S => S.hp), d0: av(S => S.dmg[0]), d1: av(S => S.dmg[1]), exp: av(S => S.exp), c0: av(S => S.coin[0]), c1: av(S => S.coin[1]), mac: av(S => S.mac), mr: av(S => S.mr || 0), hit: av(S => S.hit), lv: av(S => S.lv) }; })();
+// [그림 원본, 이름, Lv, HP 배율, 공격 배율, 공격 간격, 기타] — HP·공격 배율은 일반 5종 평균이 1 (→ 평균 = 화둥 × 3) · 경험치·골드는 HP 배율만큼 (드레이크는 × 2)
+const FG_DEF = {
+  fg_bugbear: ['bugbear', '잊혀진 섬 버그베어', 60, 1.0, 1.0, 1.4, { atkTxt: '몽둥이' }],
+  fg_delf: ['dark_elf', '잊혀진 섬 다크엘프', 61, 0.85, 0.9, 1.5, { range: 6, atkTxt: '활' }],
+  fg_ettin: ['ettin', '잊혀진 섬 에틴', 62, 1.2, 1.1, 1.7, { atkTxt: '쌍두 몽둥이' }],
+  fg_gast: ['gast', '잊혀진 섬 가스트', 60, 0.9, 1.0, 1.3, { atkTxt: '몽둥이' }],
+  fg_shelob: ['shelob', '잊혀진 섬 셸로브', 63, 1.05, 1.0, 1.5, { web: 0.2, atkTxt: '독니' }],
+  fg_drake: ['drake', '잊혀진 섬 드레이크', 64, 1.6, 1.25, 1.6, { fgMid: true, skills: true, dragon: true, atkTxt: '물기' }],   // 중간 보스 (몽섬 대정령처럼 일반 몹 사이에 · 일반 몹처럼 9초 뒤 다시 남)
+};
+// 잊혀진 섬 물들임: 빛바랜 잿빛 청록 (오래 잊힌 섬의 안개) — 그림은 이 게임의 기존 오리지널 렌더를 물들여 씀 (리니지 리소스 아님)
+const FG_TINT = { fg_bugbear: 'grayscale(.6) sepia(.3) hue-rotate(160deg) saturate(1.3) brightness(1.05) contrast(1.1)', fg_delf: 'grayscale(.45) sepia(.35) hue-rotate(150deg) saturate(1.5) brightness(1.75) contrast(1.05)',
+  fg_ettin: 'grayscale(.6) sepia(.35) hue-rotate(140deg) saturate(1.3) brightness(1.1) contrast(1.1)', fg_gast: 'grayscale(.55) sepia(.35) hue-rotate(170deg) saturate(1.4) brightness(1.3) contrast(1.1)',
+  fg_shelob: 'grayscale(.4) sepia(.4) hue-rotate(150deg) saturate(1.8) brightness(2.1) contrast(1.05)', fg_drake: 'brightness(1.3) grayscale(.5) sepia(.35) hue-rotate(150deg) saturate(1.7) contrast(1.08)',
+  fg_giant: 'grayscale(.7) sepia(.45) hue-rotate(130deg) saturate(1.15) brightness(1.15) contrast(1.15)' };
+for (const k in FG_DEF) { const [src, name, lv, hk, dk, cd, ex] = FG_DEF[k], B = MOB[src], X = FGI.X, rk = ex.fgMid ? 2 : hk;
+  MOB[k] = { name, lv, hp: Math.round(FG_BASE.hp * X * hk), dmg: [Math.round(FG_BASE.d0 * X * dk), Math.round(FG_BASE.d1 * X * dk)], mac: FGI.MAC, hit: FGI.HIT, mr: Math.round(FG_BASE.mr * FGI.MR_K),
+    exp: Math.round(FG_BASE.exp * X * rk), coin: [Math.round(FG_BASE.c0 * X * rk), Math.round(FG_BASE.c1 * X * rk)], walk: +(B.walk * FGI.SPD).toFixed(2), run: +(B.run * FGI.SPD).toFixed(2), cd, aggr: 6, fgi: true,
+    art: B.art, tint: FG_TINT[k], sc: (B.sc || 1) * (k === 'fg_shelob' ? 0.5 : !B.aggr ? AGGR_SC : 1), hw: B.hw, hh: B.hh, ...ex };   // 무속성(el 없음) · 셸로브 = 보스 크기의 절반 · 선공 몹 1.3배 크기 규칙(원본이 비선공이면 여기서)
+  const M = MSHEET[src]; if (M) { const f = k === 'fg_shelob' ? 0.5 : !B.aggr ? AGGR_SC : 1; MSHEET[k] = { ...M, src: M.src || src, tint: FG_TINT[k], lava: undefined, s: M.s * f, hh: Math.round(M.hh * f), hw: Math.round(M.hw * f) }; } }
+// 보스 에이션트 자이언트: 피닉스(HP 150000 · 피해 39~66 · Lv60) × 3 — 선공 · 이동 2배 · 무속성 · 3~4명 이상 (2인 보스처럼 전리품 2번) · 그림은 1차 임시(오우거 렌더를 크게·이끼 낀 돌빛으로)
+MOB.fg_giant = { name: '에이션트 자이언트', lv: 66, hp: MOB.phoenix.hp * FGI.X, dmg: MOB.phoenix.dmg.map(v => v * FGI.X), mac: FGI.MAC - 2, hit: 0.97, mr: 70, exp: MOB.phoenix.exp * FGI.X, coin: MOB.phoenix.coin.map(v => v * FGI.X),
+  walk: +(MOB.phoenix.walk * FGI.SPD).toFixed(2), run: +(MOB.phoenix.run * FGI.SPD).toFixed(2), cd: 1.9, boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 6, fgi: true, skills: true, art: 'vil', tint: FG_TINT.fg_giant, sc: 3.4, hw: 96, hh: 200, ring: 54, atkTxt: '거인의 주먹' };
+{ const M = MSHEET.ogre; if (M) MSHEET.fg_giant = { ...M, src: M.src || 'ogre', tint: FG_TINT.fg_giant, s: M.s * 1.45, hh: Math.round(M.hh * 1.45), hw: Math.round(M.hw * 1.45) }; }
 // 11/2 메모리: 예전엔 시작할 때 몬스터 111종 × 3동작 그림을 모두 받아 풀어 둠(풀면 약 1.2GB) → 그 몬스터가 처음 생기거나 그려질 때 받음 (MIMG[종류]를 읽는 순간)
 //   지역에 들어갈 때 그 지역 몬스터 그림만 미리 받고, 20초 넘게 안 그린 다른 몬스터 그림은 놓음 (MIMG_TRIM) · 도감·카드·가호 아이콘은 idle 한 장만 (mIdle)
 const MIMG0 = {}, MIMG = new Proxy(MIMG0, { get(o, k) { if (typeof k === 'string' && !Object.prototype.hasOwnProperty.call(o, k) && MSHEET[k]) { const S = o[k] = {};
@@ -4008,9 +4058,14 @@ const ISLAND = (() => {
     24: { name: '몽환의 섬', tier: 2, hiz: true, dream: true, nobot: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: DREAM.SEED, N: DREAM.N, hills: null, portals: [], tone: null, lavaDmg: DREAM.LAVA_DMG, shrine: { i: DREAM.N >> 1, j: DREAM.N >> 1 },
          hello: '몽환의 섬에 들어왔습니다. 가운데 제단 둘레는 안전지대예요. 광장에서 뻗은 바닥의 색 길(빨강 = 불 · 파랑 = 물 · 잿빛 = 바람 · 모래빛 = 땅)을 따라가면 그 속성 지역이에요. 동쪽 용암 지대에는 불의 정령, 서쪽 설원에는 물의 정령, 남쪽 사막에는 땅의 정령, 북쪽 절벽에는 바람의 정령이 삽니다. 정령은 먼저 덤비지 않지만 대정령은 먼저 덤비고 속성 마법을 써요! 반대 속성(불↔물 · 땅↔바람) 무기·마법이 잘 들어요. (같은 속성이어도 피해가 줄지는 않아요) 이곳에서는 순간이동을 할 수 없고 귀환만 됩니다. 하루 이용 시간은 4시간이에요(새벽 5시 초기화). 2시간마다 가운데 제단에 유니콘이 나타나요.',
          mobs: DREAM.Q.flatMap(q => [['dr_' + DREAM.EL[q], DREAM.N_SPIRIT, q], ['dr_g' + DREAM.EL[q], DREAM.N_GREAT, q]]), groups: [] },
+    // 11/3 잊혀진 섬 (25 · 단층 N 133 = 몽환의 섬 크기 · 이야기섬 바닥·나무 + 둘레 바다·모래톱 · 평지 · 가운데 돌 광장(섬지기·떠돌이 상인) · 귀환·순간이동 불가 · 필드 봇 없음) — 수치는 FGI 상수 · mobs 3번째 값 = near(광장 바로 바깥 고리) / far(나머지)
+    25: { name: '잊혀진 섬', tier: 2, hiz: true, fgi: true, isle: true, nobot: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: FGI.SEED, N: FGI.N, hills: [], portals: [], tone: null,
+         hello: '잊혀진 섬에 들어왔습니다. 노래하던 섬은 오래전에 잊혔고, 지금은 사나운 몬스터가 가득합니다. 가운데 돌 광장을 조금만 벗어나도 먼저 덤비는 몬스터 떼가 몰려오고, 몬스터는 보통보다 두 배 빨라요 — 2~4명 이상 함께 다니세요! 이 섬에서는 귀환·순간이동이 되지 않습니다(자동사냥·절전 귀환 포함). 섬을 벗어나려면 광장의 섬지기 로렌에게 말을 거세요. 옆의 떠돌이 상인 미카가 물약을 팔아요(본토 마을의 2배 값). 드레이크는 이따금 [고대의 주문서]와 [빛을 바랜 전설의 벨트]를 떨어뜨리고, 가끔 보스 에이션트 자이언트가 깨어납니다.',
+         mobs: Object.keys(FG_DEF).flatMap(k => k === 'fg_drake' ? [[k, FGI.D_NEAR, 'near'], [k, FGI.D_FAR, 'far']] : [[k, FGI.N_NEAR, 'near'], [k, FGI.N_FAR, 'far']]), groups: [] },
   };
   const ARRIVE = { 1: { town: [37, 37], 2: [8, 8] }, 2: { 1: [56, 56], town: [56, 56] }, 3: { town: [48, 48], 4: [7, 7] }, 4: { 3: [57, 57], town: [57, 57] }, 5: { town: [48, 48], 6: [7, 7] }, 6: { 5: [57, 57], town: [57, 57] }, 7: { town: [48, 48], 8: [7, 7] }, 8: { 7: [57, 57], town: [57, 57] }, 11: { town: [52, 52], 12: [7, 7] }, 12: { 11: [57, 57], town: [57, 57] }, 13: { town: [18, 27] }, 14: { town: [12, 12] }, 15: { town: [17, 8] }, 16: { town: [52, 52], 17: [7, 7] }, 17: { 16: [57, 57], 22: [7, 7], town: [57, 57] }, 22: { town: [52, 52], 17: [52, 52], 23: [7, 7] }, 23: { 22: [57, 57], town: [57, 57] }, 20: { town: [36, 64] }, 21: { town: [22, 22] } };
   ARRIVE[DREAM.ZID] = { town: [DREAM.N >> 1, DREAM.N >> 1] };   // 몽환의 섬: 맵 한가운데 도착
+  ARRIVE[FGI.ZID] = { town: [FGI.N >> 1, FGI.N >> 1] };   // 11/3 잊혀진 섬: 맵 한가운데 (돌 광장)
   function rng(seed) { return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function affine(p) { const [s0, t0] = p[0], [s1, t1] = p[1], [s2, t2] = p[2];
     const a1 = s1[0] - s0[0], b1 = s1[1] - s0[1], a2 = s2[0] - s0[0], b2 = s2[1] - s0[1], det = a1 * b2 - a2 * b1;
@@ -4032,7 +4087,7 @@ const ISLAND = (() => {
       const q = v => 0.6 + v * 28.8 / 30;   // 원본 바닥 가장자리(어두운 테두리)는 피해서 안쪽만 씀
       const M = affine([[0, 0], [30, 0], [0, 30]].map(([xs, zs]) => [[sx * (GEO0.ax + (q(xs) - q(zs)) * K), sy * (GEO0.ay + (q(xs) + q(zs)) * K / 2)], T(ox + fx * xs, oz + fz * zs)]));
       g.save(); dia(a * 30 - 0.08, b * 30 - 0.08, a * 30 + 30.08, b * 30 + 30.08); g.clip(); g.setTransform(...M); if (filt) g.filter = filt; else if (d.fire) g.filter = 'grayscale(.7) sepia(1) hue-rotate(-38deg) saturate(1.8) brightness(.36) contrast(1.35)'; else if (d.valley) g.filter = 'grayscale(.55) sepia(.9) hue-rotate(-28deg) saturate(1.5) brightness(.5) contrast(1.22)'; else if (d.sand) g.filter = 'grayscale(.55) sepia(1) saturate(1.35) hue-rotate(-8deg) brightness(1.42) contrast(.78)'; else if (d.forest) g.filter = 'saturate(1.3) brightness(.92) contrast(1.06) hue-rotate(16deg)'; else if (d.gore) g.filter = 'grayscale(.55) sepia(.55) hue-rotate(-18deg) saturate(.9) brightness(.5) contrast(1.18)'; else if (d.snow) g.filter = 'grayscale(1) brightness(2.15) contrast(.5) sepia(.1) hue-rotate(175deg) saturate(1.4)'; else if (d.tw) g.filter = 'grayscale(.55) sepia(1) saturate(1.35) hue-rotate(-8deg) brightness(1.42) contrast(.78)';   /* 수호탑 대전: 사막 모래 */ else if (d.arena) g.filter = 'sepia(.85) saturate(1.1) hue-rotate(-10deg) brightness(.92) contrast(1.05)'; else if (d.maze) g.filter = d.floor === 2 ? 'grayscale(.9) sepia(.25) hue-rotate(-30deg) brightness(.3) contrast(1.4)' : 'grayscale(.92) sepia(.18) brightness(.34) contrast(1.38)'; g.drawImage(src, 0, 0); g.restore(); } };
-    if (d.dream) dreamGround(g, d, T, sc, N, paint); else paint(null);   /* 11/1 몽환의 섬: 사분면마다 다른 바닥 */
+    if (d.dream) dreamGround(g, d, T, sc, N, paint); else paint(null); if (d.isle) fgGround(g, d, T, sc, N);   /* 11/3 잊혀진 섬: 둘레 모래톱 · 가운데 돌 광장 */   /* 11/1 몽환의 섬: 사분면마다 다른 바닥 */
     if (d.sand) { const Rr = rng(d.seed + 9);   // 모래 물결 무늬
       for (let q = 0; q < N * 3; q++) { const x = 2 + Rr() * (N - 4), z = 2 + Rr() * (N - 4), [px, py] = T(x, z), w = (10 + Rr() * 22) * sc; g.lineWidth = 1.1 * sc;
         for (let l = 0; l < 3; l++) { const yy = py + l * 3.2 * sc; g.strokeStyle = 'rgba(255,236,190,.22)'; g.beginPath(); g.moveTo(px - w, yy); g.quadraticCurveTo(px, yy - 3 * sc, px + w, yy); g.stroke(); g.strokeStyle = 'rgba(120,80,40,.16)'; g.beginPath(); g.moveTo(px - w, yy + 1.2 * sc); g.quadraticCurveTo(px, yy - 1.8 * sc, px + w, yy + 1.2 * sc); g.stroke(); } }
@@ -4259,7 +4314,7 @@ const ISLAND = (() => {
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       if (d.dream) { dreamTile(d, N, B, P, R, i, j, lavaT, water); continue; }   /* 몽환의 섬: 사분면별 소품 */
       if (i === 0 || j === 0 || i === N - 1 || j === N - 1) { B[j][i] = 1; if ((i + j) % 2 === 0 || d.forest) P.push({ type: d.sand ? (R() < 0.7 ? 'rock' : 'bush') : d.forest ? (R() < 0.85 ? 'tree' : 'bush') : d.gore ? (R() < 0.45 ? 'deadtree' : 'rock') : R() < 0.8 ? 'tree' : 'rock', v: Math.floor(R() * 3), i, j }); continue; }
-      if (B[j][i] || nearKeep(i, j) || road(i, j) < 1.6 || lavaT.has(j * 1000 + i)) continue;
+      if (B[j][i] || nearKeep(i, j) || road(i, j) < 1.6 || lavaT.has(j * 1000 + i) || (d.fgi && fgPlaza(N, i, j))) continue;
       if (d.sand) { if (nearOasis(i, j, 2.6)) continue; const r = R();   // 사막: 선인장 · 죽은 나무 · 바위 기둥 · 사암 바위 · 마른 덤불 · (안 막는) 해골·뼈
         const t = r < 0.016 ? ['cactus', Math.floor(R() * 3)] : r < 0.02 ? ['deadtree', 0] : r < 0.024 ? ['spire', Math.floor(R() * 2)] : r < 0.034 ? ['rock', Math.floor(R() * 3)] : r < 0.042 ? ['bush', Math.floor(R() * 3)] : r < 0.047 ? ['skull', 0] : null;
         if (t) { const deco = t[0] === 'skull'; P.push({ type: t[0], v: t[1], i, j, deco }); if (!deco) B[j][i] = 1; } continue; }
@@ -4310,13 +4365,14 @@ const ISLAND = (() => {
         while (q.length) { const [i, j] = q.shift(); if (i === a && j === b) break; for (const [di, dj] of DIRS8) { const x = i + di, y = j + dj; if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1 || terrainBlk(x, y) || prev[y * N + x] >= 0) continue; prev[y * N + x] = j * N + i; q.push([x, y]); } }
         let k = b * N + a; while (prev[k] >= 0 && k !== st) { const i = k % N, j = (k / N) | 0; if (B[j][i] && !terrainBlk(i, j)) { B[j][i] = 0; for (let m = P.length - 1; m >= 0; m--) if (P[m].i === i && P[m].j === j && !P[m].deco) P.splice(m, 1); } k = prev[k]; } }
       seen = reach(N, (i, j) => B[j][i], keep[0]); for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) if (!B[j][i] && !seen[j * N + i]) B[j][i] = 1; }
+    if (d.fgi) for (const [a, b] of fgNpcTiles(N)) B[b][a] = 1;   // 11/3 잊혀진 섬: 섬지기·상인 자리
     const mobs = [], taken = new Set();
     const free = (ci, cj, r, ok) => { for (let t = 0; t < 300; t++) {
       const i = ci == null ? 2 + Math.floor(R() * (N - 4)) : ci + Math.round((R() * 2 - 1) * r), j = cj == null ? 2 + Math.floor(R() * (N - 4)) : cj + Math.round((R() * 2 - 1) * r);
       if (i < 1 || j < 1 || i >= N - 1 || j >= N - 1 || B[j][i] || taken.has(j * N + i) || lavaT.has(j * 1000 + i) || keep.some(([a, b]) => Math.max(Math.abs(a - i), Math.abs(b - j)) <= 6) || (ok && !ok(i, j))) continue;
       taken.add(j * N + i); return [i, j]; } return null; };
     const add = (kind, p) => { const m = mkMob(kind, ...p); m.home = p; m.uid = mobs.length; mobs.push(m); return m; };   // 지역 처음 몬스터는 순서대로 번호 (모두 같은 시드라 같은 번호)
-    d.mobs.forEach(([k, n, qd]) => { const ok = qd && d.dream ? dreamSpawnOk(d, N, qd) : null; for (let q = 0; q < n; q++) { const p = free(null, null, 0, ok); if (p) add(k, p); } });   /* 몽환의 섬: 사분면에 자기 속성만 · 가운데 10칸 안 없음 */
+    d.mobs.forEach(([k, n, qd]) => { const ok = qd && d.dream ? dreamSpawnOk(d, N, qd) : d.fgi ? fgSpawnOk(N, qd) : null; for (let q = 0; q < n; q++) { const p = free(null, null, 0, ok); if (p) add(k, p); } });   /* 몽환의 섬: 사분면에 자기 속성만 · 가운데 10칸 안 없음 */
     d.groups.forEach(([lk, mem, n]) => { for (let q = 0; q < n; q++) { const p = free(); if (!p) continue; const L = add(lk, p), grp = [L]; L.grp = grp;
       mem.forEach(([k, c]) => { for (let u = 0; u < c; u++) { const s = free(p[0], p[1], 2); if (!s) continue; const m = add(k, s); m.leader = L; m.grp = grp; grp.push(m); } }); } });
     return { id, N, name: d.name, blocked: B, props: P, ground: null, def: d, mobs, portals: d.portals, hmap, water, oases: d.oasisList || [], lava: lavaT.size ? lavaT : null }; }
@@ -4400,6 +4456,7 @@ const ISLAND = (() => {
     ifrit22: { zone: 22, kind: 'fn_ifrit', quiet: true, ent: null, P: DEMO ? 180 : 5400, R: DEMO ? 60 : 1800, RP: DEMO ? 120 : 3600, RR: DEMO ? 60 : 1800, title: '이프리트', where: '화룡의 둥지 1구역', againTxt: DEMO ? '데모: 2~3분 뒤' : '1시간~1시간 30분 뒤' },
     ifrit23: { zone: 23, kind: 'fn_ifrit', quiet: true, ent: null, P: DEMO ? 180 : 5400, R: DEMO ? 60 : 1800, RP: DEMO ? 120 : 3600, RR: DEMO ? 60 : 1800, title: '이프리트', where: '화룡의 둥지 2구역', againTxt: DEMO ? '데모: 2~3분 뒤' : '1시간~1시간 30분 뒤' },
     unicorn: { zone: DREAM.ZID, ent: null, P: DEMO ? 180 : DREAM.BOSS_P, R: DEMO ? 60 : DREAM.BOSS_R, RP: DEMO ? 180 : DREAM.BOSS_P, RR: DEMO ? 60 : DREAM.BOSS_R, title: '유니콘', where: '몽환의 섬', againTxt: DEMO ? '데모: 3~4분 뒤' : '2시간~2시간 5분 뒤' },   // 11/1 몽환의 섬: 2시간마다 가운데 제단 (잡힌 뒤에도 2시간~2시간 5분)
+    fg_giant: { zone: FGI.ZID, ent: null, P: DEMO ? 180 : FGI.BOSS_P, R: DEMO ? 60 : FGI.BOSS_R, RP: DEMO ? 180 : FGI.BOSS_RP, RR: DEMO ? 60 : FGI.BOSS_RR, title: '에이션트 자이언트', where: '잊혀진 섬', againTxt: DEMO ? '데모: 3~4분 뒤' : '5시간~6시간 뒤' },   // 11/3 잊혀진 섬: 피닉스와 같은 시간표 · 광장 근처에는 안 나옴
   };
   const KILL = (() => { try { return JSON.parse(localStorage.getItem('aden_bk') || '{}') || {}; } catch (e) { return {}; } })(), keepK = () => { try { localStorage.setItem('aden_bk', JSON.stringify(KILL)); } catch (e) {} };
   const hsh = str => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
@@ -4428,7 +4485,7 @@ const ISLAND = (() => {
   // 보스 등장: 자리도 모든 PC가 같게 (구간 번호로 정한 무작위) · 막 등장한 순간 근처(12칸)에 있으면 극적인 연출
   function spawnBoss(kind, n, fresh) { const B = BOSS[kind], z = get(B.zone), MK = B.kind || kind;   // MK: 실제 몬스터 (이프리트는 시간표 칸 이름과 다름)
     const ex = z.mobs.find(m => m.kind === MK && !m.dead && !m.gone && !m.summoned && !m.reaper && !m.soulBoss && !(m.uid != null && isRpUid(m.uid))); if (ex) { B.ent = ex; return; }   // 호스트에게서 받은 보스가 이미 있으면 그대로
-    const R = rngOf(hsh(kind + ':pos:' + n)); let p = null; const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6) && !(B.quiet && z.lava && z.lava.has(j * 1000 + i));
+    const R = rngOf(hsh(kind + ':pos:' + n)); let p = null; const ok = (i, j) => i > 1 && j > 1 && i < z.N - 2 && j < z.N - 2 && !z.blocked[j][i] && !z.portals.some(q => cheb(i, j, q.i, q.j) < 6) && !(B.quiet && z.lava && z.lava.has(j * 1000 + i)) && !(z.def.fgi && Math.hypot(i + 0.5 - z.N / 2, j + 0.5 - z.N / 2) < FGI.NO_SPAWN_R + 4);
     for (let t = 0; t < 800 && !p; t++) { const i = 2 + Math.floor(R() * (z.N - 4)), j = 2 + Math.floor(R() * (z.N - 4)); if (ok(i, j)) p = [i, j]; } if (!p) p = [z.N >> 1, z.N >> 1];
     if (z.hall) p = [z.hall[0], z.hall[1]]; if (z.def.shrine) p = [z.def.shrine.i, z.def.shrine.j - Math.round(DREAM.SAFE_R * 2 / 7)];   // 몽환의 섬: 가운데 제단 (도착 자리 바로 위 3칸 · 광장 1.5배라 2 → 3)   // 던전 보스: 보스 방 가운데
     const boss = mkMob(MK, ...p); boss.home = p; boss.uid = BUID(kind); z.mobs.push(boss); B.ent = boss;
@@ -4466,15 +4523,17 @@ const ISLAND = (() => {
       if (!ISLE) return;
       if (!ISLE.ground && im.ground.complete) ISLE.ground = buildGround(ISLE.def);
       if (ISLE.def.fire || ISLE.def.dream) fireTick(dt);
+      if (ISLE.def.fgi) FGM.tick(dt);   /* 11/3 잊혀진 섬: NPC에게 걸어가 말 걸기 · 외침 */
       for (let k = foxes.length - 1; k >= 0; k--) if (foxes[k].gone) foxes.splice(k, 1);
       if (hero.t >= 1 && !hero.atk && !huntOn() && !BOTHOST.on()) for (const p of ISLE.portals) if (hero.i === p.i && hero.j === p.j) {   /* v164: 자동사냥 중에는 이동 발판(다른 구역·마을·계단)을 밟아도 넘어가지 않음 */ if (p.to === 'town') { hero.target = null; moveGoal = null; TOWN.goTown(); } else enter(p.to, ISLE.id); break; } },
-    addDraw(list, g) { if (ISLE.def.arena || ISLE.def.duel) arenaDraw(list, g); if (ISLE.def.shrine) dreamShrineDraw(list, g); if (ISLE.def.tw) TWM.addDraw(list, g); for (const p of ISLE.portals) { const [x, y] = W2P(p.i + 0.5, p.j + 0.5); list.push({ d: p.i + p.j + (p.stairs ? 0.3 : 0.6), f: () => p.stairs ? dgStairs(g, x, y, p) : portalFx(g, x, y, p.label) }); } },
+    addDraw(list, g) { if (ISLE.def.arena || ISLE.def.duel) arenaDraw(list, g); if (ISLE.def.shrine) dreamShrineDraw(list, g); if (ISLE.def.fgi) FGM.addDraw(list, g); if (ISLE.def.tw) TWM.addDraw(list, g); for (const p of ISLE.portals) { const [x, y] = W2P(p.i + 0.5, p.j + 0.5); list.push({ d: p.i + p.j + (p.stairs ? 0.3 : 0.6), f: () => p.stairs ? dgStairs(g, x, y, p) : portalFx(g, x, y, p.label) }); } },
   };
 })();
 
 // ============================================================ 바닥 드랍 아이템 (보스 전리품): 아이콘으로 보이고, 마우스를 올리면 정보, 클릭하면 걸어가서 주움
 // 셸로브 드랍표 — 칸마다 따로 굴림(희귀할수록 낮게), 최소 1개는 보장
 const JOSA = (w, a, b) => { const c = String(w).charCodeAt(String(w).length - 1); return w + (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 ? a : b); };
+const BOSS_EXTRA = {};   // 11/3: 보스 1회 처치당 따로 한 번만 굴리는 드랍 [id, 확률] — 2인 보스여도 두 번 안 굴리고 최소 개수 채우기에도 안 씀 (잊혀진 섬 에이션트 자이언트 전설 벨트)
 const BOSS_FIXED = { fn_ifrit: [['fire_scale', 2, 4]], phoenix: [['phoenix_feather', 1, 1], ['fire_scale', 6, 14]], drake_king: [['dragon_heart', 1, 1], ['dragon_scale', 5, 12], ['drake_claw', 1, 3]] };   // v158: 보스가 반드시 떨어뜨리는 재료 [id, 최소, 최대] — 전리품 · 사냥터 도감 · 아이템 도감이 같이 씀
 const DROP_MIN = { fn_ifrit: 0, phoenix: 4, drake_king: 4, ice_queen: 3, queen_ant: 2, ogre: 2, baphomet: 3, kaspar: 2, merkyor: 2, balthazar: 2, sema: 2, deathknight: 3 };
 const DROP_TABLE = {
@@ -4536,6 +4595,7 @@ const GROUND = (() => {
   function bossLoot(f) { const T = DROP_TABLE[f.kind]; if (!T) return; let got = T.filter(([, p]) => Math.random() < p); if (MOB[f.kind].duo) got = got.concat(T.filter(([, p]) => Math.random() < p));   // v129: 2인 보스는 전리품 2번
     const tot = T.reduce((a, x) => a + x[1], 0); while (got.length < (DROP_MIN[f.kind] ?? 1)) { let r = Math.random() * tot; const pk = T.find(x => (r -= x[1]) < 0) || T[0]; if (!got.includes(pk)) got.push(pk); }
     if (CX_BOSS[f.kind] && CX_HERO.length && Math.random() < (HERO_P[f.kind] || 0) * (MOB[f.kind].duo ? 1.5 : 1)) got.push([CX_HERO[Math.floor(Math.random() * CX_HERO.length)], 1]);   // 영웅 장비: 보스마다 정해진 확률로 1개 (HERO_P)
+    for (const [id, p] of BOSS_EXTRA[f.kind] || []) if (ITEMS[id] && Math.random() < p) got.push([id, 1]);   // 11/3: 한 번만 굴리는 드랍 (에이션트 자이언트 전설 벨트 3%)
     /* v179: 가호조각은 바닥에 떨어지지 않고, 기여도 1% 이상인 캐릭터의 가방에 1개씩 바로 들어감 (NET.gahoGive) */
     for (const [id, a, b] of BOSS_FIXED[f.kind] || []) got.push(a === 1 && b === 1 ? [id, 1] : [id, 1, a, b]);   // v153: 드레이크 킹 — 용의 심장 1 · 비늘 5~12 · 발톱 1~3 (반드시)
     const P = spots(f.i, f.j, got.length); got.forEach((row, k) => drop(row[0], row[2] ? row[2] + Math.floor(Math.random() * (row[3] - row[2] + 1)) : 1, P[k][0], P[k][1])); got = got.map(x => x[0]); TELE.ev('boss', { b: f.kind, items: got });
@@ -6275,6 +6335,9 @@ const INV = (() => {
     if (d.use === 'enchant' || d.use === 'attr' || d.use === 'blessit' || d.use === 'accchg' || d.use === 'eqchg') { const ok = bag.some(x => canScroll(d, ITEMS[x.id]));
       if (!ok) { say(d.use === 'attr' ? '속성을 부여할 무기가 없습니다.' : d.use === 'eqchg' ? '바꿀 전설 장비가 없습니다. (장비 변경 주문서는 전설 장비에만 쓸 수 있어요)' : d.use === 'accchg' ? '바꿀 장신구가 없습니다. (힘·민첩·지식의 반지·목걸이)' : d.ench === 'hwhat' ? '강화할 할로윈 모자가 없습니다.' : d.ench === 'acc' ? '강화할 장신구가 없습니다. (힘·민첩·지능·모든 능력치가 붙은 반지·목걸이)' : d.ench === 'weapon' ? '강화할 무기가 없습니다.' : '강화할 방어구가 없습니다.', '#9c9682'); return; }
       tgtScroll = e.id; if ($('invwin').hidden) { $('invwin').hidden = false; render(); } $('invwin').classList.add('targeting'); document.body.classList.add('cursor-hammer'); say(`${d.name}: ${d.use === 'eqchg' ? '바꿀 전설 장비를' : d.use === 'accchg' ? '바꿀 장신구를' : d.ench === 'hwhat' ? '강화할 할로윈 모자를' : '강화할 장비를'} 클릭하세요. (취소: Esc · 오른쪽 클릭)`, '#f2e6a8'); return; }
+    if (d.use === 'ancient') { if (!bag.some(x => ITEMS[x.id] && ITEMS[x.id].faded)) { say('고대의 주문서를 쓸 [빛을 바랜 전설의 벨트]가 없습니다. (잊혀진 섬 드레이크·에이션트 자이언트)', '#9c9682'); return; }   /* 11/3 잊혀진 섬 */
+      tgtScroll = e.id; if ($('invwin').hidden) { $('invwin').hidden = false; render(); } $('invwin').classList.add('targeting'); document.body.classList.add('cursor-hammer'); say(`${d.name}: [빛을 바랜 전설의 벨트]를 클릭하세요. (취소: Esc · 오른쪽 클릭)`, '#f2e6a8'); return; }
+    if (d.faded) { say(`${d.name}: 빛이 바래 찰 수 없어요. [고대의 주문서]를 쓰면 정체가 드러나요. (전설 ${fgPct(FGI.ROLL[0])} · 영웅 벨트 ${fgPct(FGI.ROLL[1])} · 희귀 벨트 ${fgPct(FGI.ROLL[2])})`, '#c0b8a0'); return; }
     if (d.use === 'soul') { const A = ISLE && ISLE.def && ISLE.def.altar;   /* v126: 영혼석 — 소환의 제단에서만 */
       if (SCENE !== 'field' || !A) { say('영혼석은 [소환의 제단]에서만 쓸 수 있어요. (월드맵 → 소환의 제단)', '#f08a7a'); return; }
       if (Math.max(Math.abs(hero.i - A.i), Math.abs(hero.j - A.j)) > 6) { say('제단 가까이(6칸 안)에서 써 주세요.', '#f08a7a'); return; }
@@ -6310,14 +6373,15 @@ const INV = (() => {
     if (d.use === 'revive') { if (NET.reviveNear()) return; if (FBOT.pbRevive()) return; PET.useRevive(); return; }
     if (d.use === 'learn') { if (learnSkill(d.learn)) take(e.id); return; }
     if (d.use === 'statreset') { if (resetStats()) take(e.id); return; }
+    if (d.use === 'home' && fgBlock()) return;   // 11/3 잊혀진 섬: 귀환 불가
     if (d.use === 'home' && TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; }   // 수호탑 대전: 귀환 부적 사용 불가
     if (d.use === 'home' && ARENA()) { askYesNo('콜로세움을 포기하고 나가시겠습니까?', '마을로 돌아갑니다.', () => { if (!ARENA() || (!d.free && !take(e.id))) return; say(`${JOSA(d.name, '을', '를')} 사용했습니다. (콜로세움 포기)`, '#e8d8a8'); TOWN.goTown(); }); return; }   // v136
     if (d.use === 'home') { if (SCENE === 'town') { say('이미 마을에 있어요.', '#9c9682'); return; } if (!d.free) take(e.id); say(`${JOSA(d.name, '을', '를')} 사용했습니다.`, '#e8d8a8'); TOWN.goTown(); return; }
-    if (d.use === 'tele') { if (ISLE && ISLE.def && ISLE.def.dream) { say(DREAM.NO_TELE_MSG, '#f08a7a'); return; } if (SCENE === 'town') { say('마을에서는 쓸 수 없습니다.', '#9c9682'); return; } if (ARENA() || TW()) { say(TW() ? '수호탑 대전에서는 순간이동 주문서를 쓸 수 없어요.' : '콜로세움에서는 순간이동 주문서를 쓸 수 없어요.', '#f08a7a'); return; } const p = freeTile(4); take(e.id); hero.i = hero.fi = p[0]; hero.j = hero.fj = p[1]; hero.x = p[0] + .5; hero.z = p[1] + .5; hero.t = 1; hero.target = null; moveGoal = null; say('순간이동 했습니다.', '#e8d8a8'); try { TRADE.moved(); } catch (e_) {} return; }
+    if (d.use === 'tele') { if (fgBlock()) return; if (ISLE && ISLE.def && ISLE.def.dream) { say(DREAM.NO_TELE_MSG, '#f08a7a'); return; } if (SCENE === 'town') { say('마을에서는 쓸 수 없습니다.', '#9c9682'); return; } if (ARENA() || TW()) { say(TW() ? '수호탑 대전에서는 순간이동 주문서를 쓸 수 없어요.' : '콜로세움에서는 순간이동 주문서를 쓸 수 없어요.', '#f08a7a'); return; } const p = freeTile(4); take(e.id); hero.i = hero.fi = p[0]; hero.j = hero.fj = p[1]; hero.x = p[0] + .5; hero.z = p[1] + .5; hero.t = 1; hero.target = null; moveGoal = null; say('순간이동 했습니다.', '#e8d8a8'); try { TRADE.moved(); } catch (e_) {} return; }
     say(`${d.name}은(는) 지금 쓸 수 없습니다.`, '#9c9682'); }
   // ===== 강화 (리니지식): 안전 강화 = 무기 +6 · 방어구 +4 (등급 상관없음), 넘기면 1/3 확률로 성공·실패 시 증발. 속성(땅)은 무기 1~3단
   let tgtScroll = null;
-  const canScroll = (sd, td) => sd.use === 'eqchg' ? td.rar === '전설' && !!td.slot : sd.ench === 'hwhat' ? td === ITEMS.hw_hat : td === ITEMS.hw_hat ? false : sd.use === 'accchg' ? ['str', 'dex', 'int'].includes(accKey(td)) : sd.ench === 'acc' ? !!accKey(td) : sd.use === 'blessit' ? td.slot === 'weapon' || ARMOR_SLOTS.has(td.slot) || ACC_BL.has(td.slot) || (!!td.gaho && !td.gonoff) : sd.use === 'attr' ? td.slot === 'weapon' : sd.ench === 'weapon' ? td.slot === 'weapon' : ARMOR_SLOTS.has(td.slot);
+  const canScroll = (sd, td) => sd.use === 'ancient' ? !!td.faded : sd.use === 'eqchg' ? td.rar === '전설' && td.slot === 'weapon' : sd.ench === 'hwhat' ? td === ITEMS.hw_hat : td === ITEMS.hw_hat ? false : sd.use === 'accchg' ? ['str', 'dex', 'int'].includes(accKey(td)) : sd.ench === 'acc' ? !!accKey(td) : sd.use === 'blessit' ? td.slot === 'weapon' || ARMOR_SLOTS.has(td.slot) || ACC_BL.has(td.slot) || (!!td.gaho && !td.gonoff) : sd.use === 'attr' ? td.slot === 'weapon' : sd.ench === 'weapon' ? td.slot === 'weapon' : ARMOR_SLOTS.has(td.slot);
   function cancelTarget(quiet) { if (!tgtScroll) return; tgtScroll = null; $('invwin').classList.remove('targeting'); document.body.classList.remove('cursor-hammer'); if (!quiet) say('강화를 취소했습니다.', '#9c9682'); }
   function enFx(color, txt) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 90, txt, { color, size: 14, big: true, life: 1.3, rise: 30 }); }
   // 강화 결과 연출: 인벤 칸(또는 상세창 아이콘) 위에 CSS 효과 + 캐릭터 위 이펙트 + 효과음
@@ -6479,6 +6543,11 @@ const INV = (() => {
   function applyScroll(t) { const sid = tgtScroll, sd = ITEMS[sid], td = ITEMS[t.id];
     if (!sd || !count(sid)) { cancelTarget(true); return; }
     if (t.locked) { say(`${nameOf(t)}: 잠긴 아이템이라 주문서를 쓸 수 없습니다. (상세 정보에서 잠금 해제)`, '#f08a7a'); cancelTarget(true); return; }
+    if (sd.use === 'ancient') { cancelTarget(true); if (!td.faded) { say(`${nameOf(t)}: 고대의 주문서는 [빛을 바랜 전설의 벨트]에만 쓸 수 있어요. (주문서는 그대로예요)`, '#f08a7a'); return; }   /* 11/3 잊혀진 섬: 주문서·빛바랜 벨트 둘 다 사라지고 벨트 하나 */
+      if (!take(sid)) return; if (!take(t.id)) { add(sid, 1, true); return; } const r = fgRoll(), it = ITEMS[r.id]; if (!it) return; add(r.id, 1, true); render(); const ne = bag.slice().reverse().find(x => x.id === r.id) || { id: r.id };
+      say(`고대의 주문서가 빛을 바랜 전설의 벨트에 스며듭니다… 빛이 되살아나 [${r.tier}] ${JOSA(it.name, '이', '가')} 되었습니다! (전설 ${fgPct(FGI.ROLL[0])} · 영웅 ${fgPct(FGI.ROLL[1])} · 희귀 ${fgPct(FGI.ROLL[2])})`, rarC(r.id)); enFx(rarC(r.id), `[${r.tier}] ${it.name}`);
+      enchantFx(ne, r.tier === '희귀' ? 'ok' : 'bless', r.tier === '전설' ? `전설 ${it.name}!` : `[${r.tier}] ${it.name}`); try { centerNote(`[${r.tier}] ${it.name}`, r.tier === '전설' ? '빛을 바랜 벨트에서 거인 왕의 반지가 깨어났습니다!' : '빛을 바랜 벨트의 정체가 드러났습니다', rarC(r.id), 3200); } catch (e_) {}
+      TELE.ev('fgRoll', { id: r.id, r: r.tier }); if (r.tier !== '희귀') { const m = `${PNAME()}님이 고대의 주문서로 [${r.tier}] ${JOSA(it.name, '을', '를')} 되살려 냈습니다!`; announce(m, RARITY_C[r.tier]); NET.announceAll(m); } return; }
     if (sd.use === 'eqchg' && !canScroll(sd, td)) { say(`${nameOf(t)}: 장비 변경 주문서는 전설 장비에만 쓸 수 있어요. (주문서는 그대로예요)`, '#f08a7a'); cancelTarget(true); return; }   // 11/1
     if (!canScroll(sd, td)) { say((sd.use === 'blessit' && td.gonoff ? `${JOSA(td.name, '은', '는')} 효과가 켜짐/꺼짐뿐이라 축복할 수 없습니다.` : sd.use === 'accchg' ? '장신구 변경 주문서는 힘·민첩·지식의 반지·목걸이에만 쓸 수 있습니다.' : sd.ench === 'hwhat' ? '호박 강화 주문서는 할로윈 모자에만 쓸 수 있습니다.' : td === ITEMS.hw_hat ? '할로윈 모자는 호박 강화 주문서로만 강화할 수 있습니다.' : sd.ench === 'acc' ? '장신구 마법 주문서는 힘·민첩·지능·모든 능력치가 붙은 반지·목걸이에만 쓸 수 있습니다.' : sd.use === 'attr' ? '속성 강화 주문서는 무기에만 쓸 수 있습니다.' : sd.ench === 'weapon' ? '무기 마법 주문서는 무기에만 쓸 수 있습니다.' : '갑옷 마법 주문서는 투구·갑옷·방패·망토·티셔츠·장갑·부츠에만 쓸 수 있습니다.') + ' 강화를 취소했습니다.', '#f08a7a'); cancelTarget(true); return; }
     if (sd.use === 'attr') { const lv = t.attr && t.attr.el === sd.el ? t.attr.lv : 0;
@@ -6924,7 +6993,9 @@ window.CODEX = (() => { const $ = id => document.getElementById(id); let tab = 0
     for (const r of DOLL_DEF) { const n = DOLL_DEF.filter(q => q[2] === r[2]).length, t = r[2];   // v169: 마법인형 — 주머니(1단계) · 합성(2·3단계)
       add('doll_' + r[0], t === 1 ? `잡화상점 [특별] ${ITEMS.doll_pouch.name} (10만 골드) · 1단계 ${n}종 중 하나 (${pct(1 / n)})` : `인형 합성 (제작 장인 브론 · 인형 합성 탭): ${t - 1}단계 인형 ${DOLL_NEED}개 → 성공 ${Math.round(DOLL_SYN[t - 1] * 100)}% · 성공하면 ${t}단계 ${n}종 중 하나 (${pct(1 / n)}) · 실패하면 넣은 인형 중 1개 돌려받음`); }
     for (const c in CLS_DEF) for (const k of CLS_DEF[c].kit || []) add(SHOP2ITEM[k] || (ITEMS[k] ? k : Object.keys(ITEMS).find(i => ITEMS[i].name === k)), `${CLASS_NAME[c]} 시작 장비`);
-    try { for (const [id, t] of dreamCodexSrc()) add(id, t); } catch (e) {}   /* 11/1 몽환의 섬: 대정령 영웅 3% · 엘릭서 교환 */
+    try { for (const [id, t] of dreamCodexSrc()) add(id, t); } catch (e) {}
+    try { for (const [id, t] of fgCodexSrc()) add(id, t); } catch (e) {}   /* 11/3 잊혀진 섬 */
+    for (const b in BOSS_EXTRA) for (const [id, p] of BOSS_EXTRA[b]) add(id, `보스: ${MOB[b].name} ${pct(p)}`);   /* 11/1 몽환의 섬: 대정령 영웅 3% · 엘릭서 교환 */
     return S; }
   function build() { const S = sources(), L = [];
     for (const id in ITEMS) { const d = ITEMS[id]; if (!d || !d.name || d.hidden || /테스트/.test(d.name) || id === 'pet_collar50') continue;
@@ -7286,6 +7357,7 @@ const TOWN = (() => {
     },
     SPAWN,
     openShopId: id => { const b = SHOPS.find(x => x.id === id); if (b) openShop(b); },   // 테스트·단축용
+    openShopObj: b => { if (b) openShop(b); },   // 11/3 잊혀진 섬 떠돌이 상인 (필드 NPC)
     shopList: () => SHOPS, exchList: () => EXCH,
   };
   // 시장: 상인 아래 깔개(상인 색) + 기사·마법사·요정 모습(희귀 장비 차림) + 외침 말풍선
@@ -7422,10 +7494,11 @@ const TOWN = (() => {
     ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(잡힌 뒤 5~6시간마다, 3~4명 · 한 번 되살아남). 1·2구역 어딘가에는 이따금 불의 정령 이프리트(중간 보스)가 알림 없이 나타나요 — 쓰러뜨리면 화룡 갑옷의 핵심 재료인 이프리트의 심장을 얻을 수 있어요. 화룡의 비늘·아시타지오의 재·피닉스의 깃털·이프리트의 심장으로 제작 장인 브론에게서 화룡 갑옷 3종(화룡의 갑옷·화룡의 로브·화룡의 가죽갑옷 · 영웅 · 직업 전용 · 화염 저항 +50)을 만들 수 있어요.'],
     ['summon_altar', '소환의 제단', '상급', '30~50', 700, 560, '영혼석으로 보스를 불러내는 고대의 제단. 몬스터는 없고, 사냥터에서 감시자 리퍼를 쓰러뜨려 얻은 [영혼석]을 제단 가까이에서 쓰면 그 보스(같은 능력치·드랍)가 나타나요. 한 번에 한 마리.'],
     ['dream_island', '몽환의 섬', '상급', '58~65', 1090, 490, '화룡의 둥지 너머 꿈결 같은 안개에 싸인 큰 섬 (1·2구역 없는 단층 · 화룡의 둥지 2구역의 약 4배 넓이). 맵 한가운데 제단 둘레는 안전지대이고, 광장에서 동서남북으로 속성 색 길(빨강·파랑·잿빛·모래빛)이 두 갈래씩 뻗어 있어요. 동쪽 용암 지대·서쪽 설원과 얼음 호수·남쪽 사막·북쪽 황량한 절벽에 각 속성의 정령이 삽니다. 정령(Lv60 · 근접)은 먼저 덤비지 않지만 대정령(Lv65 · 근접 + 속성 마법 · 1.5배 크기 · 속성 오로라)은 먼저 덤벼요. 정령은 반대 속성(불↔물 · 땅↔바람)에 약해요. (같은 속성이어도 피해가 줄지는 않아요) 정령은 축복받은 무기·갑옷 마법 주문서를 5%, 대정령은 15%에 영웅 장비 3%·퓨어엘릭서 15%를 떨어뜨려요. 퓨어엘릭서 100개는 제작 장인 브론에게서 힘·민첩·지능 엘릭서(영구 +1 · 캐릭터당 5개)로 바꿔요. 2시간마다 가운데 제단에 보스 유니콘(피닉스의 2배 · 돌진·뿔 빛기둥·치유 빛)이 나타나 축데이·축젤·퓨어엘릭서를 떨어뜨립니다. 이곳에서는 순간이동을 할 수 없고 귀환만 돼요.'],
+    ['forgotten_island', '잊혀진 섬', '상급', '60~65', 118, 330, '이야기섬 너머 먼 바다에 떠 있는, 오래전 노래가 끊긴 섬 (1·2구역 없는 단층 · 몽환의 섬과 같은 넓이 · 입장료 50만 골드). 맵 한가운데 돌 광장에 도착하고, 광장을 조금만 벗어나도 먼저 덤비는 몬스터 떼가 몰려와요 — 2~4명 이상 파티 사냥 필수! 몬스터(Lv 60~64 · 무속성 · 모두 선공 · 보통보다 2배 빠름 · 화룡의 둥지의 약 3배): 잊혀진 섬 버그베어·다크엘프·에틴·가스트·셸로브, 사이사이 중간 보스 잊혀진 섬 드레이크. 귀환·순간이동이 되지 않아(자동사냥·절전 귀환 포함) 섬을 벗어나려면 광장의 섬지기에게 말을 걸어야 해요. 광장의 떠돌이 상인이 물약을 팔아요(본토의 2배). 일반 몬스터는 희귀·영웅 아이템만, 드레이크는 [고대의 주문서]·[빛을 바랜 전설의 벨트]를 3%씩 떨어뜨려요. 주문서를 빛바랜 벨트에 쓰면 전설 [에이션트 자이언트의 반지] 3% · 영웅 벨트 27% · 희귀 벨트 70%. 보스 에이션트 자이언트(잡힌 뒤 5~6시간마다 · 3~4명 이상).'],
     ['oren_elmore', '오렌설원지역', '상급', '40~50', 800, 130, '눈보라가 몰아치는 북쪽의 눈 덮인 설원 (수속성 — 불 속성 무기·마법이 잘 듭니다). 1구역(Lv 40~45): 엘모어 병사·전사·마법사가 3~5명씩 무리 지어 다니며 하나를 치면 무리 전체가 반격. 2구역(Lv 45~50): 먼저 덤비는 에틴·샤벨타이거, 맞으면 얼어붙는 아이스 골렘, 그리고 보스 얼음여왕(약 3시간마다, 블리자드·콘 오브 콜드).'],
   ];
   // v109: 보스가 살아 있는 지역은 아이콘 위에 보스 그림과 '출현' (지도를 연 동안 5초마다 갱신)
-  const REGION_BOSS_K = { talking_island: ['shelob'], knight_village: ['queen_ant'], orc_forest: ['ogre'], bugbear_field: ['baphomet'], dark_knight_field: ['kaspar', 'deathknight'], oren_elmore: ['ice_queen'], dragon_valley: ['drake_king'], fire_dragon_nest: ['phoenix'], dream_island: ['unicorn'] };
+  const REGION_BOSS_K = { talking_island: ['shelob'], knight_village: ['queen_ant'], orc_forest: ['ogre'], bugbear_field: ['baphomet'], dark_knight_field: ['kaspar', 'deathknight'], oren_elmore: ['ice_queen'], dragon_valley: ['drake_king'], fire_dragon_nest: ['phoenix'], dream_island: ['unicorn'], forgotten_island: ['fg_giant'] };
   let bossMarkT = 0;
   function updBossMarks() { const st = $('wm-stage'); if (!st || $('wmap').hidden) { clearInterval(bossMarkT); bossMarkT = 0; return; } const T = ISLAND.bossTimers();
     st.querySelectorAll('.mk[data-r]').forEach(m => { const ks = (REGION_BOSS_K[m.dataset.r] || []).filter(k => T[k] === 'alive'), key = ks.join(','); let b = m.querySelector('.mk-boss');
@@ -7440,7 +7513,7 @@ const TOWN = (() => {
         m.dataset.r = r[0]; m.innerHTML = `<i></i><b>${r[1]}</b><small>${r[2]} · 권장 Lv.${r[3]}</small>`; m.onclick = () => pick(r, m); st.appendChild(m); });
       { const R = Object.fromEntries(REGIONS.map(r => [r[0], [r[4], r[5]]])), TWN = [600, 520], seg = (a, b, k = 0.18, cls = '') => { const mx = (a[0] + b[0]) / 2 - (b[1] - a[1]) * k, my = (a[1] + b[1]) / 2 + (b[0] - a[0]) * k; return `<path class="${cls}" d="M${a[0]} ${a[1]} Q${mx} ${my} ${b[0]} ${b[1]}"/>`; };
         const chain = ['knight_village', 'orc_forest', 'bugbear_field', 'dark_knight_field', 'dragon_valley', 'fire_dragon_nest'].map(id => R[id]); let d = seg(TWN, R.talking_island, -0.12, 'sea') + seg(TWN, chain[0]);
-        for (let q = 0; q < chain.length - 1; q++) d += seg(chain[q], chain[q + 1], q % 2 ? 0.15 : -0.15); d += seg(R.dark_knight_field, R.oren_elmore, 0.2); d += seg(R.fire_dragon_nest, R.dream_island, 0.16, 'sea');
+        for (let q = 0; q < chain.length - 1; q++) d += seg(chain[q], chain[q + 1], q % 2 ? 0.15 : -0.15); d += seg(R.dark_knight_field, R.oren_elmore, 0.2); d += seg(R.fire_dragon_nest, R.dream_island, 0.16, 'sea'); d += seg(R.talking_island, R.forgotten_island, 0.22, 'sea');
         st.insertAdjacentHTML('afterbegin', `<svg class="wm-routes" viewBox="0 0 1280 720" preserveAspectRatio="none" aria-hidden="true">${d}</svg>`); }
       const t = document.createElement('button'); t.type = 'button'; t.className = 'mk town'; t.style.left = 600 / 12.8 + '%'; t.style.top = 520 / 7.2 + '%'; t.innerHTML = '<i></i><b>아덴 마을</b><small>메인 마을</small>';
       t.onclick = () => askTown(); st.appendChild(t); }
@@ -7456,25 +7529,26 @@ const TOWN = (() => {
     dragon_valley: { zones: [[16, '1구역 · Lv 47~50'], [17, '2구역 · Lv 50~54']], boss: 'drake_king', bossTxt: '2구역 · 잡으면 3시간~3시간 30분 뒤 다시 나타남 (2인 이상 · 불 숨결·꼬리·드레이크 부르기)' },
     fire_dragon_nest: { zones: [[22, '1구역 · Lv 53~55'], [23, '2구역 · Lv 55~57']], boss: 'phoenix', bossTxt: '2구역 · 잡으면 5시간~6시간 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)',
       bosses: [['phoenix', '2구역 · 잡으면 5시간~6시간 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)', ['phoenix']], ['fn_ifrit', '중간 보스 · 1구역·2구역에 1마리씩 · 알림 없이 어딘가에 나타남 · 잡으면 1시간~1시간 30분 뒤 (화염 폭발·불덩이)', ['fn_ifrit']]] },
+    forgotten_island: { zones: [[FGI.ZID, '단층 · Lv 60~65']], boss: 'fg_giant', bossTxt: '섬 어딘가(광장 밖) · 잡히면 5시간~6시간 뒤 (3~4명 이상 · 발 구르기·바위 던지기·포효 · 전설 벨트 3% · 빛바랜 벨트 1~5 · 고대의 주문서 1~5 반드시)', norm: () => fgCodexIds(), normSrc: id => fgNormSrc(id) },   /* 11/3 */
     dream_island: { zones: [[24, '단층 · Lv 58~65']], boss: 'unicorn', bossTxt: '가운데 제단 · 2시간마다 (돌진 · 뿔 빛기둥 · 치유 빛 1번 · 축데이 1~2 · 축젤 1~2 · 퓨어엘릭서 1~5 반드시)' },
     dark_knight_field: { zones: [[9, '1층 · Lv 30~35'], [10, '2층 · Lv 35~40']], boss: 'deathknight', bossTxt: '', bosses: [['kaspar', '1층 보스 카스파 패밀리 · 넷 모두 쓰러지면 약 2시간 뒤', ['kaspar', 'merkyor', 'balthazar', 'sema']], ['deathknight', '2층 보스 · 약 3시간마다', ['deathknight']]] } };
   const RORD = { '전설': -1, '영웅': 0, '희귀': 1, '고급': 2, '일반': 3 };
   function zoneKinds(id) { const d = ISLAND.def(id); if (!d) return []; const ks = new Set(); (d.mobs || []).forEach(([k]) => ks.add(k)); (d.groups || []).forEach(([k, mem]) => { ks.add(k); (mem || []).forEach(([m]) => ks.add(m)); }); return [...ks].filter(k => MOB[k] && !MOB[k].boss); }
   function codexHTML(r) { const R_ = REGION_INFO[r[0]]; if (!R_) return '<p class="wc-none">이 사냥터의 몬스터·아이템 도감은 맵이 열리면 채워집니다.</p>';
-    const mobCell = k => { const S = MOB[k]; return `<div class="wc-mob${S.boss || S.midb ? ' boss' : ''}"><canvas width="56" height="56" data-k="${k}"></canvas><b>${S.name}</b><small>Lv.${S.lv}${S.el ? ` · <em style="color:${ATTR_C[S.el]}">${ATTR_N[S.el]}</em>` : ''}${S.aggr && !S.boss ? ' · <em>선공</em>' : ''}${S.boss ? ' · <em>보스</em>' : ''}${S.midb ? ' · <em>중간 보스</em>' : ''}</small></div>`; };
+    const mobCell = k => { const S = MOB[k]; return `<div class="wc-mob${S.boss || S.midb || S.fgMid ? ' boss' : ''}"><canvas width="56" height="56" data-k="${k}"></canvas><b>${S.name}</b><small>Lv.${S.lv}${S.el ? ` · <em style="color:${ATTR_C[S.el]}">${ATTR_N[S.el]}</em>` : ''}${S.aggr && !S.boss ? ' · <em>선공</em>' : ''}${S.boss ? ' · <em>보스</em>' : ''}${S.midb || S.fgMid ? ' · <em>중간 보스</em>' : ''}</small></div>`; };
     const itemCell = (id, src) => { const d = ITEMS[id]; if (!d) return ''; const rr = d.rar || '일반'; const tipTxt = INV.tipOf({ id, n: 1, on: false }).split('\n').filter(l => !/더블클릭|꾹 누르고/.test(l)).concat('획득: ' + src).join('\n').replace(/"/g, '&quot;'); return `<span class="wc-it" data-itip="${tipTxt}" data-ic="${rarC(id)}" style="--rar:${rr === '일반' ? '#b9b4a8' : RARITY_C[rr]}">${ICON(d.icon)}</span>`; };
     const sortIds = ids => [...new Set(ids)].filter(id => ITEMS[id]).sort((a, b) => (RORD[ITEMS[a].rar || '일반'] - RORD[ITEMS[b].rar || '일반']) || ITEMS[a].name.localeCompare(ITEMS[b].name, 'ko'));
     const zoneIds = R_.zones.map(z => z[0]), kinds = new Set(zoneIds.flatMap(zoneKinds));
     const BX = R_.bosses || [[R_.boss, R_.bossTxt, [R_.boss]]], BK = BX.flatMap(x => x[2]);
     const heroBoss = BK.filter(b => (HERO_P[b] || 0) > 0 && CX_BOSS[b]);   // v158: 무작위 영웅 · 반드시 떨어지는 재료 · 가호조각도 보스 드랍에 표시
-    const bossIds = sortIds([...BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])), ...BK.flatMap(b => (BOSS_FIXED[b] || []).map(x => x[0])), ...BK.filter(b => GAHO_OF[b]).map(b => 'gfrag_' + b), ...(heroBoss.length ? CX_HERO : [])]);
+    const bossIds = sortIds([...BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])), ...BK.flatMap(b => (BOSS_FIXED[b] || []).map(x => x[0])), ...BK.flatMap(b => (BOSS_EXTRA[b] || []).map(x => x[0])), ...BK.filter(b => GAHO_OF[b]).map(b => 'gfrag_' + b), ...(heroBoss.length ? CX_HERO : [])]);
     const pctS = p => (p >= 0.1 ? Math.round(p * 100) : p >= 0.01 ? (p * 100).toFixed(1) : (p * 100).toFixed(2)) + '%';
     const bossSrc = id => { const L = [], ded = BK.filter(b => (DROP_TABLE[b] || []).some(x => x[0] === id)), fx = BK.filter(b => (BOSS_FIXED[b] || []).some(x => x[0] === id) || 'gfrag_' + b === id);
-      if (ded.length) L.push('보스 ' + ded.map(b => MOB[b].name).join('·') + ' 드랍'); if (fx.length) L.push('보스 ' + fx.map(b => MOB[b].name).join('·') + ' · 반드시');
+      if (ded.length) L.push('보스 ' + ded.map(b => MOB[b].name).join('·') + ' 드랍'); if (fx.length) L.push('보스 ' + fx.map(b => MOB[b].name).join('·') + ' · 반드시'); for (const b of BK) for (const [x, p] of BOSS_EXTRA[b] || []) if (x === id) L.push(`보스 ${MOB[b].name} ${pctS(p)}`);
       if (heroBoss.length && CX_HERO.includes(id)) L.push(heroBoss.map(b => `${MOB[b].name} 무작위 영웅 (1회 처치당 약 ${pctS((HERO_P[b] || 0) * (MOB[b].duo ? 1.5 : 1))} · 영웅 장비 ${CX_HERO.length}종 중 하나)`).join(' · ')); return L.join(' · '); };
-    const normSrc = id => { const hz = ITEMS[id].rar === '영웅' ? R_.zones.filter(([z]) => (CX_ZONE_H[z] || []).includes(id)) : []; if (!hz.length) return '이 사냥터 일반 몬스터 드랍 (레벨이 높을수록 잘 떨어짐)'; const n = CX_ZONE_H[hz[0][0]].length;
+    const normSrc = id => { if (R_.normSrc) return R_.normSrc(id); const hz = ITEMS[id].rar === '영웅' ? R_.zones.filter(([z]) => (CX_ZONE_H[z] || []).includes(id)) : []; if (!hz.length) return '이 사냥터 일반 몬스터 드랍 (레벨이 높을수록 잘 떨어짐)'; const n = CX_ZONE_H[hz[0][0]].length;
       return `${hz.map(([, lab]) => lab.split(' · ')[0]).join('·')} 일반 몬스터 · 극히 드묾 (한 마리당 약 ${pctS(1 - Math.pow(1 - CX_HERO_ZP, n))} 확률로 영웅 장비 ${n}종 중 하나)`; };
-    const normIds = sortIds([...BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])).filter(id => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반')), ...zoneIds.flatMap(z => CX_ZONE[z] || []), ...zoneIds.flatMap(z => CX_ZONE_R[z] || []), ...zoneIds.flatMap(z => CX_ZONE_H[z] || []), ...[...kinds].flatMap(k => (MOB_DROPS[k] || []).map(x => x[0]))]);
+    const normIds = sortIds([...(R_.norm ? R_.norm() : BK.flatMap(b => (DROP_TABLE[b] || []).map(x => x[0])).filter(id => ITEMS[id] && ['일반', '고급'].includes(ITEMS[id].rar || '일반'))), ...zoneIds.flatMap(z => CX_ZONE[z] || []), ...zoneIds.flatMap(z => CX_ZONE_R[z] || []), ...zoneIds.flatMap(z => CX_ZONE_H[z] || []), ...[...kinds].flatMap(k => (MOB_DROPS[k] || []).map(x => x[0]))]);
     const cnt = ids => ['영웅', '희귀', '고급', '일반'].map(g => [g, ids.filter(id => (ITEMS[id].rar || '일반') === g).length]).filter(x => x[1]).map(([g, n]) => `<span style="color:${g === '일반' ? '#6a5a40' : RARITY_C[g]}">${g} ${n}</span>`).join(' · ');
     return `<h3 class="wc-h">몬스터</h3>` + R_.zones.map(([z, lab]) => `<div class="wc-zone"><span class="wc-zl">${lab}</span><div class="wc-mobs">${zoneKinds(z).map(mobCell).join('')}</div></div>`).join('')
       + BX.map(([, txt, ks]) => `<div class="wc-zone"><span class="wc-zl">보스 · ${txt}</span><div class="wc-mobs">${ks.map(mobCell).join('')}</div></div>`).join('')
@@ -7494,10 +7568,10 @@ const TOWN = (() => {
   function pick(r, m) { sel = r; { const b = $('wm-go'), fee = feeOf(r); if (b) b.innerHTML = `사냥 시작 <small>(${fee ? fee.toLocaleString() + ' 골드' : '무료'})</small>`; } document.querySelectorAll('#wm-stage .mk').forEach(x => x.classList.toggle('on', x === m));
     $('wm-name').textContent = r[1]; $('wm-grade').textContent = `${r[2]} 사냥터 · 권장 Lv.${r[3]}` + (r[0] === 'dream_island' ? ` · ${dreamLeftTxt()}` : ''); $('wm-grade').className = 'g' + ['초보', '중급', '상급'].indexOf(r[2]); $('wm-desc').textContent = r[6]; { const cx_ = $('wm-codex'); if (cx_) { cx_.innerHTML = codexHTML(r); drawPortraits(cx_); } }
     $('wm-warn').hidden = hero.lv >= parseInt(r[3], 10) - 3; }
-  const WM_FEE = 1000, feeOf = r => r && r[1] === '이야기섬' ? 0 : WM_FEE, feeShort = fee => say(`이동 비용 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a');
-  $('wm-go').onclick = () => { if (!sel) return; const r = sel, fee = feeOf(r); if (r[0] === 'dream_island' && !DRM.canEnter()) return;   /* 시간을 다 썼으면 이동 비용을 내기 전에 막음 */ if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
+  const WM_FEE = 1000, feeOf = r => r && r[1] === '이야기섬' ? 0 : r && r[0] === 'forgotten_island' ? FGI.FEE : WM_FEE, feeShort = fee => say(`이동 비용 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a');
+  $('wm-go').onclick = () => { if (!sel) return; if (fgBlock()) return; const r = sel, fee = feeOf(r); if (r[0] === 'dream_island' && !DRM.canEnter()) return;   /* 시간을 다 썼으면 이동 비용을 내기 전에 막음 */ if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
   $('wm-town').onclick = () => askTown();
-  function askTown() { if (SCENE === 'town') { closeAll(); return; } if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
+  function askTown() { if (SCENE === 'town') { closeAll(); return; } if (fgBlock()) return; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
   // ESC: 열린 창을 마지막에 연 것부터 하나씩 닫음 → 다 닫혀 있으면 게임 메뉴
   const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'logwin', 'polywin', 'clanwin'], popStack = [];
@@ -7645,10 +7719,11 @@ const TOWN = (() => {
     if (name === '용의 계곡' || name === '용의계곡') { ISLAND.enter(16, 'town'); fadeTo(0); syncButtons(); return; }   // v153
     if (name === '화룡의 둥지' || name === '화룡의둥지') { ISLAND.enter(22, 'town'); fadeTo(0); syncButtons(); return; }
     if (name === '몽환의 섬' || name === '몽환의섬') { ISLAND.enter(DREAM.ZID, 'town'); fadeTo(0); syncButtons(); return; }   // 11/1
+    if (name === '잊혀진 섬' || name === '잊혀진섬') { ISLAND.enter(FGI.ZID, 'town'); fadeTo(0); syncButtons(); return; }   // 11/3
     if (name === '소환의 제단') { ISLAND.enter(13, 'town'); fadeTo(0); syncButtons(); return; } ISLE = null; setGeom(30); arrows.length = 0; SCENE = 'field'; ZONE = name; blockedT = FIELD_BLOCKED; PROPS = META.props; foxes = FIELD_FOXES; place(...META.spawn); hero.row = 1; say(`***** ${name}에 입장했습니다 *****`, '#f2e6a8'); say('여우를 클릭하면 공격합니다. R: 마을로 귀환', '#9fd0e8'); fadeTo(0); syncButtons(); }
   function syncButtons() { $('btn-home').hidden = true; }   // 위쪽 '마을로 귀환' 버튼은 쓰지 않음 (귀환 주문서·월드맵으로)
   // 사냥터 → 마을: 귀환 주문서 1장 사용 (없으면 1구간의 마을 포털을 쓰라고 안내)
-  function scrollHome() { if (SCENE === 'town') return true; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return false; } if (false) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 110, '귀환 주문서 없음', { color: '#ff9a8a', size: 13, big: true, life: 1.6 }); say('귀환 주문서가 없습니다. 1구간의 텔레포트(마을로 가는 포털)를 이용하세요.', '#ff8a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'square', 300, 180, 0.18, 0.05); return false; }
+  function scrollHome() { if (SCENE === 'town') return true; if (fgBlock()) return false; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return false; } if (false) { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 110, '귀환 주문서 없음', { color: '#ff9a8a', size: 13, big: true, life: 1.6 }); say('귀환 주문서가 없습니다. 1구간의 텔레포트(마을로 가는 포털)를 이용하세요.', '#ff8a7a'); if (AC && SFX_ON) tone(AC.currentTime, 'square', 300, 180, 0.18, 0.05); return false; }
     say('귀환 부적을 사용했습니다.', '#a0c0f2'); toTown(); return true; }
   api.scrollHome = () => scrollHome();
   api.goTown = () => { if (BOTHOST.started()) return; toTown(); };   // 봇 호스트: 지역에 들어간 뒤로는 귀환 없음
@@ -10957,7 +11032,7 @@ const AUTO = (() => {
   function backToHunt() { const A = anchor && ISLAND.def(anchor.z) ? anchor : null, id = A ? A.z : homeId; TOWN.toZone(id); if (SCENE === 'town' || !ISLE || ISLE.id !== id || !A) return; const p = anchorSpot(A); if (p) { TOWN.placeAt(p[0] + 0.5, p[1] + 0.5); say(`자동사냥: 처음 켠 자리(${A.i}, ${A.j}) 근처로 돌아왔습니다.`, '#9fd0e8'); } }   // 마지막으로 사냥하던 지역 (마을 다녀온 뒤 이 지역 1구간으로 복귀)
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
-  function goHome(why) { say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; }
+  function goHome(why) { if (fgLocked()) { fgBlockAuto(why); return false; }   /* 11/3 잊혀진 섬: 물약이 떨어져도·HP가 낮아도 귀환 안 함 */ say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; return true; }
   function buyAll() { const got = [];   /* v167: 마을에 오면 이유와 상관없이 체크해 둔 소모품을 모두 정한 개수까지 채움 · 산 것은 한 줄로 알림 */ const want = (id, n) => { if (REMOVED_ITEMS[id] || !ITEMS[id] || !PRICE[id]) return; const p = PRICE[id],   /* v165: 없어진 아이템(마나 회복 물약)은 예전 설정이 남아 있어도 사지 않음 */ k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); got.push([id, k, k * p]); } if (k) {} else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
     if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) { want(id, C.hasteQ[id]); if (!INV.count(id)) hasteSkip[id] = true; }
     if (C.buyPoly) for (const id in C.polyQ) { const d = ITEMS[id]; if (!d || !(C.polyQ[id] > 0)) continue; if (hero.lv < ((POLY_TIER[d.tier] || {}).lv || 99)) { say(`자동사냥: ${d.name}은(는) Lv.${POLY_TIER[d.tier].lv}부터 쓸 수 있어 사지 않았어요.`, '#f0c080'); continue; } want(id, C.polyQ[id]); }   /* v167: 변신 주문서 자동 구매 */
@@ -10998,13 +11073,13 @@ const AUTO = (() => {
       if (SCENE === 'town') { if (died) { died = false; if (C.deathBack) { state = 'town'; bought = false; wait = 0; say('자동사냥: 사망 — 회복 후 다시 사냥터로 갑니다.', '#9fd0e8'); } else { state = 'off'; say('자동사냥을 멈췄습니다.', '#9c9682'); } } else { state = 'off'; say('자동사냥을 멈췄습니다. (마을로 이동)', '#9c9682'); } return; }
       if (!inZ1()) { state = 'off'; say('자동사냥은 각 지역의 1·2구간에서만 됩니다. 멈췄습니다.', '#f08a7a'); return; }
       home = regionOf(); homeId = ISLE.def && ISLE.def.floor === 2 ? ISLE.def.up : ISLE.id; if (!anchor || anchor.z !== ISLE.id) setAnchor();
-      if (pct() <= C.retHp) { goHome(`HP ${pct()}%`); return; }
+      if (pct() <= C.retHp && goHome(`HP ${pct()}%`)) return;
       if (C.healFirst && !HW()) healFirstTry();   // v114: 힐 마법 먼저 — 자동 물약 기준보다 HP 10% 높을 때 MP로 회복
-      if (C.lowPot && !HW() && lowCount() <= C.lowN) { goHome('물약 부족'); return; }   // 할로윈: 빨간 물약을 못 쓰므로 물약 부족·변신 주문서 정비로는 안 나감
-      if (!HW()) { const cz = consOut(); if (cz) { goHome(`${ITEMS[cz].name} 0개 (마을에서 정비)`); return; } }
-      { const hz = hasteOut(); if (hz) { goHome(`${ITEMS[hz].name} 없음 (가속 물약 구매)`); return; } }
+      if (C.lowPot && !HW() && lowCount() <= C.lowN && goHome('물약 부족')) return;   // 할로윈: 빨간 물약을 못 쓰므로 물약 부족·변신 주문서 정비로는 안 나감
+      if (!HW()) { const cz = consOut(); if (cz && goHome(`${ITEMS[cz].name} 0개 (마을에서 정비)`)) return; }
+      { const hz = hasteOut(); if (hz && goHome(`${ITEMS[hz].name} 없음 (가속 물약 구매)`)) return; }
       if (C.sell && wpc() >= C.sellPct) { const L = sellList(), sw = L.reduce((a, e) => a + (ITEMS[e.id].w || 0) * (e.n || 1), 0);   // 팔 장비가 가방 최대 무게의 5% 이상(또는 가방이 꽉 참)일 때만 귀환 — 못 파는 물건 때문에 마을을 계속 오가지 않게
-        if (L.length && (sw >= INV.maxW() * 0.05 || wpc() >= 100)) { sellGo = true; goHome(`가방 무게 ${wpc()}% (자동판매)`); return; }
+        if (L.length && (sw >= INV.maxW() * 0.05 || wpc() >= 100)) { sellGo = true; if (goHome(`가방 무게 ${wpc()}% (자동판매)`)) return; sellGo = false; }
         if ((sellNoT -= dt) <= 0) { sellNoT = 60; say(`자동판매: 가방이 무겁지만(${wpc()}%) 팔 수 있는 장비가 거의 없어 계속 사냥합니다.`, '#9c9682'); } }
       counterTick();   // 11/3: 자동 반격 (우선순위에 따라 지금 대상을 봇으로 바꿈)
       if ((!hero.target || hero.target.dead) && !moveGoal && hero.t >= 1 && !hero.atk) { const threat = foxes.some(f => !f.dead && f.aggro && cheb(f.i, f.j, hero.i, hero.j) <= 2);
@@ -11020,6 +11095,7 @@ const AUTO = (() => {
       if (SCENE !== 'town') { if (!inZ1()) { state = 'off'; } return; }
       if (!bought) { bought = true; if (C.sell && (sellGo || wpc() >= C.sellPct)) autoSell(); sellGo = false; buyAll(); }
       hero.hp = Math.min(hero.max, hero.hp + hero.max * 0.05 * dt); hero.mp = Math.min(hero.maxmp, hero.mp + hero.maxmp * 0.05 * dt);
+      if ((anchor ? anchor.z : homeId) === FGI.ZID) { state = 'off'; say('자동사냥: 잊혀진 섬은 월드맵에서 입장료를 내고 다시 들어가야 해요. 멈췄습니다.', '#f08a7a'); return; }   /* 11/3 */
       if (anchor && anchor.z === DREAM.ZID && DRM.left() <= 0) { state = 'off'; say('자동사냥: 오늘 몽환의 섬 이용 시간을 다 써서 멈췄습니다.', '#c8a0ff'); return; }
       if ((anchor ? anchor.z : homeId) === HWC.ZID && (INV.hwHat() < 0 || HWM.left() <= 0)) { state = 'off'; say(INV.hwHat() < 0 ? '자동사냥: 할로윈 모자가 없어 호박밭으로 돌아가지 않아요. 멈췄습니다.' : '자동사냥: 오늘 할로윈 이용 시간을 다 써서 멈췄습니다.', '#f0a060'); return; }
       if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(anchor ? anchor.z : homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; backToHunt(); } } }
@@ -12529,7 +12605,7 @@ window.SAVER = (() => {
     exp(n) { if (!on || !(n > 0)) return; S.exp += n; let r = n, lv = hero.lv, e = hero.exp; for (let k = 0; k < 6 && r > 0; k++) { const nd = needExp(lv), t = Math.min(r, Math.max(1, nd - e)); S.xp += t / nd * 100; r -= t; e = 0; lv++; } },   /* 레벨 % 로도 셈 (레벨이 오르면 나눠서) */ kill() { if (on) S.kills++; }, item(id, n) { if (!on || SCENE === 'town' || !ITEMS[id]) return; if (id === 'gold_pile') return; S.items.set(id, (S.items.get(id) || 0) + (n || 1)); if (ITEMS[id].rar === '영웅' || ITEMS[id].rar === '희귀') note(`${JOSA(ITEMS[id].name, '을', '를')} 얻었어요!`, rarC(id)); },
     death() { if (!on) return; S.dead++; S.pend = true; note('캐릭터가 쓰러졌어요.', '#ff5a4a'); render(); },
     buy(o) { if (!on || !S || !o || !(o.q > 0)) return; const k = o.id || '?', v = S.buys.get(k) || { n: 0, g: 0 }; v.n += o.q; v.g += o.g || 0; S.buys.set(k, v); },
-    pvpHit(src) { if (!on || !home || SCENE === 'town') return; note(`${src && src.fb ? '라인 혈맹 봇' : '다른 유저'}에게 공격받아 마을로 귀환했어요.`, '#ff8a70'); try { TOWN.goTown(); } catch (e) {} } };
+    pvpHit(src) { if (!on || !home || SCENE === 'town') return; if (fgLocked()) { if (time - FG_SAVER_T > 30) { FG_SAVER_T = time; note(`${src && src.fb ? '라인 혈맹 봇' : '다른 유저'}에게 공격받았지만 ${FGI.MSG} (귀환 안 됨)`, '#c8a0ff'); } return; }   /* 11/3 잊혀진 섬 */ note(`${src && src.fb ? '라인 혈맹 봇' : '다른 유저'}에게 공격받아 마을로 귀환했어요.`, '#ff8a70'); try { TOWN.goTown(); } catch (e) {} } };
 })();
 // 11/1 프로듀서: 게임 창을 최소화하거나 다른 창·탭에 가려지면 브라우저가 requestAnimationFrame을 멈춰(또는 1초에 한 번) 사냥·보스 공격·지역 호스트 몬스터가 멈추던 것
 //   → 워커 타이머(가려져도 안 느려짐)가 50ms마다 확인: 화면 프레임이 0.15초 넘게 안 왔으면 그리기 없이 게임만 한 걸음(frame · BGRUN) · 다시 보이면 원래대로 화면 프레임이 이어 감 (rAF는 화면 프레임에서만 예약 → 한 줄만 돎)
@@ -13323,6 +13399,117 @@ for (const [k, nm] of [['str', '힘'], ['dex', '민첩'], ['int', '지능']]) IT
   CXI.elixir_str = vial('#a81818', '#ff5a3a', '#ffc0a0', '<path d="M17 14.8l1.4 2.6h2.8l-2.2 1.8.8 2.8-2.8-1.7-2.8 1.7.8-2.8-2.2-1.8h2.8z" fill="#fff" opacity=".85"/>', 's');
   CXI.elixir_dex = vial('#1a7a2a', '#5ee05e', '#c8ffb0', '<path d="M14 21l3-6 3 6-3-1.6z" fill="#fff" opacity=".85"/>', 'd');
   CXI.elixir_int = vial('#1a2a9a', '#5a8aff', '#c8d8ff', '<circle cx="17" cy="18" r="2.6" fill="none" stroke="#fff" stroke-width="1.2" opacity=".9"/><circle cx="17" cy="18" r=".9" fill="#fff"/>', 'i'); }
+// ============================================================ 11/3 잊혀진 섬 (지역 25) — 광장·바다·모래톱 · 몹 배치 · 귀환 차단 · 섬지기(탈출)·떠돌이 상인(물약 2배) · 드랍 · 고대의 주문서 · 보스 (수치는 위쪽 FGI 상수 · dev/rooms/forgotten.md)
+const fgPlaza = (N, i, j) => Math.hypot(i + 0.5 - N / 2, j + 0.5 - N / 2) <= FGI.SAFE_R;
+function fgSpawnOk(N, band) { return (i, j) => { const r = Math.hypot(i + 0.5 - N / 2, j + 0.5 - N / 2); return r > FGI.NO_SPAWN_R && (band !== 'near' || r <= FGI.NEAR_R); }; }   // near = 광장 바로 바깥 고리 · far = 섬 나머지
+function fgNpcTiles(N) { return Object.values(FGI.NPC).map(([a, b]) => [(N >> 1) + a, (N >> 1) + b]); }
+// 귀환·순간이동 차단: 섬 안(살아 있을 때)이면 true + 안내 (같은 안내는 1.2초에 한 번) — 사망 → 마을 부활, 섬지기 탈출은 막지 않음
+function fgLocked() { return SCENE === 'field' && !!ISLE && !!ISLE.def && !!ISLE.def.fgi && !DEATH; }
+let FG_BLOCK_T = -99, FG_AUTO_T = -99, FG_SAVER_T = -99;
+function fgBlock(quiet) { if (!fgLocked()) return false; if (!quiet && time - FG_BLOCK_T > 1.2) { FG_BLOCK_T = time; say(`${FGI.MSG} (${FGI.HINT})`, '#c8a0ff'); try { const [hx, hy] = W2P(hero.x, hero.z); floatText(hx, hy - 112, '공간이 차단되어 있습니다', { color: '#d8b0ff', size: 13, big: true, life: 1.6, rise: 24 }); } catch (e) {} if (AC && SFX_ON) tone(AC.currentTime, 'sine', 330, 196, 0.35, 0.06); } return true; }
+function fgBlockAuto(why) { if (time - FG_AUTO_T > 30) { FG_AUTO_T = time; say(`자동사냥: ${why} — ${FGI.MSG} 귀환하지 않고 계속 사냥합니다.`, '#c8a0ff'); } }
+// 바닥: 이야기섬 바닥 그대로 + 둘레 모래톱(바다 쪽으로 밝아짐)·파도 거품 + 가운데 돌 광장
+function fgGround(g, d, T, sc, N) { const ring = (a, b) => { const P = [[a, a], [N - a, a], [N - a, N - a], [a, N - a]], Q = [[b, b], [N - b, b], [N - b, N - b], [b, N - b]]; g.beginPath(); P.forEach(([x, z], k) => { const p = T(x, z); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }); g.closePath(); Q.forEach(([x, z], k) => { const p = T(x, z); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }); g.closePath(); };
+  for (let k = 0; k < 7; k++) { ring(k * 0.8, (k + 1) * 0.8); g.fillStyle = `rgba(${226 - k * 4},${206 - k * 3},${156 - k * 2},${(0.78 * (1 - k / 7)).toFixed(3)})`; g.fill('evenodd'); }   // 모래톱
+  const Rr = (s => () => { s = (s * 16807) % 2147483647; return s / 2147483647; })(d.seed * 7 + 3);
+  for (let q = 0; q < N * 6; q++) { const e = Math.floor(Rr() * 4), u = 1 + Rr() * (N - 2), v = 0.4 + Rr() * 4.6, [x, z] = e === 0 ? [u, v] : e === 1 ? [N - v, u] : e === 2 ? [u, N - v] : [v, u], [px, py] = T(x, z); g.fillStyle = Rr() < 0.5 ? 'rgba(255,248,220,.5)' : 'rgba(150,120,80,.35)'; g.fillRect(px, py, sc * (1 + Rr()), sc); }   // 모래 알갱이·조개
+  g.save(); g.strokeStyle = 'rgba(255,255,255,.42)'; g.lineWidth = 2.2 * sc; ring(0.35, 0.35); g.stroke(); g.restore();   // 파도 거품 줄
+  { const C = N / 2, [cx, cy] = T(C, C), KS = Math.SQRT1_2 * 2 * (T(1, 0)[0] - T(0, 0)[0]), R0 = FGI.SAFE_R * KS; g.save(); g.translate(cx, cy); g.scale(1, 0.5);   // 가운데 돌 광장 (SAFE_R) · 테두리 · 포석 이음
+    const gr = g.createRadialGradient(0, 0, R0 * 0.1, 0, 0, R0 * 1.08); gr.addColorStop(0, 'rgba(214,206,182,.92)'); gr.addColorStop(0.82, 'rgba(188,178,150,.88)'); gr.addColorStop(1, 'rgba(160,150,120,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R0 * 1.08, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(96,88,70,.55)'; g.lineWidth = 2.4 * sc; g.beginPath(); g.arc(0, 0, R0 * 0.94, 0, 7); g.stroke(); g.lineWidth = 1 * sc; g.strokeStyle = 'rgba(96,88,70,.3)';
+    for (const rr of [0.36, 0.64]) { g.beginPath(); g.arc(0, 0, R0 * rr, 0, 7); g.stroke(); } for (let a = 0; a < 6.283; a += Math.PI / 8) { g.beginPath(); g.moveTo(Math.cos(a) * R0 * 0.36, Math.sin(a) * R0 * 0.36); g.lineTo(Math.cos(a) * R0 * 0.94, Math.sin(a) * R0 * 0.94); g.stroke(); }
+    g.strokeStyle = 'rgba(120,200,230,.35)'; g.lineWidth = 1.6 * sc; g.beginPath(); for (let k = 0; k <= 5; k++) { const a = -Math.PI / 2 + k * Math.PI * 4 / 5; g.lineTo(Math.cos(a) * R0 * 0.3, Math.sin(a) * R0 * 0.3); } g.stroke(); g.restore(); } }   // 가운데 별 무늬 (탈출 빛)
+// 화면 바깥: 숲 대신 바다 (세계에 붙은 물결 · 카메라와 같이 움직임)
+function fgSea(g, vw, vh, ox, oy) { const bg = g.createLinearGradient(0, 0, 0, vh); bg.addColorStop(0, '#10405e'); bg.addColorStop(1, '#0a2a44'); g.fillStyle = bg; g.fillRect(0, 0, vw, vh);
+  const S = 72, H2 = S / 2, gy0 = Math.floor(-oy / H2) - 1, gy1 = gy0 + Math.ceil(vh / H2) + 3, t = time; g.save(); g.lineWidth = 1.5; g.lineCap = 'round';
+  for (let gy = gy0; gy <= gy1; gy++) { const y = gy * H2 + oy, odd = ((gy % 2) + 2) % 2, gx0 = Math.floor((-ox - odd * H2) / S) - 1; for (let gx = gx0; gx * S + odd * H2 + ox < vw + S; gx++) { const x = gx * S + odd * H2 + ox, ph = Math.sin(t * 1.2 + gx * 1.7 + gy * 0.9), a = 0.1 + 0.08 * (ph + 1) / 2;
+      g.strokeStyle = `rgba(180,225,245,${a.toFixed(3)})`; g.beginPath(); g.moveTo(x - 12, y + ph * 2); g.quadraticCurveTo(x, y - 5 + ph * 2, x + 12, y + ph * 2); g.stroke(); } } g.restore(); }
+// ----- 섬지기 로렌(가운데 · 탈출) · 떠돌이 상인 미카(물약 · 본토 잡화상점 값의 2배)
+const FGM = (() => {
+  const C = () => FGI.N >> 1, at = k => [C() + FGI.NPC[k][0], C() + FGI.NPC[k][1]], idOf = nm => CX_LIST.find(x => ITEMS[x].name === nm) || null;
+  const NPC = { exit: { k: 'exit', name: '섬지기 로렌', tag: '섬지기 · 섬 탈출', cls: 'wizard', c: '#9fe0ff', say: ['섬을 떠나고 싶으면 나에게 말을 걸게.', '이 섬에선 귀환 주문이 통하지 않는다네.', '잊혀진 노래가 공간을 묶어 두고 있지…', '광장 밖은 위험하네. 동료와 함께 가게.'] },
+    shop: { k: 'shop', name: '떠돌이 상인 미카', tag: '떠돌이 상인 · 물약', cls: 'elf', c: '#ffd86a', say: ['물약 있어요~ 바다 건너오느라 값은 두 배!', '빨간·주홍·맑은 물약 팝니다~', '가속 물약도 있어요!', '여기선 마을로 못 돌아가요. 넉넉히 사 두세요!'] } };
+  let EQ = null, hov = null, pend = null, chat = null, chatT = 4;
+  const eqs = () => EQ || (EQ = { exit: { armor: idOf('수호성의 로브'), helm: idOf('마나의 투구'), cloak: idOf('보호의 망토'), weapon: CX_LIST.find(x => ITEMS[x].wtype === 'staff' && ITEMS[x].rar === '희귀') || null }, shop: { armor: 'scale_armor', cloak: idOf('보호의 망토'), boots: 'leather_boots', gloves: 'leather_gloves' } });
+  const here = () => SCENE === 'field' && !!ISLE && !!ISLE.def && !!ISLE.def.fgi;
+  const SHOP = { id: 'fg_shop', name: '잊혀진 섬 · 떠돌이 상인', npc: NPC.shop.name, npcType: 'm', hello: '바다 건너 실어 온 물약이에요. 섬에선 마을로 돌아갈 수 없으니 넉넉히 사 두세요! (값은 본토 마을의 두 배)',
+    get tabs() { return [['물약', rows()]]; } };
+  function rows() { let g = null; try { g = TOWN.shopList().find(b => b.id === 'general'); } catch (e) {} const base = g && g.tabs && g.tabs[0] ? g.tabs[0][1] : [];   // 본토 잡화상점의 물약 줄을 그대로 · 값만 2배 (마을 값이 바뀌면 같이 바뀜)
+    return base.filter(r => Array.isArray(r) && /물약/.test(r[0])).map(r => [r[0], r[1] * 2, `${r[2]} · 본토 ${(+r[1]).toLocaleString()} 골드의 2배`, r[3] || SHOP2ITEM[r[0]]]); }
+  function hit(sx, sy) { if (!here()) return null; const [px, py] = toWorldPx(sx, sy); for (const k in NPC) { const [i, j] = at(k), [x, y] = W2P(i + 0.5, j + 0.5); if (px > x - 17 && px < x + 17 && py > y - 94 && py < y + 6) return NPC[k]; } return null; }
+  function stand(k) { const [i, j] = at(k); for (const [di, dj] of [[1, 1], [0, 1], [1, 0], [-1, 1], [1, -1], [0, -1], [-1, 0], [-1, -1]]) if (walkable(i + di, j + dj)) return [i + di, j + dj]; return [i + 1, j + 1]; }
+  function act(n) { pend = null; moveGoal = null; holding = false; if (n.k === 'exit') talkExit(); else { say(`${n.name}: ${n.say[Math.floor(Math.random() * n.say.length)]}`, '#ffd86a'); TOWN.openShopObj(SHOP); } }
+  function click(sx, sy) { const n = hit(sx, sy); if (!n || DEATH) return false; const [i, j] = at(n.k); hero.target = null; if (cheb(hero.i, hero.j, i, j) <= 2 && hero.t >= 1) { act(n); return true; } const s = stand(n.k); moveGoal = s; holding = false; pend = { n, until: time + 20 }; mark = { t: s, life: 0.5 }; return true; }
+  function talkExit() { const n = NPC.exit; say(`${n.name}: 이 섬은 잊힌 노래에 묶여 있다네. 바깥으로 나가는 길은 내가 여는 빛의 문뿐이지.`, '#9fe0ff');
+    const y = document.getElementById('ask-yes'), no = document.getElementById('ask-no'), Y0 = y ? y.textContent : '네', N0 = no ? no.textContent : '아니오', back = () => { if (y) y.textContent = Y0; if (no) no.textContent = N0; };
+    if (y) y.textContent = '섬을 탈출한다'; if (no) no.textContent = '머무른다';
+    INV.askYesNo('섬을 탈출하시겠습니까?', `섬지기 로렌이 빛의 문을 열어 아덴 마을로 보내 줘요. 다시 들어오려면 월드맵에서 입장료 ${FGI.FEE.toLocaleString()} 골드를 내야 해요.`, () => { back(); escape(); }, back); }
+  function escape() { if (!here() || DEATH) return; if (AUTO.on()) AUTO.toggle(); TELE.ev('fgExit', { lv: hero.lv }); try { spellFx('enok', hero, '#9fe0ff'); } catch (e) {} say('섬지기 로렌이 지팡이를 들어 빛의 문을 엽니다… 잊혀진 섬을 빠져나왔습니다.', '#9fe0ff'); TOWN.goTown(); }
+  function tick(dt) { if (!here()) { pend = null; return; } if (pend) { const [i, j] = at(pend.n.k); if (time > pend.until || hero.target || DEATH) pend = null; else if (hero.t >= 1 && cheb(hero.i, hero.j, i, j) <= 1) act(pend.n); else if (!moveGoal && hero.t >= 1) pend = null; }
+    if ((chatT -= dt) <= 0) { chatT = 7 + Math.random() * 7; const k = Math.random() < 0.5 ? 'exit' : 'shop', n = NPC[k]; if (cheb(hero.i, hero.j, ...at(k)) <= 14) chat = { k, t: n.say[Math.floor(Math.random() * n.say.length)], until: time + 4 }; } }
+  const lbl = (g, t, x, y, c) => { g.font = '700 10px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(0,0,0,.85)'; g.fillText(t, x + 1, y + 1); g.fillStyle = c; g.fillText(t, x, y); };
+  function drawGate(g, i, j) { const [x, y] = W2P(i + 0.5, j + 0.5), p = 0.5 + 0.5 * Math.sin(time * 2.2); g.save(); g.globalCompositeOperation = 'lighter'; g.translate(x, y); g.scale(1, 0.5);
+    const gr = g.createRadialGradient(0, 0, 4, 0, 0, 44); gr.addColorStop(0, `rgba(150,220,255,${(0.38 + 0.2 * p).toFixed(3)})`); gr.addColorStop(1, 'rgba(80,160,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 44, 0, 7); g.fill();
+    g.strokeStyle = `rgba(190,235,255,${(0.5 + 0.3 * p).toFixed(3)})`; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 32, 0, 7); g.stroke(); g.lineWidth = 1.4; g.rotate(time * 0.4); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; g.beginPath(); g.moveTo(Math.cos(a) * 22, Math.sin(a) * 22); g.lineTo(Math.cos(a + 0.5) * 32, Math.sin(a + 0.5) * 32); g.stroke(); } g.restore();
+    g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 4; q++) { const ph = (time * 0.5 + q * 0.25) % 1; g.fillStyle = `rgba(200,240,255,${(Math.sin(ph * Math.PI) * 0.8).toFixed(3)})`; g.fillRect(Math.round(x + Math.sin(q * 2.3 + time) * 18), Math.round(y - 4 - ph * 46), 2, 2); } g.restore(); }
+  function drawStall(g, i, j) { const q = [[i - 0.2, j - 0.2], [i + 1.2, j - 0.2], [i + 1.2, j + 1.2], [i - 0.2, j + 1.2]].map(([a, b]) => W2P(a, b)); g.save(); g.beginPath(); q.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = '#5a3a6a'; g.globalAlpha = 0.85; g.fill(); g.globalAlpha = 1; g.lineWidth = 2; g.strokeStyle = '#e8c878'; g.stroke();
+    const [cx, cy] = W2P(i + 1.05, j + 0.25); [['#e8402a', -9], ['#f0902a', 0], ['#e8eef8', 9]].forEach(([c, dx]) => { const bx = cx + dx, by = cy - 1; g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(bx, by + 2, 4.5, 2, 0, 0, 7); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(bx, by - 4, 4.2, 0, 7); g.fill(); g.strokeStyle = 'rgba(40,20,10,.6)'; g.lineWidth = 0.8; g.stroke(); g.fillStyle = '#c8b090'; g.fillRect(bx - 1.5, by - 11, 3, 4); g.fillStyle = 'rgba(255,255,255,.65)'; g.fillRect(bx - 2.2, by - 6.5, 1.2, 2.2); }); g.restore(); }
+  function drawNpc(g, n, i, j) { const [x, y] = W2P(i + 0.5, j + 0.5); g.save(); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y + 1, 15, 7, 0, 0, 7); g.fill(); g.restore(); const E = eqs()[n.k];
+    drawHeroSprite(g, 'idle', Math.floor(time * 6 + i) % 8, 1, x, y, null, n.cls, s => E[s] || null, null);
+    if (chat && chat.k === n.k && time < chat.until) CHAT.bubble(g, { x: i + 0.5, z: j + 0.5, chat: { t: chat.t, until: chat.until }, pname: n.name }); else lbl(g, hov === n ? n.name : n.tag, x, y - 92, hov === n ? '#ffffff' : n.c); }
+  function addDraw(list, g) { for (const k in NPC) { const n = NPC[k], [i, j] = at(k); list.push({ d: i + j - 0.6, f: () => k === 'exit' ? drawGate(g, i, j) : drawStall(g, i, j) }); list.push({ d: i + j + 1, f: () => drawNpc(g, n, i, j) }); } }
+  return { click, tick, addDraw, hoverAt(sx, sy) { hov = hit(sx, sy); return hov; }, marks: () => [{ i: at('exit')[0], j: at('exit')[1], c: '#9fe0ff' }, { i: at('shop')[0], j: at('shop')[1], c: '#ffd86a' }], at, NPC, SHOP, rows, talkExit, escape, openShop: () => TOWN.openShopObj(SHOP) };
+})();
+// ----- 드랍: 일반 몹(드레이크 포함) 희귀 4% · 영웅 0.5% (고급·일반 없음) · 드레이크 고대의 주문서 3% · 빛을 바랜 전설의 벨트 3%
+let FG_POOL = null;
+const fgPools = () => FG_POOL || (FG_POOL = (() => { const ok = id => { const d = ITEMS[id]; return !!d && !d.hidden && !d.craft && !d.legend && !REMOVED_ITEMS[id]; };
+  return { rareGear: CX_LIST.filter(id => ok(id) && ITEMS[id].rar === '희귀' && ITEMS[id].slot), rareScr: FGI.RARE_SCR.filter(id => ITEMS[id] && ITEMS[id].rar === '희귀'), heroGear: CX_HERO.filter(ok), heroScr: FGI.HERO_SCR.filter(id => ITEMS[id] && ITEMS[id].rar === '영웅'),
+    rareBelt: CX_LIST.filter(id => ok(id) && ITEMS[id].slot === 'belt' && ITEMS[id].rar === '희귀'), heroBelt: CX_LIST.filter(id => ok(id) && ITEMS[id].slot === 'belt' && ITEMS[id].rar === '영웅') }; })());
+const fgAny = L => L.length ? L[Math.floor(Math.random() * L.length)] : null;
+function fgPick(kind) { const P = fgPools(); return kind === 'hero' ? (Math.random() < FGI.HERO_GEAR || !P.heroScr.length ? fgAny(P.heroGear) : fgAny(P.heroScr)) : (Math.random() < FGI.RARE_GEAR || !P.rareScr.length ? fgAny(P.rareGear) : fgAny(P.rareScr)); }
+function fgLoot(f, D) { const S = MOB[f.kind]; if (!S || !S.fgi || S.boss) return false; const k = FBOT.pbDropK(S, D), got = [];
+  if (Math.random() < FGI.RARE_P * k) got.push(fgPick('rare')); if (Math.random() < FGI.HERO_P * k) got.push(fgPick('hero'));
+  if (S.fgMid) { if (Math.random() < FGI.SCROLL_P) got.push('fg_scroll'); if (Math.random() < FGI.FADED_P) got.push('fg_faded_belt'); }
+  const L = got.filter(id => id && ITEMS[id]); if (!L.length) return false; const P = GROUND.spots(f.i, f.j, L.length);
+  L.forEach((id, q) => { GROUND.drop(id, 1, P[q][0], P[q][1]); if (!FB_QUIET) say(`${rarTag(id)}${JOSA(ITEMS[id].name, '이', '가')} 떨어졌습니다!`, rarC(id)); }); return true; }
+// 고대의 주문서 → 빛을 바랜 전설의 벨트: 전설 3% · 영웅 벨트(무작위) 27% · 희귀 벨트(무작위) 70%
+function fgRoll() { const P = fgPools(), R = FGI.ROLL, r = Math.random(); if (r < R[0] && ITEMS.fg_belt) return { tier: '전설', id: 'fg_belt' }; if (r < R[0] + R[1] && P.heroBelt.length) return { tier: '영웅', id: fgAny(P.heroBelt) }; return { tier: '희귀', id: fgAny(P.rareBelt) }; }
+const fgPct = p => (p >= 0.1 ? Math.round(p * 100) : p >= 0.01 ? +(p * 100).toFixed(1) : +(p * 100).toFixed(2)) + '%';
+// ----- 아이템 (ITEMS 맨 뒤 — 네트워크 아이템 번호가 밀리지 않게): 고대의 주문서 · 빛을 바랜 전설의 벨트 · 전설 벨트 에이션트 자이언트의 반지 (거인족 반지라 이름은 반지 · 벨트 칸)
+ITEMS.fg_scroll = { name: '고대의 주문서', icon: 'scr_ancient', use: 'ancient', w: 0, stack: true, rar: '영웅', sellFix: 30000,
+  desc: `잊혀진 섬의 고대 거인이 남긴 주문서. [빛을 바랜 전설의 벨트]에 쓰면 벨트의 빛이 되살아나요 — 전설 [에이션트 자이언트의 반지] ${fgPct(FGI.ROLL[0])} · 영웅 벨트 ${fgPct(FGI.ROLL[1])} · 희귀 벨트 ${fgPct(FGI.ROLL[2])} (주문서와 빛바랜 벨트는 사라져요). 잊혀진 섬 드레이크 ${fgPct(FGI.SCROLL_P)} · 에이션트 자이언트 ${FGI.BOSS_SCROLL[0]}~${FGI.BOSS_SCROLL[1]}개.` };
+ITEMS.fg_faded_belt = { name: '빛을 바랜 전설의 벨트', icon: 'ic_fg_faded', faded: true, w: 1, stack: true, rar: '영웅', sellFix: 30000,
+  desc: `오랜 세월에 빛이 바래 무엇이었는지 알 수 없는 벨트. 그대로는 찰 수 없고, [고대의 주문서]를 쓰면 정체가 드러나요 — 전설 ${fgPct(FGI.ROLL[0])} · 영웅 벨트 ${fgPct(FGI.ROLL[1])} · 희귀 벨트 ${fgPct(FGI.ROLL[2])}. 잊혀진 섬 드레이크 ${fgPct(FGI.FADED_P)} · 에이션트 자이언트 ${FGI.BOSS_FADED[0]}~${FGI.BOSS_FADED[1]}개.` };
+{ Object.assign(CODEX_ID, { '에이션트 자이언트의 반지': 'fg_belt' }); CX_SPEC['에이션트 자이언트의 반지'] = ['belt', { b: 'wide', wd: 1, c1: '#8a8a72', c2: '#2a2a1e', k1: '#fff0b0', k2: '#a07a20', gem: '#7af0ff', studs: '#fff0b0', hero: 1, aura: '#ffb040' }];
+  const id = CX_MAKE(['벨트', '전설', '에이션트 자이언트의 반지', '공용', 55, '', 3, 0, 0, 15, 'HP +80 · 모든 속성 저항 +10 · 받는 피해 -2', 3, 0, `잊혀진 섬 — 에이션트 자이언트 ${fgPct(FGI.BOSS_LEG_P)} · [고대의 주문서]를 [빛을 바랜 전설의 벨트]에 쓰면 ${fgPct(FGI.ROLL[0])}`, 0]), d = ITEMS[id];
+  d.wr = 15; d.optTxt = d.optTxt.filter(t => !/^가방 무게/.test(t)).concat(`가방 무게 −${d.wr}%`); d.legend = true;   // 영웅 벨트(거인의 벨트 HP +50 · 지배자의 벨트 AC 2·MR 10·HP +20·모든 속성 저항 +5)보다 한 단계 위로 시작 (아침에 조정)
+  d.desc = '먼 옛날 섬을 다스리던 거인 왕이 손가락에 끼던 반지. 사람에게는 허리를 두를 만큼 커서 벨트로 찬다. 이끼 낀 돌빛 고리에 박힌 바다빛 보석이 아직도 낮게 노래한다.';
+  for (const L of [CX_HERO, ...Object.values(CX_ZONE), ...Object.values(CX_ZONE_R), ...Object.values(CX_ZONE_H), ...Object.values(CX_BOSS)]) { const k = L.indexOf(id); if (k >= 0) L.splice(k, 1); }
+  LOOK.belt = LOOK.belt || {}; LOOK.belt.fg_belt = 'grayscale(.5) sepia(.8) hue-rotate(-10deg) saturate(1.6) brightness(1.15)'; }
+// 아이콘 (직접 그린 오리지널): 고대의 주문서 = 이끼 빛 낡은 두루마리 + 청록 룬 · 빛바랜 벨트 = 평범한 벨트 모양 · 빛바랜 회색 · 물음표 · 전설 벨트 = 넓은 돌빛 벨트 + 거인의 반지 버클 + 바다빛 보석
+CXI.scr_ancient = '<defs><linearGradient id="anc_p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2dcc0"/><stop offset="1" stop-color="#a8a07a"/></linearGradient><linearGradient id="anc_r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a8a6a"/><stop offset="1" stop-color="#2e3a28"/></linearGradient><radialGradient id="anc_g" cx=".5" cy=".5" r=".6"><stop offset="0" stop-color="#e8fff8"/><stop offset=".5" stop-color="#5ae0d0"/><stop offset="1" stop-color="#0a5a5a" stop-opacity="0"/></radialGradient></defs><circle cx="17" cy="17" r="15" fill="#5ae0d0" opacity=".12"/><rect x="8" y="6" width="18" height="22" rx="1.5" fill="url(#anc_p)" stroke="#4a4a30"/><path d="M8 11 L11 10.4 M23 21 L26 22 M8 24 L10.5 25" stroke="#7a7050" stroke-width=".6"/><rect x="6" y="4" width="22" height="4.5" rx="2.2" fill="url(#anc_r)" stroke="#1a2414" stroke-width=".6"/><rect x="6" y="25.5" width="22" height="4.5" rx="2.2" fill="url(#anc_r)" stroke="#1a2414" stroke-width=".6"/><circle cx="17" cy="17" r="6.5" fill="url(#anc_g)"/><g fill="none" stroke="#1a6a6a" stroke-width="1.1" stroke-linecap="round"><path d="M13 13 L13 21 M13 17 L16 14 M16 20 L18.5 13 L21 20 M17.2 17.6 L19.8 17.6"/></g><path d="M11 9.8 L23 9.8" stroke="#3a7a6a" stroke-width=".7" stroke-dasharray="1.2 1"/><path d="M11 24 L23 24" stroke="#3a7a6a" stroke-width=".7" stroke-dasharray="1.2 1"/>';
+CXI.ic_fg_faded = '<defs><linearGradient id="fdb_a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a8a69e"/><stop offset="1" stop-color="#5e5c56"/></linearGradient><linearGradient id="fdb_k" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6d4cc"/><stop offset="1" stop-color="#7c7a72"/></linearGradient></defs><rect x="2" y="13" width="30" height="8" rx="2" fill="url(#fdb_a)" stroke="#3a3936"/><path d="M4 15 L9 15 M24 19.4 L30 19.4 M6 19 L8.5 19" stroke="#c8c6be" stroke-width=".5" opacity=".7"/><rect x="11.5" y="9.5" width="11" height="15" rx="2" fill="#8e8c84" stroke="url(#fdb_k)" stroke-width="2"/><text x="17" y="21.6" font-family="Arial,sans-serif" font-size="11" font-weight="900" text-anchor="middle" fill="#f4f2ea" stroke="#3a3936" stroke-width=".9" paint-order="stroke">?</text><path d="M3 21 L31 13" stroke="#ffffff" stroke-width=".4" opacity=".25"/>';
+CXI.ic_fg_belt = '<defs><linearGradient id="fgb_a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a8a888"/><stop offset=".55" stop-color="#5e6248"/><stop offset="1" stop-color="#262a1c"/></linearGradient><linearGradient id="fgb_k" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff4c0"/><stop offset=".5" stop-color="#d8a83a"/><stop offset="1" stop-color="#6a4a10"/></linearGradient><radialGradient id="fgb_g" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="#7af0ff"/><stop offset="1" stop-color="#0a4a8a"/></radialGradient></defs><circle cx="17" cy="17" r="15.5" fill="#ffb040" opacity=".15"/><circle cx="17" cy="17" r="15.6" fill="none" stroke="#ffd070" stroke-width=".6" opacity=".5"/><rect x="1.5" y="11" width="31" height="12" rx="2.4" fill="url(#fgb_a)" stroke="#14160e"/><path d="M3 13.4 L31 13.4 M3 20.6 L31 20.6" stroke="#2e3222" stroke-width=".6"/><g fill="#fff0b0" stroke="#5a4210" stroke-width=".3"><circle cx="4.6" cy="17" r="1"/><circle cx="8" cy="17" r="1"/><circle cx="26" cy="17" r="1"/><circle cx="29.4" cy="17" r="1"/></g><path d="M5 12 Q7 15 6 18 M28 22 Q27 19 29 16" stroke="#6a9a5a" stroke-width=".7" fill="none" opacity=".8"/><ellipse cx="17" cy="17" rx="7.6" ry="7.2" fill="none" stroke="#1a1206" stroke-width="5"/><ellipse cx="17" cy="17" rx="7.6" ry="7.2" fill="none" stroke="url(#fgb_k)" stroke-width="3.4"/><ellipse cx="17" cy="17" rx="7.6" ry="7.2" fill="none" stroke="#fff6d0" stroke-width=".5" stroke-dasharray="1.4 1.2" opacity=".8"/><path d="M17 11.6 L20.6 17 L17 22.4 L13.4 17 Z" fill="url(#fgb_g)" stroke="#0a2a5a" stroke-width=".6"/><path d="M15.4 15.2 L17 13.4" stroke="#ffffff" stroke-width=".7" opacity=".85"/><path d="M27 5 l.7 1.5 1.5.7-1.5.7-.7 1.5-.7-1.5-1.5-.7 1.5-.7z" fill="#fffbe0"><animate attributeName="opacity" values="0;1;0" dur="2.4s" repeatCount="indefinite"/></path>';
+// ----- 보스 에이션트 자이언트: 시간표(BOSS.fg_giant) · 기술 3개(피닉스 기술 × 3 · 땅) · 드랍(피닉스 표 비슷 + 빛바랜 벨트 1~5 · 고대의 주문서 1~5 반드시 · 전설 벨트 3% 한 번만)
+DROP_TABLE.fg_giant = [['scroll_acc', 0.3], ['scroll_earth', 0.4, 1, 5], ['scroll_armor', 0.5], ['scroll_weapon', 0.45], ['bscroll_armor', 0.22], ['bscroll_weapon', 0.15], ['bless_scroll', 0.4, 1, 3], ['gold_wing', 0.12]];   // 피닉스 표에서 불 주문서 → 땅 주문서
+DROP_MIN.fg_giant = 4; BOSS_FIXED.fg_giant = [['fg_faded_belt', FGI.BOSS_FADED[0], FGI.BOSS_FADED[1]], ['fg_scroll', FGI.BOSS_SCROLL[0], FGI.BOSS_SCROLL[1]]]; BOSS_EXTRA.fg_giant = [['fg_belt', FGI.BOSS_LEG_P]];
+BOSS_SKILL.fg_giant = [
+  { id: 'stomp', cd: [10, 14], range: 3, cast: 1.0, use(f) { say('에이션트 자이언트가 발을 높이 듭니다! 붉은 원 밖으로 피하세요!', '#ff8a6a'); AOES.push({ kind: 'slam', x: f.x, z: f.z, r: 3.4, warn: 1.1, t: 0, life: 1.6, landed: false, dmg: [78, 114], onLand: DG_LAND.quake, msg: ['거인의 발 구르기에 짓밟혔습니다!', '발 구르기를 피했습니다.'] }); } },
+  { id: 'boulder', cd: [8, 11], range: 9, cast: 0.9, use(f) { say('에이션트 자이언트가 바위를 뽑아 던집니다! 붉은 원을 피하세요!', '#ff9a7a'); const grp = Math.random(), a0 = Math.random() * 6.283;
+      for (let k = 0; k < 3; k++) { const rr = k ? 1.8 : 0, an = a0 + k * 2.1; AOES.push({ grp, kind: 'slam', x: BT.x + Math.cos(an) * rr, z: BT.z + Math.sin(an) * rr, r: 1.5, warn: 1.1, t: 0, life: 1.6, landed: false, dmg: [72, 108], nostun: true, onLand: DG_LAND.quake, msg: ['날아온 바위에 맞았습니다!', '바위를 피했습니다.'] }); } } },
+  { id: 'roar', cd: [20, 26], range: 7, cast: 0.9, use(f) { say('에이션트 자이언트가 고대의 말로 포효합니다! 몸이 무거워집니다!', '#c9a0ff'); shake = Math.max(shake, 0.4); if (hero.hp > 0 && cheb(f.i, f.j, hero.i, hero.j) <= 7 && !GOD_INV) BUFF.slow = Math.max(BUFF.slow, 4);
+      if (AC && SFX_ON) { const t0 = AC.currentTime; tone(t0, 'sawtooth', 80, 40, 1.2, 0.2); nz(t0, 0.9, 300, 80, 0.3); } } },
+];
+BOSS_SKILL.fg_drake = [{ id: 'breath', cd: [6, 7], range: 3, cast: 0.6, use(f) { breathCone(f, 3, [126, 198]); } }];   // 화둥 사라만다 숨결 × 3
+Object.assign(BOSS_TALK, { fg_giant: { meet: ['작은 것이여… {이름}, 네 발소리가 내 잠을 깨웠다.', '이 섬의 노래를 잊은 자들이 또 왔구나.'], mid: ['섬은 나를 기억한다!', '바위여, 일어나라!', '잊혀진 것은 사라지지 않는다, {이름}.'], die: ['노래가… 끝나지… 않는다… 나는 다시… 깨어난다…'] } });
+// ----- 도감: 아이템 도감 '얻는 곳' · 월드맵 사냥터 도감(일반 몬스터 드랍 목록·설명)
+function fgCodexIds() { const P = fgPools(); return [...P.rareGear, ...P.rareScr, ...P.heroGear, ...P.heroScr, 'fg_scroll', 'fg_faded_belt']; }
+function fgNormSrc(id) { const P = fgPools(); if (id === 'fg_scroll' || id === 'fg_faded_belt') return `잊혀진 섬 드레이크 ${fgPct(id === 'fg_scroll' ? FGI.SCROLL_P : FGI.FADED_P)} · 에이션트 자이언트 ${(id === 'fg_scroll' ? FGI.BOSS_SCROLL : FGI.BOSS_FADED).join('~')}개 (반드시)`;
+  if (P.heroGear.includes(id) || P.heroScr.includes(id)) return `잊혀진 섬 일반 몬스터 · 영웅 ${fgPct(FGI.HERO_P)} (한 마리당 · ${P.heroGear.includes(id) ? `영웅 장비 ${P.heroGear.length}종 중 하나` : '축복받은 무기 마법 주문서'})`;
+  return `잊혀진 섬 일반 몬스터 · 희귀 ${fgPct(FGI.RARE_P)} (한 마리당 · ${P.rareGear.includes(id) ? `희귀 장비 ${P.rareGear.length}종 중 하나` : `희귀 주문서 ${P.rareScr.length}종 중 하나`})`; }
+function fgCodexSrc() { const L = [], P = fgPools(); for (const id of [...P.rareScr, ...P.heroScr, 'fg_scroll', 'fg_faded_belt']) L.push([id, fgNormSrc(id)]);
+  for (const id of [...P.heroBelt, ...P.rareBelt]) L.push([id, `[고대의 주문서] → [빛을 바랜 전설의 벨트] ${fgPct(P.heroBelt.includes(id) ? FGI.ROLL[1] : FGI.ROLL[2])} (${P.heroBelt.includes(id) ? '영웅' : '희귀'} 벨트 중 하나)`]); return L; }
+if (window.DEMO_MODE) window.__FG = { FGI, FGM, FG_BASE, FG_DEF, FG_TINT, BOSS_EXTRA, fgLoot, fgRoll, fgPools, fgPick, fgLocked, fgBlock, fgCodexIds, reviveHere };   // 테스트 훅 (테스트 페이지만 · dev/tests/forgotten.js)
 // 10/30 프로듀서: 모든 마법인형·재료 아이템 무게 0 (가호조각·날개·용/화룡 재료 — 나중에 추가되는 재료도 여기 이름을 넣거나 mat0: true)
 { const MAT0 = new Set(['gold_wing', 'silver_wing', 'dragon_scale', 'drake_claw', 'dragon_heart', 'fire_scale', 'astazio_ash', 'phoenix_feather', 'ifrit_heart']);
   for (const [id, d] of Object.entries(ITEMS)) if (d && (d.doll || d.mat0 || MAT0.has(id) || id.startsWith('gfrag_'))) d.w = 0; }
