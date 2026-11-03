@@ -519,7 +519,7 @@ function drawBigFx(g, vw, vh, ox, oy) { if (!BIGFX.length) return; const [hx, hy
 function addDmg(f, who, d){ if (!f||d<=0) return; if (who && who.sum) who = hero; if (f.fb) FBOT.onDmg(f, who, d); else if (f.bot || f.twr) TWM.onDmg(f, who, d); else if (MOB[f.kind] && (MOB[f.kind].boss || MOB[f.kind].midb)) FBOT.bossHit(f, who);   /* 11/1 2단계 ②: 누가 보스를 치면 전체 알림(젠마다 한 번) · 라인 봇 뒷치기 */   /* v144: 소환수가 준 피해는 내 것 */ if (MOB[f.kind] && MOB[f.kind].dummy){ (f.dlog||(f.dlog=[])).push([time, d]); if (MOB[f.kind].real && !f.ttk0) f.ttk0=time; } f.lastDmgAt=Date.now(); f.regenAt=0; f.regenOn=false; (f.dmgBy||(f.dmgBy=new Map())).set(who,(f.dmgBy.get(who)||0)+d); }
 function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.values()) tot+=v; const hd=M?(M.get(hero)||0):0; const heroExp=gahoExp(Math.round((tot>0?S.exp*hd/tot:S.exp)*lowLvMul(S)*nightR())); const parts=[];
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
-  if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot*nightR()); if (pe>0){ PET.gainExp(w,pe); parts.push(w.d.name+' +'+pe); } }
+  if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot*nightR()); if (pe>0){ const ov=PET.gainExp(w,pe); parts.push(ov>=pe?w.d.name+'(최고 레벨) → 나 +'+pe:w.d.name+' +'+pe); } }   /* 11/3: 펫이 주인 레벨이면 펫 몫은 주인에게 */
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
 function killCheck(f){ if (f && f.fb) { if (f.hp <= 0 && !f.dead) FBOT.down(f); return; } if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
   const D=NET.distribute(f,S); if (!D){ if (window.SAVER && (!f.dmgBy || [...f.dmgBy.keys()].some(w => w === hero || (w && w.isPet)))) SAVER.kill();   /* 11/1: 혼자 잡은 몹도 절전 [처치]에 셈 (전에는 같은 지역에 다른 사람이 있을 때만 셈) */ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=Math.round(rint(S.coin)*coinX()); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
@@ -4602,6 +4602,8 @@ const GROUND = (() => {
 // 배고픔 없음. 목걸이(가방의 개별 아이템)가 펫 데이터를 들고 있음: {name, kind, lv, exp, hp, maxhp, inv[4], state:'stored'|'out'|'dead', mode:'attack'|'wait'|'rest'}
 const PET_KIND = { doberman: { name: '도베르만', hp: 26, hpLv: 7, dmg: [1, 4], dmgLv: 0.6, hit: 0.72, ac: 8, spd: 3.7, mob: 'pet_doberman' } };
 const petNeed = lv => Math.round(18 * Math.pow(lv, 1.55));
+// 11/3 프로듀서: 펫은 주인 레벨을 넘지 못함 (예전엔 상한이 없고 경험치 곡선이 완만해 진화 펫이 Lv.363까지 → HP 5천·공격 470) · 상한이면 펫 몫 경험치는 주인에게
+const petCap = () => Math.max(1, hero.lv | 0), heroGainExp = n => gainExp(n);
 function mkPetData(kind, lv) { const K = PET_KIND[kind], L = Math.max(1, lv | 0 || 1), mh = K.hp + K.hpLv * (L - 1); return { kind, name: K.name, lv: L, exp: 0, hp: mh, maxhp: mh, inv: [null, null, null, null], state: 'stored', mode: 'attack', haste: 0, hasteLv: 0 }; }
 const PET = (() => {
   const L = []; let reviveMode = false, winE = null;
@@ -4672,8 +4674,21 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   function sfxBite() { if (!AC || !SFX_ON) return; const t = AC.currentTime; nz(t, 0.06, 2600, 900, 0.3); tone(t, 'sine', 180, 70, 0.1, 0.4); }
   const petDmg = d => { const [a, b] = petRange(d); return a + Math.floor(Math.random() * (b - a + 1)); };
   const petHit = (d, S) => Math.max(0.2, Math.min(0.95, PET_KIND[d.kind].hit + 0.02 * (petEff(d) - S.lv) - (10 - (S.mac ?? 10)) * 0.02));
-  function gainExp(p, n) { const d = p.d; d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? 10 : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
-      if (AC && SFX_ON) { const t = AC.currentTime; [659, 784, 1047].forEach((f, k) => tone(t + k * 0.08, 'triangle', f, f, 0.25, 0.08)); } } refresh(); }
+  // 돌려주는 값: 주인에게 넘긴 경험치 (펫이 주인 레벨에 닿아 못 받은 몫)
+  function gainExp(p, n) { const d = p.d; if (!d || !(n > 0)) return 0; if (d.lv >= petCap()) { d.exp = 0; heroGainExp(n); return n; }
+    d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? 10 : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
+      if (AC && SFX_ON) { const t = AC.currentTime; [659, 784, 1047].forEach((f, k) => tone(t + k * 0.08, 'triangle', f, f, 0.25, 0.08)); }
+      if (d.lv >= petCap()) { const left = d.exp; d.exp = 0; if (left > 0) heroGainExp(left); refresh(); return left; } } refresh(); return 0; }
+  // 주인 레벨을 넘은 펫 맞추기 (가방의 펫 목걸이 · 2초마다): 이 업데이트 전부터 넘어 있던 펫은 넘은 만큼의 경험치를 한 번 주인에게 넘김 (capOk 표시 뒤로는 거래 등으로 넘어와도 레벨만 맞춤)
+  const petMaxHp = d => { const K = PET_KIND[d.kind]; if (!K) return d.maxhp; return d.evo && d.eb ? d.eb.hp + 10 * (d.lv - 1) : K.hp + K.hpLv * (d.lv - 1); };
+  let capT = 0;
+  function capCheck(force) { if (!force && (capT -= 1) > 0) return; capT = 40; const cap = petCap(); let ch = false;
+    for (const e of INV.bag()) { const d = e.pet; if (!d || !PET_KIND[d.kind]) continue; const first = !d.capOk; d.capOk = 1; if (!(d.lv > cap)) continue;
+      let ex = 0; if (first) { const lv0 = d.lv; ex = Math.max(0, d.exp | 0); for (let l = cap; l < lv0; l++) ex += petNeed(l) * (d.evo ? 2 : 1); }
+      const from = d.lv; d.lv = cap; d.exp = 0; d.maxhp = petMaxHp(d); d.hp = Math.min(d.hp, MXH(d)); ch = true;
+      if (ex > 0) heroGainExp(ex);
+      say(`[펫] ${nm(d)}: 펫은 주인 레벨을 넘을 수 없어서 Lv.${from} → Lv.${cap}로 맞췄어요.` + (ex > 0 ? ` 넘은 만큼의 펫 경험치 ${ex.toLocaleString()}을(를) 주인에게 넘겼어요.` : ''), '#ffd86a'); }
+    if (ch) refresh(); }
   function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
     const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, String(dmg), { color: '#ff8a6a', size: 11 });
     if (src) { const [sx, sy] = W2P(src.x, src.z); const vx = px - sx, vy = py - sy, l = Math.hypot(vx, vy) || 1; p.kx = vx / l; p.ky = vy / l; } p.hitD = 0.3; p.hitT = 0.3; p.kmag = 4;
@@ -4710,7 +4725,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
         const [px, py] = W2P(p.x, p.z); floatText(px, py - 50, `+${h}`, { color: '#8af08a', size: 11 }); spellFx('heal', p); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 520, 880, 0.15, 0.07); refresh(); return; } }
     if (d.haste <= 0) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'haste'); if (k >= 0) { const it = d.inv[k], I = ITEMS[it.id]; d.haste = I.dur; d.hasteLv = I.haste; if (--it.n <= 0) d.inv[k] = null; p.potCd = 1; refresh(); } } }
   let lastHI = null, lastHJ = null;   // 순간이동 감지: 한 프레임에 3칸 넘게 뛰면 텔레포트로 봄
-  function tick(dt) { if (TW() || HW()) { if (sumLive()) sumClear('tw'); PETS_HERE = []; lastHI = null; return; }   // 수호탑 대전: 펫은 밖에서 기다리고(나오면 다시 옆에) · 소환수는 돌려보냄
+  function tick(dt) { if (window.__gameOn) capCheck(); if (TW() || HW()) { if (sumLive()) sumClear('tw'); PETS_HERE = []; lastHI = null; return; }   // 수호탑 대전: 펫은 밖에서 기다리고(나오면 다시 옆에) · 소환수는 돌려보냄
     const z = zk(), jump = lastHI !== null && cheb(hero.i, hero.j, lastHI, lastHJ) > 3; lastHI = hero.i; lastHJ = hero.j;
     for (let q = L.length - 1; q >= 0; q--) if (L[q].sum && L[q].dead && L[q].deadT > 1.5) L.splice(q, 1);   // v144: 쓰러진 소환수는 사라짐
     for (const p of L) { if (p.zone !== z || (p.dead && jump)) { const dd = p.dead, dt0 = p.deadT; place(p); if (dd) { p.dead = true; p.deadT = Math.max(dt0, 1.4); } } }   // 쓰러진 펫: 걸어갈 땐 그 자리에 누워 있고, 텔레포트·맵 이동 땐 옆에 같이 떨어짐
@@ -4762,7 +4777,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   function renderWin() { const w = $('petwin'), e = winE; if (!w || !e || !e.pet || !INV.bag().includes(e)) { if (w) w.hidden = true; return; } const d = e.pet, p = entOf(e), need = needOf(d);
     const st = ({ out: '소환 중', stored: '펫 보관소에 있음', dead: '쓰러짐' })[d.state], mb = (m, t) => `<button type="button" data-pm="${m}" aria-pressed="${d.mode === m}">${t}</button>`;
     const bagPots = Object.keys(ITEMS).filter(id => petItemOK(id) && INV.count(id) > 0);
-    const html = `<div class="pw-head"><canvas id="pw-face" width="76" height="76"></canvas><div><b class="pw-name">${d.evo ? '<span style="color:#ffd86a">★ </span>' : ''}${esc(d.name)}</b><span class="pw-sub">Lv.${d.lv} ${d.evo ? '진화한 ' : ''}${PET_KIND[d.kind].name} · <em class="st-${d.state}">${st}</em></span><span class="pw-sub">${(R_ => `공격 ${R_[0]}~${R_[1]} · 명중·회피 Lv.${Math.floor(petEff(d))} 수준 · 방어 AC ${petAC(d)}`)(petRange(d))}${chaMul() > 1 ? ` · 카리스마 +${Math.round((chaMul() - 1) * 100)}%` : ''}</span>
+    const html = `<div class="pw-head"><canvas id="pw-face" width="76" height="76"></canvas><div><b class="pw-name">${d.evo ? '<span style="color:#ffd86a">★ </span>' : ''}${esc(d.name)}</b><span class="pw-sub">Lv.${d.lv}${d.lv >= petCap() ? ' (최고 · 주인 레벨)' : ''} ${d.evo ? '진화한 ' : ''}${PET_KIND[d.kind].name} · <em class="st-${d.state}">${st}</em></span><span class="pw-sub">${(R_ => `공격 ${R_[0]}~${R_[1]} · 명중·회피 Lv.${Math.floor(petEff(d))} 수준 · 방어 AC ${petAC(d)}`)(petRange(d))}${chaMul() > 1 ? ` · 카리스마 +${Math.round((chaMul() - 1) * 100)}%` : ''}</span>
       <div class="pw-bar hp"><i style="width:${Math.round(100 * d.hp / MXH(d))}%"></i><span>HP ${Math.ceil(d.hp)} / ${MXH(d)}</span></div><div class="pw-bar ex"><i style="width:${Math.round(100 * d.exp / need)}%"></i><span>EXP ${(100 * d.exp / need).toFixed(1)}%</span></div></div></div>
       ${d.state === 'out' ? `<div class="pw-cmd">${mb('attack', '공격')}${mb('wait', '공격 대기')}${mb('rest', '휴식')}<button type="button" data-pm="scatter" class="sc">산개</button></div>` : d.state === 'dead' ? `<div class="pw-cmd"><button type="button" data-pm="revive" class="rv">부활 주문서 사용 (${INV.count('revive_scroll')}개)</button></div>` : `<p class="pw-note">펫상인 루피에게서 '펫을 찾는다'로 소환할 수 있습니다.</p>`}
       ${!d.evo && (INV.count('pet_fruit') > 0 || d.lv >= 50) ? `<div class="pw-cmd"><button type="button" data-pm="evolve" class="rv"${d.lv >= 50 && INV.count('pet_fruit') > 0 && d.state !== 'dead' ? '' : ' disabled'}>★ 펫 진화의 열매 사용 ${d.lv < 50 ? '(50레벨부터)' : INV.count('pet_fruit') > 0 ? `(${INV.count('pet_fruit')}개 · 진화 가능)` : '(열매 없음 · 펫상인 50만 골드)'}</button></div>` : ''}
@@ -4783,7 +4798,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       const can = kind === 'find' ? d.state === 'stored' : d.state === 'out' || d.state === 'dead';
       row.innerHTML = `<span class="ic">${ICON(eIcon(e))}</span><span class="nm">${esc(d.name)} <small>Lv.${d.lv} ${PET_KIND[d.kind].name}</small></span><span class="info">HP ${Math.ceil(d.hp)}/${MXH(d)} · ${({ out: '소환 중', stored: '보관소에 있음', dead: '쓰러짐' })[d.state]}</span><button type="button" class="buy"${can ? '' : ' disabled'}>${kind === 'find' ? '소환' : '맡기기'}</button>`;
       row.querySelector('.buy').onclick = () => { if (kind === 'find') summon(e); else store(e); shopPanel(kind, list); }; list.appendChild(row); } }
-  return { sumBal: SUMB, sumMp, sumLocked, bossNear, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
+  return { capCheck: () => capCheck(true), sumBal: SUMB, sumMp, sumLocked, bossNear, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
 })();
 
 // ============================================================ 인벤토리 · 캐릭터 정보 (기획팀)
