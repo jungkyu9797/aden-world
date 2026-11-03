@@ -20,7 +20,7 @@ const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + m); if (!c) pro
       for (const f of bots) { const a = before.get(f.uid), g = log.get(f.uid); if (!g || a.dead || a.gone) continue; const pot = f.bx ? f.bx.potN : 0; if (pot < a.pot) g.pots += a.pot - pot; if (f.hp > 0) g.minHpPct = Math.min(g.minHpPct, Math.round(100 * f.hp / f.max)); if (f.dead && !a.dead) { g.died++; g.diePot.push(pot); } if (f.gone && !f.dead && !a.gone) g.gone++; } }
     return { zone: T.ISLE.id, bots: [...log.values()], potStat: F.stat().pot, low: (F.stat().low || 0) - rec0 }; }, SEC);
   console.log(JSON.stringify({ zone: r.zone, sec: SEC, potStat: r.potStat, 귀환: r.low }));
-  for (const g of r.bots) console.log(`  ${g.team} ${g.cls.padEnd(7)} ${g.name} ${g.pct} Lv${g.lv} AC${g.ac} MR${g.mr} HP${g.hp0} · 먹는 HP ${Math.round(g.potAt * 100)}% · 물약 ${g.pot0}개 중 ${g.pots} · 최저 ${g.minHpPct}% · 죽음 ${g.died}${g.diePot.length ? ' (남은 물약 ' + g.diePot.join(',') + ')' : ''}${g.gone ? ' · 귀환 ' + g.gone : ''}`);
+  for (const g of r.bots) console.log(`  ${g.team} ${g.cls.padEnd(7)} ${g.name} ${g.pct} Lv${g.lv} AC${g.ac} MR${g.mr} HP${g.hp0} · 먹는 HP ${Math.round(g.potAt * 100)}% · 물약 ${g.pot0 >= 1e8 ? '무제한' : g.pot0 + '개'} 중 ${g.pots} · 최저 ${g.minHpPct}% · 죽음 ${g.died}${g.diePot.length ? ' (남은 물약 ' + g.diePot.join(',') + ')' : ''}${g.gone ? ' · 귀환 ' + g.gone : ''}`);
   const deadWithPots = r.bots.filter(g => g.diePot.some(n => n > 20)).length;
   console.log(`요약: 죽음 ${r.bots.reduce((s, g) => s + g.died, 0)} · 물약 20개 넘게 남기고 죽음 ${deadWithPots} · 귀환 ${r.bots.reduce((s, g) => s + g.gone, 0)}`);
   if (process.env.BCHK) { ok(deadWithPots <= 2, `물약을 20개 넘게 남기고 죽은 봇 ${deadWithPots}명 (2명 이하)`); ok(r.bots.every(g => g.potAt >= 0.7), '물약 먹기 시작 HP 70% 이상'); }

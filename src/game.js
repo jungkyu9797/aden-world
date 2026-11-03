@@ -9384,11 +9384,11 @@ const FBOT = (() => {
   const C = { SLOT: 1200, CAP: 8, REST: 0.1, ALT: 0.25, RESP: [75, 120], ALERT: 180, HUNT: 1.35, SPD: 1.3, VIEW: 12, MOB_R: 10, NEAR_P: 5, DROP_P: 0.3, DROP_CD: 600, FAR: 6,   // 밸런스·규칙 값 (FBOT.cfg로 바꿀 수 있음)
     // 11/1 2단계 ① 전투를 사람처럼: 물약(빨강·주홍·맑은 비율 · 봇마다 개수 · 먹는 HP% 범위 · 유저와 같은 1.5초) · HP가 없을 때(물약이 남아도 겁먹을 확률 · 귀환 확률 · 다시 오는 초)
     //   기사(버프가 끝나면 다시 거는 지연 · PvP 스턴을 쓸 확률 · 사냥 몹 스턴 확률) · 법사(공용 대기 3초 · 마법 피해 배율 SPK) · 멘트(봇마다 30초 · 지역마다 8초) · 줍기(1~6초 · 봇 소유 초)
-    POT_W: [35, 35, 30], POT_WD: [10, 30, 60], POT_N: [30, 80], POT_AT: [0.7, 0.85], POT_CD: 1.5, PANIC: 0.25, LOW_RUN: 0.25, LOW_RUN_P: 0.6, RET_P: 0.5, RET_BACK: [60, 120], BUF_DL: [0.5, 3], STUN_USE: 0.85, STUN_HUNT: 0.15, MAG_CD: 3, SPK: 2.2, TALK_BOT: 30, TALK_ZONE: 8, LOOT: [1, 6], LOOT_HOLD: 60,
+    POT_W: [35, 35, 30], POT_WD: [10, 30, 60], POT_N: [250, 300], POT_AT: [0.7, 0.85], POT_CD: 1.5, PANIC: 0.25, LOW_RUN: 0.25, LOW_RUN_P: 0.6, RET_P: 0.5, RET_BACK: [60, 120], BUF_DL: [0.5, 3], STUN_USE: 0.85, STUN_HUNT: 0.15, MAG_CD: 3, SPK: 2.2, TALK_BOT: 30, TALK_ZONE: 8, LOOT: [1, 6], LOOT_HOLD: 60,
     // 11/1 2단계 ② 파티·보스·뒷치기·지원군: PT_N 혈맹마다 파티 크기(반왕 3·3 = 18명 중 6 · 라인 4·3 = 20명 중 7 → 약 1/3) · PT_FAR 리더에게서 이 칸 넘게 떨어지면 따라감 · PT_WAIT 리더가 뒤처진 파티원을 기다리는 최대 초
     //   보스: BOSS_P 봇이 아예 가는 확률 · BOSS_DL 젠 뒤 2~12분 랜덤 지연 · BOSS_SOLO 혼자 잡을 수 있는 예상 시간(초) · BOSS_PARTY 파티로 잡을 수 있는 예상 시간(초) · DPS_K 예상 피해(명중·치명 보정) · 뒷치기: BS_SPAWN 그 젠에 뒷치기가 있을 확률 · (있으면) BS_P 라인 봇마다 가는 확률 · BS_PT 일정표의 라인 파티가 오는 확률
     //   지원군: REINF_AT 전투가 이 초 넘게 이어지면 · REINF_END 전투 없이 이 초가 지나면 복귀 · REINF_CHK 다시 보는 간격 · ZONE_CAP 지역당 봇 최대
-    PT_N: { A: [3, 3], B: [4, 3] }, PT_FAR: 3, PT_WAIT: 8, BOSS_P: 0.6, BOSS_DL: [120, 720], BOSS_SOLO: 180, BOSS_PARTY: 1500, DPS_K: 0.6, BS_SPAWN: 0.5, BS_P: 0.7, BS_PT: 0.5, REINF_AT: 25, REINF_END: 60, REINF_CHK: 10, ZONE_CAP: 12,
+    PT_N: { A: [3, 3], B: [4, 3] }, PT_FAR: 3, PT_WAIT: 8, BOSS_P: 0.6, BOSS_DL: [120, 720], BOSS_SOLO: 180, BOSS_PARTY: 3600, BOSS_EXP_LV: 55, BOSS_EXP_DL: 30, DPS_K: 0.6, BS_SPAWN: 0.5, BS_P: 0.7, BS_PT: 0.5, REINF_AT: 25, REINF_END: 60, REINF_CHK: 10, ZONE_CAP: 12,
     // 11/1 밤 법사 봇 슬로우(대인전만): WSLOW_P 행동마다 쓸 확률 · WSLOW_T 지속 초 · WSLOW_CD 재사용 · WSLOW_IMM 풀린 뒤 면역 초 · 요정 봇 정령마법(게일·똥물·어바 골고루): ESP_DL 6~12초마다 · ESP_P 그때 쓸 확률 · 캐릭터 정보 서버 저장: CHAR_T 3분마다(바뀌었을 때만)
     WSLOW_P: 0.18, WSLOW_T: 6, WSLOW_CD: 15, WSLOW_IMM: 3, ESP_DL: [6, 12], ESP_P: 0.3, CHAR_T: 180 };
   const KBUF = ['reduction', 'bounce', 'solid', 'counter'], WSP = ['coc', 'eruption', 'sunburst', 'disint'], POTS = ['red_potion', 'orange_potion', 'clear_potion'];   // 기사 버프 · 법사 공격 마법(각 25%) · 물약 (fbx 연출 번호)
@@ -9707,7 +9707,7 @@ const FBOT = (() => {
   const SPD = () => 3.2 * GSPD * C.SPD;
   function persona(f) { const R = K_.rngS((f.uid || 1) * 131 + 1030), c = f.bot.cls;
     return { agg: 0.75 + R() * 0.55, brave: c === 'knight' ? 0.18 + R() * 0.17 : 0.25 + R() * 0.2, pat: 3 + R() * 5, react: 0.18 + R() * 0.25, wander: 0.12 + R() * 0.3, focus: R() < (c === 'knight' ? 0.25 : 0.2) ? 'caster' : R() < 0.5 ? 'weak' : 'near', lazy: R() }; }
-  const newX = f => ({ cd: Math.random() * 0.6, th: Math.random() * 0.25, pot: 0, potN: Math.round(rr(C.POT_N)), potAt: rr(C.POT_AT), sk: { tri: 2 + Math.random() * 6, fb: 1 + Math.random() * 5, tor: 3 + Math.random() * 6, heal: 0, imm: Math.random() * 6, stun: 1 + Math.random() * 3, buf: 0, esp: rr(C.ESP_DL) },   // esp: 11/1 밤 요정 정령마법 다음 판단 시각
+  const newX = f => ({ cd: Math.random() * 0.6, th: Math.random() * 0.25, pot: 0, potN: f.bot && f.bot.team === 'A' ? 1e9 : Math.round(rr(C.POT_N)),   /* 11/3 프로듀서: 반왕(아군) 봇은 물약 무제한 · 라인(적) 봇은 250~300개 (예전 모두 30~80) */ potAt: rr(C.POT_AT), sk: { tri: 2 + Math.random() * 6, fb: 1 + Math.random() * 5, tor: 3 + Math.random() * 6, heal: 0, imm: Math.random() * 6, stun: 1 + Math.random() * 3, buf: 0, esp: rr(C.ESP_DL) },   // esp: 11/1 밤 요정 정령마법 다음 판단 시각
     mag: Math.random() * 2, scd: {}, bf: {}, bq: {}, stuck: 0, tgt: null, mob: null, goal: null, kite: 0, idle: Math.random() * 2, p: persona(f), loot: null, end: null, lowT: 0, fightT: -99, seen: {}, boss: null, go: null, fol: null, waitT: 0, bsK: '', vis: '' });   // 11/1 ②: boss(치러 갈 보스) · go(지원군이 걸어갈 자리) · fol(대형 자리) · bsK(뒷치기 판단한 젠)   // 11/1: 물약 개수·먹는 HP% · 스턴·버프 대기 · 마법 공용 대기(mag)·마법별 대기(scd) · 버프 끝나는 시각(bf)·다시 걸 시각(bq) · 줍기(loot) · 끝까지 싸움(end)
   function mobTick(f, dt) { if (!f.bot && !tag(f)) return; f.flash = Math.max(0, (f.flash || 0) - dt); if (f.atkT != null) { f.atkT += dt; if (f.atkT >= ATK_T) f.atkT = null; }
     if (!host() || !here() || DBG.noAI) return; const b = f.bot, X = f.bx || (f.bx = newX(f));
@@ -9968,7 +9968,7 @@ const FBOT = (() => {
     if (here() && !hereOn) { hereOn = true; hereT = time; }
     if (host()) { pendTick(); if ((bsT -= dt) <= 0) { bsT = 2; bossTick(); } if ((rfT -= dt) <= 0) { rfT = 1; reinfTick(); } publish(); } else guestFx(); }
   // ----- 11/1 2단계 ② 보스 사냥 (지역 호스트 · 2초마다): 젠마다 씨앗으로 '봇이 가는지(BOSS_P)·언제(젠 뒤 2~12분 · 호스트가 들어온 뒤 1~3분은 지남)·라인 파티 뒷치기(BS_PT)'를 정함 → 모든 PC 같은 계획
-  //   가는 무리: 혼자 = 예상 처치 시간(보스 HP ÷ 봇 DPS) ≤ BOSS_SOLO(180초) '약한 보스' · 파티(살아 있는 2명 이상) = 보스 HP ÷ 파티 DPS 합 ≤ BOSS_PARTY(1500초) · 둘 다 안 되면 아무도 안 감 · 봇 DPS = 평균 피해 × DPS_K(0.6 · 명중·치명 보정) ÷ 사냥 공격 간격
+  //   가는 무리: 혼자 = 예상 처치 시간(보스 HP ÷ 봇 DPS) ≤ BOSS_SOLO(180초) '약한 보스' · 파티(살아 있는 2명 이상) = 보스 HP ÷ 파티 DPS 합 ≤ BOSS_PARTY(3600초 · 11/3 1500→3600) · 둘 다 안 되면 아무도 안 감 · 봇 DPS = 평균 피해 × DPS_K(0.6 · 명중·치명 보정) ÷ 사냥 공격 간격
   //   뒷치기: 유저(반왕)가 보스를 치는 중이면 지역의 라인 봇마다 BS_P(70%)로 보스에게 감(가는 길에 유저가 보이면 먼저 침 · 유저가 죽거나 빠지면 보스를 가져감) · 젠마다 BS_PT(50%)로 일정표의 라인 파티 하나가 가장자리에서 걸어 들어옴 · 유저가 치는 보스에 반왕 봇은 먼저 가지 않음
   const BH = new Map(); let bsT = 1, rfT = 0.5, hereOn = false, hereT = 0;
   const dpsOf = f => f.bot.st.d * C.DPS_K / atkCd(f.bot, C.HUNT);
@@ -9985,7 +9985,8 @@ const FBOT = (() => {
       const plOn = playerOn(m); for (const f of live_) { const V = VIS.get(f.uid); if (V && V.boss === key && f.bx && !f.bx.boss) { f.bx.boss = m; f.bx.bsK = key; } }   // 불러온 라인 파티는 유저가 빠져도 보스를 가져감
       if (plOn && H.bs) { for (const f of live_) { if (f.bot.team !== 'B' || !f.bx || f.bx.bsK === key) continue; f.bx.bsK = key; if ((hsh(f.uid + ':bs:' + key) % 1000) / 1000 < (DBG.bsP ?? C.BS_P)) { f.bx.boss = m; STAT.bs++; talk(f, 'boss'); } }   // 뒷치기: 라인 봇마다 확률
         if (H.bsPt && !H.bsCalled) { H.bsCalled = true; callParty('B', m, key); } }
-      if (H.go && now >= H.at) { if (!H.grp || !H.grp.u.some(u => live_.some(f => f.uid === u))) H.grp = pickGroup(m, key, plOn); if (H.grp) for (const u of H.grp.u) { const f = live_.find(e => e.uid === u); if (f && f.bx && f.bx.boss !== m) { f.bx.boss = m; talk(f, 'boss'); } } } } }
+      if (H.go && now >= H.at) { if (!H.grp || !H.grp.u.some(u => live_.some(f => f.uid === u))) H.grp = pickGroup(m, key, plOn); if (H.grp) for (const u of H.grp.u) { const f = live_.find(e => e.uid === u); if (f && f.bx && f.bx.boss !== m) { f.bx.boss = m; talk(f, 'boss'); } }
+        else if (!H.exp && !plOn && (MOB[m.kind].lv || 0) >= C.BOSS_EXP_LV && now >= H.at + C.BOSS_EXP_DL) { H.exp = true; const tm = (hsh(key + ':exp') & 1) ? 'A' : 'B'; if (callParty(tm, m, key) || callParty(tm === 'A' ? 'B' : 'A', m, key)) STAT.bossExp = (STAT.bossExp || 0) + 1; } } } }   // 11/3 프로듀서: 큰 보스(Lv.55 이상 · 드레이크 킹·피닉스)는 이 사냥터에 갈 무리가 없으면 다른 사냥터의 파티를 원정으로 부름 (유저가 치는 중이면 안 부름 · 라인 뒷치기 규칙은 따로)
   // 일정표 밖의 파티를 이 지역으로 (뒷치기): 이 지역에 없는 그 혈맹 파티 중 레벨이 가장 맞는 파티 · 지역 가장자리에서 보스 쪽으로 걸어 들어옴 · 보스가 끝나면 30초 뒤 복귀
   function callParty(team, m, key) { const RO_ = roster(), zid = ISLE.id, P = plan(), zr = zones().find(z => z.id === zid), mid = zr ? (zr.lo + zr.hi) / 2 : 0, lv = refNow().lv, now = Date.now();
     const cands = RO_.pt.filter(p => p.team === team && !p.uids.some(u => live_.some(f => f.uid === u) || VIS.has(u))).map(p => ({ p, h: P.at[p.lead] === zid ? 1 : 0, d: Math.abs(elvOf(RO_.by.get(p.lead), lv) - mid) })).sort((a, b) => a.h - b.h || a.d - b.d).map(x => x.p); if (!cands.length) return false;
