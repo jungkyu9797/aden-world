@@ -15,7 +15,7 @@ let closeOk = false;
 const DEV_OK = () => process.argv.includes('--dev') || fs.existsSync(path.join(__dirname, 'admin_key.js'));
 const SAVE_DIR = () => path.join(app.getPath('userData'), 'saves');
 
-function createWindow() {
+function createWindow(page, query) {
   const win = new BrowserWindow({
     width: 1280,
     height: 760,
@@ -34,8 +34,8 @@ function createWindow() {
   });
   Menu.setApplicationMenu(null);
   // 창을 닫으면: 게임이 캐릭터를 서버에 저장할 시간을 준 뒤 닫힘 (최대 4초)
-  win.on('close', (e) => { if (closeOk) return; e.preventDefault(); try { win.webContents.send('app:closing'); } catch (_) {} setTimeout(() => { closeOk = true; if (!win.isDestroyed()) win.close(); }, 4000); });
-  win.loadFile('index.html');
+  win.on('close', (e) => { if (closeOk || /kicked\.html/.test(win.webContents.getURL())) return;   /* 안내 창은 저장할 게임이 없으니 바로 닫음 */ e.preventDefault(); try { win.webContents.send('app:closing'); } catch (_) {} setTimeout(() => { closeOk = true; if (!win.isDestroyed()) win.close(); }, 4000); });
+  win.loadFile(page || 'index.html', query ? { query } : undefined);
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
   // F5~F12는 게임 단축키로 게임에 그대로 넘김 · 전체화면은 Alt+Enter, 개발자도구는 Ctrl+Shift+I
   win.webContents.on('before-input-event', (e, input) => {
@@ -43,6 +43,7 @@ function createWindow() {
     if (input.alt && input.key === 'Enter') { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
     if (input.control && input.shift && (input.key === 'I' || input.key === 'i')) { e.preventDefault(); if (DEV_OK()) win.webContents.toggleDevTools(); }   // v156: 개발자도구는 --dev 실행 또는 운영자 키(admin_key.js)가 있는 PC에서만
   });
+  return win;
 }
 
 ipcMain.handle('save:write', (_e, slot, json) => {
@@ -103,6 +104,10 @@ ipcMain.handle('update:run', async (e) => {
   } catch (err) { return { ok: false, err: String(err.message || err) }; }
 });
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
+// 11/3: 다른 곳에서 같은 계정으로 접속해 끊긴 창 — 게임 창(그림·소리·몬스터로 1GB 넘게 씀)을 통째로 닫고 가벼운 안내 창(kicked.html)으로 바꿈 → 메모리·그래픽 메모리를 윈도우에 바로 돌려줌
+ipcMain.handle('app:kicked', (e, r) => { const old = BrowserWindow.fromWebContents(e.sender); const b = old && !old.isDestroyed() ? old.getBounds() : null, max = old && old.isMaximized();
+  const nw = createWindow('kicked.html', { r: r === 'admin' ? 'admin' : 'dup' }); if (b) nw.setBounds(b); if (max) nw.maximize();
+  if (old && !old.isDestroyed()) setTimeout(() => { try { old.destroy(); } catch (_) {} }, 300); return true; });
 ipcMain.handle('gpu:status', () => { try { return { st: app.getGPUFeatureStatus(), safe: gpuSafe }; } catch (err) { return { st: {}, safe: gpuSafe }; } });   // 11/2: /렉 진단
 // ===== 관찰 기록기: 플레이 기록과 게임 창 캡처를 게임 폴더 logs/ 에 남김 (모니터 리포트용 · 이 PC에만 저장)
 const LOG_DIR = () => path.join(APP_DIR, 'logs');
@@ -111,5 +116,11 @@ ipcMain.handle('log:shot', async (e) => { try { const w = BrowserWindow.fromWebC
   const dir = path.join(LOG_DIR(), 'shots'); fs.mkdirSync(dir, { recursive: true }); const d = new Date(), p2 = n => String(n).padStart(2, '0'); const name = `shot-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.jpg`;
   fs.writeFileSync(path.join(dir, name), sm.toJPEG(72)); const all = fs.readdirSync(dir).filter(x => /^shot-.*\.jpg$/.test(x)).sort(); for (const x of all.slice(0, Math.max(0, all.length - 18))) { try { fs.unlinkSync(path.join(dir, x)); } catch (_) {} } return name; } catch (err) { return false; } });
 
-app.whenReady().then(createWindow);
+// 11/3: 게임은 한 PC에 하나만 — 이미 켜져 있으면 새로 띄우지 않고 켜져 있는 창을 앞으로 (작업 표시줄에 남은 예전 창 + 새 창이 겹쳐 메모리를 두 배로 쓰던 것)
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
+else {
+  app.on('second-instance', () => { const w = BrowserWindow.getAllWindows()[0]; if (!w || w.isDestroyed()) return; if (w.isMinimized()) w.restore(); w.show(); w.focus(); });
+  app.whenReady().then(() => createWindow());
+}
 app.on('window-all-closed', () => app.quit());
