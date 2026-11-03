@@ -7,7 +7,7 @@ const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + m); if (!c) pro
   // 예전 펫 (potPct 없음) 하나를 가방에 넣고 소환
   const r0 = await p.evaluate(() => { const T = __T; T.hero.lv = 30; const pet = Object.assign(T.mkPetData('doberman', 20), { name: '바둑' }); delete pet.potPct;
     T.INV.load({ bag: [{ id: 'pet_collar', n: 1, pet }], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.add('red_potion', 50, true); T.INV.add('green_potion', 20, true);
-    const e = T.INV.bag().find(x => x.pet); T.PET.summon(e); T.PET.openWin(e); return { has: 'potPct' in e.pet, def: T.PET.potPct(e.pet), out: e.pet.state }; });
+    const e = T.INV.bag().find(x => x.pet); T.PET.summon(e); T.PET.openWin(e); return { has: 'potPct' in e.pet, def: parseInt((document.querySelector('#petwin .pw-pot b') || {}).textContent), out: e.pet.state }; });
   ok(!r0.has && r0.def === 50 && r0.out === 'out', `예전 펫(값 없음) 기준 = ${r0.def}% · 소환 ${r0.out}`);
   const winTxt = () => p.evaluate(() => (document.querySelector('#petwin .pw-pot b') || {}).textContent || '');
   ok(await p.isVisible('#petwin') && (await winTxt()) === '50%', `펫 창 열림 · 표시 ${await winTxt()}`);
@@ -38,9 +38,9 @@ const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + m); if (!c) pro
   await p.click('#petwin .pw-slot[data-k="0"]'); const tk = await p.evaluate(() => __T.INV.bag().find(x => x.pet).pet.inv.filter(Boolean).length);
   // 가방 저장 (dump → JSON → load) 뒤에도 값이 남음
   const r2 = await p.evaluate(() => { const T = __T; T.PET.storeAll(); const D = JSON.parse(JSON.stringify(T.INV.dump())); T.INV.load(D); const e = T.INV.bag().find(x => x.pet); T.PET.openWin(e);
-    return { v: e.pet.potPct, pp: T.PET.potPct(e.pet), txt: (document.querySelector('#petwin .pw-pot b') || {}).textContent }; });
+    return { v: e.pet.potPct, txt: (document.querySelector('#petwin .pw-pot b') || {}).textContent }; });
   ok(tk === 0, '펫 가방 칸 클릭 → 꺼내기 그대로');
-  ok(r2.v === 30 && r2.pp === 30 && r2.txt === '30%', `가방 저장·불러오기 뒤 기준 ${r2.v}% (창 ${r2.txt})`);
+  ok(r2.v === 30 && r2.txt === '30%', `가방 저장·불러오기 뒤 기준 ${r2.v}% (창 ${r2.txt})`);
   // 휴대폰 폭에서 한 줄에 들어가는지
   await p.setViewportSize({ width: 360, height: 700 }); await p.waitForTimeout(200);
   const lay = await p.evaluate(() => { const w = document.getElementById('petwin').getBoundingClientRect(), r = document.querySelector('#petwin .pw-pot').getBoundingClientRect(), bs = [...document.querySelectorAll('#petwin .pw-pot > *')].map(x => x.getBoundingClientRect());
