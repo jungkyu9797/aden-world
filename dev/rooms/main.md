@@ -1,7 +1,7 @@
 지금 메인방: https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a (10/30 교대 · 예약 작업으로 연 방은 PC에 안 보여서 이 방 유지)
 
 ## 11/2 2D 종료
-- 프로듀서 결정: 2D 아덴 월드 종료 (플레이·배포 안 함). AWS aden-bothost·aden-relay 중지(프로듀서가 콘솔에서 · Claude는 AWS 접근 없음) → 나중에 완전 삭제·고정 IP 반환. Firebase(계정·Firestore)와 이 저장소는 3D판 로그인·이전·참고용으로 보존. 3D판은 비공개 저장소 aden-world-3d의 별도 대화방에서 진행. 예약 작업 없음(11/2 확인).
+- 프로듀서 결정: 2D 아덴 월드 개발 종료 (배포 안 함 · v218 마지막). 11/3: 친구 3명이 v218을 당분간 플레이 → AWS aden-bothost·aden-relay는 **켜 둠**(크레딧 $118.86 남음 · 2027-10-29 만료 · 11월 1~3일 사용 $1.14) · 새 친구용 PC판 AdenWorld_v218.zip(Electron 44.10.1)을 채팅으로 줌. 멈출 때는 프로듀서가 콘솔에서 (Claude는 AWS 접근 없음). Firebase(계정·Firestore)와 이 저장소는 3D판 로그인·이전·참고용으로 보존. 3D판은 비공개 저장소 aden-world-3d의 별도 대화방에서 진행. 예약 작업 없음(11/2 확인).
 
 # 메인방(배포 담당 방) 인수인계 — 10/30 교대
 
