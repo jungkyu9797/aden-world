@@ -4803,7 +4803,10 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       const can = kind === 'find' ? d.state === 'stored' : d.state === 'out' || d.state === 'dead';
       row.innerHTML = `<span class="ic">${ICON(eIcon(e))}</span><span class="nm">${esc(d.name)} <small>Lv.${d.lv} ${PET_KIND[d.kind].name}</small></span><span class="info">HP ${Math.ceil(d.hp)}/${MXH(d)} · ${({ out: '소환 중', stored: '보관소에 있음', dead: '쓰러짐' })[d.state]}</span><button type="button" class="buy"${can ? '' : ' disabled'}>${kind === 'find' ? '소환' : '맡기기'}</button>`;
       row.querySelector('.buy').onclick = () => { if (kind === 'find') summon(e); else store(e); shopPanel(kind, list); }; list.appendChild(row); } }
-  return { capCheck: () => capCheck(true), sumBal: SUMB, sumMp, sumLocked, bossNear, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
+  // 11/3 운영자 [펫 목걸이 만들기]: 원하는 레벨·진화·진화 기준 레벨·이름의 도베르만 (진화 기준은 펫 상한 맞춤과 같은 ebAt · capOk=1이라 경험치 넘김 없음)
+  function adminMake(o) { const kind = 'doberman', L = Math.max(1, Math.min(99, o.lv | 0 || 1)), d = mkPetData(kind, L); if (o.evo) { d.evo = 1; d.eb = ebAt(kind, Math.max(50, Math.min(99, o.eb | 0 || L))); }
+    d.name = String(o.name || '').trim().slice(0, 8) || PET_KIND[kind].name; d.exp = 0; d.capOk = 1; d.maxhp = petMaxHp(d); d.hp = MXH(d); return d; }
+  return { adminMake, capCheck: () => capCheck(true), sumBal: SUMB, sumMp, sumLocked, bossNear, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
 })();
 
 // ============================================================ 인벤토리 · 캐릭터 정보 (기획팀)
@@ -8437,6 +8440,10 @@ const ADMIN = (() => {
       case 'give': { const d = ITEMS[A.id]; if (!d) return no('없는 아이템'); const n = Math.max(1, Math.min(d.stack ? 99999 : (from ? 20 : 100), A.n | 0 || 1));
         if (d.stack) INV.add(A.id, n, true); else for (let k = 0; k < n; k++) { INV.add(A.id, 1, true); const e = INV.bag().filter(x => x.id === A.id && !x.on).pop(); if (e) { if (A.en) e.en = Math.max(-7, Math.min(15, A.en | 0)); if (A.bl) e.blessed = true; } }
         INV.render(); say(`[운영자] ${A.en ? '+' + A.en + ' ' : ''}${d.name} ×${n}을(를) 받았습니다.`, ADMC); ok(`${d.name} ×${n} 지급`); break; }
+      case 'pet': { const L = Math.max(1, Math.min(99, A.lv | 0 || 1)), EL = A.evo ? Math.max(50, Math.min(99, A.eb | 0 || L)) : 0, top = Math.max(L, EL);   // 11/3: 펫 목걸이 만들기 (레벨·진화·진화 기준·이름)
+        if (top > hero.lv) return no(`펫은 주인 레벨을 넘을 수 없어요. 이 캐릭터는 Lv.${hero.lv}라 Lv.${top} 펫을 만들 수 없어요. (먼저 레벨을 ${top} 이상으로)`);
+        const n0 = INV.bag().filter(x => x.id === 'pet_collar').length; INV.add('pet_collar', 1, true); const L_ = INV.bag().filter(x => x.id === 'pet_collar'); if (L_.length <= n0) return no('가방이 가득 차서 펫 목걸이를 만들 수 없어요.');
+        const e = L_[L_.length - 1], d = (e.pet = PET.adminMake({ lv: L, evo: !!A.evo, eb: EL, name: A.name })), R = PET.range(d); INV.render(); say(`[운영자] 펫 목걸이(Lv.${d.lv} ${d.name}${d.evo ? ` · 진화 · 진화 기준 Lv.${d.eb.lv}` : ''})를 받았습니다. (HP ${PET.mxh(d)} · 공격 ${R[0]}~${R[1]})`, ADMC); ok(`펫 목걸이 Lv.${d.lv} ${d.name} 지급`); break; }
       case 'take': { const d = ITEMS[A.id]; if (!d) return no('없는 아이템'); let n = Math.max(1, A.n | 0 || 1), got = 0;
         for (const e of INV.bag().filter(x => x.id === A.id && !x.on)) { if (n <= 0) break; if (d.stack) { const q = Math.min(n, e.n); e.n -= q; n -= q; got += q; if (e.n <= 0) INV.removeEntry(e); } else { INV.removeEntry(e); n--; got++; } }
         INV.render(); if (got) say(`[운영자] ${d.name} ×${got}이(가) 회수되었습니다.`, ADMC); ok(`${d.name} ×${got} 회수`); break; }
@@ -8475,6 +8482,7 @@ const ADMIN = (() => {
       <h4>전체 공지</h4><div class="row"><input id="adm-nt" style="flex:1" maxlength="80" placeholder="모든 접속자 화면에 공지"><button type="button" id="adm-nts">보내기</button></div>
       <h4>내 캐릭터 (운영자)</h4><div class="row">아이템 <input id="adm-sit" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-sin" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-sie" type="number" value="0" style="width:44px"> <label><input id="adm-sib" type="checkbox"> 축복</label> <button type="button" id="adm-sgive">만들기</button></div>
       <div class="row">골드 <input id="adm-sg" type="number" style="width:120px" placeholder="금액"> <button type="button" id="adm-sgadd">만들기</button> &nbsp; 레벨 <input id="adm-sl" type="number" style="width:50px" min="1" max="99"> <button type="button" id="adm-slv">설정</button> <span class="muted">· 이동 5배 · 무적 · 몬스터 공격 안 함</span></div>
+      <div class="row">펫 목걸이 레벨 <input id="adm-pl" type="number" value="61" min="1" max="99" style="width:46px"> <label><input id="adm-pe" type="checkbox" checked> 진화</label> 진화 기준 Lv <input id="adm-pb" type="number" value="61" min="50" max="99" style="width:46px"> 이름 <input id="adm-pn" maxlength="8" value="베리" style="width:70px"> <button type="button" id="adm-spet">만들기</button></div>
       <div class="row"><button type="button" id="adm-ccme">내 캐릭터 복사 코드</button> <span class="muted">테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣으면 이 캐릭터와 똑같이</span></div><div id="adm-ccme-out"></div>
       <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><div id="adm-cc-out"></div><datalist id="adm-items"></datalist>`;
     document.body.appendChild(w);
@@ -8483,6 +8491,7 @@ const ADMIN = (() => {
     $('adm-sgive').onclick = () => { const id = selfIdOf($('adm-sit').value); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } apply('give', JSON.stringify({ id, n: Math.max(1, +$('adm-sin').value | 0), en: +$('adm-sie').value | 0, bl: $('adm-sib').checked ? 1 : 0 }), null, 0); };
     $('adm-sgadd').onclick = () => { const v = Math.floor(+$('adm-sg').value || 0); if (v) apply('gold', JSON.stringify({ op: 'add', v }), null, 0); };
     $('adm-slv').onclick = () => { const L = +$('adm-sl').value | 0; if (L >= 1) apply('lv', JSON.stringify({ lv: L }), null, 0); };
+    $('adm-spet').onclick = () => apply('pet', JSON.stringify({ lv: +$('adm-pl').value | 0, evo: $('adm-pe').checked ? 1 : 0, eb: +$('adm-pb').value | 0, name: $('adm-pn').value }), null, 0);   // 11/3
     $('adm-ccme').onclick = () => ccOut(CCOPY.code(), '내 캐릭터', 'adm-ccme-out');
     $('adm-nts').onclick = () => { const t = $('adm-nt').value.trim(); if (!t) return; send('*', 'notice', { t }); announce(`[운영자] ${t}`, ADMC); $('adm-nt').value = ''; };
     $('adm-items').innerHTML = Object.keys(ITEMS).filter(id => !ITEMS[id].hidden).sort((a, b) => ITEMS[a].name.localeCompare(ITEMS[b].name, 'ko')).map(id => `<option value="${ITEMS[id].name.replace(/"/g, '')}">`).join('');
