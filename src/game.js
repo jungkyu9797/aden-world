@@ -7944,8 +7944,14 @@ const SESS = (() => {
   function kick(why) { if (kicked) return; kicked = true; window.__gameOn = false;
     try { SAVE.stop(); } catch (e) {} try { if (AUTO.on()) AUTO.toggle(); } catch (e) {} try { NET.setRoom(null); } catch (e) {} try { MPP.leave(); } catch (e) {}
     const w = document.createElement('div'); w.id = 'dupkick'; w.setAttribute('role', 'alertdialog');
-    w.innerHTML = why === 'admin' ? '<div class="dk-box"><b>운영자에 의해 접속이 종료되었어요</b><p>진행 상황은 저장했어요.</p><button type="button" id="dk-re">다시 접속하기</button></div>' : '<div class="dk-box"><b>다른 곳에서 같은 계정으로 접속했어요</b><p>같은 계정은 한 곳에서만 플레이할 수 있어서 이 창의 접속을 끊었어요.<br>진행 상황은 새로 접속한 쪽에서 이어서 저장돼요. (이 창은 더 이상 저장하지 않아요)</p><button type="button" id="dk-re">다시 접속하기</button></div>';
-    document.body.appendChild(w); const b = document.getElementById('dk-re'); if (b) b.onclick = () => location.reload();
+    w.innerHTML = why === 'admin' ? '<div class="dk-box"><b>운영자에 의해 접속이 종료되었어요</b><p>진행 상황은 저장했어요.</p><button type="button" id="dk-re">다시 접속하기</button></div>' : '<div class="dk-box"><b>다른 곳에서 같은 계정으로 접속했어요</b><p>같은 계정은 한 곳에서만 플레이할 수 있어서 이 창의 접속을 끊었어요.<br>진행 상황은 새로 접속한 쪽에서 이어서 저장돼요. (이 창은 더 이상 저장하지 않아요)<br><small>잠시 뒤 이 창은 게임을 멈추고 메모리를 비운 채 처음 화면으로 돌아가요.</small></p><button type="button" id="dk-re">다시 접속하기</button></div>';
+    document.body.appendChild(w);
+    // 11/3: 끊긴 창도 예전엔 게임(몬스터·봇·화면 그리기)이 계속 돌아 메모리·CPU를 그대로 씀 → 2.5초 뒤 처음 화면으로 새로 열어 비움 (자동 로그인이어도 캐릭터 선택 화면까지만 · 게임은 직접 시작해야 함)
+    const out = () => { try { sessionStorage.setItem('aden_kick', why === 'admin' ? 'admin' : 'dup'); sessionStorage.removeItem('aden_boot'); localStorage.removeItem('aden_resume'); } catch (e) {}
+      const r = why === 'admin' ? 'admin' : 'dup'; if (NET.hasArtRoom()) { location.reload(); return; }
+      if (window.native && native.kicked) { native.kicked(r).catch(() => location.replace('kicked.html?r=' + r)); return; }   /* PC 실행 파일: 게임 창을 통째로 닫고 가벼운 안내 창 (메모리를 바로 돌려줌) */
+      location.replace('kicked.html?r=' + r); };   /* PC·웹: 게임 화면을 아예 닫는 가벼운 페이지로 · 테스트 페이지(아티팩트)는 처음 화면으로 */
+    const b = document.getElementById('dk-re'); if (b) b.onclick = out; if (!BOTHOST.on()) setTimeout(out, 2500);
     try { TELE.ev('dupkick', { why }); } catch (e) {} }
   // 월드 서버에서 같은 계정의 다른 접속이 보이면: 내가 먼저 들어온 쪽이면 나감 · 나중이면 알림만
   function scan(L) { const me = ah(); if (!me || kicked || !t0) return; for (const o of L) { const p = o.pr; if (!p || p.ah !== me || !p.sd || p.sd === id || !(+p.st)) continue;   // 아직 캐릭터 선택 중인 접속은 무시
@@ -10594,7 +10600,9 @@ const ACCOUNT = (() => {
       document.querySelectorAll('#charsel .cs-card').forEach(c => { c.onclick = () => { sel = c.dataset.cls; render(); }; c.ondblclick = () => { sel = c.dataset.cls; start(); }; });
       $('cs-start').onclick = start; $('cs-logout').onclick = logout; } }
   // 켤 때: 캐릭터를 바꾸느라 새로 불러온 경우엔 바로 그 캐릭터로, 아니면 로그인 화면
-  setTimeout(() => UPD.gate().then(() => { let boot = null; try { boot = JSON.parse(sessionStorage.getItem('aden_boot') || 'null'); sessionStorage.removeItem('aden_boot'); } catch (e) {}
+  setTimeout(() => UPD.gate().then(() => { setTimeout(() => { let k = null; try { k = sessionStorage.getItem('aden_kick'); sessionStorage.removeItem('aden_kick'); } catch (e) {} if (!k) return;   // 11/3: 중복 접속으로 끊긴 창이 새로 열렸을 때 안내
+      const t = k === 'admin' ? '운영자에 의해 접속이 종료됐어요. 다시 하려면 캐릭터를 골라 시작하세요.' : '다른 곳에서 같은 계정으로 접속해서, 이 창은 게임을 멈추고 메모리를 비웠어요. 여기서 하려면 캐릭터를 골라 다시 시작하세요.'; csMsg(t, false); msg(t, false); }, 60);
+    let boot = null; try { boot = JSON.parse(sessionStorage.getItem('aden_boot') || 'null'); sessionStorage.removeItem('aden_boot'); } catch (e) {}
     let rs = null; try { rs = JSON.parse(localStorage.getItem('aden_resume') || 'null'); localStorage.removeItem('aden_resume'); } catch (e) {}
     if (rs && rs.exp > Date.now() && rs.acc && CLS_DEF[rs.cls]) { acc = rs.acc; chars = rs.chars || {}; srv = rs.srv || 'legacy'; if (rs.fb) CLOUD.restore(rs.fb); sel = rs.cls;   // 게임 중 업데이트 → 다시 켜지면 그 자리에서
       begin(rs.cls, rs.name).then(() => { if (!started) return; const p = rs.pos || {}; if (p.isle && ISLAND.def(p.isle)) TOWN.toZone(p.isle, p.x, p.z); else if (p.scene === 'town') TOWN.placeAt(p.x, p.z);
