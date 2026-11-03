@@ -63,7 +63,7 @@ const toZone = async (p, z) => { await p.evaluate(z => __T.TOWN.toZone(z), z); a
   // 호스트가 억지로 보낸 봇 피해 → 게스트가 무시 · 몹 피해(대조)는 들어감
   await H.evaluate(() => { const T = __T, o = T.NET.others()[0], P = T.NET.proxyOf(o.peer); T.NET.hitRaw(P, window.__NB[0], 77, false); }); await H.waitForTimeout(3500);
   const g2 = await G.evaluate(() => __T.hero.hp); ok(g2 === g1.max, `③ 봇 이름으로 온 피해는 중립 게스트가 안 받음 (HP ${g2})`);
-  await H.evaluate(() => { const T = __T, o = T.NET.others()[0], P = T.NET.proxyOf(o.peer), m = T.foxes.find(f => !f.fb && f.uid != null && T.MOB[f.kind] && !T.MOB[f.kind].boss); if (m) { m.dead = false; T.NET.hitRaw(P, m, 7, false); } }); await H.waitForTimeout(3500);
+  await H.evaluate(() => { const T = __T, o = T.NET.others()[0], P = T.NET.proxyOf(o.peer), m = T.foxes.find(f => !f.fb && f.uid > 0 && !f.dead && T.MOB[f.kind] && !T.MOB[f.kind].boss); if (m) { for (let k = 0; k < 4; k++) T.NET.hitRaw(P, m, 7, false); } });   // 2구역은 유저 방어 v2(빗나감 있음) → 4번 await H.waitForTimeout(3500);
   const g3 = await G.evaluate(() => __T.hero.hp); ok(g3 < g1.max, `③ (대조) 몹 이름으로 온 피해는 들어감 (HP ${g3})`);
   // 게스트 Lv56 → 호스트가 반왕으로 보고 노림
   await G.evaluate(() => { __T.GOD_INV = true; const T = __T; T.gainExp(1); T.hero.lv = 56; }); await H.waitForTimeout(12000);
