@@ -9015,9 +9015,9 @@ const TWM = (() => {
   function hitChance(a, T) { const st = a.bot.st, lvT = T === hero ? hero.lv : T.bot ? T.bot.st.lv : T.isRemote ? (refOf(T.peer).lv || st.lv) : st.lv, acT = T === hero ? INV.ac() : T.bot ? T.bot.st.ac : T.isRemote ? (refOf(T.peer).ac ?? 0) : 10;
     return Math.max(0.2, Math.min(0.95, TWB.hit + 0.03 * (st.lv - lvT) - (10 - acT) * TWB.acK)); }
   function rollD(a, mul) { let d = a.bot.st.d * TWB.dm * (a.bot.cls === 'wizard' ? TWB.wiz : 1) * (0.75 + Math.random() * 0.5) * (mul || 1);   /* 법사 봇: 마법은 빗나가지 않으니 한 방은 약하게 */ const cr = Math.random() < 0.1; if (cr) d *= 1.5; return [Math.max(1, Math.round(d)), cr]; }
-  function inDmg(f, d, mode) { if (f.twr) return mode === 'bow' || mode === 'magic' ? Math.max(1, Math.round(d * 0.5)) : d; const st = f.bot && f.bot.st; if (!st) return d;
-    if (mode !== 'magic' && st.ac < 0) d = Math.max(1, d - Math.floor(Math.random() * (Math.floor(-st.ac / 3) + 1)));
-    if (mode === 'magic') d = Math.round(d * (1 - Math.min(0.5, (st.mr || 0) / 200)));
+  function inDmg(f, d, mode, v2) { if (f.twr) return mode === 'bow' || mode === 'magic' ? Math.max(1, Math.round(d * 0.5)) : d; const st = f.bot && f.bot.st; if (!st) return d;   // v2: 사냥터 방어 v2를 이미 적용함 (AC·MR 감소는 건너뜀 · 11/3)
+    if (!v2 && mode !== 'magic' && st.ac < 0) d = Math.max(1, d - Math.floor(Math.random() * (Math.floor(-st.ac / 3) + 1)));
+    if (!v2 && mode === 'magic') d = Math.round(d * (1 - Math.min(0.5, (st.mr || 0) / 200)));
     if (f.bot.cls === 'knight' && !f.fb) d = Math.round(d * 0.85);   // 기사: 리덕션 아머 (수호탑 봇은 늘 걸린 것으로)
     if (f.fb && (f.fbBf & 1)) d = Math.round(d * 0.75);   // 11/1 필드 기사 봇: 리덕션 아머가 걸려 있을 때만 (유저와 같은 25% · fbBf는 게스트도 몬스터 목록으로 받음)
     if (f.immT > time) d = Math.round(d * 0.7);   // 이뮨 투 함 (유저와 같이 30%)
@@ -9366,7 +9366,7 @@ const FBOT = (() => {
   const C = { SLOT: 1200, CAP: 8, REST: 0.1, ALT: 0.25, RESP: [75, 120], ALERT: 180, HUNT: 1.35, SPD: 1.3, VIEW: 12, MOB_R: 10, NEAR_P: 5, DROP_P: 0.3, DROP_CD: 600, FAR: 6,   // 밸런스·규칙 값 (FBOT.cfg로 바꿀 수 있음)
     // 11/1 2단계 ① 전투를 사람처럼: 물약(빨강·주홍·맑은 비율 · 봇마다 개수 · 먹는 HP% 범위 · 유저와 같은 1.5초) · HP가 없을 때(물약이 남아도 겁먹을 확률 · 귀환 확률 · 다시 오는 초)
     //   기사(버프가 끝나면 다시 거는 지연 · PvP 스턴을 쓸 확률 · 사냥 몹 스턴 확률) · 법사(공용 대기 3초 · 마법 피해 배율 SPK) · 멘트(봇마다 30초 · 지역마다 8초) · 줍기(1~6초 · 봇 소유 초)
-    POT_W: [35, 35, 30], POT_N: [30, 80], POT_AT: [0.4, 0.65], POT_CD: 1.5, PANIC: 0.25, RET_P: 0.5, RET_BACK: [60, 120], BUF_DL: [0.5, 3], STUN_USE: 0.85, STUN_HUNT: 0.15, MAG_CD: 3, SPK: 2.2, TALK_BOT: 30, TALK_ZONE: 8, LOOT: [1, 6], LOOT_HOLD: 60,
+    POT_W: [35, 35, 30], POT_WD: [10, 30, 60], POT_N: [30, 80], POT_AT: [0.7, 0.85], POT_CD: 1.5, PANIC: 0.25, LOW_RUN: 0.25, LOW_RUN_P: 0.6, RET_P: 0.5, RET_BACK: [60, 120], BUF_DL: [0.5, 3], STUN_USE: 0.85, STUN_HUNT: 0.15, MAG_CD: 3, SPK: 2.2, TALK_BOT: 30, TALK_ZONE: 8, LOOT: [1, 6], LOOT_HOLD: 60,
     // 11/1 2단계 ② 파티·보스·뒷치기·지원군: PT_N 혈맹마다 파티 크기(반왕 3·3 = 18명 중 6 · 라인 4·3 = 20명 중 7 → 약 1/3) · PT_FAR 리더에게서 이 칸 넘게 떨어지면 따라감 · PT_WAIT 리더가 뒤처진 파티원을 기다리는 최대 초
     //   보스: BOSS_P 봇이 아예 가는 확률 · BOSS_DL 젠 뒤 2~12분 랜덤 지연 · BOSS_SOLO 혼자 잡을 수 있는 예상 시간(초) · BOSS_PARTY 파티로 잡을 수 있는 예상 시간(초) · DPS_K 예상 피해(명중·치명 보정) · 뒷치기: BS_SPAWN 그 젠에 뒷치기가 있을 확률 · (있으면) BS_P 라인 봇마다 가는 확률 · BS_PT 일정표의 라인 파티가 오는 확률
     //   지원군: REINF_AT 전투가 이 초 넘게 이어지면 · REINF_END 전투 없이 이 초가 지나면 복귀 · REINF_CHK 다시 보는 간격 · ZONE_CAP 지역당 봇 최대
@@ -9644,8 +9644,16 @@ const FBOT = (() => {
   function bossHit(m, who) { if (!host() || !here()) return; bossAlert(m, who && who.isPet ? hero : who); }   // 플레이어(나·펫·다른 유저)가 보스를 침 (addDmg → 호스트)
   // 몬스터가 봇을 칠 때 (근접·화살·마법) — 봇 레벨·AC로 명중 · 받는 피해 감소는 수호탑 봇과 같음
   function mobHit(f, m, S, dmgIn, hitIn, magic, aoe) { if (!f || f.dead || f.gone || !f.bot || !f.bot.st || !S) return; if (f.bindUntil > time) { bindNo(f); return; } const st = f.bot.st;   // 11/1 밤: 어바 중엔 몬스터 공격도 안 맞음
-    const hp = hitIn != null ? hitIn : magic ? Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * ((S.lv || 1) - st.lv))) : Math.max(0.1, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (st.lv * 2 - st.ac) - 40 + (nightUp(S) ? 10 : 0)) / 100));
-    if (Math.random() >= hp) { miss(f); return; } let d = Math.max(1, dmgIn || mobDmg(S, m)); d = K_.inDmg(f, d, magic ? 'magic' : 'melee'); f.hp -= d; f.flash = 0.08; showD(f, d, false, '#ff9a8a');
+    // 11/3 프로듀서: 사냥터(2구역 · 방어 v2)에서는 몹이 봇을 때릴 때도 유저와 같은 규칙 — 명중(레벨 차·AC 회피) · 물리 = AC 배수 × 사냥터 물리 배율 · 마법 = 폭 × 사냥터 마법 배율 × MR · 강타 (예전엔 봇만 배율 없이 원래 피해를 받아 법사·요정 봇이 쉽게 죽음)
+    const hz = HIZ(), D = DEFMODE, acA = Math.max(0, -(st.ac || 0)), boss = !!S.boss;
+    const hp = hitIn != null ? hitIn : magic ? Math.max(0.6, Math.min(0.95, 0.85 + 0.02 * ((S.lv || 1) - st.lv) + (hz && nightUp(S) ? 0.05 : 0)))
+      : hz ? Math.max(0.05, Math.min(0.95, Math.max(D.v2Min, Math.min(D.v2Hit, D.v2Hit + D.v2LvK * ((S.lv || 1) - st.lv))) - Math.min(D.v2EvCap, acA * D.v2EvK) * (boss ? 0.5 : 1) + (nightUp(S) ? 0.05 : 0)))
+      : Math.max(0.1, Math.min(0.95, ((S.lv || 1) * 3 + (S.hit || 0.8) * 100 - (st.lv * 2 - st.ac) - 40 + (nightUp(S) ? 10 : 0)) / 100));
+    if (Math.random() >= hp) { miss(f); return; } let d = Math.max(1, dmgIn || mobDmg(S, m));
+    if (hz) { let mul; if (!magic) { mul = hzAcMul(st.ac || 0, boss) * v2Z('P'); if (Math.random() < D.v2CritP * (1 - Math.min(D.v2CritCut, acA * D.v2CritK))) mul *= D.v2CritM; }
+      else { const mr = Math.min(D.v2Cap, Math.max(0, st.mr || 0)); mul = (D.v2Lo + (D.v2Hi - D.v2Lo) * Math.random()) * v2Z('M') * (1 - mr / (mr + D.v2MrK)); if (Math.random() < D.v2CritP * (1 - Math.min(D.v2CritCut, mr * D.v2CritK)) && !(time - (f._hzCrit || -99) < D.v2CritGap)) { mul *= D.v2CritM; f._hzCrit = time; } }
+      d = K_.inDmg(f, Math.max(1, Math.round(d * mul)), magic ? 'magic' : 'melee', true); }
+    else d = K_.inDmg(f, d, magic ? 'magic' : 'melee'); f.hp -= d; f.flash = 0.08; showD(f, d, false, '#ff9a8a');
     if (f.hp <= 0) { botDie(f, m); return; } if (m && !aoe) counter(f, m, d); const X = f.bx; if (X && !X.tgt && !(X.mob && live(X.mob))) X.mob = m; }
   // 몹 범위 기술에 맞은 봇 (11/1 · 지역 호스트만): 유저와 같은 피해(보스 마법 배율 · 공격력 배율) · 마법(MR로 줄어듦) · 느려짐
   function aoe(a, G, dot) { if (!host() || !here()) return; const m = a.src && !a.src.dead ? a.src : null, S = (m && MOB[m.kind]) || { lv: 1 }, base = dot || (a.dmg ? rint(a.dmg) : 0); if (!(base > 0)) return;
@@ -9696,11 +9704,12 @@ const FBOT = (() => {
   function buffs(f, b, X) { const lv = b.st.lv; for (const id of KBUF) { if (lv < SK[id].lv || X.bf[id] > time) continue; if (!X.bq[id]) { X.bq[id] = time + rr(C.BUF_DL); continue; } if (time < X.bq[id]) continue;
       X.bq[id] = 0; X.bf[id] = time + BUFF_DEF[id].dur; X.sk.buf = SK[id].cd; f.atkT = 0; STAT.buf[id] = (STAT.buf[id] || 0) + 1; fx(['k', f.uid, KBUF.indexOf(id)]); return true; } return false; }
   // 물약 (11/1): 빨강·주홍·맑은 물약을 섞어서(35·35·30) · 실제 아이템 회복량(15~20·30~40·50~60) · 유저와 같은 1.5초 · 먹는 HP%는 봇마다·싸움마다 40~65% · 개수는 봇마다 30~80
-  function potion(f, X) { if (X.pot > 0 || X.potN <= 0 || f.hp >= f.max * X.potAt) return false; const w = C.POT_W, r = Math.random() * (w[0] + w[1] + w[2]), k = r < w[0] ? 0 : r < w[0] + w[1] ? 1 : 2;
+  // 11/3: 유저처럼 HP 70~85%부터 마심 · 위험하면(몹 2마리 넘게 나를 노리거나 HP 50% 밑) 맑은 물약 위주(10·30·60)
+  function potion(f, X) { if (X.pot > 0 || X.potN <= 0 || f.hp >= f.max * X.potAt) return false; const dg = f.hp < f.max * 0.5 || foxes.filter(m => m.tgt === f && !m.dead).length >= 2, w = dg ? C.POT_WD : C.POT_W, r = Math.random() * (w[0] + w[1] + w[2]), k = r < w[0] ? 0 : r < w[0] + w[1] ? 1 : 2;
     const h = Math.max(1, Math.min(Math.ceil(f.max - f.hp), Math.round(rint(ITEMS[POTS[k]].heal) * (f.pollUntil > time ? 0.5 : 1)))); f.hp = Math.min(f.max, f.hp + h); X.pot = C.POT_CD; X.potN--; STAT.pot[k]++; fx(['p', f.uid, k, h]); return true; }   // 11/1 밤: 폴루트 워터(똥물) 중엔 회복 50%
   // HP가 없을 때 (11/1): 도망가지 않음 → 위험하면(가까운 적 · 나를 때리는 몹) 물약이 없거나 겁먹으면(PANIC) 50% 귀환 주문서 · 50% 끝까지 싸우다 죽기 (3초마다 다시 봄)
   function lowHp(f, X, hp, danger) { if (hp > 0.6) { X.lowT = 0; if (hp > 0.75) X.end = null; return false; } if (X.end || !danger || hp >= X.p.brave || time < X.lowT) return false; X.lowT = time + 3;
-    if (X.potN > 0 && Math.random() >= C.PANIC) return false;   // 물약이 남아 있으면 대개 마시며 버팀
+    if (X.potN > 0) { if (hp >= C.LOW_RUN || Math.random() >= C.LOW_RUN_P) return false; STAT.low++; recall(f); return true; }   // 11/3: 물약이 있어도 HP 25% 밑에서 위험하면 60% 확률로 귀환 (3초마다 다시 봄) · 그 위에서는 마시며 버팀
     STAT.low++; if (Math.random() < C.RET_P) { recall(f); return true; } X.end = 'die'; STAT.last++; talk(f, 'last'); return false; }
   // 귀환 주문서 (11/1): 빛기둥과 함께 사라짐 → 1~2분 뒤 다시 (HP·물약·버프 새로)
   function recall(f) { STAT.ret++; talk(f, 'ret'); fx(['r', f.uid]); AWAY.set(f.uid, Date.now() + rr(C.RET_BACK) * 1000); leave(f, true); }
