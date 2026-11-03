@@ -22,7 +22,7 @@ const petNeed = lv => Math.round(18 * Math.pow(lv, 1.55));
   ok(B.lv === 61 && B.mh === 26 + 7 * 60, `일반 펫 Lv.70 → Lv.61 · 최대 HP ${B.mh}`); ok(C.lv === 30, '주인보다 낮은 펫(Lv.30)은 그대로');
   ok(r.gained === exEvo + exB + exD, `넘은 펫 경험치를 주인에게: ${r.gained.toLocaleString()} (계산 ${(exEvo + exB + exD).toLocaleString()})`);
   ok(r.lv === 61 && r.pct > 75 && r.pct < 80, `주인 Lv.61 24.8% → Lv.${r.lv} ${r.pct}% (망고만이면 약 76.4%)`);
-  ok(/망고: 펫은 주인 레벨을 넘을 수 없어서 Lv\.363 → Lv\.61로 맞췄어요 \(Lv\.173에서 했던 진화도 Lv\.61에서 진화한 능력치로\)/.test(r.msg) && /주인에게 넘겼어요/.test(r.msg), '채팅 안내');
+  ok(/\[펫\] 이제 펫은 주인 레벨을 넘을 수 없어서 주인 레벨\(Lv\.61\)에 맞췄어요\. 넘어 있던 경험치는 주인에게 들어갔어요\. 주인 레벨이 오르면 펫도 다시 자라요\./.test(r.msg) && !/망고|363|173|진화/.test(r.msg), '채팅 안내 (짧게 · 펫 이름·이전 레벨·진화 내용 없음)');
   // 다시 확인해도 또 주지 않음 · 거래로 넘어온 펫(이미 확인 표시)은 레벨만
   const r2 = await p.evaluate(() => { const T = __T, e0 = T.hero.exp; T.PET.capCheck(); const g1 = T.hero.exp - e0; const B = T.INV.bag().find(e => e.pet && e.pet.name === '바둑').pet; B.lv = 80; B.exp = 500; const e1 = T.hero.exp; T.PET.capCheck(); return { g1, g2: T.hero.exp - e1, lv: B.lv, mh: B.maxhp }; });
   ok(r2.g1 === 0, '두 번째 확인: 경험치 다시 안 줌'); ok(r2.g2 === 0 && r2.lv === 61 && r2.mh === 26 + 7 * 60, '거래로 넘어온 높은 펫: 레벨만 61로 · 경험치는 안 넘김');

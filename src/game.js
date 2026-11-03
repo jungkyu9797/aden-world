@@ -4692,7 +4692,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (d.lv > cap) { d.lv = cap; d.exp = 0; } if (ebOver) d.eb = ebAt(d.kind, cap);
       d.maxhp = petMaxHp(d); d.hp = Math.min(d.hp, MXH(d)); ch = true;
       if (ex > 0) heroGainExp(ex);
-      say(`[펫] ${nm(d)}: 펫은 주인 레벨을 넘을 수 없어서 ` + (from > cap ? `Lv.${from} → Lv.${cap}로 맞췄어요` : `레벨은 그대로예요`) + (ebOver ? ` (Lv.${eb0}에서 했던 진화도 Lv.${cap}에서 진화한 능력치로)` : '') + '.' + (ex > 0 ? ` 넘은 만큼의 펫 경험치 ${ex.toLocaleString()}을(를) 주인에게 넘겼어요.` : ''), '#ffd86a'); }
+      say(`[펫] 이제 펫은 주인 레벨을 넘을 수 없어서 주인 레벨(Lv.${cap})에 맞췄어요.` + (ex > 0 ? ' 넘어 있던 경험치는 주인에게 들어갔어요.' : '') + ' 주인 레벨이 오르면 펫도 다시 자라요.', '#ffd86a'); }   /* 11/3 프로듀서: 안내는 짧게 (펫 이름·이전 레벨·진화 내용은 안 씀) */
     if (ch) refresh(); }
   function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
     const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, String(dmg), { color: '#ff8a6a', size: 11 });
