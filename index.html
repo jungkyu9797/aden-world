@@ -1196,6 +1196,8 @@ html.mob #polywin .pw-db{padding:4px} html.mob #polywin .pw-db.big{padding:6px 4
   <label class="hw-row">타겟팅 <select data-k="tgtMode"><option value="free">자율 공격 (알아서 가까운 몹)</option><option value="same">파티원과 같은 몬스터 공격</option><option value="diff">파티원과 다른 몬스터 공격</option></select> <small>(파티 중일 때 적용)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="manner"> 매너 사냥: 파티원이 아닌 다른 유저가 잡는 몬스터는 건너뛰기 <small>(나를 공격하는 몬스터는 반격)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="aggrFirst"> 나를 공격하는 몬스터 먼저</label>
+  <label class="hw-row"><input type="checkbox" data-k="counter"> 자동 반격 <small>(라인 혈맹 봇이 나를 공격하면 반격 · 끄면 봇은 공격 안 함)</small></label>
+  <label class="hw-row">반격 우선순위 <select data-k="counterMode" class="hw-sel"><option value="finish">잡던 몹 마저 잡고 반격 (보스몹 포함)</option><option value="finishNB">잡던 몹 마저 잡고 반격 (보스몹 제외)</option><option value="first">반격 먼저</option></select> <small>(보스몹 제외 = 보스를 잡던 중이면 바로 반격)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="healFirst"> 힐 마법 먼저 <small>(자동 물약 기준보다 HP 10% 높을 때 MP로 회복)</small></label>
   <label class="hw-row"><input type="checkbox" data-k="noBoss"> 보스 몬스터는 공격 안 함</label>
   <div class="hw-row">가속 물약 자동 사용 <label class="chip"><input type="checkbox" data-buff="green_potion"> 초록 물약</label><label class="chip"><input type="checkbox" data-buff="brave_potion"> 용기의 물약</label></div>

@@ -10707,7 +10707,7 @@ const ACCOUNT = (() => {
   return { acc: () => acc, openSel, started: () => started, mode: () => srv, keepForUpdate };
 })();
 const AUTO = (() => {
-  const C = { ofl: true, manner: true, retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyQ: { red_potion: 30, orange_potion: 0, clear_potion: 0 }, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true, healFirst: true,
+  const C = { ofl: true, manner: true, retHp: 30, lowPot: true, lowN: 3, lowIds: { red_potion: true, orange_potion: false, clear_potion: false }, buy: true, buyId: 'red_potion', buyN: 30, buyQ: { red_potion: 30, orange_potion: 0, clear_potion: 0 }, buyScroll: true, deathBack: true, backHp: 80, noBoss: true, aggrFirst: true, healFirst: true, counter: true, counterMode: 'finish',
     buyHaste: false, hasteId: 'green_potion', hasteN: 5, hasteQ: { green_potion: 5, brave_potion: 0 }, buyPoly: false, polyQ: { poly_dark: 0, poly_silver: 0 }, refillHome: false, mute: true, tgtMode: 'free', loot: true, lootR: { 일반: true, 고급: true, 희귀: true, 영웅: true }, lootT: { weapon: true, armor: true, acc: true, cons: true, book: true, etc: true }, lootM: { weapon: {}, armor: {}, acc: {}, cons: {}, book: {}, etc: {} },
     sell: false, sellPct: 80, sellR: { 일반: true, 고급: false, 희귀: false, 영웅: false }, saverMin: '0' };   // 자동판매: 가방 무게 sellPct% 이상이면 귀환해서 아덴상단에 고른 등급 장비를 일괄 판매
   // v109: 물약 귀환은 체크한 물약 수량만 셈 (아무것도 안 고르면 자동 구매 물약)
@@ -10772,8 +10772,15 @@ const AUTO = (() => {
   function pick(pd) { pd = pd || pathDist(22); const PT = partyT(), OT = C.manner ? NET.othersTargets() : null;
     if (PT && PT.size) { const only = C.tgtMode === 'same' ? f => PT.has(f.uid) : f => !PT.has(f.uid) || (f.aggro && f.tgt === hero); const r = pickIn(pd, only, OT); if (r) return r; }
     return pickIn(pd, null, OT); }
+  // 11/3 프로듀서: 자동 반격 — [자동 반격]을 켜면 나를 공격한(6초 안) 라인 혈맹 봇에게 반격 · 우선순위 counterMode: finish = 잡던 몹(보스 포함) 마저 잡고 · finishNB = 잡던 몹은 마저 잡되 보스면 바로 · first = 바로 반격 · 끄면 봇은 아예 안 노림
+  const isBossF = f => !!(f && MOB[f.kind] && (MOB[f.kind].boss || MOB[f.kind].midb)), botAtk = f => !!f && !!f.fb && !f.dead && !f.gone && !TWM.ally(f) && !!f.hitMeT && time - f.hitMeT < 6;
+  const fighting = T => !!T && !T.dead && !T.gone && ((T.myDmg || 0) > 0 || !!(T.dmgBy && T.dmgBy.get && T.dmgBy.get(hero) > 0) || (T.aggro && T.tgt === hero) || (!!T.hitMeT && time - T.hitMeT < 6));   // 잡던 몹 = 내가 때렸거나 나를 노리는 몹 (그냥 걸어가던 몹은 아님)
+  const ctrNow = T => C.counterMode === 'first' || !fighting(T) || (C.counterMode === 'finishNB' && isBossF(T));   // 지금 바로 반격으로 바꿀지
+  function counterTick() { { const T0 = hero.target; if (T0 && T0.fb && !T0.dead && !T0.gone && !botAtk(T0) && cheb(T0.i, T0.j, hero.i, hero.j) > 8) hero.target = null; }   /* 도망간 봇은 쫓지 않음 */
+    if (!C.counter) return; let A = null, ad = 1e9; for (const f of foxes) { if (!botAtk(f)) continue; const d = cheb(f.i, f.j, hero.i, hero.j); if (d <= 14 && d < ad) { ad = d; A = f; } } if (!A) return;
+    const T = hero.target; if (T === A || (T && T.fb && !T.dead && !T.gone && (botAtk(T) || cheb(T.i, T.j, hero.i, hero.j) <= 8))) return;   /* 반격하던 봇이 6초 넘게 안 때리고 8칸 넘게 떨어지면(도망) 다른 공격자로 */ if (!T || T.dead || ctrNow(T)) { hero.target = A; moveGoal = null; } }
   function pickIn(pd, only, OT) { let b = null, bd = 1e9, fb = null, fd = 1e9;
-    for (const f of foxes) { if (f.dead || f.gone || f.bindUntil > time || TWM.ally(f)) continue; if (f.fb && !(f.hitMeT && time - f.hitMeT < 6)) continue;   /* v191: 라인 혈맹 봇은 나를 공격 중일 때만 (반격) */ const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (S.dummy) continue; if (only && !only(f)) continue; if (OT && OT.has(f.uid) && !mineF(f)) continue;
+    for (const f of foxes) { if (f.dead || f.gone || f.bindUntil > time || TWM.ally(f)) continue; if (f.fb && (!C.counter || !(f.hitMeT && time - f.hitMeT < 6))) continue;   /* v191: 라인 혈맹 봇은 나를 공격 중일 때만 (반격) */ const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (S.dummy) continue; if (only && !only(f)) continue; if (OT && OT.has(f.uid) && !mineF(f)) continue;
       let d = stepsTo(pd, f); if (d < 0) { const c = cheb(f.i, f.j, hero.i, hero.j); if (c < fd) { fd = c; fb = f; } continue; }
       if (atkMe(f) || (C.aggrFirst && f.aggro && f.tgt === hero && d <= 8)) d -= 100; if (d < bd) { bd = d; b = f; } }
     return b ? { f: b, d: bd } : fb ? { f: fb, d: 999 } : null; }
@@ -10792,14 +10799,15 @@ const AUTO = (() => {
       if (C.sell && wpc() >= C.sellPct) { const L = sellList(), sw = L.reduce((a, e) => a + (ITEMS[e.id].w || 0) * (e.n || 1), 0);   // 팔 장비가 가방 최대 무게의 5% 이상(또는 가방이 꽉 참)일 때만 귀환 — 못 파는 물건 때문에 마을을 계속 오가지 않게
         if (L.length && (sw >= INV.maxW() * 0.05 || wpc() >= 100)) { sellGo = true; goHome(`가방 무게 ${wpc()}% (자동판매)`); return; }
         if ((sellNoT -= dt) <= 0) { sellNoT = 60; say(`자동판매: 가방이 무겁지만(${wpc()}%) 팔 수 있는 장비가 거의 없어 계속 사냥합니다.`, '#9c9682'); } }
+      counterTick();   // 11/3: 자동 반격 (우선순위에 따라 지금 대상을 봇으로 바꿈)
       if ((!hero.target || hero.target.dead) && !moveGoal && hero.t >= 1 && !hero.atk) { const threat = foxes.some(f => !f.dead && f.aggro && cheb(f.i, f.j, hero.i, hero.j) <= 2);
         const it = lootTarget(threat ? 4 : 10); if (it) { it._try = (it._try || 0) + 1; GROUND.go(it); return; }   // v109: 처치 후엔 떨어진 아이템 먼저 (둘러싸여도 4칸 안은 주우러 감)
         const p = pick(); if (p) hero.target = p.f; }
       // 가는 중에 더 가까운 몹이 보이면 갈아탐 (지금 대상이 나를 때리는 중이 아니고, 3걸음 이상 더 가까울 때)
-      else if (hero.target && !hero.target.dead && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target; if (T.bindUntil > time) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } if (C.manner && !mineF(T) && NET.othersTargets().has(T.uid)) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } const threat = !atkMe(T) && foxes.some(f => f !== T && atkMe(f));
+      else if (hero.target && !hero.target.dead && !hero.target.fb && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target;   /* 11/3: 봇과 싸우는 중엔 다른 몹으로 안 갈아탐 */ if (T.bindUntil > time) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } if (C.manner && !mineF(T) && NET.othersTargets().has(T.uid)) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } const threat = !atkMe(T) && foxes.some(f => f !== T && atkMe(f));
         if (threat || (!(T.aggro && T.tgt === hero && cheb(T.i, T.j, hero.i, hero.j) <= 3) && cheb(T.i, T.j, hero.i, hero.j) > 1)) { const pd = pathDist(22), cur = stepsTo(pd, T), p = pick(pd), PT = partyT();
           const party = PT && PT.size && p && (C.tgtMode === 'same' ? PT.has(p.f.uid) && !PT.has(T.uid) : PT.has(T.uid) && !PT.has(p.f.uid));   // 파티 규칙에 맞는 몹이 생기면 바로 갈아탐
-          if (p && p.f !== T && ((threat && atkMe(p.f)) || party || cur < 0 || p.d <= cur - 3)) hero.target = p.f; } }
+          if (p && p.f !== T && !(p.f.fb && !ctrNow(T)) && ((threat && atkMe(p.f)) || party || cur < 0 || p.d <= cur - 3)) hero.target = p.f; } }   /* 11/3: 잡던 몹을 마저 잡는 설정이면 봇으로 안 갈아탐 */
       return; }
     if (state === 'town') {
       if (SCENE !== 'town') { if (!inZ1()) { state = 'off'; } return; }
