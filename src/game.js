@@ -4799,8 +4799,13 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
         const [px, py] = W2P(p.x, p.z); floatText(px, py - 50, `+${h}`, { color: '#8af08a', size: 11 }); spellFx('heal', p); if (AC && SFX_ON) tone(AC.currentTime, 'sine', 520, 880, 0.15, 0.07); refresh(); return; } }
     if (d.haste <= 0) { const k = d.inv.findIndex(x => x && ITEMS[x.id].use === 'haste'); if (k >= 0) { const it = d.inv[k], I = ITEMS[it.id]; d.haste = I.dur; d.hasteLv = I.haste; if (--it.n <= 0) d.inv[k] = null; p.potCd = 1; refresh(); } } }
   let lastHI = null, lastHJ = null;   // 순간이동 감지: 한 프레임에 3칸 넘게 뛰면 텔레포트로 봄
+  let trT = 0;   /* 11/4 프로듀서: 마을로 돌아오면 쓰러진 펫이 저절로 되살아남 (HP 가득 · 부활 주문서 안 씀 · 소환수는 아님) */
+  function townRevive() { if (SCENE !== 'town' || DEATH || !window.__gameOn) return 0; const n = [];
+    for (const e of INV.bag()) { const d = e.pet; if (!d || d.state !== 'dead' || !PET_KIND[d.kind]) continue; d.state = 'out'; d.hp = MXH(d); let p = entOf(e); if (p) { p.dead = false; p.deadT = 0; p.atkT = null; place(p); } else p = spawn(e); if (p) { try { spellFx('heal', p); } catch (x) {} } n.push(nm(d)); }
+    if (n.length) { say(`[펫] 마을에 돌아와서 ${n.length > 1 ? n.join('·') + '이(가) 모두' : JOSA(n[0], '이', '가')} 되살아났어요. (HP 가득)`, '#c8f0a0'); refresh(); } return n.length; }
   function tick(dt) { if (window.__gameOn) capCheck(); if (TW() || HW()) { if (sumLive()) sumClear('tw'); PETS_HERE = []; lastHI = null; return; }   // 수호탑 대전: 펫은 밖에서 기다리고(나오면 다시 옆에) · 소환수는 돌려보냄
     const z = zk(), jump = lastHI !== null && cheb(hero.i, hero.j, lastHI, lastHJ) > 3; lastHI = hero.i; lastHJ = hero.j;
+    if (z === 'town' && (trT -= dt) <= 0) { trT = 1; townRevive(); }
     for (let q = L.length - 1; q >= 0; q--) if (L[q].sum && L[q].dead && L[q].deadT > 1.5) L.splice(q, 1);   // v144: 쓰러진 소환수는 사라짐
     for (const p of L) { if (p.zone !== z || (p.dead && jump)) { const dd = p.dead, dt0 = p.deadT; place(p); if (dd) { p.dead = true; p.deadT = Math.max(dt0, 1.4); } } }   // 쓰러진 펫: 걸어갈 땐 그 자리에 누워 있고, 텔레포트·맵 이동 땐 옆에 같이 떨어짐
     PETS_HERE = L.filter(p => p.zone === z);
@@ -4876,7 +4881,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   // 11/3 운영자 [펫 목걸이 만들기]: 원하는 레벨·진화·진화 기준 레벨·이름의 도베르만 (진화 기준은 펫 상한 맞춤과 같은 ebAt · capOk=1이라 경험치 넘김 없음)
   function adminMake(o) { const kind = 'doberman', L = Math.max(1, Math.min(99, o.lv | 0 || 1)), d = mkPetData(kind, L); if (o.evo) { d.evo = 1; d.eb = ebAt(kind, Math.max(50, Math.min(99, o.eb | 0 || L))); }
     d.name = String(o.name || '').trim().slice(0, 8) || PET_KIND[kind].name; d.exp = 0; d.capOk = 1; d.maxhp = petMaxHp(d); d.hp = MXH(d); return d; }
-  return { adminMake, capCheck: () => capCheck(true), sumBal: SUMB, sumMp, sumLocked, bossNear, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
+  return { adminMake, townRevive, capCheck: () => capCheck(true), sumBal: SUMB, sumMp, sumLocked, bossNear, sumCap, sumLive, sumCast, sumClear, sumOut, sumIn, netOut, drawEnt, labelRemote, mxh: d => MXH(d), evolve, useFruit, range: petRange, gainExp, summon, store, storeAll, hurt, hurtBy, revive, useRevive, tick, draw, drawLabels, click, at, openWin, refresh, rename, shopPanel, setMode, scatter, giveItem, list: () => L, reviveMode: () => reviveMode, cancelRevive() { if (reviveMode) { reviveMode = false; say('부활을 취소했습니다.', '#9c9682'); return true; } return false; } };
 })();
 
 // ============================================================ 인벤토리 · 캐릭터 정보 (기획팀)
@@ -10332,7 +10337,9 @@ const FBOT = (() => {
     if ((pbTagT -= dt) <= 0) { pbTagT = 1; for (const e of PBE.values()) if (!e.bot || e.bot.stRef !== refNow().st) tag(e); }   /* 2시간마다 복사 갱신 → 능력치도 새로 (HP 비율은 그대로) */
     const out = pbOutside(), z = pbZk(), jump = pbLHI !== null && cheb(hero.i, hero.j, pbLHI, pbLHJ) > 3, L = []; pbLHI = hero.i; pbLHJ = hero.j;
     for (const m of PBS.m) { const e = pbEnt(m); if (!e) continue; if (out) { e.zone = ''; continue; } if (e.zone !== z || jump) { pbPlace(e); pbAppear(e); } L.push(e); }   /* 지역 이동·순간이동: 파티장 옆으로 (쓰러진 봇도 같이) */
-    PB_HERE = L; for (const e of L) pbBot(e, dt); pbPend(); if (!SIM) { pbPub(dt); pbUiTick(dt); } }
+    PB_HERE = L; if (SCENE === 'town' && !DEATH) pbTownRevive(L); for (const e of L) pbBot(e, dt); pbPend(); if (!SIM) { pbPub(dt); pbUiTick(dt); } }
+  function pbTownRevive(L) { const n = []; for (const e of L) { if (!e.dead || e.gone) continue; e.dead = false; e.deadT = 0; e.deadAt = 0; e.hp = e.max; e.flash = 0; e.stunT = 0; e.atkT = null; if (e.px) e.px.tgt = null; try { spellFx('heal', e); } catch (x) {} n.push(e.bot ? e.bot.name : '봇'); }   /* 11/4 프로듀서: 마을로 돌아오면 쓰러진 파티 봇이 저절로 되살아남 (HP 가득 · 부활 주문서 안 씀) */
+    if (n.length) { say(`[혈맹 파티] 마을에 돌아와서 쓰러졌던 ${n.join('·')} 님이 되살아났어요. (HP 가득)`, '#9fd8ff'); INV.render(); pbPubT = 0; } return n.length; }
   // presence pb: z 지역 · L 지금 지역의 파티 봇 [uid, x10, z10, row, HP%, 표시(1 쓰러짐·2 공격·4 이동·8 이뮨), 시체 남은 초] · u 파티 봇 [uid, 초대 시각] · a 귀환 중 [uid, 다시 나올 시각]
   function pbPub(dt) { if ((pbPubT -= dt) > 0) return; pbPubT = 0.1; const now = nowMs(); for (const k in PBS.aw) if (PBS.aw[k] <= now) delete PBS.aw[k];
     if (!PBS.m.length && !Object.keys(PBS.aw).length) { if (pbPubO) { pbPubO = null; NET.setExtra('pb', null); } return; }
