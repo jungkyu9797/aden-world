@@ -11013,7 +11013,7 @@ const RANK = (() => {
   const ME = { k: 0, d: 0 };   // 내 캐릭터 킬·데스 (캐릭터 저장에 같이 · 기록 서버는 큰 값을 씀)
   let out = [], seq = 0, SNAP = null, tab = 'cp', withBots = false, rT = 0, cT = 0, fsAt = 0, fsBusy = false, kdSig = '';
   const seen = new Map(), vcool = new Map(), LP = {};   // LP: 이 창(페이지)을 연 뒤에 본 PVP 사건 (기록 서버가 없을 때 보여 줌)
-  const COL = { on: false, loaded: false, P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0, busy: false, saves: 0, casts: 0, err: '', from: '' };
+  const COL = { on: false, loaded: false, q: [], P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0, busy: false, saves: 0, casts: 0, err: '', from: '' };
   const DBG = { col: false, noCloud: false };   // 테스트: col = 일반 탭도 기록 서버처럼
   const num = (v, a, b) => { v = +v; return isFinite(v) ? Math.max(a, Math.min(b, v)) : a; }, nm = s => String(s == null ? '' : s).replace(/[\u0000-\u001f<>&"]/g, '').slice(0, 16);
   const cloudOn = () => { try { return !DBG.noCloud && CLOUD.on() && !!CLOUD.uid(); } catch (e) { return false; } };
@@ -11035,7 +11035,8 @@ const RANK = (() => {
     const kb = (+e[8] || 0) & 1, vb = ((+e[8] || 0) >> 1) & 1, K = [kk, nm(e[2]), e[3], kb, nm(e[9])], V = [vk, nm(e[5]), e[6], vb, nm(e[10])];
     if (at >= bootAt - 1000 && !BOTHOST.on()) { const mk = myKey(); if (kk === mk) ME.k++; if (vk === mk) ME.d++; }
     bump(LP, K, 1, 0); bump(LP, V, 0, 1);
-    if (COL.on && at >= COL.base) { bump(COL.K, K, 1, 0); bump(COL.K, V, 0, 1); COL.dirty = true; } }
+    if (COL.on) colEv(K, V, at); }
+  function colEv(K, V, at) { if (!COL.loaded) { if (COL.q.length < 300) COL.q.push([K, V, at]); return; } if (at < COL.base) return; bump(COL.K, K, 1, 0); bump(COL.K, V, 0, 1); COL.dirty = true; }   // 불러오는 동안 온 사건은 불러온 뒤에 (저장된 수와 큰 값으로 합치면 사라지므로)
   function bump(T, w, k, d) { const r = T[w[0]] || (T[w[0]] = { n: w[1], kind: w[3] ? 'bot' : 'player', c: w[2], cl: w[4] || '', k: 0, d: 0 }); r.n = w[1] || r.n; r.c = w[2] || r.c; if (w[4]) r.cl = w[4]; r.k += k; r.d += d; }
   // ----- 기록 서버 (봇 호스트 첫 탭)
   function prRow(o) { const pr = o.pr; if (!pr || pr.bh || !pr.n || !CLS_DEF[pr.c] || !(+pr.st > 0) || (pr.adm && pr.adm.t)) return null;   /* st: 게임에 들어온 접속만 (캐릭터 선택 중 제외) */ return { key: pkey(pr.ah, pr.n, pr.c), n: nm(pr.n), c: pr.c, cp: Math.round(num(pr.cp, 0, 1e7)), lv: Math.round(num(pr.lv, 1, 99)), xp: Math.round(num(pr.xp, 0, 1000)), kd: Array.isArray(pr.kd) ? [Math.round(num(pr.kd[0], 0, 1e7)), Math.round(num(pr.kd[1], 0, 1e7))] : null }; }
@@ -11049,30 +11050,32 @@ const RANK = (() => {
     COL.base = Math.max(COL.base, +st.at || 0); }
   function state() { const P = Object.entries(COL.P).sort((a, b) => b[1].cp - a[1].cp).slice(0, KEEP), K = Object.entries(COL.K).filter(([, r]) => r.k || r.d).sort((a, b) => b[1].k - a[1].k || b[1].d - a[1].d).slice(0, KEEP);
     return { v: 1, at: Date.now(), P: Object.fromEntries(P), K: Object.fromEntries(K) }; }
+  const tmo = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);   // 서버가 대답하지 않아도 멈추지 않게
+  async function colCloud() { if (!cloudOn()) return; COL.cAt = Date.now(); try { const d = await tmo(CLOUD.get('worldbot_chars/' + CLOUD.uid()), 20000); if (d && d.rk) { merge(JSON.parse(d.rk)); COL.from = 'cloud'; } COL.cok = true; } catch (e) { COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } }   // 저장된 기록을 못 읽었으면 Firestore에 쓰지 않음 (빈 표로 덮어쓰지 않게 · 1분마다 다시 읽기)
   async function colLoad() { COL.busy = true; try { try { merge(JSON.parse(localStorage.getItem(LSC) || 'null')); COL.from = 'local'; } catch (e) {}
-      if (cloudOn()) { try { const d = await CLOUD.get('worldbot_chars/' + CLOUD.uid()); if (d && d.rk) { merge(JSON.parse(d.rk)); COL.from = 'cloud'; } } catch (e) { COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } }
-      COL.loaded = true; } finally { COL.busy = false; } }
-  async function colSeed() { if (!cloudOn()) return; try { const L = await CLOUD.list('worldbot_chars', 200); for (const r of L) { if (!r || r.bh || !CLS_DEF[r.c] || !r.n) continue; const u = String(r.u || r.__id || '').slice(0, 28), at = +r.at || 0; if (!u) continue;
+      await colCloud(); COL.loaded = true; const Q = COL.q; COL.q = []; for (const [K, V, at] of Q) colEv(K, V, at); } finally { COL.busy = false; } }
+  async function colSeed() { if (!cloudOn()) return; try { const L = await tmo(CLOUD.list('worldbot_chars', 200), 20000); for (const r of L) { if (!r || r.bh || !CLS_DEF[r.c] || !r.n) continue; const u = String(r.u || r.__id || '').slice(0, 28), at = +r.at || 0; if (!u) continue;
         const n = nm(r.n), has = Object.keys(COL.P).find(k => COL.P[k].n === n && COL.P[k].c === r.c); if (has && COL.P[has].seen >= at) continue; upP(has || 'pu' + u + ':' + r.c, { n, c: r.c, cp: Math.round(num(r.cp, 0, 1e7)), lv: Math.round(num(r.lv, 1, 99)), xp: null }, at); } }   // 랭킹을 만들기 전에 놀던 유저도 (계정마다 마지막 캐릭터)
     catch (e) { COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } }
   function snapOf(st, src) { const P = Object.entries(st.P).sort((a, b) => b[1].cp - a[1].cp || b[1].lv - a[1].lv).slice(0, TOPN).map(([k, r]) => [k, r.n, r.c, r.cp, r.lv, r.xp, r.seen]);
     const K = Object.entries(st.K).sort((a, b) => b[1].k - a[1].k || kdv(b[1]) - kdv(a[1])).slice(0, TOPN).map(([k, r]) => [k, r.n, r.kind === 'bot' ? 1 : 0, r.c, r.cl || '', r.k, r.d]);
     return { v: 1, at: st.at, src, nP: Object.keys(st.P).length, nK: Object.keys(st.K).length, P, K }; }
-  async function colSave(now, force) { const st = state(); try { localStorage.setItem(LSC, JSON.stringify(st)); } catch (e) {} COL.lsAt = now;
-    if ((COL.dirty || force) && (force || now - COL.saveAt > 120e3) && cloudOn() && !COL.busy) { COL.saveAt = now; COL.dirty = false; COL.busy = true;
-      try { await CLOUD.set('worldbot_chars/' + CLOUD.uid(), { v: 'rk1', bh: '1', u: String(CLOUD.uid()), at: String(st.at), rk: JSON.stringify(st) }); COL.saves++; COL.err = ''; } catch (e) { COL.dirty = true; COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } finally { COL.busy = false; } }
+  function colSave(now, force) { const st = state(); try { localStorage.setItem(LSC, JSON.stringify(st)); } catch (e) {} COL.lsAt = now;
+    if ((COL.dirty || force) && (force || now - COL.saveAt > 120e3) && cloudOn() && COL.cok && !COL.cbusy) { COL.saveAt = now; COL.dirty = false; COL.cbusy = true;
+      return (async () => { try { await tmo(CLOUD.set('worldbot_chars/' + CLOUD.uid(), { v: 'rk1', bh: '1', u: String(CLOUD.uid()), at: String(st.at), rk: JSON.stringify(st) }), 30000); COL.saves++; COL.err = ''; } catch (e) { COL.dirty = true; COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } finally { COL.cbusy = false; } return st; })(); }
     return st; }
   function colTick() { const now = Date.now(); if (!COL.loaded) { if (!COL.busy) colLoad(); return; }
     if (now - COL.prAt > 5000) { COL.prAt = now; colPresence(); }
+    if (!COL.cok && cloudOn() && !COL.busy && now - (COL.cAt || 0) > 60e3) { COL.busy = true; colCloud().finally(() => { COL.busy = false; }); }
     if (now - COL.seedAt > 1800e3 && !COL.busy) { COL.seedAt = now; colSeed(); }
-    if (now - COL.lsAt > 60e3 || now - COL.castAt > 60e3) { const st = colSave(now); Promise.resolve(st).then(s => { if (now - COL.castAt < 60e3) return; COL.castAt = now; const S = snapOf(s, 'col'); setSnap(S, true); try { if (MPP.cast(JSON.stringify(S))) COL.casts++; } catch (e) {} }); } }
+    if (now - COL.lsAt > 60e3 || now - COL.castAt > 60e3) { colSave(now); if (now - COL.castAt >= 60e3) { COL.castAt = now; const S = snapOf(state(), 'col'); setSnap(S, true); try { if (MPP.cast(JSON.stringify(S))) COL.casts++; } catch (e) {} } } }
   // ----- 받은 기록 (스냅샷)
   function okSnap(S) { return S && typeof S === 'object' && Array.isArray(S.P) && Array.isArray(S.K) && +S.at > 0; }
   function setSnap(S, mine) { if (!okSnap(S) || (SNAP && +S.at < +SNAP.at && !mine)) return; SNAP = S; if (!mine) try { localStorage.setItem(LSS, JSON.stringify(S)); } catch (e) {} render(); }
   function onSnap(text) { let S = null; try { S = JSON.parse(text); } catch (e) { return; } if (!okSnap(S)) return; S.src = 'relay'; setSnap(S); }
   try { const S = JSON.parse(localStorage.getItem(LSS) || 'null'); if (okSnap(S)) { S.src = 'cache'; SNAP = S; } } catch (e) {}
   async function fsPull() { if (fsBusy || !cloudOn() || Date.now() - fsAt < 300e3 || (SNAP && SNAP.src !== 'cache' && Date.now() - SNAP.at < 600e3)) return; fsAt = Date.now(); fsBusy = true;   // 중계 서버로 못 받았으면 창을 열 때 저장된 기록을 직접 (5분에 한 번)
-    try { const L = await CLOUD.list('worldbot_chars', 200), d = L.filter(r => r && r.bh && r.rk).sort((a, b) => (+b.at || 0) - (+a.at || 0))[0]; if (d) { const st = JSON.parse(d.rk); if (st && st.P && st.K) setSnap(snapOf({ at: +st.at || +d.at || Date.now(), P: st.P, K: st.K }, 'cloud')); } }
+    try { const L = await tmo(CLOUD.list('worldbot_chars', 200), 20000), d = L.filter(r => r && r.bh && r.rk).sort((a, b) => (+b.at || 0) - (+a.at || 0))[0]; if (d) { const st = JSON.parse(d.rk); if (st && st.P && st.K) setSnap(snapOf({ at: +st.at || +d.at || Date.now(), P: st.P, K: st.K }, 'cloud')); } }
     catch (e) {} finally { fsBusy = false; } }
   // ----- 1초마다
   function tick() { const now = Date.now(); if (now - cT < 1000) return; cT = now;
@@ -11116,7 +11119,7 @@ const RANK = (() => {
     heroDie(src) { if (BOTHOST.on() || !src) return; const K = who(src); if (!K || K[0] === myKey()) return; emit(K, [myKey(), nm(PNAME()), CLASS, 0, '']); },   // 내 캐릭터: 수호탑·콜로세움·결투장은 heroDie에서 뺌
     dump: () => ME.k || ME.d ? { k: ME.k, d: ME.d } : undefined, load(o) { ME.k = o && +o.k > 0 ? Math.round(+o.k) : 0; ME.d = o && +o.d > 0 ? Math.round(+o.d) : 0; kdSig = ''; },
     me: () => Object.assign({}, ME), COL, LP, DBG, snap: () => SNAP, setSnap, state, snapOf, merge, colSave: () => colSave(Date.now(), true), colLoad, cpRows, kdRows,
-    reset() { ME.k = ME.d = 0; out = []; seen.clear(); vcool.clear(); for (const k in LP) delete LP[k]; Object.assign(COL, { loaded: false, P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0 }); SNAP = null; NET.setExtra('rke', null); } };
+    reset() { ME.k = ME.d = 0; out = []; seen.clear(); vcool.clear(); for (const k in LP) delete LP[k]; Object.assign(COL, { loaded: false, cok: false, cAt: 0, q: [], P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0 }); SNAP = null; NET.setExtra('rke', null); } };
 })();
 window.__RANK = RANK;
 // 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·변신·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
