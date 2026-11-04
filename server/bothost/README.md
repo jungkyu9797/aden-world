@@ -90,6 +90,13 @@ match /worldbot/{id} { allow read: if request.auth != null; allow create: if req
 match /worldbot_chars/{uid} { allow read: if request.auth != null; allow write: if request.auth != null && request.auth.uid == uid; }
 ```
 
+### 랭킹 기록 (11/4)
+
+게임 안 [랭킹] 창의 기록(전투력·PVP)도 봇 호스트가 모읍니다 — **서버 코드(run.js)·Firestore 규칙은 바꿀 것이 없어요** (게임 새 버전을 받으면 자동으로 시작).
+
+- 봇 호스트 탭 중 지역 번호가 가장 작은 탭이 접속자 정보와 PVP 사건을 모아 2분마다 Firestore `worldbot_chars/{봇 호스트 계정 uid}`(`bh` 칸이 있는 문서 · ④의 규칙 그대로)에 저장하고, 1분마다 중계 서버로 상위 100명씩 보냅니다.
+- 봇 서버가 꺼져 있으면 랭킹 창은 마지막으로 받은 기록 + 지금 접속 중인 사람만 보여 줍니다 (그동안의 PVP는 각자 캐릭터 저장에 남은 킬·데스로 다시 켜질 때 채워짐).
+
 ## ⑤ 문제가 생겼을 때
 
 | 증상 | 할 일 |
