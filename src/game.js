@@ -4679,8 +4679,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   const petDmg = d => { const [a, b] = petRange(d); return a + Math.floor(Math.random() * (b - a + 1)); };
   const petHit = (d, S) => Math.max(0.2, Math.min(0.95, PET_KIND[d.kind].hit + 0.02 * (petEff(d) - S.lv) - (10 - (S.mac ?? 10)) * 0.02));
   // 돌려주는 값: 주인에게 넘긴 경험치 (펫이 주인 레벨에 닿아 못 받은 몫)
-  function gainExp(p, n) { const d = p.d; if (!d || !(n > 0)) return 0; if (d.lv > petCap()) { d.exp = 0; return -1; }   /* 11/4 프로듀서: 주인보다 레벨 높은 펫(받은 펫)은 성장만 멈춤 · 그 몫 경험치는 없어짐(주인에게도 안 감) */
-    if (d.lv >= petCap()) { d.exp = 0; heroGainExp(n); return n; }   /* 주인 레벨과 같은 펫(최고 레벨)은 지금처럼 몫이 주인에게 */
+  function gainExp(p, n) { const d = p.d; if (!d || !(n > 0)) return 0; if (d.lv >= petCap()) { d.exp = 0; heroGainExp(n); return n; }   /* 11/4 프로듀서: 주인 레벨과 같거나 높은 펫(받은 펫 포함)은 성장만 멈추고 그 몫 경험치는 주인에게 (사냥한 만큼만 · 한꺼번에 넘기기는 없음) */
     d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? PET_EVO_HPLV : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
       if (AC && SFX_ON) { const t = AC.currentTime; [659, 784, 1047].forEach((f, k) => tone(t + k * 0.08, 'triangle', f, f, 0.25, 0.08)); }
       if (d.lv >= petCap()) { const left = d.exp; d.exp = 0; if (left > 0) heroGainExp(left); refresh(); return left; } } refresh(); return 0; }
