@@ -9393,7 +9393,7 @@ window.__TW = TWM;
 // ============================================================ v191(10/30): 혈맹 + 필드 상주 봇 1단계 (프로듀서 결정 10/30 · dev/rooms/aibot.md)
 // 혈맹 2개: 반왕 혈맹 = 실제 플레이어 전원 + 아군 봇 18 · 라인 혈맹 = 적군 봇 20 (봇 명단은 고정 씨앗 → 모든 PC가 같은 이름·직업·비율)
 // 봇 강함: 접속한 유저 중 전투력(presence cp)이 가장 높은 사람 기준 60~100% (수호탑 대전 TWM의 비율·능력치·장비 계산을 그대로 씀)
-// 사냥터 배치(일과표): 봇 레벨(기준 레벨 × 비율)에 맞는 사냥터(월드맵 도감 권장 레벨)를 20분마다 시각으로 정함 · 사냥터당 최대 8명 · 10%는 마을에서 정비 · 맞는 사냥터(권장 레벨 ±6)가 다 차면 마을에서 정비
+// 사냥터 배치(일과표): 봇 레벨(기준 레벨 × 비율)에 맞는 사냥터(월드맵 도감 권장 레벨)를 20분마다 시각으로 정함 · 사냥터당 최대 8명 · 10%는 마을에서 정비 · 맞는 사냥터(권장 레벨 ±6)가 다 차면 레벨이 가까운 다른 사냥터로 (11/4)
 //   → 저장·통신 없이 모든 PC가 같은 결과 · 아무도 없는 사냥터는 '어디서 사냥 중인지'만 계산 (/혈맹 으로 볼 수 있음)
 // 실제 계산: 플레이어가 있는 사냥터에서만 그 지역 호스트 PC가 몬스터처럼 계산하고 몬스터 목록으로 보냄 (추가 접속 없음 · 연출은 presence fbx)
 // 행동: 자기 사냥터에서 몬스터 사냥(플레이어가 노리거나 때린 몹·플레이어 가까운 몹은 건드리지 않음 · 조금 느리게) · 물약·후퇴 · 물약이 떨어지면 귀환 · 죽으면 75~120초 뒤 다시 등장
@@ -9576,9 +9576,9 @@ const FBOT = (() => {
     const Z = zones(), cnt = {}, at = {}, el = {};
     const RO_ = roster(), L = RO_.all.map(b => ({ b, h: hsh(b.uid + ':' + slot) })).sort((x, y) => x.h - y.h || x.b.uid - y.b.uid), ptAt = {};
     const place = (b, h, v, n) => { if ((h % 1000) / 1000 < C.REST) return 0;   // 마을에서 정비 중
-      const cand = Z.map(z => ({ id: z.id, d: v < z.lo ? z.lo - v : v > z.hi ? v - z.hi : 0, r: hsh(b.uid + ':' + z.id + ':' + slot) })).filter(c => c.d <= C.FAR).sort((x, y) => x.d - y.d || x.r - y.r);
+      const all = Z.map(z => ({ id: z.id, d: v < z.lo ? z.lo - v : v > z.hi ? v - z.hi : 0, r: hsh(b.uid + ':' + z.id + ':' + slot) })).sort((x, y) => x.d - y.d || x.r - y.r), cand = all.filter(c => c.d <= C.FAR);
       if (cand.length > 1 && cand[1].d <= cand[0].d + 3 && ((h >>> 10) % 1000) / 1000 < C.ALT) cand.unshift(cand.splice(1, 1)[0]);   // 4번에 1번은 두 번째로 맞는 사냥터 (같은 곳에만 몰리지 않게)
-      const c = cand.find(q => (cnt[q.id] || 0) + n <= C.CAP); if (c) cnt[c.id] = (cnt[c.id] || 0) + n; return c ? c.id : 0; };
+      const fit = q => (cnt[q.id] || 0) + n <= C.CAP, c = cand.find(fit) || all.find(fit); if (c) cnt[c.id] = (cnt[c.id] || 0) + n; return c ? c.id : 0; };   // 11/4 프로듀서: 맞는 사냥터(±6)가 다 차면 레벨이 가까운 다른 사냥터로 (마을 정비는 REST 10%만 · 봇 레벨을 1위 -5렙으로 몰아서 높은 곳이 모자람)
     for (const { b, h } of L) { const v = elvOf(b, lv); el[b.uid] = v;
       if (b.pt) { if (ptAt[b.pt] == null) { const Pt = RO_.ptBy.get(b.pt), ld = RO_.by.get(Pt.lead); ptAt[b.pt] = place(ld, hsh(ld.uid + ':' + slot), elvOf(ld, lv), Pt.uids.length); } at[b.uid] = ptAt[b.pt]; continue; }   // 11/1 2단계 ②: 파티는 리더 기준으로 다 같이
       at[b.uid] = place(b, h, v, 1); }
