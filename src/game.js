@@ -8458,7 +8458,9 @@ const ADMIN = (() => {
     while (JSON.stringify(D).length > cap && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
   function setLv(L) { L = Math.max(1, Math.min(99, L | 0)); const CD = CLS_DEF[CLASS]; let bh = CD.hp, bm = CD.mp, sd = L * 977 + 13; const R0 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
     for (let l = 2; l <= L; l++) { bh += CD.hpLv[0] + Math.floor(R0() * (CD.hpLv[1] - CD.hpLv[0] + 1)); bm += CD.mpLv[0] + Math.floor(R0() * (CD.mpLv[1] - CD.mpLv[0] + 1)); }
-    hero.lv = L; hero.exp = 0; hero.baseHP = bh; hero.baseMP = bm; INV.setLevelPts(Math.floor(L / 5)); INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; return L; }
+    const down = L < hero.lv; hero.lv = L; hero.exp = 0; hero.baseHP = bh; hero.baseMP = bm; INV.setLevelPts(Math.floor(L / 5));
+    let off = 0; if (down) { LEARNED.clear(); wizAutoLearn(true); for (const e of INV.bag().filter(x => x.on && ITEMS[x.id] && (ITEMS[x.id].lv || 0) > L)) { INV.use(e); off++; } }   /* 11/4 프로듀서: 레벨을 낮추면 그 레벨에 없는 기술·마법은 빠지고, 레벨이 안 맞는 장비는 가방으로 (보너스 능력치는 setLevelPts가 초기화) */
+    INV.render(); hero.hp = hero.max; hero.mp = hero.maxmp; setLv.last = { down, off }; return L; }   /* 돌려주는 값은 그대로 레벨 숫자 (다른 곳에서도 씀) */
   function goTo(z, x, y) { if (z === 'town') { TOWN.goTown(); setTimeout(() => TOWN.placeAt(x + 1, y), 250); return true; } const m = /^isle(\d+)$/.exec(z || ''); if (m) { TOWN.toZone(+m[1], x + 1, y); return true; } return false; }
   const zkey = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
   function apply(cmd, a, from, sq) { let A = {}; try { A = JSON.parse(a || '{}') || {}; } catch (e) {} const ok = m => { if (from) respond(from, sq, cmd, { ok: 1, m }); }, no = m => { if (from) respond(from, sq, cmd, { ok: 0, m }); else say(m, '#f08a7a'); };
@@ -8476,7 +8478,7 @@ const ADMIN = (() => {
         for (const e of INV.bag().filter(x => x.id === A.id && !x.on)) { if (n <= 0) break; if (d.stack) { const q = Math.min(n, e.n); e.n -= q; n -= q; got += q; if (e.n <= 0) INV.removeEntry(e); } else { INV.removeEntry(e); n--; got++; } }
         INV.render(); if (got) say(`[운영자] ${d.name} ×${got}이(가) 회수되었습니다.`, ADMC); ok(`${d.name} ×${got} 회수`); break; }
       case 'gold': { const v = Math.floor(+A.v || 0), was = Math.floor(coins); coins = Math.max(0, A.op === 'set' ? v : coins + v); INV.render(); say(`[운영자] 골드 ${was.toLocaleString()} → ${Math.floor(coins).toLocaleString()}`, ADMC); ok(`골드 ${Math.floor(coins).toLocaleString()}`); break; }
-      case 'lv': { const L = setLv(A.lv); say(`[운영자] 레벨이 ${L}(으)로 바뀌었습니다.`, ADMC); ok(`레벨 ${L}`); break; }
+      case 'lv': { const L = setLv(A.lv), R = setLv.last || {}; say(`[운영자] 레벨이 ${L}(으)로 바뀌었습니다.` + (R.down ? ` 레벨업으로 받은 보너스 능력치는 초기화됐어요(다시 찍을 수 있는 점수 ${hero.bonusPts}개)` + (R.off ? ` · 레벨이 안 맞는 장비 ${R.off}개를 가방으로 옮겼어요` : '') + '.' : ''), ADMC, 1); ok(`레벨 ${L}`); break; }
       case 'heal': if (DEATH) { reviveHere('운영자', true); ok('부활시킴'); break; } if (hero.hp <= 0) return no('쓰러진 상태'); hero.hp = hero.max; hero.mp = hero.maxmp; say('[운영자] 체력·마나가 가득 찼습니다.', ADMC); ok('회복'); break;
       case 'town': TOWN.goTown(); say('[운영자] 마을로 이동되었습니다.', ADMC); ok('마을로 보냄'); break;
       case 'pull': if (!goTo(A.z, +A.x || 0, +A.y || 0)) return no('이동할 수 없는 곳'); say('[운영자] 운영자에게 불려 왔습니다.', ADMC); ok('불러옴'); break;
@@ -8550,7 +8552,7 @@ const ADMIN = (() => {
       if (c === 'give' || c === 'take') { const id = idOf($('adm-it').value || ''); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } send(sel, c, { id, n: Math.max(1, +$('adm-in').value | 0), en: +$('adm-ie').value | 0, bl: $('adm-ib').checked ? 1 : 0 }); }
       else if (c === 'gadd' || c === 'gsub' || c === 'gset') { const v = Math.floor(+$('adm-g').value || 0); if (!v && c !== 'gset') return; send(sel, 'gold', c === 'gset' ? { op: 'set', v } : { op: 'add', v: c === 'gsub' ? -Math.abs(v) : Math.abs(v) }); }
       else if (c === 'pet') { const L = +$('adm-tpl').value | 0, ev = $('adm-tpe').checked, EL = +$('adm-tpb').value | 0, top = Math.max(L, ev ? EL : 0); send(sel, 'pet',   /* 11/4: 주인보다 높은 펫도 줄 수 있음 (성장만 멈춤) */ { lv: L, evo: ev ? 1 : 0, eb: EL, name: $('adm-tpn').value }); }   // 11/3: 펫 목걸이 지급 (받는 쪽 v221부터)
-      else if (c === 'lv') { const L = +$('adm-l').value | 0; if (L >= 1) send(sel, 'lv', { lv: L }); }
+      else if (c === 'lv') { const L = +$('adm-l').value | 0, cur = +o.pr.lv || 0; if (L >= 1) { if (cur && L < cur) INV.askYesNo(`${o.pr.n}님의 레벨을 Lv.${cur} → Lv.${L}로 낮출까요?`, '경험치는 0이 되고, 레벨업으로 받은 보너스 능력치는 초기화돼요(새 레벨 몫만 남음). 그 레벨에 없는 기술·마법은 빠지고, 레벨이 안 맞는 장비는 가방으로 옮겨요.', () => send(sel, 'lv', { lv: L })); else send(sel, 'lv', { lv: L }); } }   /* 11/4: 낮출 때는 확인 팝업 */
       else if (c === 'msg') { const t = $('adm-m').value.trim(); if (t) { send(sel, 'msg', { t }); $('adm-m').value = ''; } }
       else if (c === 'kick') INV.askYesNo(`${o.pr.n}님을 추방할까요?`, '진행 상황을 저장한 뒤 접속을 끊어요.', () => send(sel, 'kick'));
       else send(sel, c); }); }
