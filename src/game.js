@@ -10139,8 +10139,8 @@ const FBOT = (() => {
   //   가속 = 유저와 같은 식: 이동 3.2×기본 속도×가속 · 공격 간격 ÷ 가속 · 법사 마법 재사용 ÷ 가속 (필드 봇의 기본 1.3·1.4배 대신)
   //   파티장 → 봇: 힐·익스트라 힐·그레이터 힐(유저에게 거는 양) · 이뮨 투 함 18초 · 어드밴스 스피릿(최대 HP +20% · 30분) · 리무브 커스(슬로우·기절) · 힐 올·네이쳐스 블레싱(8칸) · 실드(AC −2)·카운터 매직(마법 1회 무효) — 파티창에 아이콘 + 남은 시간
   const PBB = { shieldm: 1, counterm: 1 }, PBM = { h: -999, i: -999 };   /* PBB: 파티장이 파티 전체에 거는 마법 버프 중 봇에게도 걸리는 것 · PBM: 채팅 마지막 시각 (힐·이뮨) */
-  const pbHaste = e => (e.pbf.haste1 > time ? 1.2 : 1) * (e.pbf.haste2 > time ? 1.4 : 1);
-  const pbCd = e => ATK[e.bot.cls] / GSPD / pbHaste(e) / (1 + Math.max(0, (e.bot.st && e.bot.st.as) || 0) / 100);
+  const pbHaste = e => 1;   /* 11/4 프로듀서: 파티 봇은 초록·용기 물약을 마시지 않음 — 속도는 필드 봇과 같은 기본값(이동 ×1.3 · 공격 ×1.4) */
+  const pbCd = e => atkCd(e.bot);
   function pbMax(e, b) { const mx = Math.round(b.st.hp * (e.pbf.advsp > time ? 1.2 : 1)); if (e.max !== mx) { e.max = mx; if (e.hp > mx) e.hp = mx; } }   /* 어드밴스 스피릿: 최대 HP만 늘어남 (지금 HP는 그대로) */
   function pbDrink(e, X) { if (X.hz > 0) return; const F = e.pbf, k = !(F.haste1 > time) ? 'haste1' : !(F.haste2 > time) ? 'haste2' : null; if (!k) return; F[k] = time + BUFF_DEF[k].dur; X.hz = 0.6; STAT.pbHaste = (STAT.pbHaste || 0) + 1;
     if (near(e, 14)) { potFx(e, k === 'haste1' ? 'green_potion' : 'brave_potion'); snd(e, 'pot'); } }
@@ -10204,11 +10204,11 @@ const FBOT = (() => {
   function pbBot(e, dt) { const X = e.px, b = e.bot; e.flash = Math.max(0, (e.flash || 0) - dt); if (e.atkT != null) { e.atkT += dt; if (e.atkT >= ATK_T) e.atkT = null; }
     if (e.dead) { e.deadT += dt; if (nowMs() - (e.deadAt || 0) >= PBC.CORPSE) pbLeave(e.uid, 'dead'); return; }
     if (!b || !b.st) return; pbMax(e, b); e.fbBf = b.cls === 'knight' ? (X.bf.reduction > time ? 1 : 0) | (X.bf.solid > time ? 2 : 0) | (X.bf.counter > time ? 4 : 0) : 0;   /* 11/4: 기사 버프 → 받는 피해·회피·반사 (필드 봇과 같은 칸) */
-    const sp = Math.max(3.2 * GSPD * pbHaste(e) * (1 + Math.max(0, b.st.ms || 0) / 100), 3.2 * GSPD * heroSpd() * (1 + (INV.cx('moveSpd') || 0) / 100) * 1.1) * (e.slowT > 0 ? 0.6 : 1) * (e.wslowT > 0 ? 0.75 : 1);
+    const sp = Math.max(SPD() * (1 + Math.max(0, b.st.ms || 0) / 100), 3.2 * GSPD * heroSpd() * (1 + (INV.cx('moveSpd') || 0) / 100) * 1.1) * (e.slowT > 0 ? 0.6 : 1) * (e.wslowT > 0 ? 0.75 : 1);
     stepMove(e, dt, sp); if (e.slowT > 0) e.slowT -= dt; if (e.wslowT > 0) e.wslowT -= dt;
     if (e.stunT > 0) { e.stunT -= dt; e.atkT = null; return; } if (e.bindUntil > time) return;
     X.cd -= dt * (e.wslowT > 0 ? 0.75 : 1); X.pot -= dt; X.mag -= dt; for (const k in X.scd) X.scd[k] -= dt; X.hz -= dt; X.sk.heal -= dt; X.sk.imm -= dt; X.sk.buf -= dt;
-    pbPotion(e, X); pbDrink(e, X);
+    pbPotion(e, X);
     if ((X.supT -= dt) <= 0) { X.supT = 0.25; if (b.cls === 'wizard' ? !DEATH && pbSupport(e, b, X) : b.cls === 'knight' && X.sk.buf <= 0 && pbKBuf(e, b, X)) return; }   /* 11/4: 법사 힐·이뮨 (대기·이동 중에도) · 기사 버프 */
     const md = DEATH ? 'move' : PBS.mode; if (md === 'fight') {   /* 11/3: 파티장이 쓰러져 있으면 싸우지 않음 */ if ((X.th -= dt) <= 0 || (X.tgt && !pbOk(X.tgt))) { X.th = 0.25; const was = X.tgt; X.tgt = pbPick(e); if (X.tgt && !was) X.potAt = rr(C.POT_AT); } } else X.tgt = null;
     if (e.t < 1) return;

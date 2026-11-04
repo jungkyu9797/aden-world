@@ -24,19 +24,9 @@ const SETUP = R => { __T.GOD_INV = true; __FB.setRef(R); Object.assign(__FB.DBG,
     const spot = r => { for (let q = r; q <= r + 3; q++) for (const [a, c] of [[q, 0], [0, q], [-q, 0], [0, -q], [q, q], [-q, -q], [q, -q], [-q, q]]) if (Wk(H.i + a, H.j + c) && !F.pb.here().some(e => e.i === H.i + a && e.j === H.j + c)) return [H.i + a, H.j + c]; return [H.i + r, H.j]; };
     const put = (m, r) => { const s = spot(r); m.dead = false; m.deadT = 0; m.hp = m.max = 1e7; m.aggro = false; m.tgt = null; m.i = m.fi = s[0]; m.j = m.fj = s[1]; m.x = m.i + .5; m.z = m.j + .5; m.t = 1; };`;
   const ev = (body, arg) => p.evaluate(new Function('arg', BY + body), arg);
-  // ① 가속 물약
-  const r1 = await ev(`F.sim(2); const L = F.pb.here(), now = T.time, hs = L.map(e => +F.pb.haste(e).toFixed(2)), up = L.every(e => e.pbf.haste1 > now + 1700 && e.pbf.haste2 > now + 1700);
-    const c1 = F.pb.cdOf(K), sv = Object.assign({}, K.pbf); K.pbf.haste1 = K.pbf.haste2 = 0; const c0 = F.pb.cdOf(K); Object.assign(K.pbf, sv);
-    K.pbf.haste1 = now + 0.5; F.sim(1.5); const re = K.pbf.haste1 > T.time + 1700; return { hs, up, c0: +c0.toFixed(3), c1: +c1.toFixed(3), re, n: F.stat().pbHaste };`);
-  console.log('①', JSON.stringify(r1)); ok(r1.up && r1.hs.every(h => h === 1.68), `① 파티 봇 모두 초록·용기의 물약 (가속 ×${r1.hs.join('·')})`); ok(Math.abs(r1.c0 / r1.c1 - 1.68) < 0.01, `① 공격 간격 ${r1.c0}초 → ${r1.c1}초 (÷1.68 · 유저 가속과 같은 식)`); ok(r1.re, '① 물약이 끝나면 바로 다시 마심 (무제한)');
-  // ① 공격 횟수 (기사 봇 · 가속 있음/없음) · 이동 속도
-  const r1b = await ev(`const m = window.__m0; F.pb.cmd('fight'); const cnt = haste => { put(m, 2); H.target = m;
-      if (!haste) { K.px.hz = 1e9; K.pbf.haste1 = K.pbf.haste2 = 0; } F.sim(3); K.px.hits = 0; F.sim(8); const n = K.px.hits; K.px.hz = 0; return n; };
-    const a = cnt(false), c = cnt(true); H.target = null; m.dead = true; m.deadT = -1e9; F.pb.cmd('move'); F.sim(1);
-    const D = [[1, 0], [0, 1], [-1, 0], [0, -1]], run = d => { let n = 0; while (n < 12 && Wk(H.i + d[0] * (n + 1), H.j + d[1] * (n + 1))) n++; return n; }, d = D.slice().sort((x, y) => run(y) - run(x))[0], N = Math.min(9, run(d));
-    T.BUFF.slow = 999; const mv = haste => { if (!haste) { K.px.hz = 1e9; K.pbf.haste1 = K.pbf.haste2 = 0; } K.i = K.fi = H.i + d[0] * N; K.j = K.fj = H.j + d[1] * N; K.x = K.i + .5; K.z = K.j + .5; K.t = 1; K.px.stuck = 0; K.px.pathT = 0; const x0 = K.x, z0 = K.z; F.sim(1); const s = Math.hypot(K.x - x0, K.z - z0); K.px.hz = 0; F.sim(1.5); return +s.toFixed(2); };
-    const m0 = mv(false), m1 = mv(true); T.BUFF.slow = 0; return { a, c, N, m0, m1, as: K.bot.st.as || 0 };`);
-  console.log('① 공격·이동', JSON.stringify(r1b)); ok(r1b.c > r1b.a * 1.4, `① 기사 봇 8초 공격 ${r1b.a}번 → 가속 ${r1b.c}번`); ok(r1b.N >= 5 && r1b.m1 > r1b.m0 * 1.4, `① 1초 이동 ${r1b.m0}칸 → 가속 ${r1b.m1}칸`);
+  // ① 11/4 프로듀서: 파티 봇은 초록·용기의 물약을 마시지 않음 — 속도는 필드 봇과 같은 기본값 (공격 간격 = atkCd · 이동 = SPD)
+  const r1 = await ev(`F.sim(5); const L = F.pb.here(), drank = L.some(e => e.pbf.haste1 > T.time || e.pbf.haste2 > T.time), hs = L.map(e => F.pb.haste(e)), n = F.stat().pbHaste || 0; return { drank, hs, n };`);
+  console.log('①', JSON.stringify(r1)); ok(!r1.drank && r1.n === 0 && r1.hs.every(h => h === 1), '① 파티 봇은 초록·용기의 물약을 마시지 않음 (필드 봇과 같은 기본 속도)');
   // ② 법사 봇: 다친 파티장 힐 · 채팅 1분에 한 번
   const r2 = await ev(`F.pb.cmd('move'); H.target = null; F.pb.msg.h = -999; const s0 = F.stat().pbHealMe || 0, l0 = performance.now(); H.hp = Math.round(H.max * 0.3); const h0 = H.hp; W.px.sk.heal = 0; F.sim(1); const h1 = H.hp;
     for (let k = 0; k < 10; k++) { H.hp = Math.round(H.max * 0.3); F.sim(3); } const n = (F.stat().pbHealMe || 0) - s0, msg = T.log.filter(l => l.at >= l0).filter(l => /\\[혈맹 파티\\].*\\(봇\\)님이 힐을/.test(l.t)).map(l => l.t); H.hp = H.max; return { h0, h1, mx: H.max, n, msg };`);
@@ -86,7 +76,7 @@ const SETUP = R => { __T.GOD_INV = true; __FB.setRef(R); Object.assign(__FB.DBG,
   await p.waitForTimeout(700);
   const r11 = await p.evaluate(() => { const rows = [...document.querySelectorAll('#partybox .pb-m')].map(r => ({ u: r.dataset.pbu || r.dataset.pp, n: r.querySelectorAll('.pb-bf .pb-b').length, t: [...r.querySelectorAll('.pb-bf .pb-b')].map(s => s.title.split(' · ')[0]) })); return rows; });
   console.log('⑪', JSON.stringify(r11)); const rw = u => r11.find(r => r.u === String(u)) || { t: [] };
-  ok([U.w, U.k, U.o].every(u => rw(u).t.includes('1단 가속 (초록 물약)') && rw(u).t.includes('2단 가속 (용기의 물약)') && rw(u).t.includes('실드')), '⑪ 봇 칸마다 버프 아이콘 (초록·용기·실드 …)'); ok(rw(U.k).t.includes('이뮨 투 함') && rw(U.k).t.includes('리덕션 아머') && rw(U.w).t.includes('어드밴스 스피릿'), `⑪ 이뮨·기사 버프·어드밴스 스피릿 아이콘 (기사 ${rw(U.k).t.length}개)`);
+  ok([U.w, U.k, U.o].every(u => rw(u).t.includes('실드') && !rw(u).t.includes('1단 가속 (초록 물약)')), '⑪ 봇 칸마다 버프 아이콘 (실드 … · 11/4: 초록·용기 물약은 안 마심)'); ok(rw(U.k).t.includes('이뮨 투 함') && rw(U.k).t.includes('리덕션 아머') && rw(U.w).t.includes('어드밴스 스피릿'), `⑪ 이뮨·기사 버프·어드밴스 스피릿 아이콘 (기사 ${rw(U.k).t.length}개)`);
   ok(rw('me').t.includes('실드'), '⑪ 내 칸에도 내 버프 아이콘 (사람 파티와 같음)');
   const bx = await p.evaluate(() => { const r = document.getElementById('partybox').getBoundingClientRect(); return { x: Math.max(0, r.left - 4), y: Math.max(0, r.top - 4), width: r.width + 8, height: r.height + 8 }; });
   await p.screenshot({ path: 'dev/out/pbbuff_box.png', clip: bx }); await p.screenshot({ path: 'dev/out/pbbuff_field.png' });
