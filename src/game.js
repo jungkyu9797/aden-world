@@ -9565,7 +9565,7 @@ const FBOT = (() => {
     const T = K_.gearOf({ cls: b.cls, pct: b.pct, lk: b.lk }), eq = {}; for (const s in o.m) { const id = o.m[s] || T[s]; if (id) eq[s] = id; }
     b.eq = eq; b.en = o.en; if (!b.pf) b.pf = polyOf(s => eq[s] || null) || '';   // 데스나이트 세트처럼 장비로 되는 변신은 먼 봇(간단히 그림)도 같게
   }
-  const elvOf = (b, lv) => Math.max(1, Math.round((lv == null ? refNow().lv : lv) * b.pct));
+  const LV_GAP = 5, elvOf = (b, lv) => { const L = lv == null ? refNow().lv : lv; return Math.max(1, Math.round(L * b.pct), L - LV_GAP); };   // 11/4 프로듀서: 봇 레벨은 복사 대상(1위)보다 최대 5레벨 낮게까지만 (능력치는 그대로 비율대로)
   // 봇 능력치 = 복사한 값 × 비율 × 직업 보정 (HP·AC·MR·평균 피해는 TWM statOf) + 명중 보너스·받는 피해 감소·인형 번개 × 비율 · 치명타·공격/이동 속도·심판 확률은 그대로
   function statFor(b) { const R = refNow(), st = K_.statOf(b, R.st); if (st.fbR !== R) { const C = R.copy, cb = C.cb, p = b.pct; st.fbR = R; st.lv = elvOf(b, R.lv);
       st.hb = cb.hb * p; st.cr = cb.cr; st.as = cb.as; st.ms = cb.ms; st.dr = Math.round(cb.dr * p); st.jg = cb.jg; st.pr = cb.pr ? [cb.pr[0], cb.pr[1] * p, cb.pr[2] * p] : null; st.stat = C.st ? C.st.map(v => Math.max(1, Math.round(v * p))) : null; looks(b, R); }
