@@ -1895,10 +1895,14 @@ const LOOK = {
   shield: { wood_shield: null },
 };
 // 11/2 메모리: 색 바꾼 통짜 그림(요정·법사 장비 색)은 그림 한 장 전체 크기라 봇이 많으면 끝없이 늘었음 → 오래 안 쓴 것부터 버림 (합계 3200만 화소 ≈ 128MB까지)
-const TINTED = new Map(); let TINTpx = 0;
-function tintSheet(img, f) { if (!f) return img; const k = img.src + '|' + f; let c = TINTED.get(k); if (c) { TINTED.delete(k); TINTED.set(k, c); return c; }
-  c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const g = c.getContext('2d'); g.filter = f; g.drawImage(img, 0, 0);
-  TINTED.set(k, c); TINTpx += c.width * c.height; while (TINTpx > 32e6 && TINTED.size > 1) { const k0 = TINTED.keys().next().value, c0 = TINTED.get(k0); TINTED.delete(k0); TINTpx -= c0.width * c0.height; } return c; }
+// 11/4 메모리: 그림 한 장 전체(8칸 × 8방향)를 물들이던 것 → 지금 그리는 한 칸(동작·칸·방향)만 물들여 둠 · 오래 안 쓴 칸부터 버림 (합계 TINT_MAX 화소 ≈ 32MB) — 색 필터는 화소마다 따로 계산돼 한 장을 물들여 잘라 쓴 것과 같은 그림
+//   (화둥 2구역 사냥 중 통짜 36장 ≈ 120MB였음 · 한 칸은 작아서(약 4천~5만 화소) 새로 물들여도 0.1ms 안팎)
+const TINTED = new Map(); let TINTpx = 0, TINTmk = 0; const TINT_MAX = 8e6;
+//   칸 둘레 2화소까지 짝수 자리·짝수 크기로 잘라 물들임 — 작게 줄여 그릴 때(폰 · 'high') 크롬이 쓰는 밉맵(2×2 평균)이 통짜 그림과 같은 자리에서 나뉘어야 같은 화소 (c.ox·c.oy = 칸이 시작하는 자리)
+function tintCell(img, f, sx, sy, w, h) { const k = img.src + '|' + f + '|' + sx + '|' + sy; let c = TINTED.get(k); if (c) { TINTED.delete(k); TINTED.set(k, c); return c; }
+  const IW = img.naturalWidth, IH = img.naturalHeight, x0 = Math.max(0, (sx - 2) & ~1), y0 = Math.max(0, (sy - 2) & ~1), x1 = Math.min(IW, (sx + w + 3) & ~1), y1 = Math.min(IH, (sy + h + 3) & ~1);
+  c = document.createElement('canvas'); c.width = Math.max(1, x1 - x0); c.height = Math.max(1, y1 - y0); c.ox = sx - x0; c.oy = sy - y0; const g = c.getContext('2d'); g.filter = f; g.drawImage(img, x0, y0, c.width, c.height, 0, 0, c.width, c.height); TINTmk++;
+  TINTED.set(k, c); TINTpx += c.width * c.height; while (TINTpx > TINT_MAX && TINTED.size > 1) { const k0 = TINTED.keys().next().value, c0 = TINTED.get(k0); TINTED.delete(k0); TINTpx -= c0.width * c0.height; } return c; }
 let klT = 0;
 function klPreload() { if (time - klT < 0.5 && klT) return; klT = time || 0.001; for (const a of ['idle', 'walk', 'attack', 'attack2', 'look']) klImg('body', a); for (const L of KL_LAYERS) { if (L === 'body') continue; const id = INV.equipped(KL_SLOT[L]); if (id) for (const a of ['idle', 'walk', 'attack', 'attack2', 'look']) klImg(klName(L, id), a); } }
 const CLS_FILE = { elf: 'elf', wizard: 'mage' }, CLSI = {};
@@ -1957,9 +1961,9 @@ function drawClassLayers(g, cls, anim, fr, row, x, y, hurtF, eqf, gl) { const D 
   if (!D.meta.body[a]) a = D.meta.body.attack ? 'attack' : 'idle'; const body = clImg(cls, 'body', a); if (!body) { for (const aa of ['idle', 'walk', a]) clImg(cls, 'body', aa); return false; }
   const sc = KN.s || 1;
   for (const L of D.layers) { let id = null; if (L !== 'body') { id = clLayerId(cls, L, eqf); if (!id) continue; }
-    const img = clImg(cls, L, a); if (!img) continue; const M = D.meta[L][a], k = Math.min(fr, M.n - 1), f = L === 'body' ? null : ((LOOK[CL_SLOT[L.replace(/_[lp]$/, '')]] || {})[id] ?? null), src = f ? tintSheet(img, f) : img;
+    const img = clImg(cls, L, a); if (!img) continue; const M = D.meta[L][a], k = Math.min(fr, M.n - 1), f = L === 'body' ? null : ((LOOK[CL_SLOT[L.replace(/_[lp]$/, '')]] || {})[id] ?? null), src = f ? tintCell(img, f, k * M.W, row * M.H, M.W, M.H) : img;   /* 11/4 메모리: 물들인 한 칸만 */
     g.save(); if (hurtF) g.filter = hurtF; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = LOWQ ? 'low' : 'high';
-    g.drawImage(src, k * M.W, row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
+    g.drawImage(src, f ? src.ox : k * M.W, f ? src.oy : row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
     if (gl && L !== 'body') { const t = gl(CL_SLOT[L.replace(/_[lp]$/, '')]); if (t) layerGlow(g, img, M, k, row, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), sc, t, D.pfx + L + ':' + a, CL_SLOT[L.replace(/_[lp]$/, '')] === 'weapon' ? 1 : 0.85); } }
   return true; }
 function drawHeroSprite(g, anim, fr, row, x, y, hf, cls, eqf, gl, pf, lite) { cls = cls || CLASS; if (gl === undefined) gl = eqf ? null : myGlowT; if (!EQFX) gl = null;   /* 장비 이펙트 끔 */ if (HW()) return drawHwCrow(g, anim, fr, row, x, y, hf, cls);   /* 할로윈: 이벤트 지역 안의 모두는 호박 머리 허수아비 */
@@ -1976,9 +1980,9 @@ function drawKnightLayers(g, anim, fr, row, x, y, hurtF, eqf, gl) {
     let id = null; if (L !== 'body') { id = (eqf || INV.equipped)(KL_SLOT[L]); if (!id) continue; }
     const LN = L === 'body' ? 'body' : klName(L, id); const img = klImg(LN, anim); if (!img || !img.complete || !img.naturalWidth) continue;
     const M = KLM[LN][anim], k = Math.min(fr, M.n - 1), f = L === 'body' ? null : ((LOOK[KL_SLOT[L]] || {})[id] ?? null);
-    const src = f ? tintSheet(img, f) : img;
+    const src = f ? tintCell(img, f, k * M.W, row * M.H, M.W, M.H) : img;   /* 11/4 메모리: 물들인 한 칸만 */
     g.save(); if (hurtF) g.filter = hurtF; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = LOWQ ? 'low' : 'high';
-    g.drawImage(src, k * M.W, row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
+    g.drawImage(src, f ? src.ox : k * M.W, f ? src.oy : row * M.H, M.W, M.H, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), M.W * sc, M.H * sc); g.restore();
     if (gl && L !== 'body') { const t = gl(KL_SLOT[L]); if (t) layerGlow(g, img, M, k, row, Math.round(x - M.ax * sc), Math.round(y - M.ay * sc), sc, t, LN + ':' + anim, L === 'sword' ? 1 : 0.85); } }   // 강화 빛 (장비 부위마다 자기 단계)
   return true; }
 
@@ -4499,6 +4503,8 @@ const ISLAND = (() => {
     if (ISLE && ISLE !== z) lastIsle = ISLE.id; for (const k in Z) { const q = Z[k]; if (q !== z && q.ground && +k !== lastIsle) q.ground = null; }
     MIMG_TRIM(new Set(z.mobs.map(f => f.kind))); if (z.def.dream) DRA.load();   /* 11/2 메모리: 이 지역에 없고 20초 넘게 안 그린 몬스터 그림은 놓음 (다시 나오면 다시 받음) */   /* 11/2 메모리: 바닥 그림(30~60MB씩)은 지금 지역과 바로 전 지역만 남김 · 다시 오면 다시 만듦 */
     if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap);   /* 11/1: 몽환의 섬 하루 4시간 */
+    if (z.ground) dropGround(z);   /* 11/4 메모리: 새 지역 바닥이 다 되면 바로 전 지역 바닥(30~60MB)도 놓음 — 화둥 1구역 → 2구역처럼 옮겨 다니면 두 장을 쥐고 있었음 (돌아가면 다시 만듦 · 마을에 다녀올 때는 그대로) */
+    try { if (!z.def.dream && DRA.C.m.size) { DRA.C.m.clear(); DRA.C.px = 0; } } catch (e) {}   /* 11/4 메모리: 몽환의 섬 밖에서는 유니콘·정령 프레임 캐시(최대 36MB)를 비움 (다시 들어가면 그릴 때 다시 만듦) */
     ISLE = z; setGeom(z.N); SCENE = 'field'; ZONE = z.name; blockedT = z.blocked; PROPS = z.props; foxes = z.mobs; arrows.length = 0;
     const [i, j] = ARRIVE[id][from] || ARRIVE[id].town || [37, 37];
     hero.i = hero.fi = i; hero.j = hero.fj = j; hero.x = i + 0.5; hero.z = j + 0.5; hero.t = 1; hero.target = null; hero.atk = null; moveGoal = null; holding = false; hero.row = 5;
@@ -4521,6 +4527,7 @@ const ISLAND = (() => {
       if (AC && SFX_ON) { const t = AC.currentTime; nz(t, 1.1, 300, 70, 0.7); tone(t, 'sawtooth', 110, 45, 1.0, 0.25); tone(t + 0.15, 'sawtooth', 160, 60, 0.8, 0.12); }
       say(`***** 땅이 갈라지며 바로 근처에서 ${JOSA(B.title, '이', '가')} 튀어나왔습니다! *****`, '#ff5040'); } }
   function prebake(id) { const z = get(id); if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap); }
+  function dropGround(z) { for (const k in Z) { const q = Z[k]; if (q !== z && q.ground) q.ground = null; } }
   return {
     enter, prebake, def: id => DEF[id], zones: () => Object.keys(Z).filter(k => Z[k].ground).map(Number),   /* zones: 바닥 그림이 남아 있는 지역 (메모리 확인용) */
     bossDown(kind, by, bot) { { const fk = Object.keys(BOSS).find(k => BOSS[k].fam && BOSS[k].fam.includes(kind)); if (fk) { const F = BOSS[fk], left = get(F.zone).mobs.filter(m => F.fam.includes(m.kind) && !m.dead && !m.gone).length;
@@ -4546,7 +4553,7 @@ const ISLAND = (() => {
         if (alive && !B.ent && !NET.guestIn('isle' + B.zone)) spawnBoss(k, sidOf(k), fresh); else if (!alive && B.ent && !B.ent.dead) removeBoss(k); }
       for (let k = arrows.length - 1; k >= 0; k--) { const a = arrows[k]; a.t += dt; if (a.t >= a.dur) { arrows.splice(k, 1); if (a.pl) { if (a.onHit) a.onHit(); continue; } if (a.kind === 'fireball') { const [bx, by] = a.tg ? W2P(a.tg.x, a.tg.z) : W2P(hero.x, hero.z); fireBurst(bx, by - (a.tg ? 16 : 30)); } if (a.tg) { if (!a.tg.dead) { const [ix, iy] = W2P(a.tg.x, a.tg.z); if (a.tg.isRemote) { NET.hitRemote(a.tg, a.src, MOB[a.src.kind], a.dmg, a.hit, a.kind === 'fireball'); continue; } if (a.tg.fb) { FBOT.mobHit(a.tg, a.src, MOB[a.src.kind], a.dmg, null, a.kind === 'fireball'); continue; } if (Math.random() < 0.75) { PET.hurt(a.tg, a.dmg, a.src); impact(ix, iy - 16, 'hit', '#ffd890'); } else impact(ix, iy + 2, 'miss'); } continue; } const [ix, iy] = W2P(hero.x, hero.z); if (Math.random() < a.hit - (BUFF.solid > 0 && a.kind !== 'fireball' ? 0.25 : 0)) { hurtHero(a.dmg, a.src, a.kind === 'fireball' ? 'magic' : 'ranged'); impact(ix, iy - 30, 'hit', a.kind === 'fireball' ? '#ff8a3a' : '#ffd890'); if (a.kind !== 'fireball') MSFX('elf', 'arrowhit', 0.45); if (a.kind === 'fireball' && !GOD_INV && Math.random() < 0.25 * Math.max(0.2, 1 - elemRes('fire') / 50)) { hero.burnT = 3; say('파이어볼에 맞아 화상을 입었습니다!', '#ff9a5a'); } } else { heroMiss(); impact(ix + (Math.random() - 0.5) * 20, iy + 2, 'miss'); } } }
       if (!ISLE) return;
-      if (!ISLE.ground && im.ground.complete) ISLE.ground = buildGround(ISLE.def);
+      if (!ISLE.ground && im.ground.complete) { ISLE.ground = buildGround(ISLE.def); dropGround(ISLE); }
       if (ISLE.def.fire || ISLE.def.dream) fireTick(dt);
       if (ISLE.def.fgi) FGM.tick(dt);   /* 11/3 잊혀진 섬: NPC에게 걸어가 말 걸기 · 외침 */
       for (let k = foxes.length - 1; k >= 0; k--) if (foxes[k].gone) foxes.splice(k, 1);

@@ -62,6 +62,15 @@ const bgm = p => p.evaluate(() => { const R = window.__MD, live = R.ab.filter(q 
   ok(dom1 - dom0 <= 12, `자동사냥 ${process.env.MDOM || 180}초 동안 DOM 요소 ${dom0} → ${dom1} (늘지 않음)`);
   if (process.env.MRSS) { await gc(); const r = await rss(), sum = (r.renderer || 0) + (r.GPU || r.gpu || 0); console.log(`  RSS (화둥 2구역 자동사냥 ${180 + 40}초 뒤): renderer ${r.renderer} + gpu ${r.GPU || r.gpu || 0} = ${sum} MB · mem ${JSON.stringify(await p.evaluate(() => __T.MEM_()))}`);
     if (process.env.MBASE) ok(sum < +process.env.MBASE, `렌더러+GPU ${sum} MB < 예전 ${process.env.MBASE} MB`); }
+  // ---- 장비 색: 물들인 그림은 그리는 한 칸만 · 합계 상한 (예전: 통짜 그림 30여 장 ≈ 100~120MB)
+  const tn = await p.evaluate(() => __T.TINT_()); console.log('  tint', JSON.stringify(tn));
+  ok(tn.n > 20 && tn.px <= 8e6, `물들인 칸 ${tn.n}개 · ${(tn.px / 1e6).toFixed(1)}백만 화소 (≈${Math.round(tn.px * 4 / 1048576)}MB · 상한 8백만) · 새로 물들인 횟수 ${tn.mk}`);
+  { const t0 = await p.evaluate(() => __T.TINT_().mk); await p.waitForTimeout(30000); const t1 = await p.evaluate(() => __T.TINT_().mk); ok(t1 - t0 < 600, `사냥 30초 동안 새로 물들인 칸 ${t1 - t0}개 (상한이 너무 작아 계속 다시 만드는지 · 한 칸 0.1ms 안팎)`); }
+  // ---- 바닥: 1구역 → 2구역으로 옮기면 지금 지역 바닥만 남음 (예전: 바로 전 지역 바닥도 쥐고 있었음 30~60MB)
+  await p.evaluate(() => __T.TOWN.toZone(22)); await p.waitForFunction(() => __T.ISLE && __T.ISLE.id === 22, null, { timeout: 60000 }); await p.waitForTimeout(2000);
+  await p.evaluate(() => __T.TOWN.toZone(23)); await p.waitForFunction(() => __T.ISLE && __T.ISLE.id === 23, null, { timeout: 60000 }); await p.waitForTimeout(2000);
+  const zs = await p.evaluate(() => ({ z: __T.ISLAND_().zones(), g: !!__T.ISLE.ground, dra: __T.DRA_.DRA.C.m.size }));
+  ok(zs.g && zs.z.length === 1 && zs.z[0] === 23, `화둥 1구역 → 2구역: 바닥 그림이 남은 지역 ${JSON.stringify(zs.z)} (지금 지역만) · 몽환의 섬 프레임 캐시 ${zs.dra}장`);
   await p.screenshot({ path: 'dev/out/memdiet.png' });
   console.log(errs.length ? 'PAGE ERRORS\n' + errs.slice(0, 6).join('\n') : 'no page errors'); if (errs.length) process.exitCode = 1;
   if (process.exitCode !== 1) console.log('ALL OK'); await b.close(); })();
