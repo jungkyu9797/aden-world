@@ -10190,6 +10190,7 @@ const FBOT = (() => {
   function pbTaken(uid) { return pbIn(uid) || (PBS.aw[uid] || 0) > nowMs() || (!!NET.pbTaken && NET.pbTaken(uid)); }   /* 세계(일정표·지원군·원정)에 나오면 안 되는 봇: 내 파티 · 막 귀환 중 · 다른 유저 파티 */
   const pbEsc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const pbPct = (a, b) => Math.max(0, Math.min(100, a / Math.max(1, b) * 100));
+  const pbEndSync = () => { PBS.end = PBS.m.length ? Math.max(...PBS.m.map(m => (m.at || nowMs()) + PBC.LIFE)) : 0; };   /* PBS.end = 가장 늦게 끝나는 봇 (예전 버전 저장과 맞춤) */
   const pbHM = ms => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}:${String(m).padStart(2, '0')}` : m ? `${m}분` : `${s}초`; };
   const pbCp = b => { const R = refNow(), c = R.cp > 0 && R.cp < 1e7 ? R.cp : (myCP().total || 0); return Math.round(c * b.pct); };   /* 투력 = 복사 대상 전투력 × 봇 비율 */
   function pbWhy(b) { if (!b || b.team !== 'A') return '반왕만'; if (pbIn(b.uid)) return '내 파티'; if (BOTHOST.on()) return '봇 서버'; if (ADMIN.on()) return '운영자 모드'; if (neuMe()) return `Lv.${NEU_LV + 1}부터`; if (NET.inParty()) return '사람 파티 중';
@@ -10206,15 +10207,15 @@ const FBOT = (() => {
   const pbAppear = e => { if (!e.dead && near(e, 14)) spellFx('enok', e, '#9fd8ff'); };
   // 초대: 바로 수락 → 내 옆에 나타남 (첫 초대부터 4시간)
   function pbInvite(uid) { const b = roster().by.get(uid), w = pbWhy(b); if (w) { say(`[혈맹] ${b ? b.name + '님은 ' : ''}지금 파티에 초대할 수 없어요. (${w})`, '#f08a7a'); pbUi(); return false; }
-    const now = nowMs(); if (!PBS.m.length) { PBS.end = now + PBC.LIFE; PBS.mode = 'fight'; } const m = { uid, st: 'focus', n: PBC.NDEF, at: now }; PBS.m.push(m); const e = pbEnt(m);
+    const now = nowMs(); if (!PBS.m.length) PBS.mode = 'fight'; const m = { uid, st: 'focus', n: PBC.NDEF, at: now }; PBS.m.push(m); pbEndSync(); const e = pbEnt(m);   /* 11/4 프로듀서: 파티 시간은 봇마다 초대한 때부터 4시간 */
     if (e && !pbOutside()) { pbPlace(e); pbAppear(e); } pbSweep(); pbPubT = 0;
-    say(`[혈맹] ${jo(b.name, '이', '가')} 파티에 들어왔어요! (봇 ${PBS.m.length}/${PBC.MAX} · 파티 남은 시간 ${pbHM(PBS.end - now)})${pbOutside() ? ' · 여기서는 밖에서 기다려요' : ''}`, '#8fe08a'); pbUi(); return true; }
+    say(`[혈맹] ${jo(b.name, '이', '가')} 파티에 들어왔어요! (봇 ${PBS.m.length}/${PBC.MAX} · 이 봇은 ${pbHM(PBC.LIFE)} 동안 함께해요)${pbOutside() ? ' · 여기서는 밖에서 기다려요' : ''}`, '#8fe08a'); pbUi(); return true; }
   // 파티에서 빠짐: kick 추방 · bye 해산 · expire 4시간 · dead 2분 동안 부활 못 함 · lost 다른 유저가 먼저 초대함
   function pbLeave(uid, why, quiet) { const k = PBS.m.findIndex(m => m.uid === uid); if (k < 0) return false; PBS.m.splice(k, 1); const e = PBE.get(uid), b = roster().by.get(uid), now = nowMs();
     if (e) { if (PB_HERE.includes(e) && near(e, 14)) recallFx(e); e.gone = true; for (const f of foxes) if (f.tgt === e) f.tgt = null; PBE.delete(uid); PB_HERE = PB_HERE.filter(q => q !== e); PBP = PBP.filter(p => p.e !== e); }
     const back = rr(why === 'dead' ? C.RESP : C.RET_BACK) * 1000; PBS.aw[uid] = now + back; AWAY.set(uid, Date.now() + back);   /* 보통 귀환 시간 뒤 자기 일정표로 */
-    if (why === 'kick' || why === 'bye' || why === 'expire') PBS.cd[uid] = now + PBC.CD; if (!PBS.m.length) PBS.end = 0; pbPubT = 0;
-    if (!quiet && b) say(why === 'kick' ? `[혈맹 파티] ${jo(b.name, '을', '를')} 파티에서 추방했어요. 귀환해서 자기 사냥터로 돌아가요. (30분 뒤 다시 초대할 수 있어요)` : why === 'dead' ? `[혈맹 파티] ${jo(b.name, '이', '가')} 2분 동안 부활하지 못해 파티에서 빠지고 귀환했어요.` : why === 'lost' ? `[혈맹 파티] ${b.name}님은 먼저 초대한 다른 유저의 파티에 들어가서 내 파티에서 빠졌어요.` : `[혈맹 파티] ${jo(b.name, '이', '가')} 파티에서 빠졌어요.`, why === 'dead' || why === 'lost' ? '#f0c080' : '#9fd8ff');
+    if (why === 'kick' || why === 'bye' || why === 'expire') PBS.cd[uid] = now + PBC.CD; pbEndSync(); pbPubT = 0;
+    if (!quiet && b) say(why === 'kick' ? `[혈맹 파티] ${jo(b.name, '을', '를')} 파티에서 추방했어요. 귀환해서 자기 사냥터로 돌아가요. (30분 뒤 다시 초대할 수 있어요)` : why === 'dead' ? `[혈맹 파티] ${jo(b.name, '이', '가')} 2분 동안 부활하지 못해 파티에서 빠지고 귀환했어요.` : why === 'lost' ? `[혈맹 파티] ${b.name}님은 먼저 초대한 다른 유저의 파티에 들어가서 내 파티에서 빠졌어요.` : why === 'expire' ? `[혈맹 파티] ${b.name}님과 함께한 4시간이 지나서 귀환했어요. 자기 사냥터로 돌아가요. (30분 뒤 다시 초대할 수 있어요)` : `[혈맹 파티] ${jo(b.name, '이', '가')} 파티에서 빠졌어요.`, why === 'dead' || why === 'lost' ? '#f0c080' : '#9fd8ff');
     pbUi(); return true; }
   function pbEnd(why) { if (!PBS.m.length) return; for (const m of PBS.m.slice()) pbLeave(m.uid, why, true);
     say(why === 'expire' ? '[혈맹 파티] 파티 4시간이 지나 자동으로 해산됐어요. 봇들은 귀환해서 자기 사냥터로 돌아가요. (30분 뒤 다시 초대할 수 있어요)' : '[혈맹 파티] 파티를 해산했어요. 봇들은 귀환해서 자기 사냥터로 돌아가요. (30분 뒤 다시 초대할 수 있어요)', '#9fd8ff', why === 'expire' ? 1 : 0); }
@@ -10358,7 +10359,8 @@ const FBOT = (() => {
   function pbConflict() { if (!NET.pbClaims) return; const M = NET.pbClaims(), me = myId(); for (const m of PBS.m.slice()) { const L = M.get(m.uid); if (L && L.some(o => o.at < m.at || (o.at === m.at && o.peer < me))) pbLeave(m.uid, 'lost'); } }
   function pbSweep() { const h = host() && here(); for (const f of foxes) { if (!f.fb || f.gone || f.dead || f.pbot) continue; if (h ? !pbTaken(f.uid) : !pbIn(f.uid)) continue; if (h) fx(['r', f.uid]); else if (near(f, 14)) recallFx(f); leave(f, true); } }
   function pbTick(dt) { if (BOTHOST.on()) { if ((pbChkT -= dt) <= 0) { pbChkT = 0.5; pbSweep(); } return; } const now = nowMs();
-    if (PBS.m.length && now >= PBS.end) pbEnd('expire'); else if (PBS.m.length && (neuMe() || ADMIN.on())) pbEnd(neuMe() ? 'neutral' : 'admin');   /* 11/3: 레벨이 55 이하로 바뀌거나 운영자 모드면 해산 */
+    for (const m of PBS.m.slice()) if (now >= (m.at || now) + PBC.LIFE) pbLeave(m.uid, 'expire');   /* 11/4 프로듀서: 봇마다 초대한 때부터 4시간이 지나면 그 봇만 귀환 */
+    if (PBS.m.length && (neuMe() || ADMIN.on())) pbEnd(neuMe() ? 'neutral' : 'admin');   /* 11/3: 레벨이 55 이하로 바뀌거나 운영자 모드면 해산 */
     if ((pbChkT -= dt) <= 0) { pbChkT = 0.5; if (PBS.m.length && !SIM) pbConflict(); pbSweep(); }
     if (!PBS.m.length) { if (PB_HERE.length) PB_HERE = []; PBP.length = 0; if (!SIM) { pbPub(dt); pbUiTick(dt); } return; }
     if ((pbTagT -= dt) <= 0) { pbTagT = 1; for (const e of PBE.values()) if (!e.bot || e.bot.stRef !== refNow().st) tag(e); }   /* 2시간마다 복사 갱신 → 능력치도 새로 (HP 비율은 그대로) */
@@ -10389,8 +10391,8 @@ const FBOT = (() => {
   function pbLoad(o) { PBS.m = []; PBS.cd = {}; PBS.aw = {}; PBS.end = 0; PBS.mode = 'fight'; PBS.pri = false; for (const e of PBE.values()) e.gone = true; PBE.clear(); PB_HERE = []; PBP = []; if (!o || typeof o !== 'object') { pbUi(); return; }
     PBS.pri = !!o.pri; const R = roster(), now = nowMs(), ok = u => { const b = R.by.get(+u); return !!(b && b.team === 'A'); };
     for (const k in (o.cd || {})) if (ok(k) && +o.cd[k] > now) PBS.cd[+k] = Math.min(+o.cd[k], now + PBC.CD); for (const k in (o.aw || {})) if (ok(k) && +o.aw[k] > now) PBS.aw[+k] = Math.min(+o.aw[k], now + 600e3);
-    const end = +o.end || 0; if (Array.isArray(o.m) && end > 0) { PBS.end = Math.min(end, now + PBC.LIFE); PBS.mode = ['wait', 'move', 'fight'].includes(o.md) ? o.md : 'fight';
-      for (const r of o.m.slice(0, PBC.MAX)) { if (!Array.isArray(r) || !ok(r[0]) || PBS.m.some(m => m.uid === +r[0])) continue; PBS.m.push({ uid: +r[0], st: pbStOf({ st: r[1] }, R.by.get(+r[0])), n: pbNc(r[5]), at: +r[2] || now, dead: +r[3] || 0, hp: r[4] == null ? 1 : +r[4] }); } if (!PBS.m.length) PBS.end = 0; }
+    const end = +o.end || 0; if (Array.isArray(o.m) && end > 0) { PBS.mode = ['wait', 'move', 'fight'].includes(o.md) ? o.md : 'fight';
+      for (const r of o.m.slice(0, PBC.MAX)) { if (!Array.isArray(r) || !ok(r[0]) || PBS.m.some(m => m.uid === +r[0])) continue; const at = Math.min(now, +r[2] || now); if (at + PBC.LIFE <= now) { PBS.cd[+r[0]] = Math.max(PBS.cd[+r[0]] || 0, Math.min(at + PBC.LIFE + PBC.CD, now + PBC.CD)); continue; }   /* 꺼져 있는 동안 4시간이 지난 봇은 빠짐 */ PBS.m.push({ uid: +r[0], st: pbStOf({ st: r[1] }, R.by.get(+r[0])), n: pbNc(r[5]), at, dead: +r[3] || 0, hp: r[4] == null ? 1 : +r[4] }); } pbEndSync(); }
     pbPubT = 0; pbUi(); }
   // ----- 화면: 왼쪽 파티창 (사람 파티와 같은 모양 · 봇은 이름 옆 (봇)) · 이름 누르면 툴팁(① 일점사 · ② 근처 각개 N칸 · ③ 쫄법사 · ④ 추방) · 아래 대기/이동/전투/해산 + 전투 우선
   function pbUi() { pbUiT = 0; pbWinT = 0; }
@@ -10401,9 +10403,9 @@ const FBOT = (() => {
     const me = `<div class="pb-m me" data-pp="me"><div class="pb-t"><b>${pbEsc(PNAME())}</b><span>${CLASS_NAME[CLASS] || ''} Lv.${hero.lv}</span></div><div class="pb-bar hp"><i style="width:${pbPct(hero.hp, hero.max)}%"></i><em>${Math.max(0, Math.ceil(hero.hp))}/${hero.max}</em></div><div class="pb-bar mp"><i style="width:${pbPct(hero.mp, hero.maxmp)}%"></i><em>${Math.max(0, Math.floor(hero.mp))}/${hero.maxmp}</em></div>${NET.bfRow(NET.myBuffs())}</div>`;
     const rows = PBS.m.map(m => { const e = PBE.get(m.uid), b = roster().by.get(m.uid); if (!b) return ''; const dead = !!(e && e.dead), hp = e && !dead ? Math.max(0, Math.ceil(e.hp)) : 0, mx = e ? e.max : 1;
       const sub = dead ? `<small>쓰러짐 · ${mmss(Math.max(0, ((e.deadAt || now) + PBC.CORPSE - now) / 1000))} 뒤 귀환<button type="button" data-pbrv="${m.uid}">부활</button></small>` : out ? '<small>밖에서 기다리는 중</small>' : '';
-      return `<div class="pb-m pbot${dead ? ' dead' : ''}" data-pbu="${m.uid}"><div class="pb-t"><b>${pbEsc(b.name)}<i>(봇)</i></b><span>${CLASS_NAME[b.cls] || ''} Lv.${elvOf(b)}</span></div><div class="pb-bar hp"><i style="width:${pbPct(hp, mx)}%"></i><em>${hp}/${mx}</em></div>${dead || out ? '' : NET.bfRow(pbBufs(e))}${sub}</div>`; }).join('');
+      return `<div class="pb-m pbot${dead ? ' dead' : ''}" data-pbu="${m.uid}"><div class="pb-t"><b class="pb-nb"><em>${pbEsc(b.name)}</em><i>(봇)</i><u class="pb-tl" title="함께할 수 있는 남은 시간 (초대한 때부터 4시간)">${pbHM((m.at || now) + PBC.LIFE - now)}</u></b><span>${CLASS_NAME[b.cls] || ''} Lv.${elvOf(b)}</span></div><div class="pb-bar hp"><i style="width:${pbPct(hp, mx)}%"></i><em>${hp}/${mx}</em></div>${dead || out ? '' : NET.bfRow(pbBufs(e))}${sub}</div>`; }).join('');
     const MB = [['wait', '대기'], ['move', '이동'], ['fight', '전투'], ['bye', '해산']].map(([k, t]) => `<button type="button" data-pbm="${k}"${PBS.mode === k ? ' class="on" aria-pressed="true"' : ''}>${t}</button>`).join('');
-    const h = `<div class="pb-h">혈맹 파티 <small>${PBS.m.length + 1}명 · ${pbHM(PBS.end - now)} 남음</small><button type="button" id="pb-clan">혈맹</button></div>${me}${rows}<div class="pb-cmd" role="group" aria-label="파티 봇 명령">${MB}</div><label class="pb-pri${PBS.pri ? ' on' : ''}" data-pbm="pri" title="전투 모드에서 적 봇이 파티장 ${PBC.PRI}칸 안에 보이면 사냥을 멈추고 먼저 공격"><input type="checkbox" tabindex="-1"${PBS.pri ? ' checked' : ''}>전투 우선<small>적 봇 먼저</small></label>`;
+    const h = `<div class="pb-h">혈맹 파티 <small>${PBS.m.length + 1}명</small><button type="button" id="pb-clan">혈맹</button></div>${me}${rows}<div class="pb-cmd" role="group" aria-label="파티 봇 명령">${MB}</div><label class="pb-pri${PBS.pri ? ' on' : ''}" data-pbm="pri" title="전투 모드에서 적 봇이 파티장 ${PBC.PRI}칸 안에 보이면 사냥을 멈추고 먼저 공격"><input type="checkbox" tabindex="-1"${PBS.pri ? ' checked' : ''}>전투 우선<small>적 봇 먼저</small></label>`;
     if (box.hidden) box.hidden = false; box.dataset.pbo = '1'; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } }
   function pbBind(box) { if (box.__pbb) return; box.__pbb = true;   /* 파티창은 HP가 바뀔 때마다 다시 그려져서 누르는 순간(pointerdown)에 처리 */
     box.addEventListener('pointerdown', ev => { if (!PBS.m.length || (ev.pointerType === 'mouse' && ev.button !== 0)) return; const t = ev.target; if (!t || !t.closest) return;
@@ -10428,7 +10430,7 @@ const FBOT = (() => {
   function pbWin(force) { const w = document.getElementById('clanwin'), body = document.getElementById('cl-body'); if (!w || !body || (w.hidden && !force)) return;
     if (!body.__pbb) { body.__pbb = true; body.addEventListener('click', ev => { const t = ev.target && ev.target.closest ? ev.target.closest('[data-inv]') : null; if (t && !t.disabled) pbInvite(+t.dataset.inv); }); }
     const L = pbList(), now = nowMs(), neu = neuMe();
-    const top = neu ? `<p class="cl-neu">Lv.${NEU_LV}까지는 [중립]이라 혈맹 봇과 파티를 할 수 없어요. Lv.${NEU_LV + 1}이 되면 반왕 혈맹에 들어가요.</p>` : PBS.m.length ? `<p class="cl-my">내 파티: 봇 <b>${PBS.m.length}/${PBC.MAX}</b> · 남은 시간 <b>${pbHM(PBS.end - now)}</b> · 파티장 포함 최대 ${PBC.MAX + 1}명</p>` : `<p class="cl-my">[파티 초대]를 누르면 바로 들어와서 내 옆에 나타나요. (봇 최대 ${PBC.MAX}명 · 4시간)</p>`;
+    const top = neu ? `<p class="cl-neu">Lv.${NEU_LV}까지는 [중립]이라 혈맹 봇과 파티를 할 수 없어요. Lv.${NEU_LV + 1}이 되면 반왕 혈맹에 들어가요.</p>` : PBS.m.length ? `<p class="cl-my">내 파티: 봇 <b>${PBS.m.length}/${PBC.MAX}</b> · 봇마다 초대한 때부터 4시간 · 파티장 포함 최대 ${PBC.MAX + 1}명</p>` : `<p class="cl-my">[파티 초대]를 누르면 바로 들어와서 내 옆에 나타나요. (봇 최대 ${PBC.MAX}명 · 4시간)</p>`;
     const rows = L.map(({ b, cp, lv, why }) => `<div class="cl-r${why === '내 파티' ? ' in' : ''}" data-u="${b.uid}"><span class="cl-cp">${cp.toLocaleString()}</span><span class="cl-lv">Lv.${lv}</span><span class="cl-c">${CLASS_NAME[b.cls] || ''}</span><span class="cl-n">${pbEsc(b.name)}</span>${why ? `<button type="button" disabled title="${pbEsc(why)}">${pbEsc(why)}</button>` : `<button type="button" data-inv="${b.uid}">파티 초대</button>`}</div>`).join('');
     const h = `<div class="cl-top"><b>[반왕 혈맹]</b><small>접속 중인 혈맹원(봇) ${L.length}명 · 투력순</small></div>${top}<div class="cl-hd"><span>투력</span><span>레벨</span><span>직업</span><span>아이디</span><span></span></div><div class="cl-list">${rows}</div><p class="cl-note">봇과 파티 중에는 일반 몬스터 경험치·골드·드랍 확률이 1/N × 1.1 (N = 나 + 봇) · 보스 전리품은 그대로 모두 파티장에게 · 추방·해산한 봇은 30분 뒤 다시 초대할 수 있어요.</p>`;
     if (w.dataset.h !== h) { w.dataset.h = h; body.innerHTML = h; } }
