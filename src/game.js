@@ -10173,12 +10173,14 @@ const FBOT = (() => {
   //   추방·해산 = 귀환 연출 → 보통 귀환 시간(1~2분) 뒤 자기 일정표로 · 그 봇은 30분 동안 다시 초대 못 함 (유저마다) · 4시간 뒤 자동 해산 · 죽으면 2분 시체(부활 주문서 = HP 50%) → 지나면 파티에서 빠지고 귀환
   //   보상: 일반 몬스터 경험치·골드·드랍 확률 × 1/N × 1.1 (N = 1 + 파티 봇) · 보스 전리품은 그대로 모두 파티장 · 파티 봇이 준 피해 = 파티장 피해 (가호조각·드랍 공헌도) · 물약 무제한
   //   수호탑 대전·할로윈·콜로세움·결투장·몽환의 섬: 펫처럼 밖에서 기다렸다가 나오면 다시 옆에 (콜로세움·몽섬 입장은 3단계)
-  const PBC = { MAX: 3, LIFE: 4 * 3600e3, CD: 30 * 60e3, CORPSE: 120e3, TELE: 10, FOL: 3, STUCK: 3, VIEW: 12, MSG: 60 };   /* MSG: 11/4 법사 봇이 파티장에게 건 힐·이뮨 채팅 간격(초) */
-  const PBS = { m: [], mode: 'fight', end: 0, cd: {}, aw: {} }, PBE = new Map();   /* m: [{uid, st, at}] · cd: 다시 초대할 수 있는 시각 · aw: 귀환 중(세계에 다시 나올 시각) */
+  const PBC = { MAX: 3, LIFE: 4 * 3600e3, CD: 30 * 60e3, CORPSE: 120e3, TELE: 10, FOL: 3, STUCK: 3, VIEW: 12, MSG: 60, PRI: 8, NDEF: 6, NMIN: 3, NMAX: 10, ZFOL: 2 };   /* MSG: 11/4 법사 봇이 파티장에게 건 힐·이뮨 채팅 간격(초) · 11/4 2단계: PRI 전투 우선(파티장에서 적 봇까지 칸) · NDEF/NMIN/NMAX 근처 각개 칸 · ZFOL 쫄법사 따라가는 거리 */
+  const PBS = { m: [], mode: 'fight', pri: false, end: 0, cd: {}, aw: {} }, PBE = new Map();   /* m: [{uid, st(focus·near·zzol), n(근처 각개 칸), at}] · pri: 전투 우선 · cd: 다시 초대할 수 있는 시각 · aw: 귀환 중(세계에 다시 나올 시각) */
   let PBP = [], pbPubO = null, pbPubT = 0, pbUiT = 0, pbWinT = 0, pbChkT = 0, pbTagT = 0, pbLHI = null, pbLHJ = null;
   const pbZk = () => SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field';
   const pbOutside = () => TW() || HW() || ARENA() || DUEL() || !!(ISLE && ISLE.def && ISLE.def.dream);
   const pbIn = uid => PBS.m.some(m => m.uid === uid);
+  const pbMem = uid => PBS.m.find(m => m.uid === uid), pbNc = n => Math.max(PBC.NMIN, Math.min(PBC.NMAX, Math.round(+n) || PBC.NDEF));
+  const pbStOf = (m, b) => { const s = m && m.st; return s === 'near' ? 'near' : s === 'zzol' && b && b.cls === 'wizard' ? 'zzol' : 'focus'; };   /* 11/4 2단계: 쫄법사는 법사 봇만 · 모르는 값·옛 저장 = 일점사 */
   function pbTaken(uid) { return pbIn(uid) || (PBS.aw[uid] || 0) > nowMs() || (!!NET.pbTaken && NET.pbTaken(uid)); }   /* 세계(일정표·지원군·원정)에 나오면 안 되는 봇: 내 파티 · 막 귀환 중 · 다른 유저 파티 */
   const pbEsc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const pbPct = (a, b) => Math.max(0, Math.min(100, a / Math.max(1, b) * 100));
@@ -10198,7 +10200,7 @@ const FBOT = (() => {
   const pbAppear = e => { if (!e.dead && near(e, 14)) spellFx('enok', e, '#9fd8ff'); };
   // 초대: 바로 수락 → 내 옆에 나타남 (첫 초대부터 4시간)
   function pbInvite(uid) { const b = roster().by.get(uid), w = pbWhy(b); if (w) { say(`[혈맹] ${b ? b.name + '님은 ' : ''}지금 파티에 초대할 수 없어요. (${w})`, '#f08a7a'); pbUi(); return false; }
-    const now = nowMs(); if (!PBS.m.length) { PBS.end = now + PBC.LIFE; PBS.mode = 'fight'; } const m = { uid, st: 'focus', at: now }; PBS.m.push(m); const e = pbEnt(m);
+    const now = nowMs(); if (!PBS.m.length) { PBS.end = now + PBC.LIFE; PBS.mode = 'fight'; } const m = { uid, st: 'focus', n: PBC.NDEF, at: now }; PBS.m.push(m); const e = pbEnt(m);
     if (e && !pbOutside()) { pbPlace(e); pbAppear(e); } pbSweep(); pbPubT = 0;
     say(`[혈맹] ${jo(b.name, '이', '가')} 파티에 들어왔어요! (봇 ${PBS.m.length}/${PBC.MAX} · 파티 남은 시간 ${pbHM(PBS.end - now)})${pbOutside() ? ' · 여기서는 밖에서 기다려요' : ''}`, '#8fe08a'); pbUi(); return true; }
   // 파티에서 빠짐: kick 추방 · bye 해산 · expire 4시간 · dead 2분 동안 부활 못 함 · lost 다른 유저가 먼저 초대함
@@ -10212,8 +10214,18 @@ const FBOT = (() => {
     say(why === 'expire' ? '[혈맹 파티] 파티 4시간이 지나 자동으로 해산됐어요. 봇들은 귀환해서 자기 사냥터로 돌아가요. (30분 뒤 다시 초대할 수 있어요)' : '[혈맹 파티] 파티를 해산했어요. 봇들은 귀환해서 자기 사냥터로 돌아가요. (30분 뒤 다시 초대할 수 있어요)', '#9fd8ff', why === 'expire' ? 1 : 0); }
   function pbKickAsk(uid) { const b = roster().by.get(uid); if (!b || !pbIn(uid)) return; INV.askYesNo('정말 파티에서 추방시키겠습니까?', `${b.name}(봇) — 추방하면 바로 귀환해서 자기 사냥터로 돌아가요. 30분 동안 다시 초대할 수 없어요.`, () => pbLeave(uid, 'kick')); }
   function pbCmd(k) { if (!PBS.m.length) return; if (k === 'bye') { INV.askYesNo('파티를 해산하시겠습니까?', '봇들은 모두 귀환해서 자기 사냥터로 돌아가요. 30분 동안 같은 봇을 다시 초대할 수 없어요.', () => pbEnd('bye')); return; }
+    if (k === 'pri') { pbPriSet(!PBS.pri); return; }
     if (!['wait', 'move', 'fight'].includes(k) || PBS.mode === k) { pbUi(); return; } PBS.mode = k; for (const e of PBE.values()) e.px.tgt = null;
-    say(`[혈맹 파티] ${({ wait: '대기 — 그 자리에 서 있어요', move: '이동 — 공격하지 않고 따라와요', fight: '전투 — 사냥 스타일대로 싸워요 (① 일점사)' })[k]}`, '#9fd8ff'); pbUi(); }
+    say(`[혈맹 파티] ${({ wait: '대기 — 그 자리에 서 있어요', move: '이동 — 공격하지 않고 따라와요', fight: '전투 — 봇마다 고른 사냥 스타일대로 싸워요' })[k]}`, '#9fd8ff'); pbUi(); }
+  // 11/4 2단계: 전투 우선 체크 · 봇마다 사냥 스타일 (① 일점사 · ② 근처 각개 N칸 · ③ 쫄법사 = 법사 봇만)
+  function pbPriSet(on) { on = !!on; if (PBS.pri === on) { pbUi(); return false; } PBS.pri = on; for (const e of PBE.values()) { e.px.tgt = null; e.px.th = 0; }
+    say(on ? `[혈맹 파티] 전투 우선 켬 — 적 봇이 파티장 ${PBC.PRI}칸 안에 보이면 사냥을 멈추고 먼저 공격해요.` : '[혈맹 파티] 전투 우선 끔 — 사냥하다가 덤비는 적 봇만 상대해요.', '#9fd8ff'); pbUi(); return true; }
+  function pbStMsg(uid) { const M = pbMem(uid), b = roster().by.get(uid); if (!M || !b) return; const st = pbStOf(M, b), n = pbNc(M.n);
+    say(`[혈맹 파티] ${b.name}(봇) — ${st === 'near' ? `② 근처 각개 사냥 ${n}칸: 파티장 ${n}칸 안에서 각자 사냥해요.` : st === 'zzol' ? '③ 쫄법사: 공격하지 않고 파티장 곁에서 힐·이뮨만 해요.' : '① 일점사: 파티장이 공격하는 대상을 같이 공격해요.'}`, '#9fd8ff'); }
+  let pbStTm = 0; const pbStSoon = uid => { clearTimeout(pbStTm); pbStTm = setTimeout(() => pbStMsg(uid), 1000); };   /* − + 를 여러 번 누르면 마지막 칸 수만 채팅 (1초) */
+  function pbStSet(uid, st, n, quiet) { const M = pbMem(uid), b = roster().by.get(uid); if (!M || !b || !['focus', 'near', 'zzol'].includes(st)) return false;
+    if (st === 'zzol' && b.cls !== 'wizard') { if (!quiet) say('[혈맹 파티] 쫄법사는 법사 봇만 할 수 있어요.', '#f08a7a'); return false; }
+    M.st = st; M.n = pbNc(n == null ? M.n : n); const e = PBE.get(uid); if (e) { e.px.tgt = null; e.px.th = 0; } if (!quiet) { clearTimeout(pbStTm); pbStMsg(uid); } pbUi(); return true; }
   // 부활 주문서 (쓰러진 파티 봇 · HP 50%)
   function pbRevive(uid) { const L = PB_HERE.filter(e => e.dead && !e.gone && (uid == null || e.uid === uid)); if (!L.length) return false; L.sort((a, b) => cheb(a.i, a.j, hero.i, hero.j) - cheb(b.i, b.j, hero.i, hero.j)); const e = L[0];
     if (!INV.take('revive_scroll')) { say('부활 주문서가 없어요.', '#f08a7a'); return true; }
@@ -10236,8 +10248,22 @@ const FBOT = (() => {
     if (cheb(T.i, T.j, hero.i, hero.j) > PBC.VIEW) return false; return !(ISLE && !DN.seen(T.i, T.j)); }
   function pbAtk(m) { if (m.fb) { const X = m.bx; if (X && (X.tgt === hero || (X.tgt && X.tgt.pbot))) return true; } else if (!NET.guestMob(m) && m.aggro && (!m.tgt || m.tgt === hero || (m.tgt.pbot && PB_HERE.includes(m.tgt)))) return true;
     return (m.hitMeT && time - m.hitMeT < 4) || PB_HERE.some(q => q.hitBy === m && time - (q.hitByT || -99) < 4); }
-  function pbPick(e) { let T = hero.target; if (!pbOk(T)) T = hero.lastHit && time - (hero.lastHitT || -99) < 4 && pbOk(hero.lastHit) ? hero.lastHit : null; if (T) return T;
-    let best = null, bd = 99; for (const m of foxes) { if (!pbOk(m, true) || !pbAtk(m)) continue; const d = cheb(e.i, e.j, m.i, m.j); if (d < bd) { bd = d; best = m; } } return best; }
+  function pbPick(e, lim) { let T = hero.target; if (!pbOk(T)) T = hero.lastHit && time - (hero.lastHitT || -99) < 4 && pbOk(hero.lastHit) ? hero.lastHit : null; if (T) return T;   /* lim: 11/4 전투 우선 켬 → 덤비는 적 봇도 파티장 PRI칸 안만 */
+    let best = null, bd = 99; for (const m of foxes) { if (!pbOk(m, true) || !pbAtk(m) || (lim && m.fb && cheb(m.i, m.j, hero.i, hero.j) > PBC.PRI)) continue; const d = cheb(e.i, e.j, m.i, m.j); if (d < bd) { bd = d; best = m; } } return best; }
+  // ----- 11/4 혈맹 파티 2단계 (dev/rooms/botparty.md)
+  //   ② 근처 각개 사냥(N칸 · 기본 6 · 3~10): 파티장 N칸 안의 몹만 — 덤비는 몹 → 파티장이 치는 몹 또는 직접 고른 몹(다른 파티 봇이 치는 몹은 덜 고름) · 치던 몹이 N칸 밖으로 나가면 놓고 따라감
+  //   ③ 쫄법사(법사 봇만): 공격 안 함 · 파티장 2칸 안으로 따라다님 · 파티장 힐(HP 80% 밑이면 먼저)·이뮨(싸우거나 HP 80% 밑) → 파티장이 괜찮으면 파티 봇 힐·싸우는 봇 이뮨
+  //   전투 우선(전투 모드): 파티장 8칸 안에 보이는 적(라인 B) 봇 → 사냥을 멈추고 먼저 공격 · 9칸 넘게 멀어지면 안 쫓고 돌아와 사냥 · 다시 8칸 안이면 또 공격 (끄면 1단계처럼 덤비는 적 봇만)
+  function pbFree(m) { const S = MOB[m.kind]; if (m.fb || !S || S.boss || S.midb || S.dummy || S.pet || m.summoned || m.reaper || m.soulBoss || m.colo || m.twr || m.isPet) return false;   /* 직접 고를 몹: 보스·다른 사람(유저·펫·라인 봇)과 싸우는 몹·다른 유저가 노리거나 때린 몹은 빼고 */
+    if (m.tgt && m.tgt !== hero && !m.tgt.pbot) return false; if (OTT && OTT.has(m.uid)) return false; if (m.dmgBy && m.dmgBy.size) for (const k of m.dmgBy.keys()) if (k !== hero) return false; return true; }
+  function pbNear(e, X, N) { teams(); const cur = X.tgt; if (cur && !cur.fb && pbOk(cur) && cheb(cur.i, cur.j, hero.i, hero.j) <= N) return cur;   /* 치던 몹은 N칸 안이면 끝까지 */
+    const R = Math.max(N, PBC.PRI), lh = hero.lastHit && time - (hero.lastHitT || -99) < 4 ? hero.lastHit : null; let best = null, bd = 1e9;
+    for (const m of foxes) { if (!pbOk(m, true)) continue; const dh = cheb(m.i, m.j, hero.i, hero.j); if (dh > (m.fb ? R : N)) continue; const d = cheb(e.i, e.j, m.i, m.j); if (d > 1 && !los(e, m)) continue; let v;
+      if (pbAtk(m)) v = d - 50; else if (m === hero.target || m === lh) v = d - 1; else if (m.fb || !pbFree(m)) continue; else v = d + (PB_HERE.some(q => q !== e && q.px && q.px.tgt === m) ? 4 : 0);
+      if (v < bd) { bd = v; best = m; } } return best; }
+  function pbPriT(e, X) { let best = null, bd = 1e9; for (const f of teams().B) { if (!f.fb || !pbOk(f, true) || cheb(f.i, f.j, hero.i, hero.j) > PBC.PRI) continue; const d = cheb(e.i, e.j, f.i, f.j) - (f === X.tgt ? 3 : 0); if (d < bd) { bd = d; best = f; } } return best; }   /* 전투 우선: 파티장 8칸 안에 보이는 적 봇 (치던 봇 먼저) */
+  function pbFar(T, st, N) { const d = cheb(T.i, T.j, hero.i, hero.j); if (st === 'near') return d > (T.fb ? Math.max(N, PBC.PRI) + 1 : N); return !!(PBS.pri && T.fb && T !== hero.target && d > PBC.PRI + 1); }   /* 이 대상은 놓고 돌아옴 (일점사 + 전투 우선 끔 = 1단계 그대로) */
+  function pbChoose(e, X, st, N) { const P = PBS.pri ? pbPriT(e, X) : null; if (P) return P; return st === 'near' ? pbNear(e, X, N) : pbPick(e, PBS.pri); }
   const pbRoll = (e, T, mul) => { const [d, cr] = rollD(e, mul); return [Math.random() < hitChance(e, T) ? d : 0, cr]; };
   // ----- 11/4 지원·버프 (dev/notes/pbbuff.md)
   //   법사 봇: 7칸 안 HP 60% 밑 파티장·파티 봇 힐(필드 봇과 같은 양 · 4.5초) · 싸우는 파티장·기사 봇에게 이뮨 투 함(18초 · 12초마다) — 대기·이동 중에도 · 채팅은 종류마다 1분에 한 번만
@@ -10273,12 +10299,12 @@ const FBOT = (() => {
     pbSupFx('h', a, w); return h; }
   function pbImmOn(a, w) { STAT.pbImm = (STAT.pbImm || 0) + 1; if (w === hero) { BUFF.immune = Math.max(BUFF.immune || 0, 18); if (time - PBM.i >= PBC.MSG) { PBM.i = time; say(`[혈맹 파티] ${a.bot.name}(봇)님이 이뮨 투 함을 걸어 줬어요. (받는 피해 30% 감소 · 18초)`, '#9fe0a0'); } }
     else { w.immT = time + 18; pbUi(); } pbSupFx('i', a, w); }
-  function pbSupport(e, b, X) { const R = 7;   /* 법사 봇: 힐 먼저 (가장 HP가 낮은 쪽) → 이뮨 (파티장 먼저) */
-    if (X.sk.heal <= 0) { let w = null, wv = 0.6; if (!DEATH && hero.hp > 0 && cheb(e.i, e.j, hero.i, hero.j) <= R) { const v = hero.hp / Math.max(1, hero.max); if (v < wv) { wv = v; w = hero; } }
-      for (const q of PB_HERE) { if (q.dead || q.gone || cheb(e.i, e.j, q.i, q.j) > R) continue; const v = q.hp / Math.max(1, q.max); if (v < wv) { wv = v; w = q; } }
+  function pbSupport(e, b, X, zz) { const R = 7;   /* 법사 봇: 힐 먼저 (가장 HP가 낮은 쪽) → 이뮨 (파티장 먼저) · 11/4 쫄법사(zz): 파티장 HP 80% 밑이면 파티장 먼저 · 이뮨은 파티장이 싸우거나 HP 80% 밑 · 싸우는 파티 봇은 직업 상관없이 */
+    if (X.sk.heal <= 0) { let w = null, wv = 0.6; if (!DEATH && hero.hp > 0 && cheb(e.i, e.j, hero.i, hero.j) <= R) { const v = hero.hp / Math.max(1, hero.max); if (v < (zz ? 0.8 : wv)) { wv = v; w = hero; } }
+      if (!(zz && w)) for (const q of PB_HERE) { if (q.dead || q.gone || cheb(e.i, e.j, q.i, q.j) > R) continue; const v = q.hp / Math.max(1, q.max); if (v < wv) { wv = v; w = q; } }
       if (w && (w === e || los(e, w))) { pbHealOn(e, w); X.sk.heal = K_.TWB.healCd; X.cd = Math.max(X.cd, 0.7); return true; } }
-    if (X.sk.imm <= 0) { let w = null; if (!(BUFF.immune > 0) && !DEATH && hero.hp > 0 && cheb(e.i, e.j, hero.i, hero.j) <= R && los(e, hero) && pbHeroFight()) w = hero;
-      else for (const q of PB_HERE) if (q !== e && !q.dead && !q.gone && q.bot && q.bot.cls === 'knight' && q.px && q.px.tgt && !(q.immT > time) && cheb(e.i, e.j, q.i, q.j) <= R && los(e, q)) { w = q; break; }
+    if (X.sk.imm <= 0) { let w = null; if (!(BUFF.immune > 0) && !DEATH && hero.hp > 0 && cheb(e.i, e.j, hero.i, hero.j) <= R && los(e, hero) && (pbHeroFight() || (zz && hero.hp < hero.max * 0.8))) w = hero;
+      else for (const q of PB_HERE) if (q !== e && !q.dead && !q.gone && q.bot && (zz || q.bot.cls === 'knight') && q.px && q.px.tgt && !(q.immT > time) && cheb(e.i, e.j, q.i, q.j) <= R && los(e, q)) { w = q; break; }
       if (w) { pbImmOn(e, w); X.sk.imm = 12; X.cd = Math.max(X.cd, 0.7); return true; } }
     return false; }
   function pbBufs(e) { if (!e || e.dead || !e.pbf) return null; const o = {}, F = e.pbf, B = e.px ? e.px.bf : null; let n = 0;   /* 파티창 아이콘: {버프: 남은 초} (사람 파티원 bf와 같은 모양) */
@@ -10302,8 +10328,8 @@ const FBOT = (() => {
   function pbPend() { for (let k = PBP.length - 1; k >= 0; k--) { const p = PBP[k]; if (time < p.at) continue; PBP.splice(k, 1); if (!p.e || p.e.dead || p.e.gone) continue; pbApply(p.e, p.T, p.d, p.cr, p.k); } }
   // 이동: 파티장 2~3칸 안으로 따라감 · 끼어서 못 오면(3초) 또는 10칸 넘게 멀어지면 파티장 옆에 다시
   function pbWalk(e, X, dt, ti, tj, goal) { if (X.pathT > 0) { X.pathT -= dt; return false; } const p = MAZE() ? mzPath(e, ti, tj) : astar(e, goal, ti, tj); if (p.length && beginStep(e, p[0])) { X.stuck = 0; return true; } X.pathT = 0.12; X.stuck += 0.12; return false; }   /* 길을 못 찾을 때만 0.12초 쉬었다 다시 */
-  function pbFollow(e, X, dt, dh) { if (dh <= PBC.FOL) { X.stuck = 0; if (dh === 0) { const s = pbSpot(e.i, e.j, 1, 1); if (s) beginStep(e, s); } return; }
-    pbWalk(e, X, dt, hero.i, hero.j, (i, j) => cheb(i, j, hero.i, hero.j) <= 2 && !(i === hero.i && j === hero.j)); if (X.stuck > PBC.STUCK && dh > PBC.FOL + 1) { pbPlace(e); pbAppear(e); } }
+  function pbFollow(e, X, dt, dh, fol) { fol = fol || PBC.FOL; if (dh <= fol) { X.stuck = 0; if (dh === 0) { const s = pbSpot(e.i, e.j, 1, 1); if (s) beginStep(e, s); } return; }   /* fol: 보통 3칸 · 11/4 쫄법사 2칸 */
+    pbWalk(e, X, dt, hero.i, hero.j, (i, j) => cheb(i, j, hero.i, hero.j) <= fol - 1 && !(i === hero.i && j === hero.j)); if (X.stuck > PBC.STUCK && dh > fol + 1) { pbPlace(e); pbAppear(e); } }
   function pbFight(e, X, dt, T) { const b = e.bot, d = cheb(e.i, e.j, T.i, T.j), R = RNG[b.cls], see = d <= 1 || los(e, T);
     if (d <= R && see) { X.stuck = 0; face(e, T); if (X.cd <= 0) pbAttack(e, X, T, d); return; }
     const want = b.cls === 'knight' || !see ? 1 : R - 1; pbWalk(e, X, dt, T.i, T.j, (i, j) => cheb(i, j, T.i, T.j) <= want); if (X.stuck > PBC.STUCK) { X.tgt = null; X.th = 1.5; X.stuck = 0; } }
@@ -10314,14 +10340,14 @@ const FBOT = (() => {
     stepMove(e, dt, sp); if (e.slowT > 0) e.slowT -= dt; if (e.wslowT > 0) e.wslowT -= dt;
     if (e.stunT > 0) { e.stunT -= dt; e.atkT = null; return; } if (e.bindUntil > time) return;
     X.cd -= dt * (e.wslowT > 0 ? 0.75 : 1); X.pot -= dt; X.mag -= dt; for (const k in X.scd) X.scd[k] -= dt; X.hz -= dt; X.sk.heal -= dt; X.sk.imm -= dt; X.sk.buf -= dt;
-    pbPotion(e, X);
-    if ((X.supT -= dt) <= 0) { X.supT = 0.25; if (b.cls === 'wizard' ? !DEATH && pbSupport(e, b, X) : b.cls === 'knight' && X.sk.buf <= 0 && pbKBuf(e, b, X)) return; }   /* 11/4: 법사 힐·이뮨 (대기·이동 중에도) · 기사 버프 */
-    const md = DEATH ? 'move' : PBS.mode; if (md === 'fight') {   /* 11/3: 파티장이 쓰러져 있으면 싸우지 않음 */ if ((X.th -= dt) <= 0 || (X.tgt && !pbOk(X.tgt))) { X.th = 0.25; const was = X.tgt; X.tgt = pbPick(e); if (X.tgt && !was) X.potAt = rr(C.POT_AT); } } else X.tgt = null;
+    pbPotion(e, X); const M = pbMem(e.uid), st = pbStOf(M, b), N = pbNc(M && M.n);   /* 11/4 2단계: 사냥 스타일 */
+    if ((X.supT -= dt) <= 0) { X.supT = 0.25; if (b.cls === 'wizard' ? !DEATH && pbSupport(e, b, X, st === 'zzol') : b.cls === 'knight' && X.sk.buf <= 0 && pbKBuf(e, b, X)) return; }   /* 11/4: 법사 힐·이뮨 (대기·이동 중에도) · 기사 버프 */
+    const md = DEATH ? 'move' : PBS.mode; if (md === 'fight' && st !== 'zzol') {   /* 11/3: 파티장이 쓰러져 있으면 싸우지 않음 · 11/4: 쫄법사는 공격 안 함 */ if ((X.th -= dt) <= 0 || (X.tgt && (!pbOk(X.tgt) || pbFar(X.tgt, st, N)))) { X.th = 0.25; const was = X.tgt; X.tgt = pbChoose(e, X, st, N); if (X.tgt && !was) X.potAt = rr(C.POT_AT); } } else X.tgt = null;
     if (e.t < 1) return;
-    const dh = cheb(e.i, e.j, hero.i, hero.j); if (md !== 'wait' && dh > PBC.TELE) { pbPlace(e); pbAppear(e); return; }
+    const dh = cheb(e.i, e.j, hero.i, hero.j); if (md !== 'wait' && dh > Math.max(PBC.TELE, st === 'near' ? N + 3 : 0, PBS.pri && md === 'fight' ? PBC.PRI + 3 : 0)) { pbPlace(e); pbAppear(e); return; }   /* 11/4: 근처 각개 N칸·전투 우선은 그만큼 더 멀어져도 됨 */
     if (md === 'wait') return;
     if (X.tgt) { pbFight(e, X, dt, X.tgt); return; }
-    pbFollow(e, X, dt, dh); }
+    pbFollow(e, X, dt, dh, st === 'zzol' ? PBC.ZFOL : PBC.FOL); }
   // 다른 유저와 같은 봇을 초대했으면 먼저 누른 쪽 (시각 · 같으면 peer 이름순) · 세계에 나와 있는 내 파티 봇·다른 유저 파티 봇은 귀환
   function pbConflict() { if (!NET.pbClaims) return; const M = NET.pbClaims(), me = myId(); for (const m of PBS.m.slice()) { const L = M.get(m.uid); if (L && L.some(o => o.at < m.at || (o.at === m.at && o.peer < me))) pbLeave(m.uid, 'lost'); } }
   function pbSweep() { const h = host() && here(); for (const f of foxes) { if (!f.fb || f.gone || f.dead || f.pbot) continue; if (h ? !pbTaken(f.uid) : !pbIn(f.uid)) continue; if (h) fx(['r', f.uid]); else if (near(f, 14)) recallFx(f); leave(f, true); } }
@@ -10350,15 +10376,15 @@ const FBOT = (() => {
   function pbTombs(g) { if (!PB_HERE.length) return; const now = nowMs(); for (const e of PB_HERE) { if (!e.dead || e.gone || !e.bot) continue; if (ISLE && !DN.seen(e.i, e.j)) continue; const [x, y] = W2P(e.x, e.z); drawTomb(g, x, y, `[반왕] ${e.bot.name}`, Math.max(0, ((e.deadAt || now) + PBC.CORPSE - now) / 1000)); } }
   // 저장 (캐릭터 저장 pb · 새로고침·자동 업데이트·다시 접속해도 이어짐)
   function pbDump() { const now = nowMs(), cd = {}, aw = {}; for (const k in PBS.cd) if (PBS.cd[k] > now) cd[k] = PBS.cd[k]; for (const k in PBS.aw) if (PBS.aw[k] > now) aw[k] = PBS.aw[k];
-    if (!PBS.m.length && !Object.keys(cd).length && !Object.keys(aw).length) return undefined;
-    return { v: 1, m: PBS.m.map(m => { const e = PBE.get(m.uid); return [m.uid, m.st || 'focus', m.at, e ? (e.dead ? e.deadAt || now : 0) : (m.dead || 0), e ? Math.round(Math.max(0, e.hp) / Math.max(1, e.max) * 100) / 100 : (m.hp != null ? m.hp : 1)]; }), md: PBS.mode, end: PBS.end, cd, aw }; }
-  function pbLoad(o) { PBS.m = []; PBS.cd = {}; PBS.aw = {}; PBS.end = 0; PBS.mode = 'fight'; for (const e of PBE.values()) e.gone = true; PBE.clear(); PB_HERE = []; PBP = []; if (!o || typeof o !== 'object') { pbUi(); return; }
-    const R = roster(), now = nowMs(), ok = u => { const b = R.by.get(+u); return !!(b && b.team === 'A'); };
+    if (!PBS.m.length && !Object.keys(cd).length && !Object.keys(aw).length && !PBS.pri) return undefined;
+    return { v: 1, m: PBS.m.map(m => { const e = PBE.get(m.uid); return [m.uid, m.st || 'focus', m.at, e ? (e.dead ? e.deadAt || now : 0) : (m.dead || 0), e ? Math.round(Math.max(0, e.hp) / Math.max(1, e.max) * 100) / 100 : (m.hp != null ? m.hp : 1), pbNc(m.n)]; }), md: PBS.mode, pri: PBS.pri ? 1 : 0, end: PBS.end, cd, aw }; }   /* m: [uid, 스타일, 초대 시각, 쓰러진 시각, HP 비율, 근처 각개 칸] */
+  function pbLoad(o) { PBS.m = []; PBS.cd = {}; PBS.aw = {}; PBS.end = 0; PBS.mode = 'fight'; PBS.pri = false; for (const e of PBE.values()) e.gone = true; PBE.clear(); PB_HERE = []; PBP = []; if (!o || typeof o !== 'object') { pbUi(); return; }
+    PBS.pri = !!o.pri; const R = roster(), now = nowMs(), ok = u => { const b = R.by.get(+u); return !!(b && b.team === 'A'); };
     for (const k in (o.cd || {})) if (ok(k) && +o.cd[k] > now) PBS.cd[+k] = Math.min(+o.cd[k], now + PBC.CD); for (const k in (o.aw || {})) if (ok(k) && +o.aw[k] > now) PBS.aw[+k] = Math.min(+o.aw[k], now + 600e3);
     const end = +o.end || 0; if (Array.isArray(o.m) && end > 0) { PBS.end = Math.min(end, now + PBC.LIFE); PBS.mode = ['wait', 'move', 'fight'].includes(o.md) ? o.md : 'fight';
-      for (const r of o.m.slice(0, PBC.MAX)) { if (!Array.isArray(r) || !ok(r[0]) || PBS.m.some(m => m.uid === +r[0])) continue; PBS.m.push({ uid: +r[0], st: 'focus', at: +r[2] || now, dead: +r[3] || 0, hp: r[4] == null ? 1 : +r[4] }); } if (!PBS.m.length) PBS.end = 0; }
+      for (const r of o.m.slice(0, PBC.MAX)) { if (!Array.isArray(r) || !ok(r[0]) || PBS.m.some(m => m.uid === +r[0])) continue; PBS.m.push({ uid: +r[0], st: pbStOf({ st: r[1] }, R.by.get(+r[0])), n: pbNc(r[5]), at: +r[2] || now, dead: +r[3] || 0, hp: r[4] == null ? 1 : +r[4] }); } if (!PBS.m.length) PBS.end = 0; }
     pbPubT = 0; pbUi(); }
-  // ----- 화면: 왼쪽 파티창 (사람 파티와 같은 모양 · 봇은 이름 옆 (봇)) · 이름 누르면 툴팁(① 일점사 · ④ 추방) · 아래 대기/이동/전투/해산
+  // ----- 화면: 왼쪽 파티창 (사람 파티와 같은 모양 · 봇은 이름 옆 (봇)) · 이름 누르면 툴팁(① 일점사 · ② 근처 각개 N칸 · ③ 쫄법사 · ④ 추방) · 아래 대기/이동/전투/해산 + 전투 우선
   function pbUi() { pbUiT = 0; pbWinT = 0; }
   function pbUiTick(dt) { if ((pbUiT -= dt) <= 0) { pbUiT = 0.25; pbBox(); } if ((pbWinT -= dt) <= 0) { pbWinT = 1; pbWin(); } }
   function pbBox() { const box = document.getElementById('partybox'); if (!box) return; pbBind(box);
@@ -10369,19 +10395,26 @@ const FBOT = (() => {
       const sub = dead ? `<small>쓰러짐 · ${mmss(Math.max(0, ((e.deadAt || now) + PBC.CORPSE - now) / 1000))} 뒤 귀환<button type="button" data-pbrv="${m.uid}">부활</button></small>` : out ? '<small>밖에서 기다리는 중</small>' : '';
       return `<div class="pb-m pbot${dead ? ' dead' : ''}" data-pbu="${m.uid}"><div class="pb-t"><b>${pbEsc(b.name)}<i>(봇)</i></b><span>${CLASS_NAME[b.cls] || ''} Lv.${elvOf(b)}</span></div><div class="pb-bar hp"><i style="width:${pbPct(hp, mx)}%"></i><em>${hp}/${mx}</em></div>${dead || out ? '' : NET.bfRow(pbBufs(e))}${sub}</div>`; }).join('');
     const MB = [['wait', '대기'], ['move', '이동'], ['fight', '전투'], ['bye', '해산']].map(([k, t]) => `<button type="button" data-pbm="${k}"${PBS.mode === k ? ' class="on" aria-pressed="true"' : ''}>${t}</button>`).join('');
-    const h = `<div class="pb-h">혈맹 파티 <small>${PBS.m.length + 1}명 · ${pbHM(PBS.end - now)} 남음</small><button type="button" id="pb-clan">혈맹</button></div>${me}${rows}<div class="pb-cmd" role="group" aria-label="파티 봇 명령">${MB}</div>`;
+    const h = `<div class="pb-h">혈맹 파티 <small>${PBS.m.length + 1}명 · ${pbHM(PBS.end - now)} 남음</small><button type="button" id="pb-clan">혈맹</button></div>${me}${rows}<div class="pb-cmd" role="group" aria-label="파티 봇 명령">${MB}</div><label class="pb-pri${PBS.pri ? ' on' : ''}" data-pbm="pri" title="전투 모드에서 적 봇이 파티장 ${PBC.PRI}칸 안에 보이면 사냥을 멈추고 먼저 공격"><input type="checkbox" tabindex="-1"${PBS.pri ? ' checked' : ''}>전투 우선<small>적 봇 먼저</small></label>`;
     if (box.hidden) box.hidden = false; box.dataset.pbo = '1'; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } }
   function pbBind(box) { if (box.__pbb) return; box.__pbb = true;   /* 파티창은 HP가 바뀔 때마다 다시 그려져서 누르는 순간(pointerdown)에 처리 */
     box.addEventListener('pointerdown', ev => { if (!PBS.m.length || (ev.pointerType === 'mouse' && ev.button !== 0)) return; const t = ev.target; if (!t || !t.closest) return;
       const mb = t.closest('[data-pbm]'); if (mb) { ev.preventDefault(); pbCmd(mb.dataset.pbm); return; }
       const rv = t.closest('[data-pbrv]'); if (rv) { ev.preventDefault(); pbRevive(+rv.dataset.pbrv); return; }
       if (t.closest('#pb-clan')) { ev.preventDefault(); pbOpen(); return; }
-      const r = t.closest('[data-pbu]'); if (r) { ev.preventDefault(); pbTip(+r.dataset.pbu, r); } }); }
-  function pbTip(uid, el) { const m = document.getElementById('pmenu'), b = roster().by.get(uid), e = PBE.get(uid); if (!m || !b || !pbIn(uid)) return; const dead = !!(e && e.dead), n = INV.count('revive_scroll');
-    m.innerHTML = `<b>${pbEsc(b.name)} <small>(봇)</small></b><small>${CLASS_NAME[b.cls] || ''} Lv.${elvOf(b)} · 투력 ${pbCp(b).toLocaleString()}</small><span class="pm-t">사냥 스타일</span><button type="button" data-a="st" class="on" aria-pressed="true">① 일점사 ✓<em>파티장이 공격하는 대상을 같이 공격</em></button>${dead ? `<button type="button" data-a="rv"${n ? '' : ' disabled'}>부활 주문서 사용 (${n}개)</button>` : ''}<button type="button" data-a="kick" class="bad">④ 파티 추방</button><button type="button" data-a="x">닫기</button>`;
-    m.hidden = false; m.dataset.pb = '1'; const r = el.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight; m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right + 6)) + 'px'; m.style.top = Math.max(8, Math.min(innerHeight - h - 8, r.top)) + 'px';
-    m.onclick = ev => { const a = ev.target.closest && ev.target.closest('[data-a]'); if (!a || a.disabled) return; const k = a.dataset.a; m.hidden = true; m.dataset.pb = '';
-      if (k === 'st') say(`[혈맹 파티] ${b.name}: 사냥 스타일 ① 일점사 — 파티장이 공격하는 대상을 같이 공격해요. (근처 각개 사냥·쫄법사는 다음 단계)`, '#9fd8ff'); else if (k === 'kick') pbKickAsk(uid); else if (k === 'rv') pbRevive(uid); }; }
+      const r = t.closest('[data-pbu]'); if (r) { ev.preventDefault(); pbTip(+r.dataset.pbu, r); } });
+    box.addEventListener('click', ev => { if (ev.target && ev.target.closest && ev.target.closest('.pb-pri')) ev.preventDefault(); }); }   /* 11/4: 전투 우선 체크는 PBS.pri가 정함 (브라우저가 따로 바꾸지 않게) */
+  function pbTip(uid, el, keep) { const m = document.getElementById('pmenu'), b = roster().by.get(uid), e = PBE.get(uid); if (!m || !b || !pbIn(uid)) return; const dead = !!(e && e.dead), n = INV.count('revive_scroll');
+    const M = pbMem(uid), st = pbStOf(M, b), N = pbNc(M.n), wz = b.cls === 'wizard', on = k => st === k ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"', ck = k => st === k ? ' ✓' : '';   /* 11/4 2단계: ① 일점사 · ② 근처 각개(− N +) · ③ 쫄법사(법사 봇만) · 고른 것에 테두리 */
+    const SB = `<button type="button" data-a="st" data-st="focus"${on('focus')}>① 일점사${ck('focus')}<em>파티장이 공격하는 대상을 같이 공격</em></button><button type="button" data-a="st" data-st="near"${on('near')}>② 근처 각개 사냥${ck('near')}<em>파티장 ${N}칸 안에서 각자 사냥 · 밖으로는 안 쫓음</em></button>`
+      + `<span class="pm-n" role="group" aria-label="근처 각개 칸 수"><button type="button" data-a="n-" aria-label="칸 줄이기"${N <= PBC.NMIN ? ' disabled' : ''}>−</button><span class="pm-nv">${N}칸</span><button type="button" data-a="n+" aria-label="칸 늘리기"${N >= PBC.NMAX ? ' disabled' : ''}>+</button></span>`
+      + `<button type="button" data-a="st" data-st="zzol"${wz ? on('zzol') : ' disabled aria-pressed="false"'}>③ 쫄법사${ck('zzol')}<em>${wz ? '공격 안 함 · 파티장 곁에서 힐·이뮨' : '법사 봇만 할 수 있어요'}</em></button>`;
+    m.innerHTML = `<b>${pbEsc(b.name)} <small>(봇)</small></b><small>${CLASS_NAME[b.cls] || ''} Lv.${elvOf(b)} · 투력 ${pbCp(b).toLocaleString()}</small><span class="pm-t">사냥 스타일</span>${SB}${dead ? `<button type="button" data-a="rv"${n ? '' : ' disabled'}>부활 주문서 사용 (${n}개)</button>` : ''}<button type="button" data-a="kick" class="bad">④ 파티 추방</button><button type="button" data-a="x">닫기</button>`;
+    m.hidden = false; m.dataset.pb = '1'; if (keep) return; const r = el.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight; m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right + 6)) + 'px'; m.style.top = Math.max(8, Math.min(innerHeight - h - 8, r.top)) + 'px';
+    m.onclick = ev => { const a = ev.target.closest && ev.target.closest('[data-a]'); if (!a || a.disabled) return; const k = a.dataset.a;
+      if (k === 'n-' || k === 'n+') { const M2 = pbMem(uid); if (!M2) return; pbStSet(uid, 'near', pbNc(M2.n) + (k === 'n+' ? 1 : -1), true); pbStSoon(uid); pbTip(uid, el, true); return; }   /* 칸 수를 바꾸면 ② 근처 각개로 · 창은 그대로 */
+      m.hidden = true; m.dataset.pb = '';
+      if (k === 'st') pbStSet(uid, a.dataset.st); else if (k === 'kick') pbKickAsk(uid); else if (k === 'rv') pbRevive(uid); }; }
   // ----- 혈맹 창: 접속 중인 반왕 혈맹원(봇) · 투력순 · 투력/레벨/직업/아이디 + [파티 초대]
   function pbOpen() { const w = document.getElementById('clanwin'); if (!w) return; if (!w.hidden) { w.hidden = true; return; } w.hidden = false; w.dataset.h = ''; pbWin(true); }
   function pbWin(force) { const w = document.getElementById('clanwin'), body = document.getElementById('cl-body'); if (!w || !body || (w.hidden && !force)) return;
@@ -10393,7 +10426,8 @@ const FBOT = (() => {
     if (w.dataset.h !== h) { w.dataset.h = h; body.innerHTML = h; } }
   { const b = document.getElementById('btn-clan'); if (b) b.onclick = () => pbOpen(); }
   const PBAPI = { S: PBS, E: PBE, C: PBC, here: () => PB_HERE, invite: pbInvite, leave: pbLeave, end: pbEnd, cmd: pbCmd, why: uid => pbWhy(roster().by.get(uid)), cp: uid => pbCp(roster().by.get(uid)), list: pbList, pick: e => pbPick(e), kickAsk: pbKickAsk, tip: pbTip, revive: pbRevive, box: pbBox, win: pbWin, open: pbOpen, hurt: pbHurt, taken: pbTaken, get pend() { return PBP; },
-    heal: pbHealE, imm: pbImm, buf: pbBuf, cleanse: pbCleanse, healNear: pbHealNear, bufNear: pbBufNear, bufs: pbBufs, haste: pbHaste, cdOf: pbCd, sup: (e, X) => pbSupport(e, e.bot, X || e.px), heroFight: pbHeroFight, msg: PBM };   /* 11/4 지원·버프 */
+    heal: pbHealE, imm: pbImm, buf: pbBuf, cleanse: pbCleanse, healNear: pbHealNear, bufNear: pbBufNear, bufs: pbBufs, haste: pbHaste, cdOf: pbCd, sup: (e, X) => pbSupport(e, e.bot, X || e.px), heroFight: pbHeroFight, msg: PBM,   /* 11/4 지원·버프 */
+    st: pbStSet, stOf: uid => { const M = pbMem(uid); return M ? { st: pbStOf(M, roster().by.get(uid)), n: pbNc(M.n) } : null; }, pri: pbPriSet, choose: e => { const M = pbMem(e.uid); return pbChoose(e, e.px, pbStOf(M, e.bot), pbNc(M && M.n)); } };   /* 11/4 2단계 */
   // 테스트용: 시간을 빨리 돌림 (몹·봇만 · 내 캐릭터는 가만히)
   function sim(sec, dt) { dt = dt || 0.05; SIM = true; const t0 = performance.now(); try { for (let k = 0, n = Math.round(sec / dt); k < n; k++) { time += dt; for (const f of foxes.slice()) updateFox(f, dt); ISLAND.tick(dt); tick(dt); } } finally { SIM = false; } return Math.round(performance.now() - t0); }
   const DBG = {};
