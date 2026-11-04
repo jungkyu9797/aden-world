@@ -3115,7 +3115,7 @@ const FGI = {
   NO_SPAWN_R: 11,     // 이 안에는 몹 스폰 없음 (도착 자리·NPC 주변만 비움)
   NEAR_R: 28,         // 'near' 몹은 NO_SPAWN_R~NEAR_R 고리에 몰려 있음 → 광장을 조금만 벗어나면 몹 떼
   N_NEAR: 20, N_FAR: 28, D_NEAR: 20, D_FAR: 28,   // 일반 5종 × (고리 20 + 섬 나머지 28) = 240 · 드레이크 고리 20 + 나머지 28 = 48 → 288 = 몽환의 섬(144)의 2배 · 일반:드레이크 = 5:1 (정령:대정령과 같음)
-  X: 1.5, XR: 3,      // 화둥 2구역 평균의 몇 배 — X = HP·공격 (11/4 프로듀서 3 → 1.5) · XR = 경험치·골드 (3배 그대로)
+  X: 1.5, HX: 1.1, XR: 3,      // 화둥 2구역 평균의 몇 배 — X = 공격 (11/4 프로듀서 3 → 1.5) · HX = HP (11/4 프로듀서: 파티 사냥에서 너무 안 죽음 → 1.1 · 일반 몹·드레이크) · XR = 경험치·골드 (3배 그대로)
   MAC: -2,            // 몹 AC — 화둥 평균 약 +1.3. '방어 3배'를 명중 식 그대로(AC −16) 하면 누구나 최저 명중 20%라서 AC −2(명중 약 −10%p) + 레벨 60~64(레벨 차로 −25%p 더)로 (아침에 조정)
   HIT: 0.96, MR_K: 1.5, SPD: 2,   // 몹 명중 · MR = 화둥 평균 × 1.5 · 이동 속도 = 원래 몹 × 2
   RARE_P: 0.04, HERO_P: 0.005, RARE_GEAR: 0.5, HERO_GEAR: 0.75,   // 일반 몹(드레이크 포함): 희귀 4%(장비 50% · 희귀 주문서 50%) · 영웅 0.5%(장비 75% · 축데이 25%) — 고급·일반 아이템 없음 · 혈맹 파티 봇이 있으면 × 1/N × 1.1
@@ -3144,7 +3144,7 @@ const FG_TINT = { fg_bugbear: 'grayscale(.6) sepia(.3) hue-rotate(160deg) satura
   fg_shelob: 'grayscale(.4) sepia(.4) hue-rotate(150deg) saturate(1.8) brightness(2.1) contrast(1.05)', fg_drake: 'brightness(1.3) grayscale(.5) sepia(.35) hue-rotate(150deg) saturate(1.7) contrast(1.08)',
   fg_giant: 'grayscale(.7) sepia(.45) hue-rotate(130deg) saturate(1.15) brightness(1.15) contrast(1.15)' };
 for (const k in FG_DEF) { const [src, name, lv, hk, dk, cd, ex] = FG_DEF[k], B = MOB[src], X = FGI.X, XR = FGI.XR, rk = ex.fgMid ? 2 : hk;
-  MOB[k] = { name, lv, hp: Math.round(FG_BASE.hp * X * hk), dmg: [Math.round(FG_BASE.d0 * X * dk), Math.round(FG_BASE.d1 * X * dk)], mac: FGI.MAC, hit: FGI.HIT, mr: Math.round(FG_BASE.mr * FGI.MR_K),
+  MOB[k] = { name, lv, hp: Math.round(FG_BASE.hp * FGI.HX * hk), dmg: [Math.round(FG_BASE.d0 * X * dk), Math.round(FG_BASE.d1 * X * dk)], mac: FGI.MAC, hit: FGI.HIT, mr: Math.round(FG_BASE.mr * FGI.MR_K),
     exp: Math.round(FG_BASE.exp * XR * rk), coin: [Math.round(FG_BASE.c0 * XR * rk), Math.round(FG_BASE.c1 * XR * rk)], walk: +(B.walk * FGI.SPD).toFixed(2), run: +(B.run * FGI.SPD).toFixed(2), cd, aggr: 6, fgi: true,
     art: B.art, tint: FG_TINT[k], sc: (B.sc || 1) * (k === 'fg_shelob' ? 0.5 : !B.aggr ? AGGR_SC : 1), hw: B.hw, hh: B.hh, ...ex };   // 무속성(el 없음) · 셸로브 = 보스 크기의 절반 · 선공 몹 1.3배 크기 규칙(원본이 비선공이면 여기서)
   const M = MSHEET[src]; if (M) { const f = k === 'fg_shelob' ? 0.5 : !B.aggr ? AGGR_SC : 1; MSHEET[k] = { ...M, src: M.src || src, tint: FG_TINT[k], lava: undefined, s: M.s * f, hh: Math.round(M.hh * f), hw: Math.round(M.hw * f) }; } }
