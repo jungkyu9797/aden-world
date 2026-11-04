@@ -1,5 +1,5 @@
 // 11/3 잊혀진 섬 (지역 25 · dev/rooms/forgotten.md) — python3 dev/mkkt.py && KT_PORT=8897 KT_TO=900 bash dev/runkt.sh dev/tests/forgotten.js
-//   ① 월드맵 입장료 50만 골드 (모자라면 거절) ② 맵 한가운데 도착 ③ 가운데 비고 바로 바깥에 몹 떼 (288마리 = 몽섬 2배 · 5:1) ④ 몹 능력치 표 (화둥 2구역 평균 × 3 · 이동 2배 · 선공 · 무속성)
+//   ① 월드맵 입장료 50만 골드 (모자라면 거절) ② 맵 한가운데 도착 ③ 가운데 비고 바로 바깥에 몹 떼 (288마리 = 몽섬 2배 · 5:1) ④ 몹 능력치 표 (화둥 2구역 평균 × 1.46 · 경험치·골드 × 1.33 (11/4) · 이동 2배 · 선공 · 무속성)
 //   ⑤ 귀환 부적·순간이동 주문서·월드맵(마을·사냥 시작)·귀환 버튼·자동사냥 귀환(HP·물약)·절전 귀환 모두 막힘 + 안내 ⑥ 떠돌이 상인: 물약만 · 본토 값의 2배 · 구입
 //   ⑦ 일반 몹 드랍(고급·일반 없음 · 희귀 4% · 영웅 0.5%) ⑧ 드레이크 고대의 주문서 3% · 빛바랜 벨트 3% ⑨ 주문서 → 빛바랜 벨트 3/27/70 (뽑기 3만 번) ⑩ 실제 사용: 둘 다 소진 · 결과 안내 · 잘못된 대상
 //   ⑪ 보스 전리품: 전설 벨트 3% · 빛바랜 벨트 1~5 · 고대의 주문서 1~5 반드시 ⑫ 펫 · 혈맹 파티 봇이 같이 들어와 싸움 ⑬ 사망 → 무덤 → 부활(제자리) · 마을 부활
@@ -46,10 +46,10 @@ const lastLog = (p, n = 8) => p.evaluate(n => __T.log.slice(-n).map(x => String(
   console.log(`   에이션트 자이언트   HP ${st.giant.hp} (피닉스 ${st.phx.hp}) · 피해 ${st.giant.dmg} (${st.phx.dmg}) · 경험치 ${st.giant.exp} · 골드 ${st.giant.coin} · 달리기 ${st.phx.run}→${st.giant.run}`);
   { const N5 = st.rows.filter(r => !r.mid), av = f => N5.reduce((x, r) => x + f(r), 0) / N5.length, R = { hp: av(r => r.hp) / st.B.hp, d0: av(r => +r.dmg.split('~')[0]) / st.B.d0, d1: av(r => +r.dmg.split('~')[1]) / st.B.d1, exp: av(r => r.exp) / st.B.exp, c0: av(r => +r.coin.split('~')[0]) / st.B.c0, c1: av(r => +r.coin.split('~')[1]) / st.B.c1 };
     console.log('   일반 5종 평균 ÷ 화둥 평균:', JSON.stringify(Object.fromEntries(Object.entries(R).map(([k, v]) => [k, +v.toFixed(3)]))));
-    ok(['hp', 'd0', 'd1'].every(k => Math.abs(R[k] - 1.1) < 0.03) && ['exp', 'c0', 'c1'].filter(k => R[k] != null).every(k => Math.abs(R[k] - 3) < 0.03), `④ 일반 5종 평균 HP·공격 = 화둥 2구역의 1.1배 · 경험치·골드 = 3배 (${Object.entries(R).map(([k, v]) => k + ' ' + v.toFixed(2)).join(' · ')})`); }
+    ok(['hp', 'd0', 'd1'].every(k => Math.abs(R[k] - 1.46) < 0.03) && ['exp', 'c0', 'c1'].filter(k => R[k] != null).every(k => Math.abs(R[k] - 1.33) < 0.03), `④ 일반 5종 평균 HP·공격 = 화둥 2구역의 1.46배 · 경험치·골드 = 1.33배 (${Object.entries(R).map(([k, v]) => k + ' ' + v.toFixed(2)).join(' · ')})`); }
   ok(st.rows.every(r => Math.abs(r.run - r.run0 * 2) < 0.02 && Math.abs(r.walk - r.walk0 * 2) < 0.02) && Math.abs(st.giant.run - st.phx.run * 2) < 0.02, '④ 이동 속도 = 원래 몹의 2배 (보스 = 피닉스 2배)');
   ok(st.rows.every(r => r.aggr > 0 && !r.el) && st.giant.aggr > 0 && !st.giant.el, '④ 전부 선공 · 무속성');
-  ok(st.giant.hp === st.phx.hp * 1.5 && st.giant.exp === st.phx.exp * 3 && st.giant.dmg[0] === Math.round(st.phx.dmg[0] * 1.5), '④ 에이션트 자이언트 = 피닉스 HP·피해 × 1.5 · 경험치·골드 × 3');
+  ok(st.giant.hp === Math.round(st.phx.hp * 1.46) && st.giant.dmg.every((v, i) => v === Math.round(st.phx.dmg[i] * 1.46)) && st.giant.exp === Math.round(st.phx.exp * 1.33) && st.giant.coin.every((v, i) => v === Math.round(st.phx.coin[i] * 1.33)), `④ 에이션트 자이언트 = 피닉스 HP·피해 × 1.46 · 경험치·골드 × 1.33 (HP ${st.giant.hp} · 피해 ${st.giant.dmg} · 경험치 ${st.giant.exp} · 골드 ${st.giant.coin})`);
   // ---------- ⑤ 귀환·순간이동 막힘
   const bl = await p.evaluate(async () => { const T = __T, H = T.hero, I = T.INV, F = __FG, MSG = F.FGI.MSG, z = () => T.SCENE === 'field' && T.ISLE && T.ISLE.id === 25, msg = () => T.log.slice(-4).some(x => String(x.t || x).includes(MSG)), wait = ms => new Promise(r => setTimeout(r, ms)), o = {};
     const charm = I.bag().find(x => x.id === 'return_charm'); I.use(charm); await wait(80); o.charm = z() && msg(); T.log.push({ t: '-' });
