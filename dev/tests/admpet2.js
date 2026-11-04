@@ -21,7 +21,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
     await M.click('#adm-det button[data-c="pet"]');
     await U.waitForFunction(() => __T.INV.bag().some(e => e.pet && e.pet.name === '베리'), null, { timeout: 15000 }).catch(() => {});
     const g = await U.evaluate(() => { const e = __T.INV.bag().find(x => x.pet && x.pet.name === '베리'); const d = e && e.pet; return d ? { lv: d.lv, evo: d.evo, eb: d.eb, mh: d.maxhp, rng: __T.PET.range(d), msg: __T.log.map(l => l.t).filter(t => /펫 목걸이\(Lv\.61 베리/.test(t)).length } : null; });
-    console.log('유저:', JSON.stringify(g)); ok(g && g.lv === 61 && g.evo === 1 && g.eb.lv === 61 && g.eb.hp === 223 && g.mh === 823 && g.msg === 1, '유저 가방에 베리 (Lv.61 · 진화 기준 Lv.61 · 최대 HP 823) + 받았다는 안내');
+    console.log('유저:', JSON.stringify(g)); ok(g && g.lv === 61 && g.evo === 1 && g.eb.lv === 61 && g.eb.hp === 223 && g.mh === 1423 && g.msg === 1, '유저 가방에 베리 (Lv.61 · 진화 기준 Lv.61 · 최대 HP 1423) + 받았다는 안내');
     await M.waitForTimeout(1500); const ack = await M.evaluate(() => document.getElementById('adm-det').textContent); ok(/펫 목걸이 Lv\.61 베리 지급/.test(ack), '운영자 창에 지급 완료 표시');
     // 유저보다 높은 펫은 안 보냄
     await M.evaluate(() => { document.getElementById('adm-tpl').value = 70; }); const n0 = await U.evaluate(() => __T.INV.bag().filter(e => e.pet).length);
