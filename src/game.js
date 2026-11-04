@@ -412,7 +412,7 @@ let mark=null, mouse=null;
 const floats=[], bursts=[];
 function floatText(x,y,text,o={}){ floats.push({x,y,text,t:0,life:o.life||0.9,color:o.color||'#fff',size:o.size||11,rise:o.rise||26,big:!!o.big,dx:(Math.random()-0.5)*8,tag:o.tag||null}); }
 function headY(f){ const S=MOB[f.kind]; if (!S) return 72; return (S.hh||Math.round(62*S.sc)); }
-let hitstop=0, shake=0, hurt=0; const parts=[];
+let hitstop=0, shake=0, hurt=0, shakeAll=0, lastSJ=0; const parts=[];   /* shakeAll: 11/4 강화 결과처럼 타격이 아닌 흔들림은 타격 연출을 꺼도 그대로 (이 시각까지) */
 // ============================================================ 타격감 (11/2 · dev/rooms/hitfeel.md) — 내 화면에서만 보이는 연출 (게임 계산·네트워크는 그대로)
 //   설정 aden_hf: 2 강 · 1 보통(기본) · 0 끔(예전과 똑같음) · ESC [타격 연출]
 //   멈춤: 그리기만 잠깐 멈춤(게임 시간은 흐름) · 밀림 카메라: 맞은 쪽으로 몇 px · 확대: 1~3% 후 복귀 · 몹 찌그러짐 · 칼 궤적 · 치명타 소리 한 겹
@@ -453,7 +453,8 @@ const HF = (() => { let lv = 1; try { const v = localStorage.getItem('aden_hf');
   function addBtn() { if (document.getElementById('esc-hf')) return; const ref = document.getElementById('esc-mob') || document.getElementById('esc-save'); if (!ref || !ref.parentNode) return;
     const b = document.createElement('button'); b.type = 'button'; b.id = 'esc-hf'; b.title = '때릴 때 화면 멈춤·흔들림·궤적 (내 화면에서만)'; b.onclick = () => set((lv + 1) % 3); ref.parentNode.insertBefore(b, ref.nextSibling); sync(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBtn); else setTimeout(addBtn, 0);
-  return { hit, swing, critSnd, tick, off, zoomK, body, draw, set, get lv() { return lv; } }; })();
+  const fx = () => lv > 0 && !LOWG.on();   /* 11/4 프로듀서: 타격 연출 [끔]·저사양이면 예전부터 있던 화면 흔들림(shake)·타격 멈춤(hitstop)도 없음 — 전엔 치명타·마법·보스 기술에 계속 흔들렸음 */
+  return { hit, swing, critSnd, tick, off, zoomK, body, draw, set, fx, get lv() { return lv; } }; })();
 function heroHit(S, mode, f){ const st=INV.stat(), sb = mode==='bow' ? (st.dex>=16?0.05:0)+(st.dex>=18?0.05:0)+Math.max(0,Math.floor((st.dex-20)/2))*0.01 : mode==='magic' ? 0.12+(st.int>=16?0.05:0)+(st.int>=18?0.05:0) : (st.str>=16?0.05:0)+(st.str>=18?0.05:0)+Math.max(0,Math.floor((st.str-20)/2))*0.01;   /* v121: 힘(근거리)·민첩(활) 20 넘으면 2포인트마다 명중 +1% */
   return Math.max(0.2,Math.min(0.97, 0.6 + (BUFF.bounce>0&&!mode?0.15:0) + 0.05*(hero.lv-S.lv) + (10-(S.mac??10))*(mode==='magic'?-0.015:-0.03) + sb + INV.cx('hit')*0.03 + (mode==='magic'?0:INV.cx(mode==='bow'?'hitR':'hitM')*0.03) + (mode==='bow'&&BUFF.windshot>0?Math.min(0.1,0.05+Math.floor(hero.lv/10)*0.01):0) + (mode==='bow'&&f&&f.galeUntil>time?0.5:0))); }   /* v124: 윈드 샷 · 스트라이커 게일 */
 // 마법사 기본 공격(마력탄) 피해: 지능·SP·레벨
@@ -494,7 +495,7 @@ function strike(f, mode){ if (f && f.isRemote) return pvpStrike(f, mode); if (HW
   killCheck(f); }
 // ===== 강화 결과 대형 연출: 캐릭터를 중심으로 빛줄기·충격파·반짝이·화면 번쩍임 + 큰 결과 글씨 (화면 좌표로 그림)
 const BIGFX = [];
-function bigFx(kind, text) { BIGFX.push({ kind, text, t0: time, life: kind === 'boom' ? 2.1 : 1.9, seed: Math.random() * 1000 }); if (kind === 'boom') shake = Math.max(shake, 0.7); else if (kind !== 'fail') shake = Math.max(shake, 0.12); }
+function bigFx(kind, text) { BIGFX.push({ kind, text, t0: time, life: kind === 'boom' ? 2.1 : 1.9, seed: Math.random() * 1000 }); if (kind === 'boom') shake = Math.max(shake, 0.7); else if (kind !== 'fail') shake = Math.max(shake, 0.12); shakeAll = time + 0.8; }
 function enchSfx(kind) { if (!AC || !SFX_ON) return; const t = AC.currentTime; nz(t, 0.55, kind === 'boom' ? 300 : 500, kind === 'boom' ? 2000 : 5000, kind === 'fail' ? 0.08 : 0.18);   // 휙(whoosh)
   if (kind === 'ok' || kind === 'bless') { tone(t + 0.12, 'sine', 2093, 2100, 0.9, 0.05); tone(t + 0.2, 'triangle', 2637, 2640, 0.8, 0.04); } if (kind === 'boom') { nz(t + 0.02, 0.05, 9000, 4000, 0.5); tone(t, 'square', 2400, 800, 0.08, 0.06); } }
 const FXC = { ok: ['200,235,255', '110,180,255'], bless: ['255,224,140', '140,200,255'], earth: ['255,190,100', '140,90,40'], fail: ['200,195,185', '120,115,110'], boom: ['255,90,50', '40,8,4'], curse: ['205,130,255', '70,10,100'] };
@@ -2374,7 +2375,7 @@ function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO
     const anim=moving&&!f.dead?'walk':'idle', fr=f.dead?0:moving?Math.floor(f.dist*4)%8:Math.floor(time*6+f.hi)%8;
     const img=tinted(f.kind,anim); if (img) drawSheet(g, img, {W:144,H:160,ax:72,ay:128,s:0.86*S.sc}, fr, f.row, 0, 0, al, fl); g.restore(); }
 function drawWorld(g, vw, vh){
-  const hfo=HF.off(), ox=Math.round(vw/2-cam[0]+(shake?(Math.random()-0.5)*4:0)+hfo[0]), oy=Math.round(vh/2-cam[1]+hfo[1]);   // hfo: 타격감 밀림 카메라
+  const hfo=HF.off(), sj=lastSJ=(shake&&(HF.fx()||time<shakeAll)?(Math.random()-0.5)*4:0), ox=Math.round(vw/2-cam[0]+sj+hfo[0]), oy=Math.round(vh/2-cam[1]+hfo[1]);   // hfo: 타격감 밀림 카메라
   const SNOWBG=!!(ISLE&&ISLE.def&&ISLE.def.snow), DRBG=!!(ISLE&&ISLE.def&&ISLE.def.dream), SEABG=!!(ISLE&&ISLE.def&&ISLE.def.isle), FP=MAZE()||SNOWBG||DRBG||SEABG||TW()?null:forestPat(g); if (SEABG) fgSea(g,vw,vh,ox,oy); else if (DRBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#1c1a34'); bg.addColorStop(1,'#0a0912'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (MAZE()||TW()){ g.fillStyle=TW()?'#06070b':'#030203'; g.fillRect(0,0,vw,vh); } else if (SNOWBG){ const bg=g.createLinearGradient(0,0,0,vh); bg.addColorStop(0,'#aebccc'); bg.addColorStop(1,'#d4dde6'); g.fillStyle=bg; g.fillRect(0,0,vw,vh); } else if (FP){ g.save(); g.translate(ox,oy); g.fillStyle=FP; g.fillRect(-ox,-oy,vw,vh); g.restore(); } else { g.fillStyle='#141a10'; g.fillRect(0,0,vw,vh); }
   g.save(); g.translate(ox,oy);
   if (SCENE==='town') { if (TOWN.ground) g.drawImage(TOWN.ground,0,0); } else if (ISLE) { if (ISLE.ground){ g.save(); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(ISLE.ground,0,0,G.W,G.H); g.restore(); } } else if (im.ground.complete){ g.save(); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(im.ground,0,0,G.W,G.H); g.restore(); }
@@ -12812,7 +12813,7 @@ function frame(now){
   frameAt = performance.now(); if (!BGRUN) { rafAt = frameAt; RAFQ = 0; } holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); FBOT.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
+  if (hitstop>0 && !HF.fx()) hitstop=0; if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); FBOT.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
