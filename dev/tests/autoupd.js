@@ -6,7 +6,7 @@ const { chromium } = require('playwright'); const login = require('../tq.js'); c
 let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + m); if (!c) fails++; };
 const GV = +/const GAME_VER = (\d+)/.exec(fs.readFileSync('src/game.js', 'utf8'))[1], NV = GV + 1;
 fs.writeFileSync('dev/out/_ver.json', JSON.stringify({ ver: NV }));
-const VER_INIT = `window.__AU_TEST = true; window.ADEN_VER_URL = location.origin + '/dev/out/_ver.json';`;   /* 테스트 페이지(DEMO_MODE)는 원래 자동 안 함 → 시험용 표시 */
+const VER_INIT = `window.__AU_TEST = true; window.__AU_WAIT = 0; window.ADEN_VER_URL = location.origin + '/dev/out/_ver.json';`;   /* 11/4: 2시간 기다림은 autoupd2h.js에서 · 여기선 바로(20초 알림) */   /* 테스트 페이지(DEMO_MODE)는 원래 자동 안 함 → 시험용 표시 */
 (async () => { const b = await chromium.launch(); const errs = [];
   const ctx = await b.newContext({ viewport: { width: 1100, height: 700 }, serviceWorkers: 'block' });   /* 서비스 워커가 받으면 page.route가 안 먹음 */ const p = await ctx.newPage(); p.on('pageerror', e => errs.push('P: ' + e.message));
   let loads = 0; p.on('load', () => loads++);
@@ -14,7 +14,7 @@ const VER_INIT = `window.__AU_TEST = true; window.ADEN_VER_URL = location.origin
   await p.evaluate(() => __T.TOWN.toZone(2)); await p.waitForFunction(() => __T.ISLE && __T.ISLE.id === 2 && __T.SCENE === 'field', null, { timeout: 60000 }); await p.waitForTimeout(1500);
   const pos0 = await p.evaluate(() => [+__T.hero.x.toFixed(1), +__T.hero.z.toFixed(1)]);
   // ①
-  await p.evaluate(() => __T.UPD.checkWeb()); await p.waitForTimeout(1600);
+  await p.evaluate(() => { const A = __T.UPD.au; A.v = 0; A.n = 0; A.next = 0; A.lastV = 0; try { sessionStorage.removeItem('aden_au'); } catch (e) {} return __T.UPD.checkWeb(); }); await p.waitForTimeout(1600);   /* 11/4: 켤 때 15초 확인이 로그인·이동하는 사이에 한 바퀴(예약→시도→1분 뒤) 돌아 버려서 처음부터 */
   const s1 = await p.evaluate(() => ({ v: __T.UPD.au.v, btn: document.getElementById('btn-upd').textContent, hid: document.getElementById('btn-upd').hidden, msg: __T.log.slice(-4).map(l => l.t).filter(t => /\[업데이트\]/.test(t)) }));
   console.log('①', JSON.stringify(s1)); ok(s1.v === NV && !s1.hid && /자동 업데이트 \d+초/.test(s1.btn), `① 새 버전 v${NV} 보이자 자동 예약 · 버튼 "${s1.btn}"`); ok(s1.msg.some(t => /초 뒤 자동으로 업데이트해요/.test(t)), '① 채팅 안내 (몇 초 뒤 자동 · 그 자리 그대로)');
   // ② 미룸
@@ -42,7 +42,7 @@ const VER_INIT = `window.__AU_TEST = true; window.ADEN_VER_URL = location.origin
   await p.unroute('**/src/game.js'); await p.close();
   // ⑤ PC (가짜 native)
   const q = await ctx.newPage(); q.on('pageerror', e => errs.push('Q: ' + e.message)); let qL = 0; q.on('load', () => qL++);
-  const NAT = `window.__AU_TEST = true; window.__NU = { calls: 0, mode: 'stale', ver: ${GV}, delay: 0 }; window.native = { updateCheck: async () => ({ ok: true, ver: __NU.ver }), update: async () => { __NU.calls++; if (__NU.delay) await new Promise(r => setTimeout(r, __NU.delay)); return __NU.mode === 'stale' ? { ok: false, err: 'STALE' } : { ok: true, latest: false, ver: ${NV}, n: 3 }; }, onUpdate() {}, gpuStatus: async () => null };`;
+  const NAT = `window.__AU_TEST = true; window.__AU_WAIT = 0; window.__NU = { calls: 0, mode: 'stale', ver: ${GV}, delay: 0 }; window.native = { updateCheck: async () => ({ ok: true, ver: __NU.ver }), update: async () => { __NU.calls++; if (__NU.delay) await new Promise(r => setTimeout(r, __NU.delay)); return __NU.mode === 'stale' ? { ok: false, err: 'STALE' } : { ok: true, latest: false, ver: ${NV}, n: 3 }; }, onUpdate() {}, gpuStatus: async () => null };`;
   await login(q, { cls: 'elf', name: 'auP', init: NAT }); await q.evaluate(() => { __T.GOD_INV = true; }); await q.waitForTimeout(500);
   const g0 = await q.evaluate(() => ({ v: __T.UPD.au.v, btn: document.getElementById('btn-upd').textContent }));
   await q.evaluate(nv => { __NU.ver = nv; return __T.UPD.check(); }, NV); await q.waitForTimeout(1200); const g1 = await q.evaluate(() => ({ v: __T.UPD.au.v, btn: document.getElementById('btn-upd').textContent }));

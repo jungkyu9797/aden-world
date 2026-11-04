@@ -78,7 +78,7 @@ const Z = 24;
   console.log('mob', JSON.stringify(ag));
   ok(ag.sp && ag.gr && ag.uni, '정령 비선공 · 대정령 선공 6칸 · 유니콘 비선공');
   ok(ag.same === 1 && ag.opp === 1.3 && ag.other === 1 && ag.none === 1 && ag.w === 1.3, `속성 배율 같은 1(11/1부터 안 줄어듦) · 반대 1.3 · 다른 1 (${ag.same} ${ag.opp} ${ag.other})`);
-  ok(ag.hp[0] === 9000 && ag.hp[1] === 13500 && ag.hp[2] === 300000 && ag.exp[0] === 42450 && ag.exp[1] === 84900 && ag.sc[1] === 1.5, '수치: 정령 HP 9000 · 대정령 13500 · 유니콘 300000 · 경험치 ×3/×6 · 대정령 1.5배');
+  ok(ag.hp[0] === 2952 && ag.hp[1] === 4428 && ag.hp[2] === 184500 && ag.exp[0] === 18038 && ag.exp[1] === 36076 && ag.sc[1] === 1.5, '수치(11/4): 정령 HP 2952 · 대정령 4428 · 유니콘 184500 · 경험치 18038/36076 · 대정령 1.5배');
   // 근접 속성 추가 피해: 정령을 바로 옆에 두고 때리게 → 'elem' 피해가 따로 들어옴 (무적 끔 · HP 넉넉히)
   const melee = await p.evaluate(async () => { const T = __T, H = T.hero; T.GOD_INV = false; H.baseHP = 20000; T.INV.render(); H.hp = H.max; const f = T.foxes.find(m => m.kind === 'dr_fire' && !m.dead); const at = [H.i + 1, H.j]; f.i = f.fi = at[0]; f.j = f.fj = at[1]; f.x = at[0] + .5; f.z = at[1] + .5; f.t = 1; f.home = at; f.aggro = true; f.cool = 0;
     const hurt = []; const oh = T.TELE.hurt; T.TELE.hurt = (k, d) => { hurt.push([k, d]); return oh(k, d); }; const gw = s => new Promise(r => { const t1 = T.time; const iv = setInterval(() => { if (T.time - t1 >= s) { clearInterval(iv); r(); } }, 50); }); await gw(4.5); T.TELE.hurt = oh; f.aggro = false; T.GOD_INV = true; H.hp = H.max; return { hurt, hp: H.hp, max: H.max, el: T.log.slice(-8).map(x => String(x.t || x.text || x)).filter(s => /불/.test(s)) }; });
@@ -106,7 +106,7 @@ const Z = 24;
     await gw(1.6); u.sk = { charge: 99, horn: 99, heal: 0.01 }; const hp0 = u.hp; await gw(1.8); out.heal = { hp0, hp1: u.hp, max: u.max, used: !!u._uheal }; u.sk = { charge: 99, horn: 99, heal: 0.01 }; await gw(1.8); out.healAgain = u.hp; u.aggro = false; u.hp = u.max;
     out.log = T.log.slice(-12).map(x => String(x.t || x.text || x)).filter(s => /대정령|유니콘/.test(s)); return out; });
   console.log('skills', JSON.stringify(sk));
-  ok(sk.gm && sk.gm.res === 'water' && sk.gm.slow === 2 && sk.gm.dmg[0] === Math.round(180 * 1.3 / 2.5) && sk.gm.dmg[1] === Math.round(286 * 1.3 / 2.5), `대정령 속성 마법: 물 · 피해 ${sk.gm && sk.gm.dmg} (근접 1.3배 ÷ BOSS_MAGIC) · 둔화`);
+  ok(sk.gm && sk.gm.res === 'water' && sk.gm.slow === 2 && sk.gm.dmg[0] === Math.round(135 * 1.3 / 2.5) && sk.gm.dmg[1] === Math.round(211 * 1.3 / 2.5), `대정령 속성 마법: 물 · 피해 ${sk.gm && sk.gm.dmg} (근접 1.3배 ÷ BOSS_MAGIC) · 둔화`);
   ok(sk.charge >= 2, `유니콘 돌진 범위 ${sk.charge}칸`); ok(sk.horn, '유니콘 뿔 빛기둥');
   ok(sk.heal.used && sk.heal.hp1 > sk.heal.hp0 && Math.abs(sk.heal.hp1 - sk.heal.hp0 - sk.heal.max * 0.05) < 2 && sk.healAgain === sk.heal.hp1, `유니콘 치유 빛 5% 1번만 (${Math.round(sk.heal.hp0)} → ${Math.round(sk.heal.hp1)} · 다시 ${Math.round(sk.healAgain)})`);
   ok(sk.log.some(s => /돌진/.test(s)) && sk.log.some(s => /빛기둥/.test(s)) && sk.log.some(s => /치유/.test(s)), '기술 안내 문구');
