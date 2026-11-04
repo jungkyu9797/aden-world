@@ -4601,6 +4601,7 @@ const GROUND = (() => {
 
 // ============================================================ 펫 (도베르만): 펫상인에게서 목걸이 구매 → '펫을 찾는다'로 소환 → 따라다니며 함께 사냥·성장
 // 배고픔 없음. 목걸이(가방의 개별 아이템)가 펫 데이터를 들고 있음: {name, kind, lv, exp, hp, maxhp, inv[4], state:'stored'|'out'|'dead', mode:'attack'|'wait'|'rest'}
+const PET_EVO_HPLV = 20;   // 11/4 프로듀서: 진화 펫 레벨당 HP +10 → +20
 const PET_KIND = { doberman: { name: '도베르만', hp: 26, hpLv: 7, dmg: [1, 4], dmgLv: 0.6, hit: 0.72, ac: 8, spd: 3.7, mob: 'pet_doberman' } };
 const petNeed = lv => Math.round(18 * Math.pow(lv, 1.55));
 // 11/3 프로듀서: 펫은 주인 레벨을 넘지 못함 (예전엔 상한이 없고 경험치 곡선이 완만해 진화 펫이 Lv.363까지 → HP 5천·공격 470) · 상한이면 펫 몫 경험치는 주인에게
@@ -4677,16 +4678,17 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   const petHit = (d, S) => Math.max(0.2, Math.min(0.95, PET_KIND[d.kind].hit + 0.02 * (petEff(d) - S.lv) - (10 - (S.mac ?? 10)) * 0.02));
   // 돌려주는 값: 주인에게 넘긴 경험치 (펫이 주인 레벨에 닿아 못 받은 몫)
   function gainExp(p, n) { const d = p.d; if (!d || !(n > 0)) return 0; if (d.lv >= petCap()) { d.exp = 0; heroGainExp(n); return n; }
-    d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? 10 : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
+    d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? PET_EVO_HPLV : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
       if (AC && SFX_ON) { const t = AC.currentTime; [659, 784, 1047].forEach((f, k) => tone(t + k * 0.08, 'triangle', f, f, 0.25, 0.08)); }
       if (d.lv >= petCap()) { const left = d.exp; d.exp = 0; if (left > 0) heroGainExp(left); refresh(); return left; } } refresh(); return 0; }
   // 주인 레벨을 넘은 펫 맞추기 (가방의 펫 목걸이 · 2초마다): 이 업데이트 전부터 넘어 있던 펫은 넘은 만큼의 경험치를 한 번 주인에게 넘김 (capOk 표시 뒤로는 거래 등으로 넘어와도 레벨만 맞춤)
-  const petMaxHp = d => { const K = PET_KIND[d.kind]; if (!K) return d.maxhp; return d.evo && d.eb ? d.eb.hp + 10 * (d.lv - 1) : K.hp + K.hpLv * (d.lv - 1); };
+  const petMaxHp = d => { const K = PET_KIND[d.kind]; if (!K) return d.maxhp; return d.evo && d.eb ? d.eb.hp + PET_EVO_HPLV * (d.lv - 1) : K.hp + K.hpLv * (d.lv - 1); };
   let capT = 0;
   // 진화 기준(eb): 진화할 때 레벨 L의 능력치 절반·명중·회피 레벨 — 주인 레벨보다 높은 레벨에서 진화했으면 주인 레벨에서 진화한 것처럼 다시 (11/3 프로듀서)
   const ebAt = (kind, L) => { const K = PET_KIND[kind], mx = K.hp + K.hpLv * (L - 1), a0 = K.dmg[0] + Math.floor((L - 1) * K.dmgLv * 0.5), b0 = K.dmg[1] + Math.floor((L - 1) * K.dmgLv); return { hp: Math.max(1, Math.round(mx / 2)), dmg: [Math.max(1, Math.round(a0 * 0.5)), Math.max(2, Math.round(b0 * 0.5))], lv: L }; };
   function capCheck(force) { if (!force && (capT -= 1) > 0) return; capT = 40; const cap = petCap(); let ch = false;
     for (const e of INV.bag()) { const d = e.pet; if (!d || !PET_KIND[d.kind]) continue; const first = !d.capOk; d.capOk = 1;
+      if (d.evo && d.eb) { const mh = petMaxHp(d); if (d.maxhp !== mh) { d.maxhp = mh; d.hp = Math.min(d.hp, MXH(d)); ch = true; } }   /* 11/4: 진화 펫 HP 성장 +20으로 바뀐 것을 이미 있는 펫에도 */
       const ebOver = !!(d.evo && d.eb && d.eb.lv > cap); if (!(d.lv > cap) && !ebOver) continue;
       let ex = 0; const from = d.lv, eb0 = ebOver ? d.eb.lv : 0;
       if (first) { if (d.lv > cap) { ex += Math.max(0, d.exp | 0); for (let l = cap; l < d.lv; l++) ex += petNeed(l) * (d.evo ? 2 : 1); } if (ebOver) for (let l = cap; l < eb0; l++) ex += petNeed(l); }   /* 진화 전 cap~진화 레벨 구간도 */
@@ -4695,7 +4697,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (ex > 0) heroGainExp(ex);
       say(`[펫] 이제 펫은 주인 레벨을 넘을 수 없어서 주인 레벨(Lv.${cap})에 맞췄어요.` + (ex > 0 ? ' 넘어 있던 경험치는 주인에게 들어갔어요.' : '') + ' 주인 레벨이 오르면 펫도 다시 자라요.', '#ffd86a'); }   /* 11/3 프로듀서: 안내는 짧게 (펫 이름·이전 레벨·진화 내용은 안 씀) */
     if (ch) refresh(); }
-  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
+  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); if (!p.sum && HIZ()) { const S_ = src && MOB[src.kind], bs = !!(S_ && (S_.boss || S_.midb)); dmg = Math.max(1, Math.round(dmg * (src ? hzAcMul(petAC(d), bs) * v2Z('P') : v2Z('M')))); }   /* 11/4 프로듀서: 펫도 유저·봇과 같은 사냥터 방어(2구역 · 물리 = 사냥터 배율 × AC · 범위·지속 피해 = 마법 배율) */ dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
     const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, String(dmg), { color: '#ff8a6a', size: 11 });
     if (src) { const [sx, sy] = W2P(src.x, src.z); const vx = px - sx, vy = py - sy, l = Math.hypot(vx, vy) || 1; p.kx = vx / l; p.ky = vy / l; } p.hitD = 0.3; p.hitT = 0.3; p.kmag = 4;
     if (d.hp <= 0) { d.hp = 0; p.dead = true; p.deadT = 0; d.state = 'dead'; p.lunge = 0; { const nx = p.sum && SUMB.tank ? PETS_HERE.find(q => q !== p && q.sum && !q.dead) : null; for (const f of foxes) if (f.tgt === p) f.tgt = nx && MOB[f.kind] && MOB[f.kind].boss ? nx : null; }   /* v189: 보스는 남은 소환수로 */
