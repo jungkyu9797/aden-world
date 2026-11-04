@@ -3097,10 +3097,25 @@ MOB.unicorn = { name: '유니콘', ...DREAM.UNICORN, dmg: DREAM.UNICORN.dmg.slic
 // 11/2 메모리: 예전엔 시작할 때 몬스터 111종 × 3동작 그림을 모두 받아 풀어 둠(풀면 약 1.2GB) → 그 몬스터가 처음 생기거나 그려질 때 받음 (MIMG[종류]를 읽는 순간)
 //   지역에 들어갈 때 그 지역 몬스터 그림만 미리 받고, 20초 넘게 안 그린 다른 몬스터 그림은 놓음 (MIMG_TRIM) · 도감·카드·가호 아이콘은 idle 한 장만 (mIdle)
 const MIMG0 = {}, MIMG = new Proxy(MIMG0, { get(o, k) { if (typeof k === 'string' && !Object.prototype.hasOwnProperty.call(o, k) && MSHEET[k]) { const S = o[k] = {};
-    for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_${a}.webp`; i.decode && i.decode().catch(() => {}); S[a] = i; } } const e = o[k]; if (e && typeof e === 'object') e.t = time; return e; } });
+    for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_${a}.webp`; S[a] = i; } }   /* 11/4 메모리: i.decode() 뺌 — 캔버스는 그 결과를 안 쓰고 따로 다시 풀어서, 그림마다 다 푼 사본(종류당 3장 20~90MB)이 하나 더 생겼음 (처음 그릴 때 걸리는 시간도 그대로였음) */ const e = o[k]; if (e && typeof e === 'object') e.t = time; return e; } });
 function MIMG_TRIM(keep) { for (const k in MIMG0) { const e = MIMG0[k]; if (!keep.has(k) && !(time - (e.t || 0) < 20)) delete MIMG0[k]; } }
 const MIDLE = new Map(); function mIdle(k) { const o = MIMG0[k]; if (o) return o.idle; if (!MSHEET[k]) return null; let i = MIDLE.get(k); if (i) { MIDLE.delete(k); MIDLE.set(k, i); return i; }
   i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_idle.webp`; MIDLE.set(k, i); while (MIDLE.size > 48) MIDLE.delete(MIDLE.keys().next().value); return i; }
+// 11/4 메모리: 가호 아이콘·월드맵 초상·변신 카드 그림은 서 있는 그림의 한 칸(row줄 0번)만 씀 — 예전엔 서 있는 그림 전체(<img> · 풀면 한 장 10~29MB)를 그려서 크롬이 다 푼 사본을 몇 분씩 쥐고 있었음
+//   (시작할 때 가호 7장 ≈ 150MB · 변신 카드 창·월드맵을 둘러보면 수백 MB) → 파일을 직접 풀어(ImageBitmap) 그 한 칸만 작은 캔버스로 남기고 전체는 바로 놓음 · 한 번에 둘씩만 풂
+//   mIdleFr(k, row, cb) → [그림, 그 칸의 y] (아직이면 null · 준비되면 cb) · 이 지역 몬스터라 이미 받은 그림이 있으면 그것 · fetch·createImageBitmap을 못 쓰면 예전처럼 mIdle
+const MFR = new Map(), MFRQ = []; let MFRN = 0;
+function mfrPump() { while (MFRN < 2 && MFRQ.length) { const f = MFRQ.shift(); MFRN++; f().finally(() => { MFRN--; mfrPump(); }); } }
+function mIdleFr(k, row, cb) { const M = MSHEET[k]; if (!M) return null; row = row || 0; const o = MIMG0[k]; if (o && o.idle && o.idle.complete && o.idle.naturalWidth) return [o.idle, row * M.H];
+  const key = k + '|' + row; let e = MFR.get(key);
+  if (!e) { e = { c: null, st: 0, cb: [] }; MFR.set(key, e); for (const [k0, e0] of MFR) { if (MFR.size <= 40) break; if (e0.st) MFR.delete(k0); }
+    const done = st => { e.st = st; const L = e.cb; e.cb = []; for (const f of L) { try { f(); } catch (x) {} } };
+    if (typeof createImageBitmap !== 'function' || typeof fetch !== 'function') e.st = 2;
+    else { MFRQ.push(() => fetch(`assets/classic/mon_${M.src || k}_idle.webp`).then(r => { if (!r.ok) throw 0; return r.blob(); }).then(b => createImageBitmap(b)).then(B => { try { const c = document.createElement('canvas'); c.width = M.W; c.height = M.H; c.getContext('2d').drawImage(B, 0, row * M.H, M.W, M.H, 0, 0, M.W, M.H); e.c = c; } finally { try { B.close(); } catch (x) {} } done(1); }).catch(() => done(2))); mfrPump(); } }
+  else { MFR.delete(key); MFR.set(key, e); }
+  if (e.st === 1) return [e.c, 0];
+  if (e.st === 2) { const I = mIdle(k); if (I && I.complete && I.naturalWidth) return [I, row * M.H]; if (I && cb) I.addEventListener('load', cb, { once: true }); return null; }
+  if (cb) e.cb.push(cb); return null; }
 for (const k in MSHEET) Object.assign(MOB[k], { art0: MOB[k].art, art: 'sheet', hh: MSHEET[k].hh, hw: MSHEET[k].hw });
 const LEG_BLESS_P = 0.01, LEG_BLESS_MAX = 3, LEG_BLESS_SPD = 1;   // 11/1 프로듀서: 전설 장비 축복 부여 확률 1% · 전설 무기 축복 최대 3단 · 단마다 공격 속도 +1%
 const ATK_T = 0.8 / 0.7;   // 몬스터 공격 동작 길이(초)
@@ -4616,7 +4631,7 @@ const PET = (() => {
   const chaMul = () => 1 + 0.02 * Math.max(0, INV.stat().cha - 12), MXH = d => Math.round(d.maxhp * chaMul());   /* v124: 카리스마 12 넘는 1포인트마다 펫 체력·공격력 +2% */
   const petAC = d => d.evo ? 6 : PET_KIND[d.kind].ac, petEff = d => d.evo && d.eb ? d.eb.lv + (d.lv - 1) * 0.5 : d.lv;   /* v124: 진화 펫 — 방어 AC 6 · 명중·회피는 진화 때 레벨 수준에서 시작해 레벨마다 조금씩 */
   const GOLDF = 'sepia(1) saturate(5) hue-rotate(-12deg) brightness(1.25)', needOf = d => petNeed(d.lv) * (d.evo ? 2 : 1);
-const EVO_IMG = {}; for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_pet_doberman_evo_${a}.webp`; i.decode && i.decode().catch(() => {}); EVO_IMG[a] = i; }   /* v126: 진화 펫 = 전투견 (징 목걸이·가죽 마구·어깨 철판) — 왕관·금빛 대신 */
+const EVO_IMG = {}; for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_pet_doberman_evo_${a}.webp`; EVO_IMG[a] = i; }   /* 11/4 메모리: decode() 뺌 (위 MIMG와 같은 까닭) */   /* v126: 진화 펫 = 전투견 (징 목걸이·가죽 마구·어깨 철판) — 왕관·금빛 대신 */
 const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete && EVO_IMG[a].naturalWidth);   /* v124: 진화 펫은 레벨업 경험치 2배 */
   function petRange(d) { const K = PET_KIND[d.kind], E = d.evo && d.eb, gl = E ? K.dmgLv * 1.5 : K.dmgLv, b0 = E ? E.dmg : K.dmg, m = chaMul() * (d.sd || 1); return [Math.round((b0[0] + Math.floor((d.lv - 1) * gl * 0.5)) * m), Math.round((b0[1] + Math.floor((d.lv - 1) * gl)) * m)]; }
   function petGold(g, p, x, y) { if (!p.d.evo || p.dead) return; const h = headY(p), top = y - h - 2, bob = Math.sin(time * 3 + p.hi) * 1.2;   /* 진화 펫: 금빛 왕관 · 발밑 금테 · 반짝임 */
@@ -5770,8 +5785,8 @@ for (const [b, nm, st, txt] of GAHO_DEF) {
   ITEMS['gaho_' + b] = { name: `${nm}의 가호`, icon: 'gaho_' + b, w: 0, rar: '영웅', gaho: b, gstat: st, gtxt: txt, desc: `가방에 가지고 있기만 하면 ${txt} +1% · 제작 장인의 [가호 조합]으로 강화하면 +1마다 +1% (최대 +${GAHO_MAX}) · 축복 부여 주문서로 축복하면 +1% · 같은 가호는 가장 높은 것 하나만 적용` }; }
 // 가호 아이콘: 보스 그림을 동그란 문장 안에 작게 (이모티콘처럼) · 조각은 깨진 조각 모양 — 몬스터 그림이 다 읽히면 채움 (그 전엔 이름 첫 글자)
 { const BG = { shelob: '#3a2448', queen_ant: '#6a4a14', ogre: '#33461e', baphomet: '#4a1010', deathknight: '#2a1416', ice_queen: '#183a5a', drake_king: '#5a1a0a' }, got = {};
-  const face = b => { const M = MSHEET[b], I = mIdle(b); if (!M || !I || !I.complete || !I.naturalWidth) return null;
-    try { const t = document.createElement('canvas'); t.width = M.W; t.height = M.H; const tg = t.getContext('2d', { willReadFrequently: true }); if (M.tint) tg.filter = M.tint; tg.drawImage(I, 0, 1 * M.H, M.W, M.H, 0, 0, M.W, M.H); tg.filter = 'none';
+  const face = b => { const M = MSHEET[b], F = M && mIdleFr(b, 1); if (!M || !F) return null;   /* 11/4 메모리: 서 있는 그림 한 칸만 (mIdleFr) */
+    try { const t = document.createElement('canvas'); t.width = M.W; t.height = M.H; const tg = t.getContext('2d', { willReadFrequently: true }); if (M.tint) tg.filter = M.tint; tg.drawImage(F[0], 0, F[1], M.W, M.H, 0, 0, M.W, M.H); tg.filter = 'none';
       const D = tg.getImageData(0, 0, M.W, M.H).data; let x0 = M.W, y0 = M.H, x1 = -1, y1 = -1;
       for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) { const o = (y * M.W + x) * 4; if (D[o + 3] > 60 && Math.max(D[o], D[o + 1], D[o + 2]) > 20) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
       if (x1 <= x0) return null; const bw = x1 - x0 + 1, bh = Math.round((y1 - y0 + 1) * 0.86), S = 64, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), sc = Math.min(S / bw, S / bh);
@@ -7483,12 +7498,12 @@ const TOWN = (() => {
       + `<h3 class="wc-h">보스 드랍 <small>${cnt(bossIds)}</small></h3><div class="wc-items">${bossIds.map(id => itemCell(id, bossSrc(id))).join('')}</div>`
       + `<h3 class="wc-h">일반 몬스터 드랍 <small>${cnt(normIds)}</small></h3><div class="wc-items">${normIds.map(id => itemCell(id, normSrc(id))).join('')}</div>`
       + `<p class="wc-note">아이콘에 마우스를 올리면 아이템 상세 정보가 보여요.</p>`; }
-  function drawPortraits(root) { root.querySelectorAll('canvas[data-k]').forEach(cv2 => { const k = cv2.dataset.k, g = cv2.getContext('2d'), M = MSHEET[k], I = mIdle(k);
-      const draw = () => { g.clearRect(0, 0, 56, 56); if (M && I && I.complete && I.naturalWidth) { const t = document.createElement('canvas'); t.width = M.W; t.height = M.H; const tg = t.getContext('2d'); if (M.tint) tg.filter = M.tint; tg.drawImage(I, 0, 1 * M.H, M.W, M.H, 0, 0, M.W, M.H); tg.filter = 'none';
+  function drawPortraits(root) { root.querySelectorAll('canvas[data-k]').forEach(cv2 => { const k = cv2.dataset.k, g = cv2.getContext('2d'), M = MSHEET[k]; let F = M && mIdleFr(k, 1, () => { F = mIdleFr(k, 1); if (F) draw(); });   /* 11/4 메모리: 서 있는 그림 한 칸만 (mIdleFr) */
+      const draw = () => { g.clearRect(0, 0, 56, 56); if (M && F) { const t = document.createElement('canvas'); t.width = M.W; t.height = M.H; const tg = t.getContext('2d'); if (M.tint) tg.filter = M.tint; tg.drawImage(F[0], 0, F[1], M.W, M.H, 0, 0, M.W, M.H); tg.filter = 'none';
           const D = tg.getImageData(0, 0, M.W, M.H).data; let x0 = M.W, y0 = M.H, x1 = 0, y1 = 0; for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) if (D[(y * M.W + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
           if (x1 <= x0) return; const bw = x1 - x0 + 1, bh = y1 - y0 + 1, sc = Math.min(50 / bw, 50 / bh); g.imageSmoothingEnabled = true; g.drawImage(t, x0, y0, bw, bh, 28 - bw * sc / 2, 53 - bh * sc, bw * sc, bh * sc); }
         else if (!dreamPortrait(g, k)) { g.fillStyle = '#3a2a18'; g.font = '800 22px "Nanum Myeongjo",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(MOB[k].name[0], 28, 30); } };
-      if (I && !I.complete) I.addEventListener('load', draw, { once: true }); draw(); }); }
+      draw(); }); }
   // 11/1 프로듀서: 월드맵 몽환의 섬 표시 아래·설명 칸에 오늘 남은 이용 시간 (4시간 · 새벽 5시 초기화)
   const dreamHM = s => { s = Math.max(0, Math.ceil(s / 60)); const h = Math.floor(s / 60), m = s % 60; return (h ? h + '시간 ' : '') + m + '분'; };
   const dreamLeftTxt = () => { const L = DRM.left(); return L > 0 ? `오늘 남은 시간 ${dreamHM(L)}` : '오늘 시간 다 씀 · 새벽 5시 초기화'; };
@@ -7551,16 +7566,21 @@ const TOWN = (() => {
     t.loading = fetch(SRC[k]).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no))).then(buf => { t.buf = buf; }).catch(() => { t.failed = true; });
     return t; }
   // 11/2 메모리: 예전엔 첫 클릭에 10곡을 모두 받아 소리 데이터(PCM)로 풀어 두어 약 500MB → 트는 곡만 받고, 안 트는 곡은 바로 전 곡 하나만 남기고 버림 (다시 틀면 다시 받아 풂 · 1초 안팎)
-  function trimBGM() { const ks = Object.keys(T).filter(k => k !== curWant && !T[k].src && !(T[k].fadeTil > performance.now())).sort((a, b) => (T[b].used || 0) - (T[a].used || 0)); for (const k of ks.slice(1)) delete T[k]; }
+  // 11/4 메모리: 풀어 둔 곡(한 곡 35~80MB)은 지금 트는 곡만 남김 — 다른 곡은 꺼진 지 15초 뒤 버림 (보스전처럼 금방 돌아오면 그대로) · 배경음을 끄거나 볼륨 0이면 트는 곡도 15초 뒤 버림 (다시 켜면 다시 받아 풂 · 1초 안팎)
+  //   예전: 바로 전 곡 하나를 늘 더 쥐고, 정리는 곡이 바뀔 때만 돌아서 제목 화면 곡까지 3곡(약 130MB)이 남기도 함
+  let trimT = 0;
+  function trimBGM() { const now = performance.now(), live = unlocked && !muted && SND.bgmK() > 0; let next = 0;
+    for (const k of Object.keys(T)) { const t = T[k]; if (t.src || (k === curWant && live)) continue; const at = Math.max(t.fadeTil || 0, (t.off || 0) + 15000); if (at > now) { next = next ? Math.min(next, at) : at; continue; } delete T[k]; }
+    clearTimeout(trimT); trimT = next ? setTimeout(trimBGM, next - now + 50) : 0; }
   function setVol(k, v) {
     if (!AC) return; if (!(v > 0) && !T[k]) return; const t = track(k); if (v > 0) t.used = performance.now();
     if (t.failed) { const a = EL[k]; if (!a) return; if (v > 0) { if (a.paused) { if (a.preload !== 'auto') { a.preload = 'auto'; a.load(); } if (k === 'boss') a.currentTime = 0; a.play().catch(() => {}); }   /* 11/1: <audio>는 preload=none (배경음은 fetch로 받으므로 두 번 받지 않게 · 봇 호스트는 안 받게) — 폴백으로 쓸 때만 그때 받음 */ a.volume = v; } else if (!a.paused) a.pause(); return; }
-    if (!t.buf) { if (v > 0) t.loading.then(() => { if (curWant === k) setVol(k, v); else if (t.failed) setVol(k, 0); }); return; }
+    if (!t.buf) { if (v > 0) t.loading.then(() => { if (curWant === k) setVol(k, v); else if (t.failed) setVol(k, 0); else trimBGM(); }); return; }
     const now = AC.currentTime;
     if (v > 0 && !t.src) { t.gain = AC.createGain(); t.gain.gain.value = 0; t.gain.connect(AC.destination); t.src = AC.createBufferSource(); t.src.buffer = t.buf; t.src.loop = true; t.src.connect(t.gain); t.src.start(); }
     if (!t.src) return;
     t.gain.gain.cancelScheduledValues(now); t.gain.gain.setValueAtTime(t.gain.gain.value, now); t.gain.gain.linearRampToValueAtTime(v, now + 1.2);
-    if (v === 0) { const s0 = t.src, g0 = t.gain; t.src = null; t.gain = null; t.fadeTil = performance.now() + 1400; setTimeout(() => { try { s0.stop(); } catch (e) {} g0.disconnect(); }, 1300); }
+    if (v === 0) { const s0 = t.src, g0 = t.gain; t.src = null; t.gain = null; t.fadeTil = performance.now() + 1400; t.off = performance.now(); setTimeout(() => { try { s0.stop(); } catch (e) {} g0.disconnect(); }, 1300); }
   }
   const bossFight = () => foxes.some(f => !f.dead && MOB[f.kind] && MOB[f.kind].boss && f.aggro);   // 보스 전투 중이면 보스 음악
   function wantBGM() { return TITLE_SHOW ? 'title' : SCENE === 'town' ? 'town' : ARENA() || DUEL() || TW() ? 'colo' : bossFight() ? 'boss' : ISLE ? (ISLE.def && ISLE.def.valley && SRC.dungeon ? 'dungeon' : ISLE.def && ISLE.def.sand ? 'desert' : ISLE.def && ISLE.def.forest ? 'orc' : ISLE.def && (ISLE.def.gore || ISLE.def.maze) ? (ISLE.def.maze && SRC.dungeon ? 'dungeon' : 'bugbear') : ISLE.def && ISLE.def.snow && SRC.snow ? 'snow' : 'island') : null; }   // 사막 지역 = Desert Pulse
@@ -7781,8 +7801,8 @@ window.LOOKPV = (() => { let row = 1, t0 = 0, raf = 0; const cvs = () => documen
   return { kick };
 })();
 
-// v133: 채팅 기록 창 — 미니맵 바로 옆 · 클릭이 통과(게임 조작 방해 없음) · 평소엔 흐리고 새 채팅이 오면 잠깐 진해짐 · 글씨는 아래 대화창과 같은 크기 · 최근 80줄 중 들어가는 만큼
-(() => { const L = [], MAX = 80, esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); let box = null, lastAt = -1e9;
+// v133: 채팅 기록 창 — 미니맵 바로 옆 · 클릭이 통과(게임 조작 방해 없음) · 평소엔 흐리고 새 채팅이 오면 잠깐 진해짐 · 글씨는 아래 대화창과 같은 크기 · 최근 40줄 중 들어가는 만큼 (11/4 메모리: 80줄 → 40줄 · 창에는 많아야 15줄쯤 보임 — 화면 요소 수가 오래 켜 둘수록 늘던 것)
+(() => { const L = [], MAX = 40, esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); let box = null, lastAt = -1e9;
   const hm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   function build() { if (box) return; box = document.createElement('div'); box.id = 'chatlog'; box.setAttribute('aria-hidden', 'true'); document.body.appendChild(box); }
   function draw() { if (!box) return; box.innerHTML = L.map(x => `<div><span class="cl-tm">${x.tm}</span> <span style="color:${x.c}">${esc(x.t)}</span></div>`).join(''); }
@@ -12110,8 +12130,8 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
       if (x1 < 0) return null; g.putImageData(I, 0, 0); if (e.h) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.85; g.drawImage(e.h, e.hx, e.hy, e.h.width / e.hs, e.h.height / e.hs); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
       const S = 168, w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min((S - 14) / w, (S - 14) / h), o = document.createElement('canvas'); o.width = o.height = S; const og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high';
       og.drawImage(t, x0, y0, w, h, Math.round((S - w * sc) / 2), Math.round(S - 7 - h * sc), w * sc, h * sc); return (ART[id] = o.toDataURL('image/png')); } catch (err) { return null; } }
-  function art(id) { if (ART[id]) return ART[id]; if (PC_BY[id] && PC_BY[id].rc) return artRc(id); const M = MSHEET[id], I = mIdle(id); if (!M || !I || !I.complete || !I.naturalWidth) return null;
-    try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(I, 0, ROW * H, W, H, 0, 0, W, H);
+  function art(id) { if (ART[id]) return ART[id]; if (PC_BY[id] && PC_BY[id].rc) return artRc(id); const M = MSHEET[id], F = M && mIdleFr(id, ROW); if (!M || !F) return null;   /* 11/4 메모리: 서 있는 그림 한 칸만 (mIdleFr) */
+    try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(F[0], 0, F[1], W, H, 0, 0, W, H);
       const d = g.getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = -1, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 30) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       if (x1 < 0) return null; const S = 168, w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min((S - 14) / w, (S - 14) / h), o = document.createElement('canvas'); o.width = o.height = S; const og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high';
       og.drawImage(t, x0, y0, w, h, Math.round((S - w * sc) / 2), Math.round(S - 7 - h * sc), w * sc, h * sc); return (ART[id] = o.toDataURL('image/png')); } catch (e) { return null; } }
@@ -12158,8 +12178,8 @@ window.PCG = (() => { const $ = id => document.getElementById(id);
   //   희귀 이상 = 모두 같은 금빛(등급 숨김) · [모두 열기] = 일반·고급만 뒤집힘 · 금빛 카드는 누르거나 [다음 열기] → 그 카드로 다가가 마법진 · 금이 가며 진짜 등급 색 → 산산조각 → 카드 공개
   //   연출 중 누르기·Space = 건너뛰기 → 한 번 더 = 홀로 · Esc = 그 연출 끝내기 / 다 열면 Space = 다시 뽑기 · Enter = 확인 · Esc = 닫기 · 자동 뽑기 = 연출 없이 전부 뒤집고 닫힘
   const ARTH = {};
-  function artHi(id) { if (ARTH[id]) return ARTH[id]; const c = PC_BY[id]; if (c && c.rc) return art(id); const M = MSHEET[id], I = mIdle(id); if (!M || !I || !I.complete || !I.naturalWidth) return null;   // 공개 화면용 큰 그림 (바닥 그림자 빼고 · 캔버스)
-    try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(I, 0, ROW * H, W, H, 0, 0, W, H); g.filter = 'none';
+  function artHi(id) { if (ARTH[id]) return ARTH[id]; const c = PC_BY[id]; if (c && c.rc) return art(id); const M = MSHEET[id], F = M && mIdleFr(id, ROW); if (!M || !F) return null;   // 공개 화면용 큰 그림 (바닥 그림자 빼고 · 캔버스) · 11/4 메모리: 서 있는 그림 한 칸만 (mIdleFr)
+    try { const W = M.W, H = M.H, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d', { willReadFrequently: true }); if (M.tint) g.filter = M.tint; g.drawImage(F[0], 0, F[1], W, H, 0, 0, W, H); g.filter = 'none';
       const Q = g.getImageData(0, 0, W, H), d = Q.data; let x0 = W, y0 = H, x1 = -1, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = (y * W + x) * 4; if (d[o + 3] < 200) { d[o + 3] = 0; continue; } if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       if (x1 < 0) return null; g.putImageData(Q, 0, 0); const w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min(3, 420 / h), o = document.createElement('canvas'); o.width = Math.ceil(w * sc); o.height = Math.ceil(h * sc);
       const og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high'; og.drawImage(t, x0, y0, w, h, 0, 0, o.width, o.height); return (ARTH[id] = o); } catch (e) { return null; } }
@@ -12440,13 +12460,17 @@ window.DOLL = (() => {
   function remote(peer, x, z, row, dk, iv) { const k = 'p:' + peer; let s = ST.get(k); if (!s) { follow(k, x, z, row); s = ST.get(k); } s.seen = time; s.R = { x, z, row, dk: String(dk), iv: !!iv }; }
   // 가방 아이콘: 앞모습 첫 장을 단계 색 테두리 안에
   const iconOk = {};
+  // 11/4 메모리: 가방 아이콘은 인형 그림(단계마다 1152×5760 · 풀면 25MB)을 직접 풀어(ImageBitmap) 만들고 다 만들면 바로 놓음 — 예전엔 <img>로 그려서 크롬이 다 푼 사본 3장(76MB)을 몇 분씩 쥐고 있었음 · 못 하면 예전처럼 <img>
+  const FULL = {}, full = t => { let e = FULL[t]; if (!e) { e = FULL[t] = { b: null, st: 0 }; if (typeof createImageBitmap !== 'function' || typeof fetch !== 'function') e.st = 2; else fetch(`assets/classic/doll_t${t}.webp`).then(r => { if (!r.ok) throw 0; return r.blob(); }).then(x => createImageBitmap(x)).then(B => { if (e.st === 3) { try { B.close(); } catch (q) {} return; } e.b = B; e.st = 1; }).catch(() => { if (e.st !== 3) e.st = 2; }); }
+    return e.st === 1 ? e.b : e.st === 2 ? sheet(t) : null; };
   function icons() { let all = true, made = false;
-    for (const [k, nm, t] of DOLL_DEF) { if (iconOk[k]) continue; const img = sheet(t), m = M[k]; if (!img || !m) { all = false; continue; }
+    for (const [k, nm, t] of DOLL_DEF) { if (iconOk[k]) continue; const img = full(t), m = M[k]; if (!img || !m) { all = false; continue; }
       try { const b = m.bb || [0, 0, CW, CH], c = document.createElement('canvas'); c.width = c.height = 64; const cg = c.getContext('2d'); cg.imageSmoothingEnabled = true; cg.imageSmoothingQuality = 'high';
-        const sc = Math.min(58 / b[2], 58 / b[3]); cg.drawImage(img, b[0], (m.i * 8 + 1) * CH + b[1], b[2], b[3], (64 - b[2] * sc) / 2, (64 - b[3] * sc) / 2 + 2, b[2] * sc, b[3] * sc); const url = c.toDataURL('image/png'), C = DOLL_TC[t];
+        const sc = Math.min(58 / b[2], 58 / b[3]); if (img !== IMG[t] && sc >= 0.5) cg.imageSmoothingQuality = 'low';   /* 11/4: 직접 푼 그림(ImageBitmap)은 'low'(선형)로 그려야 예전 <img>+'high'와 화소까지 같음 (크롬이 <img>는 0.5배 넘게 줄일 때 선형으로 그림) · 0.5배 아래는 'high'가 가장 가까움(평균 1/255 안쪽) */
+        cg.drawImage(img, b[0], (m.i * 8 + 1) * CH + b[1], b[2], b[3], (64 - b[2] * sc) / 2, (64 - b[3] * sc) / 2 + 2, b[2] * sc, b[3] * sc); const url = c.toDataURL('image/png'), C = DOLL_TC[t];
         CXI['doll_' + k] = `<rect x="1.5" y="1.5" width="31" height="31" rx="6" fill="${C[0]}" stroke="${C[1]}" stroke-width="1.3"/><image href="${url}" x="2.5" y="2.5" width="29" height="29"/><circle cx="28.4" cy="28.4" r="4.6" fill="${C[0]}" stroke="${C[1]}" stroke-width=".9"/><text x="28.4" y="31.2" text-anchor="middle" font-size="7.4" font-weight="900" fill="${C[1]}">${t}</text>`; iconOk[k] = 1; made = true; } catch (e) { all = false; } }
     if (made) try { INV.render(); } catch (e) {} return all; }
-  { let n = 0; const iv = setInterval(() => { [1, 2, 3].forEach(sheet); if ((icons() && Object.keys(M).length) || ++n > 200) { clearInterval(iv); for (const t of [1, 2, 3]) delete IMG[t]; } }, 1500); }   // 11/2 메모리: 가방 아이콘을 다 만들면 인형 그림 3장(76MB)은 놓음 — 인형을 끼고 있으면 그릴 때 그 단계만 다시 받음
+  { let n = 0; const iv = setInterval(() => { [1, 2, 3].forEach(full); if ((icons() && Object.keys(M).length) || ++n > 200) { clearInterval(iv); for (const t of [1, 2, 3]) { delete IMG[t]; const e = FULL[t]; if (e) { if (e.b) try { e.b.close(); } catch (q) {} e.b = null; e.st = 3; } } } }, 1500); }   // 11/2 메모리: 가방 아이콘을 다 만들면 인형 그림 3장(76MB)은 놓음 — 인형을 끼고 있으면 그릴 때 그 단계만 다시 받음
   function drawDoll(g, dk, cx, cy, size, fr, row) { const m = M[dk], D = ITEMS['doll_' + dk]; if (!m || !D) return false; const img = sheet(D.tier); if (!img) return false; const b = m.bb || [0, 0, CW, CH], sc = size / Math.max(b[2], b[3]);
     g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, (fr || 0) * CW + b[0], (m.i * 8 + (row == null ? 1 : row)) * CH + b[1], b[2], b[3], cx - b[2] * sc / 2, cy - b[3] * sc / 2, b[2] * sc, b[3] * sc); return true; }
   return { addDraw, remote, drawDoll, meta: M };
