@@ -6,10 +6,10 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   await login(p, { cls: 'wizard', name: 'swWZ' });
   await p.evaluate(() => { const T = __T; T.GOD_INV = true; T.TOWN.toZone(8); }); await p.waitForTimeout(1500);
   const at = lv => p.evaluate(lv => { const T = __T, P = T.PET; P.sumClear('quiet'); T.hero.lv = lv; P.sumCast(3); const L = P.list().filter(x => x.sum); return { n: L.length, kind: L.map(x => x.kind), hp: L.map(x => x.d.maxhp), rng: L.length ? P.range(L[0].d) : null }; }, lv);
-  const a55 = await at(55), a56 = await at(56), a60 = await at(60); console.log(JSON.stringify({ a55, a56, a60 }));
+  const a55 = await at(55), a56 = await at(56), a60 = await at(60), a59 = await at(59); console.log(JSON.stringify({ a55, a56, a59, a60 }));   /* 11/4: Lv60부터는 혼 켈베로스 (sumcerb.js) · 독 시험은 Lv59 와이번으로 */
   ok('Lv55 트롤', a55.kind.every(k => k === 'dv_lizard'));
   ok('Lv56 와이번 · 체력 900', a56.n >= 1 && a56.kind.every(k => k === 'wyvern') && a56.hp.every(h => h === 900));
-  ok('Lv60 와이번 · 레벨 보정(+12%)', a60.hp.every(h => h === Math.round(900 * 1.12)));
+  ok('Lv59 와이번 · 레벨 보정(+9%)', a59.kind.every(k => k === 'wyvern') && a59.hp.every(h => h === Math.round(900 * 1.09))); ok('Lv60부터 혼 켈베로스', a60.kind.every(k => k === 'fn_hcerberus'));
   ok('설명에 56 와이번', await p.evaluate(() => /56 와이번\(독 꼬리\)/.test(__T.SK.summon.desc)));
   // 독: 튼튼한 몹 하나를 세워 두고 20초
   const r = await p.evaluate(async () => { const T = __T, H = T.hero; for (const f of T.foxes) if (!f.isPet && !f.sum) f.gone = true; let m = null; for (let d = 2; d < 8 && !m; d++) m = T.mkMob('dv_lizard', H.i + d, H.j); if (!m) return { err: 'no mob' }; m.hp = m.max = 1e6; m.aggro = true; m.summoned = true;
