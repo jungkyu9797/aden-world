@@ -10675,14 +10675,17 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     if (auto && unsafe(true)) { gBusy = false; b.disabled = false; AU.v = newVer; AU.at = Date.now() + 5000; return; }   /* 받는 사이에 위험해졌으면 다시 기다림 */
     say('캐릭터를 저장하고 새 버전을 불러옵니다… (잠깐 뒤 그 자리에서 이어져요)', '#ffd86a');
     ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {} try { localStorage.setItem('aden_patch_to', String(newVer)); } catch (e) {} setTimeout(() => location.reload(), 500); }
-  // 11/3 프로듀서: 새 버전이 나오면 자동 업데이트 — 2시간마다 확인(11/4 2분 → 2시간 · 켤 때·로그인 화면에서는 바로 확인) · 안전할 때(쓰러짐·보스 전투·교환·콜로세움·수호탑·할로윈·몽환의 섬·결투·입력 중·HP 40% 아래가 아닐 때) 20초 알림 뒤 저장 → 받기 → 그 자리·파티·자동사냥 그대로
+  // 11/3 프로듀서: 새 버전이 나오면 자동 업데이트 — 2분마다 확인(켤 때·로그인 화면에서는 바로) · 11/4 프로듀서(두 번째): 게임 중에는 [업데이트]를 안 눌러도 처음 본 때부터 2시간 뒤 자동 (로그인·캐릭터 화면은 3초 뒤 바로)
+  //   2시간이 되면 안전할 때(쓰러짐·보스 전투·교환·콜로세움·수호탑·할로윈·몽환의 섬·결투·입력 중·HP 40% 아래가 아닐 때) 20초 알림 뒤 저장 → 받기 → 그 자리·파티·자동사냥 그대로
   //   [업데이트]를 누르면 바로 · 운영자 모드·봇 호스트(러너가 따로 새로 고침)·테스트 페이지는 자동 안 함 · 파일이 아직 안 퍼졌으면 1분 뒤 다시(최대 5번)
-  const UPD_EVERY = 2 * 3600e3;   // 11/4 프로듀서: 새 버전 확인은 2시간마다 (예전 2분)
-  const AU = { v: 0, at: 0, said: 0, saidH: 0, held: '', n: 0, next: 0 }, AU_SEC = 20;
+  const UPD_EVERY = 2 * 60e3;   // 11/4 프로듀서(두 번째): 새 버전 확인은 다시 2분마다 · 자동 업데이트는 처음 본 때부터 2시간 뒤 (AU_WAIT)
+  const AU = { v: 0, at: 0, t0: 0, said: 0, said20: 0, saidH: 0, held: '', n: 0, next: 0 }, AU_SEC = 20, AU_WAIT = () => window.__AU_WAIT != null ? +window.__AU_WAIT : 2 * 3600e3;
+  const seenAt = () => { const now = Date.now(); try { const o = JSON.parse(localStorage.getItem('aden_upd_seen') || 'null'); if (o && o.g === GAME_VER && o.at > 0 && o.at <= now) return o.at; localStorage.setItem('aden_upd_seen', JSON.stringify({ g: GAME_VER, at: now })); } catch (e) {} return now; };   /* 이 버전에서 새 버전을 처음 본 때 — 게임을 다시 켜도 2시간이 처음부터 다시 세지지 않게 */
+  const leftTxt = s => s >= 3600 ? `${Math.floor(s / 3600)}시간${Math.floor(s % 3600 / 60) ? ' ' + Math.floor(s % 3600 / 60) + '분' : ''}` : s >= 60 ? `${Math.ceil(s / 60)}분` : `${s}초`, hhmm = t => { const d = new Date(t); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
   const auOk = () => (!(window.ADEN_DEMO || window.DEMO_MODE) || window.__AU_TEST) && !(typeof BOTHOST !== 'undefined' && BOTHOST.on()) && !(typeof ADMIN !== 'undefined' && ADMIN.on());
   const auTry = v => { try { const o = JSON.parse(sessionStorage.getItem('aden_au') || 'null'); return o && o.v === v ? o.n | 0 : 0; } catch (e) { return 0; } }, auMark = v => { try { sessionStorage.setItem('aden_au', JSON.stringify({ v, n: auTry(v) + 1 })); } catch (e) {} };   // 같은 버전으로 자동 업데이트를 2번 했는데도 예전 판이면 자동은 그만 (다시 불러오기 반복 방지)
-  function arm(v) { if (!(v > GAME_VER) || !auOk() || AU.n >= 5 || auTry(v) >= 2) return false; if (AU.v !== v && !gBusy) { if (AU.lastV !== v) { AU.lastV = v; AU.n = 0; AU.next = 0; } AU.v = v; AU.at = Math.max(Date.now() + AU_SEC * 1000, AU.next); AU.said = 0; AU.saidH = 0; AU.held = ''; } return true; }
-  function retry(v) { AU.n++; if (AU.n >= 5) return; AU.next = Date.now() + 60000 * Math.pow(2, AU.n - 1); AU.v = v; AU.at = AU.next; AU.said = 1; AU.saidH = 1; }
+  function arm(v) { if (!(v > GAME_VER) || !auOk() || AU.n >= 5 || auTry(v) >= 2) return false; if (AU.v !== v && !gBusy) { if (AU.lastV !== v) { AU.lastV = v; AU.n = 0; AU.next = 0; } AU.v = v; AU.t0 = Date.now(); AU.at = Math.max(seenAt() + AU_WAIT(), Date.now() + AU_SEC * 1000, AU.next); AU.said = 0; AU.said20 = 0; AU.saidH = 0; AU.held = ''; } return true; }   /* 11/4: 더 새 버전이 또 나와도 2시간은 처음 본 때부터 */
+  function retry(v) { AU.n++; if (AU.n >= 5) return; AU.next = Date.now() + 60000 * Math.pow(2, AU.n - 1); AU.v = v; AU.at = AU.next; AU.said = 1; AU.said20 = 1; AU.saidH = 1; }
   function unsafe(any) { const ae = document.activeElement, typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && String(ae.value || '').trim(); if (!ACCOUNT.started()) return typing ? '글자 입력' : '';   /* 로그인·캐릭터 화면: 아이디·비밀번호·이름을 쓰는 중이면 기다림 */
     if (DEATH || !(hero.hp > 0)) return '쓰러진 상태'; const d = ISLE && ISLE.def; if (SCENE === 'field' && d) { if (d.arena || COLO_LOCK) return '콜로세움'; if (d.tw) return '수호탑 대전'; if (d.hw) return '할로윈 던전'; if (d.dream) return '몽환의 섬'; if (d.duel || d.pvp) return '결투'; } else if (COLO_LOCK) return '콜로세움 입장 대기';
     try { if (TRADE.active()) return '교환'; } catch (e) {} try { if (INV.targeting()) return '아이템 사용'; } catch (e) {}
@@ -10690,10 +10693,12 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     if (foxes.some(f => !f.dead && !f.gone && MOB[f.kind] && (MOB[f.kind].boss || MOB[f.kind].midb) && (f.tgt === hero || hero.target === f || (f.myHitAt && time - f.myHitAt < 30)))) return '보스 전투';
     if (hero.hp < hero.max * 0.4) return 'HP 회복'; return ''; }
   function auTick() { if (!AU.v || gBusy || gateOn || busy || Date.now() < AU.next) return; if (!auOk() || !(AU.v > GAME_VER)) { AU.v = 0; return; } const b = $('btn-upd'), n = N();
-    if (!ACCOUNT.started()) { if (Date.now() < AU.at - (AU_SEC - 3) * 1000 || unsafe()) return; if (n && n.update) msg(`새 버전(v${AU.v})을 자동으로 받는 중…`, '#ffd86a'); auMark(AU.v); if (n && n.update) runIn(true); else runWeb(true); return; }   /* 로그인·캐릭터 고르기 화면: 3초 뒤 바로 */
+    if (!ACCOUNT.started()) { if (Date.now() < AU.t0 + 3000 || unsafe()) return; if (n && n.update) msg(`새 버전(v${AU.v})을 자동으로 받는 중…`, '#ffd86a'); auMark(AU.v); if (n && n.update) runIn(true); else runWeb(true); return; }   /* 로그인·캐릭터 고르기 화면: 3초 뒤 바로 */
+    let left = Math.ceil((AU.at - Date.now()) / 1000);
+    if (left > AU_SEC) { if (b) b.textContent = `⬇ 업데이트 (v${AU.v}) · ${leftTxt(left)} 뒤 자동`; if (!AU.said) { AU.said = 1; say(`[업데이트] 새 버전(v${AU.v})이 나왔어요. 화면 위 [업데이트]를 누르면 바로 받고, 안 누르면 ${leftTxt(left)} 뒤(${hhmm(AU.at)}쯤) 자동으로 업데이트해요. 저장한 뒤 그 자리·파티·자동사냥 그대로 이어져요.`, '#ffd86a'); } return; }   /* 11/4: 2시간 기다리는 동안은 알림만 */
     const why = unsafe(); if (why) { AU.at = Math.max(AU.at, Date.now() + 5000); if (b) b.textContent = `⬇ 업데이트 (v${AU.v}) · ${why} 끝나면 자동`; if (AU.held !== why) { AU.held = why; if (!AU.saidH) { AU.saidH = 1; say(`[업데이트] 새 버전(v${AU.v})이 나왔어요. 지금 하던 것(${why})이 끝나면 자동으로 업데이트해요. 바로 하려면 화면 위 [업데이트]를 눌러 주세요.`, '#ffd86a'); } } return; }
-    AU.held = ''; const left = Math.ceil((AU.at - Date.now()) / 1000);
-    if (left > 0) { if (b) b.textContent = `⬇ 자동 업데이트 ${left}초 (v${AU.v})`; if (!AU.said) { AU.said = 1; say(`[업데이트] 새 버전(v${AU.v})이 나왔어요. ${left}초 뒤 자동으로 업데이트해요. 저장한 뒤 그 자리·파티·자동사냥 그대로 이어져요. (바로 하려면 화면 위 [업데이트])`, '#ffd86a'); } return; }
+    AU.held = ''; if (!AU.said20) { AU.said20 = 1; AU.at = Math.max(AU.at, Date.now() + AU_SEC * 1000); left = Math.ceil((AU.at - Date.now()) / 1000); say(`[업데이트] 새 버전(v${AU.v}) — ${left}초 뒤 자동으로 업데이트해요. 저장한 뒤 그 자리·파티·자동사냥 그대로 이어져요. (바로 하려면 화면 위 [업데이트])`, '#ffd86a'); }   /* 마지막 20초 알림 (미뤄졌다가 안전해진 때도) */
+    if (left > 0) { if (b) b.textContent = `⬇ 자동 업데이트 ${left}초 (v${AU.v})`; return; }
     auMark(AU.v); if (n && n.update) runIn(true); else runWeb(true); }
   { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = () => runIn(); setTimeout(checkIn, 8000); setInterval(checkIn, UPD_EVERY); setInterval(auTick, 1000); }
     else if (b && !n && !window.ADEN_DEMO) { b.onclick = () => runWeb(); setTimeout(checkWeb, 15000); setInterval(checkWeb, UPD_EVERY); setInterval(auTick, 1000); }
@@ -10715,7 +10720,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     let u; try { u = await n.update(); } catch (e) { u = { ok: false, err: String(e && e.message || e) }; }
     if (u && u.ok && (!u.latest || u.ver > GAME_VER)) { T(`v${u.ver} 업데이트 완료! 다시 시작합니다…`); await new Promise(res => setTimeout(res, 800)); if (u.restart && n.relaunch) n.relaunch(); else location.reload(); return new Promise(() => {}); }
     return done(updErr(u && u.err) + ' 지금 버전으로 접속합니다.', 3000); }
-  return { run, check: checkIn, gate, newVer: () => newVer, au: AU, arm, unsafe, auTick, checkWeb, webFresh }; })();
+  return { run, check: checkIn, gate, newVer: () => newVer, autoAt: () => AU.v > GAME_VER ? AU.at : 0, hhmm, au: AU, arm, unsafe, auTick, checkWeb, webFresh, every: UPD_EVERY }; })();
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
@@ -12662,7 +12667,7 @@ window.SAVER = (() => {
     { const B = [...S.buys], tg = B.reduce((a, [, v]) => a + v.g, 0); $('sv-bh').textContent = tg ? `상점 구매 (−${tg.toLocaleString()} 골드)` : '상점 구매'; $('sv-buys').innerHTML = B.length ? B.map(([id, v]) => { const it = ITEMS[id]; return `<li><span class="ic">${it ? ICON(it.icon) : ''}</span>${esc_(it ? it.name : id)} <b>×${v.n.toLocaleString()}</b><small class="sv-bg">−${v.g.toLocaleString()}</small></li>`; }).join('') : '<li class="none">아직 없음</li>'; }
     $('sv-todo').innerHTML = todoHTML();   // 11/1 프로듀서: 오늘 할 일 (일일 컨텐츠 남은 횟수·시간 · 특별 보상)
     $('sv-notes').innerHTML = S.notes.map(x => `<li style="color:${x.c}">${esc_(x.t)}</li>`).join('');
-    { const nv = (typeof UPD !== 'undefined' && UPD.newVer) ? UPD.newVer() : 0, u = $('sv-upd'); if (nv > GAME_VER) { if (u.hidden) note(`새 업데이트 v${nv}이(가) 나왔어요.`, '#ffd86a'); u.hidden = false; $('sv-updv').textContent = 'v' + nv; } else u.hidden = true; } }   /* v167: 업데이트가 있으면 절전 화면 맨 위에 크게 */
+    { const nv = (typeof UPD !== 'undefined' && UPD.newVer) ? UPD.newVer() : 0, u = $('sv-upd'); if (nv > GAME_VER) { if (u.hidden) note(`새 업데이트 v${nv}이(가) 나왔어요.`, '#ffd86a'); u.hidden = false; $('sv-updv').textContent = 'v' + nv; { const at = UPD.autoAt ? UPD.autoAt() : 0, sm = u.querySelector('small'); if (sm) sm.textContent = '저장한 뒤 새 버전을 받고, 다시 불러와서 지금 자리·자동사냥 그대로 이어져요.' + (at ? ` 안 누르면 ${UPD.hhmm(at)}쯤 자동으로 업데이트해요.` : ''); } } else u.hidden = true; } }   /* 11/4: 자동 업데이트 시각 */   /* v167: 업데이트가 있으면 절전 화면 맨 위에 크게 */
   const RO_ = { 일반: 0, 고급: 1, 희귀: 2, 영웅: 3, 전설: 4 };
   // ----- 오늘 할 일: 새벽 5시 초기화되는 일일 컨텐츠 — 남은 입장·시간과 거기서만 얻는 특별 보상 (지금 있는 곳은 표시)
   const hmL = s => { const t = Math.ceil(Math.max(0, s) / 60), h = Math.floor(t / 60), m = t % 60; return h ? `${h}시간${m ? ' ' + m + '분' : ''}` : `${m}분`; };
