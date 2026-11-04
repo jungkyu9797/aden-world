@@ -18,7 +18,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
   const [A, B] = r.P;
   ok(A && B && B.n === '베리' && B.kind === A.kind && B.lv === A.lv && B.evo === A.evo && JSON.stringify(B.eb) === JSON.stringify(A.eb), `베리 = 상한 맞춤된 펫과 레벨·진화·진화 기준 같음 (Lv.${B && B.lv} · 진화 기준 ${B && JSON.stringify(B.eb)})`);
   ok(B && B.mh === A.mh && B.mxh === A.mxh && B.hp === B.mxh && B.rng.join() === A.rng.join(), `HP ${B && B.mxh} · 공격 ${B && B.rng.join('~')} 같음 (HP는 가득)`);
-  ok(B && B.lv === 61 && B.eb.lv === 61 && B.eb.hp === 223 && B.mh === 823 && B.rng.join() === '36,73', '값: Lv.61 · 진화 기준 Lv.61(HP 223·10~20) · 최대 HP 823 · 공격 36~73 (카리스마 보너스 없을 때)');
+  ok(B && B.lv === 61 && B.eb.lv === 61 && B.eb.hp === 223 && B.mh === 1423 && B.rng.join() === '36,73', '값: Lv.61 · 진화 기준 Lv.61(HP 223·10~20) · 최대 HP 1423 · 공격 36~73 (카리스마 보너스 없을 때)');
   ok(B && B.ok === 1 && B.st === 'stored' && B.inv === 4, '새 목걸이: 상한 확인 표시(경험치 넘김 없음) · 보관 상태 · 펫 가방 4칸');
   ok(/\[운영자\] 펫 목걸이\(Lv\.61 베리 · 진화 · 진화 기준 Lv\.61\)를 받았습니다/.test(r.msg), '안내 문구');
   ok(r.after.every(x => x === '61:61'), `상한 확인을 다시 돌려도 그대로 (${r.after.join(', ')})`);

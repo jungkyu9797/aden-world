@@ -913,7 +913,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 224;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 226;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -4663,6 +4663,7 @@ const GROUND = (() => {
 
 // ============================================================ 펫 (도베르만): 펫상인에게서 목걸이 구매 → '펫을 찾는다'로 소환 → 따라다니며 함께 사냥·성장
 // 배고픔 없음. 목걸이(가방의 개별 아이템)가 펫 데이터를 들고 있음: {name, kind, lv, exp, hp, maxhp, inv[4], state:'stored'|'out'|'dead', mode:'attack'|'wait'|'rest'}
+const PET_EVO_HPLV = 20;   // 11/4 프로듀서: 진화 펫 레벨당 HP +10 → +20
 const PET_KIND = { doberman: { name: '도베르만', hp: 26, hpLv: 7, dmg: [1, 4], dmgLv: 0.6, hit: 0.72, ac: 8, spd: 3.7, mob: 'pet_doberman' } };
 const petNeed = lv => Math.round(18 * Math.pow(lv, 1.55));
 // 11/3 프로듀서: 펫은 주인 레벨을 넘지 못함 (예전엔 상한이 없고 경험치 곡선이 완만해 진화 펫이 Lv.363까지 → HP 5천·공격 470) · 상한이면 펫 몫 경험치는 주인에게
@@ -4739,16 +4740,17 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   const petHit = (d, S) => Math.max(0.2, Math.min(0.95, PET_KIND[d.kind].hit + 0.02 * (petEff(d) - S.lv) - (10 - (S.mac ?? 10)) * 0.02));
   // 돌려주는 값: 주인에게 넘긴 경험치 (펫이 주인 레벨에 닿아 못 받은 몫)
   function gainExp(p, n) { const d = p.d; if (!d || !(n > 0)) return 0; if (d.lv >= petCap()) { d.exp = 0; heroGainExp(n); return n; }
-    d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? 10 : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
+    d.exp += n; while (d.exp >= needOf(d)) { d.exp -= needOf(d); d.lv++; const K = K_(p); d.maxhp += d.evo ? PET_EVO_HPLV : K.hpLv; d.hp = MXH(d); spellFx('levelup', p); say(`${nm(d)}의 레벨이 올랐습니다! (Lv.${d.lv})`, '#9fe0ff');
       if (AC && SFX_ON) { const t = AC.currentTime; [659, 784, 1047].forEach((f, k) => tone(t + k * 0.08, 'triangle', f, f, 0.25, 0.08)); }
       if (d.lv >= petCap()) { const left = d.exp; d.exp = 0; if (left > 0) heroGainExp(left); refresh(); return left; } } refresh(); return 0; }
   // 주인 레벨을 넘은 펫 맞추기 (가방의 펫 목걸이 · 2초마다): 이 업데이트 전부터 넘어 있던 펫은 넘은 만큼의 경험치를 한 번 주인에게 넘김 (capOk 표시 뒤로는 거래 등으로 넘어와도 레벨만 맞춤)
-  const petMaxHp = d => { const K = PET_KIND[d.kind]; if (!K) return d.maxhp; return d.evo && d.eb ? d.eb.hp + 10 * (d.lv - 1) : K.hp + K.hpLv * (d.lv - 1); };
+  const petMaxHp = d => { const K = PET_KIND[d.kind]; if (!K) return d.maxhp; return d.evo && d.eb ? d.eb.hp + PET_EVO_HPLV * (d.lv - 1) : K.hp + K.hpLv * (d.lv - 1); };
   let capT = 0;
   // 진화 기준(eb): 진화할 때 레벨 L의 능력치 절반·명중·회피 레벨 — 주인 레벨보다 높은 레벨에서 진화했으면 주인 레벨에서 진화한 것처럼 다시 (11/3 프로듀서)
   const ebAt = (kind, L) => { const K = PET_KIND[kind], mx = K.hp + K.hpLv * (L - 1), a0 = K.dmg[0] + Math.floor((L - 1) * K.dmgLv * 0.5), b0 = K.dmg[1] + Math.floor((L - 1) * K.dmgLv); return { hp: Math.max(1, Math.round(mx / 2)), dmg: [Math.max(1, Math.round(a0 * 0.5)), Math.max(2, Math.round(b0 * 0.5))], lv: L }; };
   function capCheck(force) { if (!force && (capT -= 1) > 0) return; capT = 40; const cap = petCap(); let ch = false;
     for (const e of INV.bag()) { const d = e.pet; if (!d || !PET_KIND[d.kind]) continue; const first = !d.capOk; d.capOk = 1;
+      if (d.evo && d.eb) { const mh = petMaxHp(d); if (d.maxhp !== mh) { d.maxhp = mh; d.hp = Math.min(d.hp, MXH(d)); ch = true; } }   /* 11/4: 진화 펫 HP 성장 +20으로 바뀐 것을 이미 있는 펫에도 */
       const ebOver = !!(d.evo && d.eb && d.eb.lv > cap); if (!(d.lv > cap) && !ebOver) continue;
       let ex = 0; const from = d.lv, eb0 = ebOver ? d.eb.lv : 0;
       if (first) { if (d.lv > cap) { ex += Math.max(0, d.exp | 0); for (let l = cap; l < d.lv; l++) ex += petNeed(l) * (d.evo ? 2 : 1); } if (ebOver) for (let l = cap; l < eb0; l++) ex += petNeed(l); }   /* 진화 전 cap~진화 레벨 구간도 */
@@ -4757,7 +4759,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (ex > 0) heroGainExp(ex);
       say(`[펫] 이제 펫은 주인 레벨을 넘을 수 없어서 주인 레벨(Lv.${cap})에 맞췄어요.` + (ex > 0 ? ' 넘어 있던 경험치는 주인에게 들어갔어요.' : '') + ' 주인 레벨이 오르면 펫도 다시 자라요.', '#ffd86a'); }   /* 11/3 프로듀서: 안내는 짧게 (펫 이름·이전 레벨·진화 내용은 안 씀) */
     if (ch) refresh(); }
-  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
+  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); if (!p.sum && HIZ()) { const S_ = src && MOB[src.kind], bs = !!(S_ && (S_.boss || S_.midb)); dmg = Math.max(1, Math.round(dmg * (src ? hzAcMul(petAC(d), bs) * v2Z('P') : v2Z('M')))); }   /* 11/4 프로듀서: 펫도 유저·봇과 같은 사냥터 방어(2구역 · 물리 = 사냥터 배율 × AC · 범위·지속 피해 = 마법 배율) */ dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
     const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, String(dmg), { color: '#ff8a6a', size: 11 });
     if (src) { const [sx, sy] = W2P(src.x, src.z); const vx = px - sx, vy = py - sy, l = Math.hypot(vx, vy) || 1; p.kx = vx / l; p.ky = vy / l; } p.hitD = 0.3; p.hitT = 0.3; p.kmag = 4;
     if (d.hp <= 0) { d.hp = 0; p.dead = true; p.deadT = 0; d.state = 'dead'; p.lunge = 0; { const nx = p.sum && SUMB.tank ? PETS_HERE.find(q => q !== p && q.sum && !q.dead) : null; for (const f of foxes) if (f.tgt === p) f.tgt = nx && MOB[f.kind] && MOB[f.kind].boss ? nx : null; }   /* v189: 보스는 남은 소환수로 */
@@ -10586,8 +10588,9 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     if (auto && unsafe(true)) { gBusy = false; b.disabled = false; AU.v = newVer; AU.at = Date.now() + 5000; return; }   /* 받는 사이에 위험해졌으면 다시 기다림 */
     say('캐릭터를 저장하고 새 버전을 불러옵니다… (잠깐 뒤 그 자리에서 이어져요)', '#ffd86a');
     ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {} try { localStorage.setItem('aden_patch_to', String(newVer)); } catch (e) {} setTimeout(() => location.reload(), 500); }
-  // 11/3 프로듀서: 새 버전이 나오면 자동 업데이트 — 2분마다 확인 · 안전할 때(쓰러짐·보스 전투·교환·콜로세움·수호탑·할로윈·몽환의 섬·결투·입력 중·HP 40% 아래가 아닐 때) 20초 알림 뒤 저장 → 받기 → 그 자리·파티·자동사냥 그대로
+  // 11/3 프로듀서: 새 버전이 나오면 자동 업데이트 — 2시간마다 확인(11/4 2분 → 2시간 · 켤 때·로그인 화면에서는 바로 확인) · 안전할 때(쓰러짐·보스 전투·교환·콜로세움·수호탑·할로윈·몽환의 섬·결투·입력 중·HP 40% 아래가 아닐 때) 20초 알림 뒤 저장 → 받기 → 그 자리·파티·자동사냥 그대로
   //   [업데이트]를 누르면 바로 · 운영자 모드·봇 호스트(러너가 따로 새로 고침)·테스트 페이지는 자동 안 함 · 파일이 아직 안 퍼졌으면 1분 뒤 다시(최대 5번)
+  const UPD_EVERY = 2 * 3600e3;   // 11/4 프로듀서: 새 버전 확인은 2시간마다 (예전 2분)
   const AU = { v: 0, at: 0, said: 0, saidH: 0, held: '', n: 0, next: 0 }, AU_SEC = 20;
   const auOk = () => (!(window.ADEN_DEMO || window.DEMO_MODE) || window.__AU_TEST) && !(typeof BOTHOST !== 'undefined' && BOTHOST.on()) && !(typeof ADMIN !== 'undefined' && ADMIN.on());
   const auTry = v => { try { const o = JSON.parse(sessionStorage.getItem('aden_au') || 'null'); return o && o.v === v ? o.n | 0 : 0; } catch (e) { return 0; } }, auMark = v => { try { sessionStorage.setItem('aden_au', JSON.stringify({ v, n: auTry(v) + 1 })); } catch (e) {} };   // 같은 버전으로 자동 업데이트를 2번 했는데도 예전 판이면 자동은 그만 (다시 불러오기 반복 방지)
@@ -10605,8 +10608,8 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     AU.held = ''; const left = Math.ceil((AU.at - Date.now()) / 1000);
     if (left > 0) { if (b) b.textContent = `⬇ 자동 업데이트 ${left}초 (v${AU.v})`; if (!AU.said) { AU.said = 1; say(`[업데이트] 새 버전(v${AU.v})이 나왔어요. ${left}초 뒤 자동으로 업데이트해요. 저장한 뒤 그 자리·파티·자동사냥 그대로 이어져요. (바로 하려면 화면 위 [업데이트])`, '#ffd86a'); } return; }
     auMark(AU.v); if (n && n.update) runIn(true); else runWeb(true); }
-  { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = () => runIn(); setTimeout(checkIn, 8000); setInterval(checkIn, 2 * 60 * 1000); setInterval(auTick, 1000); }
-    else if (b && !n && !window.ADEN_DEMO) { b.onclick = () => runWeb(); setTimeout(checkWeb, 15000); setInterval(checkWeb, 2 * 60 * 1000); setInterval(auTick, 1000); }
+  { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = () => runIn(); setTimeout(checkIn, 8000); setInterval(checkIn, UPD_EVERY); setInterval(auTick, 1000); }
+    else if (b && !n && !window.ADEN_DEMO) { b.onclick = () => runWeb(); setTimeout(checkWeb, 15000); setInterval(checkWeb, UPD_EVERY); setInterval(auTick, 1000); }
     if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
   // v151: PC 게임을 켜면 로그인 화면보다 먼저 최신 버전 확인 → 새 버전이면 자동으로 받고 다시 시작 (예전 버전으로 접속해서 아이템이 사라지는 일 방지)
   let gateOn = false;
@@ -10629,6 +10632,8 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 226, items: ["혈맹 파티가 생겼어요! 위쪽 [혈맹] 버튼(모바일은 메뉴 → 혈맹)을 누르면 지금 접속 중인 반왕 혈맹원(봇)이 투력순으로 보여요.", "[파티 초대]를 누르면 봇이 바로 들어와서 내 옆에 나타나요. 봇은 3명까지(나까지 4명) 데려갈 수 있고, Lv.56부터 쓸 수 있어요.", "파티 봇은 나를 따라다니며, 내가 공격하는 대상을 같이 공격해요(① 일점사). 내가 공격하는 대상이 없으면 나나 파티 봇을 때리는 몬스터·라인 봇을 공격해요.", "왼쪽 파티창 아래 [대기]·[이동]·[전투]·[해산]으로 명령할 수 있어요. 봇 이름을 누르면 사냥 스타일과 [파티 추방]이 나와요.", "파티 봇과 함께 잡은 일반 몬스터의 경험치·골드·드랍 확률은 1/N × 1.1이에요(N = 나 + 봇). 보스 전리품은 그대로 모두 나에게 와요.", "파티 봇은 물약을 무제한으로 마셔요. 쓰러지면 2분 동안 무덤으로 남고, 부활 주문서로 되살릴 수 있어요(HP 50%). 2분이 지나면 파티에서 빠지고 귀환해요.", "추방하거나 해산한 봇은 귀환해서 자기 사냥터로 돌아가고, 30분 뒤에 다시 초대할 수 있어요. 파티는 4시간 뒤 자동으로 해산돼요.", "수호탑 대전·할로윈·콜로세움·결투장·몽환의 섬에서는 봇이 밖에서 기다렸다가 나오면 다시 옆에 와요.", "봇끼리 파티는 2시간마다(05·07·09…시) 새로 짜여져요. 그때마다 초대할 수 있는 봇이 바뀌어요.", "새 버전 확인은 이제 2시간마다 해요. (예전 2분) 게임을 켤 때는 지금처럼 바로 확인해요."] },
+    { v: 225, items: ["펫이 튼튼해졌어요. 이제 펫도 유저처럼 사냥터 방어 규칙을 받아요. (예: 화룡의 둥지 2구역에서 몬스터에게 받는 물리 피해 약 70% 감소 · 범위 공격 50% 감소)", "진화한 펫은 레벨이 오를 때마다 HP가 20씩 올라요. (예전 10) 이미 진화한 펫도 바로 맞춰져요. (예: Lv.61 진화 펫 최대 HP 823 → 1,423)"] },
     { v: 224, items: ["자동사냥 설정에 [자동 반격]이 생겼어요. 켜면 라인 혈맹 봇이 나를 공격할 때 반격하고, 끄면 봇은 공격하지 않아요. (기본 켜짐)", "[반격 우선순위]: 잡던 몹 마저 잡고 반격(보스몹 포함) · 잡던 몹 마저 잡고 반격(보스몹 제외 — 보스를 잡던 중이면 바로 반격) · 반격 먼저 중에서 고를 수 있어요. 아직 때리지 않은 몹에게 걸어가던 중이면 바로 반격해요.", "반왕(아군) 혈맹 봇은 이제 물약이 떨어지지 않아요. 라인(적) 혈맹 봇은 물약을 250~300개 들고 다녀요. (예전에는 모두 30~80개)", "혈맹 봇이 드레이크 킹·피닉스 같은 큰 보스도 잡으러 가요. 그 사냥터에 갈 파티가 없으면 다른 사냥터의 파티가 원정을 와요. (유저가 보스를 치고 있으면 반왕 원정은 오지 않아요)", "봇 파티는 오래 걸리는 보스(예상 1시간까지)도 끝까지 싸워요."] },
     { v: 223, items: ["내 레벨보다 낮은 몬스터를 잡아도 경험치가 줄지 않아요. (예전에는 6레벨 이상 낮으면 1레벨마다 −5%, 최대 −50%) 레벨이 낮은 친구와 같은 사냥터에서 함께 사냥해도 손해가 없어요.", "전체 채팅의 혈맹 전투 알림은 이제 유저가 낀 전투만 떠요. 봇끼리 싸우는 알림은 더 이상 안 떠요."] },
     { v: 222, items: ["이제 새 버전이 나오면 게임이 알아서 업데이트해요. 2분마다 새 버전을 확인하고, 나오면 20초 뒤 저장 → 새 파일 받기 → 그 자리·파티·자동사냥 그대로 이어져요. (바로 하려면 화면 위 [업데이트])", "보스 전투·교환·콜로세움·수호탑 대전·할로윈 던전·몽환의 섬·결투 중이거나, 쓰러졌거나, HP가 40% 아래거나, 채팅을 쓰는 중이면 끝날 때까지 기다렸다가 업데이트해요.", "펫 창에서 펫이 체력 물약을 마시는 HP 기준을 10~90%(10% 단위)로 바꿀 수 있어요. (기본 50% · 펫마다 따로 저장)"] },
