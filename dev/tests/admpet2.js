@@ -26,7 +26,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
     // 유저보다 높은 펫은 안 보냄
     await M.evaluate(() => { document.getElementById('adm-tpl').value = 70; }); const n0 = await U.evaluate(() => __T.INV.bag().filter(e => e.pet).length);
     await M.click('#adm-det button[data-c="pet"]'); await M.waitForTimeout(3000); const n1 = await U.evaluate(() => __T.INV.bag().filter(e => e.pet).length);
-    const warn = await M.evaluate(() => __T.log.slice(-3).map(l => l.t).filter(t => /줄 수 없어요/.test(t)).length); ok(n1 === n0 && warn === 1, '유저(Lv.61)보다 높은 Lv.70 펫은 안 보내고 안내');
+    ok(n1 === n0 + 1, '11/4: 유저(Lv.61)보다 높은 Lv.70 펫도 지급됨 (주인 레벨에 닿을 때까지 성장만 멈춤)');
     console.log(errs.slice(0, 3).join('\n') || 'no errors'); ok(!errs.length, '오류 없음');
   } finally { fs.writeFileSync(F, s0); if (b) await b.close(); }
   console.log(fails ? `FAIL ${fails}` : 'ALL OK'); process.exitCode = fails ? 1 : 0; })();
