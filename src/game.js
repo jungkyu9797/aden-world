@@ -3198,6 +3198,7 @@ function deathUI() { let b = document.getElementById('deathban'); if (!DEATH) { 
   { const m = DEATH.tw ? 't' : DEATH.duel ? 'd' : DEATH.arena ? 'a' : DEATH.ward ? 'w' : 'n'; if (tb.dataset.m !== m) { tb.dataset.m = m; tb.innerHTML = DEATH.tw ? '🏳 포기하고 마을로 <small>수호탑 대전에서 나가요 · 보상 없음</small>' : DEATH.duel ? '🔄 제자리 부활 <small>HP·MP 100% · 손실 없음</small>' : DEATH.arena ? '🏳 포기하고 마을로 <small>콜로세움에서 나가요 · 손실 없음</small>' : DEATH.ward ? '🏠 마을로 <small>기다리지 않고 바로 부활 · 불멸의 가호로 손실 없음</small>' : '🏠 마을로 <small>기다리지 않고 바로 부활 · 경험치 5% · 골드 10% 손실</small>'; b.dataset.s = ''; } }
   b.style.top = BOSSBAR_B ? (BOSSBAR_B + 6) + 'px' : ''; const L = deathLeft(), sec = Math.ceil(L); if (b.dataset.s === String(sec) && !b.hidden) return; b.dataset.s = sec; tx.innerHTML = DEATH.tw ? `<b>💀 쓰러졌습니다</b><span>수호탑 대전 — 사망 손실 없음 · ${sec}초 뒤 부활장소에서 부활 (HP·MP 50%)</span><small>부활장소의 빛나는 발판을 밟으면 우리 기지로 · 채팅은 할 수 있어요</small>` : DEATH.duel ? '<b>💀 쓰러졌습니다</b><span>결투장 — 사망 손실 없음</span><small>[제자리 부활]을 누르면 그 자리에서 HP·MP 100%로 일어나요 · 나가려면 부활한 뒤 귀환 부적</small>' : DEATH.arena ? '<b>💀 쓰러졌습니다</b><span>콜로세움 — 사망 손실 없음 · 라운드가 끝나면 그 자리에서 부활</span><small>동료가 부활 주문서를 쓰면 바로 부활해요 · 모두 쓰러지면 실패 · 채팅은 할 수 있어요</small>' : DEATH.ward ? `<b>💀 사망했습니다</b><span>${mmss(L)} 뒤 마을에서 자동 부활 · 불멸의 가호가 타서 손실 없음</span><small>타버린 불멸의 가호가 쓰러진 자리에 떨어졌어요 · 주워서 상점에 되팔면 2만 5천 골드</small>` : `<b>💀 사망했습니다</b><span>${mmss(L)} 뒤 마을에서 자동 부활 · 경험치 5% · 골드 10% 손실</span><small>근처 사람이 부활 주문서를 쓰면 그 자리에서 부활해요 (HP·MP 50% · 골드 5%만 손실) · 채팅은 할 수 있어요</small>`; b.hidden = false; }
 function heroDie(src, kind, d) { if (DEATH) return; if (window.SAVER) SAVER.death(); try { PET.sumClear('death'); } catch (e) {} TELE.ev('death', { by: src && src.kind || kind || '?', z: zoneTitle(), lv: hero.lv, d }); DEATH = { at: Date.now() }; if (ARENA()) DEATH.arena = true; if (DUEL()) DEATH.duel = true; if (TW()) { DEATH.tw = true; TWM.heroDown(src); }
+  if (!DEATH.arena && !DEATH.duel && !DEATH.tw && window.__RANK) try { __RANK.heroDie(src); } catch (e) {}   /* 11/4 랭킹: 필드에서 봇·유저에게 쓰러짐 */
   if (!DEATH.arena && !DEATH.duel && !DEATH.tw && INV.count('immortal_ward') > 0) { INV.take('immortal_ward', 1); DEATH.ward = true; if (SCENE !== 'town') { try { NET.wardDrop(hero.i, hero.j); } catch (e) {} } INV.render(); }   // v146: 불멸의 가호
   hero.hp = 0; hero.target = null; hero.atk = null; moveGoal = null; holding = false; for (const f of foxes) if (!f.tgt) f.aggro = false; if (OFFL_HOOK) OFFL_HOOK.died();   /* 변신 카드: 쓰러져도 변신 칸의 카드 모습 그대로 (PCG.sync) */
   say(DEATH.tw ? '수호탑 대전에서 쓰러졌습니다. (손실 없음) 7초 뒤 부활장소에서 부활해요.' : DEATH.duel ? `결투장에서 쓰러졌습니다${src && src.isRemote ? ' (' + NET.nameOf(src.peer) + ')' : ''}. (손실 없음) [제자리 부활]을 누르면 HP·MP 100%로 일어나요.` : DEATH.arena ? '콜로세움에서 쓰러졌습니다! (손실 없음) 라운드가 끝나면 그 자리에서 부활하고, 동료가 부활 주문서로 살릴 수도 있어요.' : DEATH.ward ? '당신은 쓰러졌습니다... 불멸의 가호가 대신 타 버려서 사망 손실이 없어요. (타버린 불멸의 가호가 그 자리에 떨어졌어요 · 주워서 상점에 2만 5천에 되팔 수 있어요) 2분 뒤 마을에서 부활해요.' : '당신은 쓰러졌습니다... 2분 뒤 마을에서 부활해요. (경험치 5% · 골드 10% 손실) 근처 사람이 부활 주문서를 쓰면 그 자리에서 부활할 수 있어요.', '#f08a7a'); deathUI(); try { SAVE.now(false, true); } catch (e) {} }
@@ -7620,7 +7621,7 @@ const TOWN = (() => {
   function askTown() { if (SCENE === 'town') { closeAll(); return; } if (fgBlock()) return; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
   // ESC: 열린 창을 마지막에 연 것부터 하나씩 닫음 → 다 닫혀 있으면 게임 메뉴
-  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'logwin', 'polywin', 'clanwin', 'nbwin'], popStack = [];
+  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'logwin', 'polywin', 'clanwin', 'nbwin', 'rankwin'], popStack = [];
   POPS.forEach(id => { const el = $(id); if (!el) return; new MutationObserver(() => { const k = popStack.indexOf(id); if (k >= 0) popStack.splice(k, 1); if (!el.hidden) popStack.push(id); }).observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
   function closePop(id) { if (id === 'shop' || id === 'wmap') closeAll(); else if (id === 'itemwin') INV.hideDetail(); else if (id === 'bulkwin') INV.bulkClose(); else $(id).hidden = true; }
   // 다른 지역으로 가면(텔레포트·월드맵·귀환·수호탑 등) 마을 NPC 창(상점·판매·창고·제작·콜로세움)은 닫음
@@ -8002,10 +8003,10 @@ const SAVE = (() => {
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
   function snap() { const b = {}; for (const k in BUFF) if (BUFF[k] > 0) b[k] = Math.round(BUFF[k]);
     return { v: 1, ver: GAME_VER, cls: CLASS, name: PNAME(), lv: hero.lv, exp: hero.exp, bhp: hero.baseHP, bmp: hero.baseMP, bp: hero.bonusPts, hp: Math.ceil(hero.hp), mp: Math.floor(hero.mp), coins: Math.floor(coins),
-      learned: [...LEARNED], cu: CODES.dump(), sm: PET.sumOut(), buff: b, pf: selfPoly() || undefined, dd: DEATH && !DEATH.arena && !DEATH.duel && !DEATH.ward ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined, cfg: CFGSYNC.dump(), bk: ISLAND.bossKills(), hw: HWM.dump(), co: COLO.entOut() || undefined, dr: DRM.dump(), pb: FBOT.pbDump(), nb: NBS.dump(),
+      learned: [...LEARNED], cu: CODES.dump(), sm: PET.sumOut(), buff: b, pf: selfPoly() || undefined, dd: DEATH && !DEATH.arena && !DEATH.duel && !DEATH.ward ? 1 : 0, inv: INV.dump(), auto: AUTO.cfg(), snd: SND.get(), ofl: OFFL_HOOK ? OFFL_HOOK.dump() : undefined, cfg: CFGSYNC.dump(), bk: ISLAND.bossKills(), hw: HWM.dump(), co: COLO.entOut() || undefined, dr: DRM.dump(), pb: FBOT.pbDump(), nb: NBS.dump(), rk: window.__RANK ? __RANK.dump() : undefined,
       pos: SCENE === 'town' ? { t: 1, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : ISLE ? { z: ISLE.id, x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) } : null }; }   /* v137: 설정 · 마지막 위치 */
   function apply(s) { if (!s || s.cls !== CLASS) return false;
-    hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1; if (CLASS === 'knight' && (s.ver || 0) < 162 && hero.lv > 1) hero.baseMP = Math.max(hero.baseMP, CLS_DEF.knight.mp + hero.lv - 1);   /* v162: 기사 레벨업 MP 1 고정 소급 */   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0); HWM.load(s.hw); COLO.entIn(s.co); DRM.load(s.dr); FBOT.pbLoad(s.pb); NBS.load(s.nb);
+    hero.lv = Math.max(1, s.lv | 0); hero.exp = Math.max(0, +s.exp || 0); if (s.bhp) hero.baseHP = +s.bhp; if (CLASS === 'wizard' && (s.ver || 0) < 114 && hero.lv > 1) hero.baseHP += hero.lv - 1;   /* v114: 마법사 레벨당 HP +1 소급 */ if (s.bmp) hero.baseMP = +s.bmp; if (CLASS === 'wizard' && (s.ver || 0) < 124 && hero.lv > 1) hero.baseMP += hero.lv - 1; if (CLASS === 'knight' && (s.ver || 0) < 162 && hero.lv > 1) hero.baseMP = Math.max(hero.baseMP, CLS_DEF.knight.mp + hero.lv - 1);   /* v162: 기사 레벨업 MP 1 고정 소급 */   /* v124: 마법사 레벨업 MP +1 소급 */ hero.bonusPts = s.bp | 0; coins = Math.max(0, s.coins | 0); HWM.load(s.hw); COLO.entIn(s.co); DRM.load(s.dr); FBOT.pbLoad(s.pb); NBS.load(s.nb); if (window.__RANK) __RANK.load(s.rk);
     LEARNED.clear(); for (const id of s.learned || []) if (SK[id]) LEARNED.add(id); for (const k in BUFF) BUFF[k] = (s.buff && +s.buff[k]) || 0; PCG.charLoad(s.pf);   /* 변신 카드: 변신 칸(계정 문서)의 카드 모습으로 · 예전(1만 골드) 카드 변신은 그 카드를 변신 칸으로 옮김 · 주문서 변신은 남은 시간 그대로 */ setTimeout(() => wizAutoLearn(), 1200);
     INV.load(s.inv); CODES.load(s.cu); if (s.auto) AUTO.setCfg(s.auto); if (s.snd) SND.apply(s.snd); if (s.cfg) CFGSYNC.load(s.cfg); if (s.sm) try { PET.sumIn(s.sm); } catch (e) {} if (s.bk) try { ISLAND.mergeKills(s.bk, true); } catch (e) {} if (OFFL_HOOK) OFFL_HOOK.load(s.ofl); hero.hp = Math.max(1, Math.min(hero.max, s.hp || hero.max)); hero.mp = Math.max(0, Math.min(hero.maxmp, s.mp != null ? s.mp : hero.maxmp)); DEATH = null; deathUI();
     if (s.dd) { const P = deathPenalty(false); hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); setTimeout(() => say(`쓰러진 채로 접속을 끊어서 마을에서 부활했어요. (경험치 −${P.ex.toLocaleString()} · 골드 −${P.g.toLocaleString()})`, '#f2e6a8'), 1500); }
@@ -8348,7 +8349,7 @@ const NET = (() => {
     const G0 = GROUND.here(), GL = ARENA() ? G0.filter(d => !/potion/.test(d.id)).concat(G0.filter(d => /potion/.test(d.id))) : G0;   // 11/1: 콜로세움은 보스 전리품을 먼저 (물약 뭉치가 많아도 전리품이 게스트 화면에서 안 빠지게)
     for (const d of GL) { if (!pos.some(([x, z]) => Math.max(Math.abs(d.x - x), Math.abs(d.z - z)) <= 18)) continue; const left = d.owner && d.until > now ? Math.ceil((d.until - now) / 100) : 0; let oi = -1; if (left) { oi = ow.indexOf(d.owner); if (oi < 0) { ow.push(d.owner); oi = ow.length - 1; } }
       L.push([d.gid, ik().indexOf(d.id), d.n, d.i, d.j, oi, left, d.blessed ? 1 : 0]); if (L.length >= (ARENA() ? 90 : 40)) break; } return { gi: L, go: ow }; }
-  const BH_KEEP = new Set(['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'bk', 'an', 'fbx', 'q', 'pbd']);   // 봇 호스트 presence에 남기는 칸 (게스트가 받아야 하는 호스트 데이터 + 지역·이름)
+  const BH_KEEP = new Set(['n', 'c', 'lv', 'z', 'x', 'y', 'r', 'hp', 'hm', 'bh', 'm', 'mz', 'bt', 'tk', 'ao', 'd', 'gi', 'go', 'rw', 'gv', 'rp', 'bk', 'an', 'fbx', 'q', 'pbd', 'rke']);   // 봇 호스트 presence에 남기는 칸 (게스트가 받아야 하는 호스트 데이터 + 지역·이름)
   function payload() { const P = { ah: SESS.ah(), sd: SESS.id, st: SESS.t0(), n: PNAME(), c: CLASS, lv: hero.lv, z: zk(), x: +hero.x.toFixed(2), y: +hero.z.toFixed(2), r: hero.row, a: hero.atk ? (hero.atk.v || 'attack') : 'idle', as: atkSeq, hp: Math.max(0, Math.ceil(hero.hp)), hm: hero.max, mp: Math.max(0, Math.floor(hero.mp)), mm: hero.maxmp, cp: myCP().total,
       e: eqIds(), eg: glowOut(), xp: xpOut(), wq: wqOut(), pf: selfPoly() || 0, dl: (ITEMS[INV.equipped('doll')] || {}).doll || 0, iv: BUFF.invis > 0 ? 1 : 0, au: (BUFF.immune > 0 ? 1 : 0) | (BUFF.abar > 0 ? 2 : 0), ch: chatSeq ? { i: chatSeq, t: lastChat } : null, an: anSeq ? { i: anSeq, t: anText, L: anL } : null, h: myHits.slice(-10), pt: partyId, pi: invOut ? { to: invOut.to, id: invOut.id, s: invOut.s } : null, pa: ansOut, sp: Math.round(spTotal), hs: +(heroSpd() * (1 + INV.cx('atkSpd') / 100)).toFixed(2), su: suOut.slice(-10), pk: pkOut.slice(-6), ef: efOut.length ? efOut.slice(-6) : null, mx: mxOut.length ? mxOut.slice(-6) : null, ao: null, pe: PET.netOut(), dv: PVPZ() ? [INV.ac(), Math.round(mrTotal()), hero.lv, BUFF.solid > 0 ? 1 : 0, BUFF.stun > 0 || time < STUN_IMM ? 1 : 0] : null, wd: wdOut.length ? (() => { const A = wdOut.filter(x => Date.now() - x[0] < 60000); return A.length ? A : null; })() : null, pv: PVPZ() && pvOut.length ? (() => { const now = Date.now(), A = pvOut.filter(x => now - x[7] < 6000).map(x => x[8] ? x.slice(0, 7).concat([0, x[8]]) : x.slice(0, 7)); return A.length ? A : null;   /* 9번째 칸 = 정령마법 효과 (바인드·폴루트) */ })() : null, bf: myBuffs(), bk: ISLAND.bossKills(), mk: MARKET.sold(), tg: hero.target && !hero.target.dead && hero.target.uid != null && foxes.includes(hero.target) ? hero.target.uid : null, rp: rpOut(), dd: DEATH ? Math.max(1, Math.ceil(deathLeft())) : 0, rv: rvOut, ra: raOut };
     if (ADMIN.on() && admTok) { P.adm = { t: admTok.t, s: admTok.s }; if (ADMIN.cert()) P.adm.c = ADMIN.cert(); P.ac = ADMIN.out().length ? ADMIN.out() : null; } else if (ADMIN.pending() || ADMIN.on()) P.adm = { t: 0, s: 'p' }; else { P.adm = null; P.ac = null; }
@@ -9828,7 +9829,7 @@ const FBOT = (() => {
   const STAT = { die: 0, drop: 0, mob: 0, alerts: [], dmg: 0, pot: [0, 0, 0], buf: {}, sp: {}, stun: 0, stunMiss: 0, stunImm: 0, stunMob: 0, low: 0, ret: 0, last: 0, refl: 0, aoe: 0, dropB: 0, pick: 0, picks: [], talk: [], chat: [], ev: {}, boss: 0, bossItems: 0, bal: 0, bs: 0, bsPt: 0, reinf: 0, reinfBack: 0, heal: 0, ef: {}, efOk: 0, efMiss: 0, efImm: 0, efOn: {} };   // 11/1 밤: 슬로우·게일·똥물·어바 (시도·성공·실패·면역 · 대상별 적용)   // 11/1 ②: 보스 처치·전리품·보스 알림·뒷치기(봇·파티)·지원군(옴·복귀)·파티 힐   // 11/1: 물약·버프·마법·스턴·귀환·끝까지·반사·범위·줍기·멘트 (테스트·확인용)
   function botDie(f, by) { if (f.pbot) { pbDie(f, by); return; } if (f.dead) return; f.dead = true; f.deadT = 0; f.hp = 0; f.atkT = null; f.lunge = 0; f.stunT = 0; f.immT = 0; if (hero.target === f) hero.target = null;
     for (const m of foxes) if (m.tgt === f) { m.tgt = null; m.aggro = false; } snd(f, 'die'); STAT.die++; f.fbBf = 0; if (f.bx) f.bx.loot = null; talk(f, 'dead');
-    const L = loot(f); fx(['d', f.uid, L ? L.top : 0, L && L.drop ? 1 : 0]); if (L && L.top === myId()) killMsg(f, L.drop); f.dmgBy = null; f.fbD = 0; }
+    const L = loot(f); fx(['d', f.uid, L ? L.top : 0, L && L.drop ? 1 : 0]); if (L && L.top === myId()) killMsg(f, L.drop); f.dmgBy = null; f.fbD = 0; if (host() && window.__RANK) try { __RANK.botDie(f, by); } catch (e) {} }   /* 11/4 랭킹: PVP 사건 (지역 호스트만) */
   // 라인 봇을 플레이어가 잡으면 타버린 불멸의 가호 (플레이어 몫이 받은 피해의 30% 이상일 때) · 우선권은 기존 몹 드랍처럼 공헌도대로 · 봇끼리·몹이 잡으면 없음
   const DROPT = new Map();
   function loot(f) { if (!f.bot || f.bot.team !== 'B') return null; const Cm = new Map(); let pd = 0;
@@ -10239,7 +10240,7 @@ const FBOT = (() => {
     say(`[혈맹 파티] ${jo(e.bot.name, '이', '가')} 되살아났어요! (HP ${e.hp}/${e.max})`, '#c8f0a0'); pbUi(); return true; }
   // 맞음 · 쓰러짐 (몹·라인 봇 · 다른 PC 지역 호스트가 보낸 피해 pbd)
   function pbHurt(e, d, src, cr) { if (!e || e.dead || e.gone) return; d = Math.max(1, Math.round(d)); e.hp -= d; e.flash = 0.08; e.hitBy = src || null; e.hitByT = time; showD(e, d, cr, '#ff9a8a'); if (e.hp <= 0) pbDie(e, src); }
-  function pbDie(e, by) { if (e.dead) return; e.dead = true; e.deadT = 0; e.deadAt = nowMs(); e.hp = 0; e.atkT = null; e.stunT = 0; e.px.tgt = null; e.immT = 0; e.fbBf = 0; for (const k in e.pbf) e.pbf[k] = 0; e.px.bf = {}; e.px.bq = {}; if (e.bot && e.bot.st) pbMax(e, e.bot);   /* 11/4: 쓰러지면 버프·가속 모두 끝 */ for (const m of foxes) if (m.tgt === e) m.tgt = null; snd(e, 'die'); STAT.pbDie = (STAT.pbDie || 0) + 1;
+  function pbDie(e, by) { if (e.dead) return; e.dead = true; e.deadT = 0; e.deadAt = nowMs(); e.hp = 0; e.atkT = null; e.stunT = 0; e.px.tgt = null; e.immT = 0; e.fbBf = 0; for (const k in e.pbf) e.pbf[k] = 0; e.px.bf = {}; e.px.bq = {}; if (e.bot && e.bot.st) pbMax(e, e.bot);   /* 11/4: 쓰러지면 버프·가속 모두 끝 */ for (const m of foxes) if (m.tgt === e) m.tgt = null; snd(e, 'die'); STAT.pbDie = (STAT.pbDie || 0) + 1; if (window.__RANK) try { __RANK.pbDie(e, by); } catch (er) {}   /* 11/4 랭킹 */
     say(`[혈맹 파티] ${jo(e.bot.name, '이', '가')} 쓰러졌어요. 2분 안에 부활 주문서로 되살릴 수 있어요. (그 뒤엔 파티에서 빠져요)`, '#f08a7a'); pbUi(); }
   function pbNetHurt(uid, d, su, st) { const e = PB_HERE.find(q => q.uid === uid); if (!e || e.dead || e.gone) return; const src = foxes.find(q => q.uid === su) || null;   /* 지역 호스트가 보낸 피해 (0 = 빗나감 · st = 기절 초) */
     if (st > 0) { e.stunT = Math.max(e.stunT || 0, Math.min(4, st)); e.stunMax = e.stunT; e.atkT = null; if (near(e, 14)) { const [x, y] = W2P(e.x, e.z); floatText(x, y - headY(e) - 14, `스턴! ${(+st).toFixed(1)}초`, { color: '#ffe066', size: 15, big: true, life: 1.2 }); spellFx('stun', e); } } if (d > 0) pbHurt(e, d, src); else { e.hitBy = src; e.hitByT = time; if (!(st > 0)) miss(e); } }
@@ -10447,6 +10448,7 @@ const FBOT = (() => {
     chars: () => CH, charNow() { CH.next = 0; charTick(); }, charReset() { Object.assign(CH, { next: 0, sig: '', writes: 0, lists: 0, err: '', listNext: 0, mode: 'off', top: '', n: 0, at: 0, busy: false }); }, topChar, amWriter, meBh, bhOn, /* 11/1 밤: worldbot_chars 테스트·확인용 */ copy: () => refNow().copy, mine: () => { mineAt = -9; return mine(); }, fbOut, clampCopy, lookFor: (cls, pct) => lookFor(refNow(), cls, pct), slotOf, slotStart, kHM, amTop, stOf(uid) { const b = roster().by.get(uid); if (!b) return null; const st = statFor(b); return { uid, cls: b.cls, pct: b.pct, tier: b.tier, name: b.name, st: Object.assign({}, st, { fbR: undefined }), eq: Object.assign({}, b.eq || {}), en: b.en, pf: b.pf || '', dl: b.dl || '' }; },
     bossHit, vis: VIS, parties: () => roster().pt, bossPlans: BH, fight: FT, bossTick, reinfTick, dpsOf, pickGroup: m => pickGroup(m, ISLAND.bossKey(m) || 'x', playerOn(m)), playerOn, callParty, visLeave, edgeSpot, ptLead, ptMembers, bossOk, bossKill: (a, m) => bossKill(a, m), bossUp, bossPlan: (key, at) => bossPlan(key, at),   // 11/1 ② 테스트·확인용
     bots: () => foxes.filter(f => f.fb && !f.gone), stat: () => STAT, spawnTest(uid, i, j) { const b = roster().by.get(uid); if (!b) return null; for (let r = 0; r < 6; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { const a = i + di, c = j + dj; if (Math.max(Math.abs(di), Math.abs(dj)) === r && walkable(a, c) && !occ(a, c)) return spawn(b, [a, c]); } return null; }, away: AWAY, alerts: ALERT,
+    bhLead, rkBots: () => roster().all.map(b => ({ uid: b.uid, name: b.name, cls: b.cls, team: b.team, clan: b.clan, cp: pbCp(b), lv: elvOf(b) })),   /* 11/4 랭킹 */
     pbOn: () => PBS.m.length > 0, pbK, pbDropK, pbDump, pbLoad, pbRevive: () => pbRevive(), pbDraw, pbTombs, pbView, pbNetHurt, pbOpen, pbBye, pb: PBAPI };   // 11/3 혈맹 파티
 })();
 window.__FB = FBOT;
@@ -10952,7 +10954,7 @@ const MQ = (() => {
         if (type === 2) { ok = body[1] === 0; onState(ok ? 'open' : 'refused'); if (ok) ping = setInterval(() => send(new Uint8Array([0xC0, 0])), 30000); }
         else if (type === 3) { const tl = (body[0] << 8) | body[1], topic = dec.decode(body.subarray(2, 2 + tl)); let p = 2 + tl; if ((h >> 1) & 3) p += 2; try { onMsg(topic, dec.decode(body.subarray(p))); } catch (e) {} } } };
     ws.onclose = () => { clearInterval(ping); onState(ok ? 'closed' : 'failed'); ok = false; }; ws.onerror = () => {};
-    return { sub: t => send(pkt(0x82, [pid >> 8, pid++ & 255, ...str(t), 0])), pub: (t, msg) => send(pkt(0x30, [...str(t), ...enc.encode(msg)])), close: () => { try { send(new Uint8Array([0xE0, 0])); ws.close(); } catch (e) {} }, isOpen: () => ok }; }
+    return { sub: t => send(pkt(0x82, [pid >> 8, pid++ & 255, ...str(t), 0])), pub: (t, msg, rt) => send(pkt(rt ? 0x31 : 0x30, [...str(t), ...enc.encode(msg)])), close: () => { try { send(new Uint8Array([0xE0, 0])); ws.close(); } catch (e) {} }, isOpen: () => ok }; }
   return { connect };
 })();
 const MPP = (() => {
@@ -10980,8 +10982,8 @@ const MPP = (() => {
   function start(c) { code = c; myId = 'w' + Math.random().toString(36).slice(2, 10); others.clear(); state = 'connecting'; tries = 0; render(); tryBroker(); }
   function tryBroker() { const L = BROKERS(); if (tries >= L.length) { state = 'off'; nextTry = performance.now() + 15000; msg('월드 서버에 연결하지 못했어요. 15초 뒤 다시 시도해요. (인터넷 연결을 확인해 주세요)', false); return; }
     const url = L[tries++]; curUrl = url; msg(`서버 ${tries}/${L.length}에 연결하는 중…`, true); clearTimeout(timer); timer = setTimeout(() => { if (state === 'connecting') { try { cli && cli.close(); } catch (e) {} cli = null; tryBroker(); } }, 6000);
-    cli = MQ.connect(url, myId + '_' + Math.random().toString(36).slice(2, 6), (topic, text) => { const id = topic.split('/').pop(); if (id === myId) return; let pr; try { pr = JSON.parse(text); } catch (e) { return; } if (!pr || typeof pr !== 'object') return; others.set(id, { peer: id, presence: pr, at: Date.now() }); },
-      st => { if (st === 'open') { clearTimeout(timer); state = 'on'; window.__bigNet = !!OWN() && curUrl === OWN(); ownProbeAt = performance.now() + 60000; cli.sub(base() + '/p/+'); NET.setRoom(room); msg('', true); say('***** 월드 서버에 접속했습니다 *****', '#8fe08a'); }
+    cli = MQ.connect(url, myId + '_' + Math.random().toString(36).slice(2, 6), (topic, text) => { if (topic === base() + '/rk') { try { RANK.onSnap(text); } catch (e) {} return; }   /* 11/4 랭킹 기록 (봇 서버가 1분마다) */ const id = topic.split('/').pop(); if (id === myId) return; let pr; try { pr = JSON.parse(text); } catch (e) { return; } if (!pr || typeof pr !== 'object') return; others.set(id, { peer: id, presence: pr, at: Date.now() }); },
+      st => { if (st === 'open') { clearTimeout(timer); state = 'on'; window.__bigNet = !!OWN() && curUrl === OWN(); ownProbeAt = performance.now() + 60000; cli.sub(base() + '/p/+'); cli.sub(base() + '/rk'); NET.setRoom(room); msg('', true); say('***** 월드 서버에 접속했습니다 *****', '#8fe08a'); }
         else if (st === 'failed' && state === 'connecting') { clearTimeout(timer); tryBroker(); }
         else if (st === 'closed' && state === 'on') { window.__bigNet = false; NET.setRoom(null); state = 'off'; nextTry = performance.now() + 3000; msg('서버 연결이 끊겼어요. 잠시 뒤 자동으로 다시 접속해요.', false); say('월드 서버 연결이 끊겼습니다. 다시 접속하는 중…', '#f08a7a'); } }); }
   function leave() { clearTimeout(timer); window.__bigNet = false; if (cli) cli.close(); cli = null; NET.setRoom(null); others.clear(); if (state !== 'off') say('멀티플레이 방에서 나왔습니다.', '#9c9682'); state = 'off'; msg('', true); }
@@ -10997,8 +10999,126 @@ const MPP = (() => {
   // 아티팩트(claude.ai)에서는 room이 있어 자동 멀티 — 버튼은 PC 실행 파일·로컬 파일에서만
   setTimeout(() => { const b = $('btn-mp'); if (b) { b.hidden = false; b.onclick = open; } const e = $('esc-mp'); if (e) { e.hidden = false; e.onclick = () => { window.escMenu && escMenu(false); open(); }; } }, 1500);
   setInterval(render, 1000);
-  return { open, leave, start, state: () => state, code: () => (state !== 'off' ? code : null) };
+  return { open, leave, start, state: () => state, code: () => (state !== 'off' ? code : null), cast: text => { if (!cli || !cli.isOpen() || state !== 'on') return false; cli.pub(base() + '/rk', text, 1); return true; } };   /* 11/4 랭킹: 봇 서버가 기록을 보냄 (retain) */
 })();
+// ============================================================ 11/4 프로듀서: 랭킹 창 (전투력 · PVP) — 모두 기록 · 접속을 끊어도 마지막 값으로 남음 · PVP는 처음부터 누적(초기화 없음)
+//   기록 모으기: 24시간 봇 서버(봇 호스트)의 첫 탭(지역 열쇠가 가장 작은 탭)이 presence(이름·직업·레벨·전투력·경험치 xp·킬데스 kd)와 PVP 사건(rke)을 모아 표 두 개로 가짐
+//   저장: Firestore worldbot_chars/{봇 호스트 uid} (bh:1 · rk = 표 JSON · 2분마다 바뀌었을 때만) + 같은 브라우저 localStorage(1분) — 봇 서버 코드(run.js)·Firestore 규칙은 그대로
+//   보내기: 1분마다 상위 100명씩 중계 서버 주제 .../rk 로 (retain — 서버가 들고 있으면 막 들어온 사람도 바로 받음) · 못 받으면 창을 열 때 Firestore 문서를 직접 읽음
+//   PVP 사건: 죽음을 계산한 쪽만 냄 — 필드 봇은 그 지역 호스트(botDie) · 파티 봇은 주인 PC(pbDie) · 내 캐릭터는 내 PC(heroDie) · 사건 id로 한 번만 · 같은 대상이 10초 안에 또 죽은 사건은 무시(호스트가 둘일 때)
+//   세지 않음: 수호탑 대전·콜로세움·결투장 · 몬스터에게 죽은 것 / 펫·소환수가 잡으면 주인 몫 · 파티 봇이 잡으면 그 봇 몫
+const RANK = (() => {
+  const $ = id => document.getElementById(id), E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const LSC = 'aden_rk_col', LSS = 'aden_rk_snap', TOPN = 100, KEEP = 500, EV_T = 15000, VCOOL = 10000, bootAt = Date.now();
+  const ME = { k: 0, d: 0 };   // 내 캐릭터 킬·데스 (캐릭터 저장에 같이 · 기록 서버는 큰 값을 씀)
+  let out = [], seq = 0, SNAP = null, tab = 'cp', withBots = false, rT = 0, cT = 0, fsAt = 0, fsBusy = false, kdSig = '';
+  const seen = new Map(), vcool = new Map(), LP = {};   // LP: 이 창(페이지)을 연 뒤에 본 PVP 사건 (기록 서버가 없을 때 보여 줌)
+  const COL = { on: false, loaded: false, P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0, busy: false, saves: 0, casts: 0, err: '', from: '' };
+  const DBG = { col: false, noCloud: false };   // 테스트: col = 일반 탭도 기록 서버처럼
+  const num = (v, a, b) => { v = +v; return isFinite(v) ? Math.max(a, Math.min(b, v)) : a; }, nm = s => String(s == null ? '' : s).replace(/[\u0000-\u001f<>&"]/g, '').slice(0, 16);
+  const cloudOn = () => { try { return !DBG.noCloud && CLOUD.on() && !!CLOUD.uid(); } catch (e) { return false; } };
+  const pkey = (ah, n, c) => 'p' + (ah ? String(ah).slice(0, 16) : 'n' + nm(n)) + ':' + (CLS_DEF[c] ? c : 'x');
+  const myKey = () => pkey(SESS.ah(), PNAME(), CLASS);
+  const isCol = () => DBG.col || (BOTHOST.on() && FBOT.bhLead());
+  // 누가 했나: [열쇠, 이름, 직업, 종류(0 유저 · 1 봇), 혈맹] — 나 · 내 펫·소환수(주인) · 다른 유저 · 필드 봇·파티 봇(봇 자신)
+  function who(x) { if (!x) return null;
+    if (x.bot && x.bot.uid != null && (x.fb || x.pbot || x.pbR)) return ['b' + x.bot.uid, nm(x.bot.name), x.bot.cls, 1, nm(x.bot.clan)];   /* 필드 봇 · 내 파티 봇 · 다른 PC의 파티 봇 */
+    if (x === hero || (x.isPet && !x.peer)) return BOTHOST.on() ? null : [myKey(), nm(PNAME()), CLASS, 0, ''];
+    if (x.isRemote || x.peer) { const o = NET.others().find(q => q.peer === x.peer); if (!o || !o.pr || o.pr.bh) return null; return [pkey(o.pr.ah, o.pr.n, o.pr.c), nm(o.pr.n), o.pr.c, 0, '']; }
+    return null; }
+  function emit(K, V) { if (!K || !V || K[0] === V[0]) return; const ev = [SESS.id.slice(0, 6) + (++seq).toString(36), K[0], K[1], K[2], V[0], V[1], V[2], Date.now(), K[3] | (V[3] << 1), K[4], V[4]];
+    out.push(ev); if (out.length > 8) out.shift(); NET.setExtra('rke', out.slice()); onEv(ev); }
+  // 사건 받기 (내 것·다른 사람 presence 모두 여기로) — [id, 킬 열쇠, 이름, 직업, 데스 열쇠, 이름, 직업, 시각, 종류 비트, 킬 혈맹, 데스 혈맹]
+  function onEv(e) { if (!Array.isArray(e) || e.length < 8 || typeof e[0] !== 'string' || seen.has(e[0])) return; const now = Date.now(); seen.set(e[0], now);
+    const vk = String(e[4]), kk = String(e[1]), at = +e[7] || now; if (!/^[pb]/.test(kk) || !/^[pb]/.test(vk) || kk === vk) return;
+    if (vcool.has(vk) && Math.abs(at - vcool.get(vk)) < VCOOL) return; vcool.set(vk, at);
+    const kb = (+e[8] || 0) & 1, vb = ((+e[8] || 0) >> 1) & 1, K = [kk, nm(e[2]), e[3], kb, nm(e[9])], V = [vk, nm(e[5]), e[6], vb, nm(e[10])];
+    if (at >= bootAt - 1000 && !BOTHOST.on()) { const mk = myKey(); if (kk === mk) ME.k++; if (vk === mk) ME.d++; }
+    bump(LP, K, 1, 0); bump(LP, V, 0, 1);
+    if (COL.on && at >= COL.base) { bump(COL.K, K, 1, 0); bump(COL.K, V, 0, 1); COL.dirty = true; } }
+  function bump(T, w, k, d) { const r = T[w[0]] || (T[w[0]] = { n: w[1], kind: w[3] ? 'bot' : 'player', c: w[2], cl: w[4] || '', k: 0, d: 0 }); r.n = w[1] || r.n; r.c = w[2] || r.c; if (w[4]) r.cl = w[4]; r.k += k; r.d += d; }
+  // ----- 기록 서버 (봇 호스트 첫 탭)
+  function prRow(o) { const pr = o.pr; if (!pr || pr.bh || !pr.n || !CLS_DEF[pr.c] || !(+pr.st > 0) || (pr.adm && pr.adm.t)) return null;   /* st: 게임에 들어온 접속만 (캐릭터 선택 중 제외) */ return { key: pkey(pr.ah, pr.n, pr.c), n: nm(pr.n), c: pr.c, cp: Math.round(num(pr.cp, 0, 1e7)), lv: Math.round(num(pr.lv, 1, 99)), xp: Math.round(num(pr.xp, 0, 1000)), kd: Array.isArray(pr.kd) ? [Math.round(num(pr.kd[0], 0, 1e7)), Math.round(num(pr.kd[1], 0, 1e7))] : null }; }
+  function upP(key, r, at) { const P = COL.P; for (const k in P) if (k !== key && P[k].n === r.n && P[k].c === r.c && (k[1] === 'u' || P[k].seen <= at)) delete P[k];   // 같은 이름·직업은 한 줄 (서버 캐릭터 목록에서 온 pu… 줄은 접속하면 그 줄로 바꿈)
+    const o = P[key]; if (o && o.seen > at) return; P[key] = { n: r.n, c: r.c, cp: r.cp, lv: r.lv, xp: r.xp != null ? r.xp : (o ? o.xp : -1), seen: at }; COL.dirty = true; }
+  function colPresence() { const now = Date.now(); for (const o of NET.others()) { const r = prRow(o); if (!r) continue; upP(r.key, r, now);
+      if (r.kd && (r.kd[0] || r.kd[1])) { const K = COL.K[r.key] || (COL.K[r.key] = { n: r.n, kind: 'player', c: r.c, cl: '', k: 0, d: 0 }); if (r.kd[0] > K.k || r.kd[1] > K.d) { K.k = Math.max(K.k, r.kd[0]); K.d = Math.max(K.d, r.kd[1]); COL.dirty = true; } K.n = r.n; } } }
+  function merge(st) { if (!st || typeof st !== 'object') return; const P = st.P && typeof st.P === 'object' ? st.P : {}, K = st.K && typeof st.K === 'object' ? st.K : {};
+    for (const k in P) { const r = P[k]; if (!r || typeof k !== 'string' || k[0] !== 'p' || !CLS_DEF[r.c]) continue; const o = COL.P[k], s = +r.seen || 0; if (!o || s > o.seen) COL.P[k] = { n: nm(r.n), c: r.c, cp: Math.round(num(r.cp, 0, 1e7)), lv: Math.round(num(r.lv, 1, 99)), xp: r.xp == null ? -1 : Math.round(num(r.xp, -1, 1000)), seen: s }; }
+    for (const k in K) { const r = K[k]; if (!r || typeof k !== 'string' || !/^[pb]/.test(k)) continue; const o = COL.K[k] || (COL.K[k] = { n: nm(r.n), kind: k[0] === 'b' ? 'bot' : 'player', c: r.c, cl: nm(r.cl), k: 0, d: 0 }); o.k = Math.max(o.k, Math.round(num(r.k, 0, 1e7))); o.d = Math.max(o.d, Math.round(num(r.d, 0, 1e7))); if (r.n) o.n = nm(r.n); }   // 누적 수는 큰 값 (같은 기록을 두 번 합쳐도 그대로)
+    COL.base = Math.max(COL.base, +st.at || 0); }
+  function state() { const P = Object.entries(COL.P).sort((a, b) => b[1].cp - a[1].cp).slice(0, KEEP), K = Object.entries(COL.K).filter(([, r]) => r.k || r.d).sort((a, b) => b[1].k - a[1].k || b[1].d - a[1].d).slice(0, KEEP);
+    return { v: 1, at: Date.now(), P: Object.fromEntries(P), K: Object.fromEntries(K) }; }
+  async function colLoad() { COL.busy = true; try { try { merge(JSON.parse(localStorage.getItem(LSC) || 'null')); COL.from = 'local'; } catch (e) {}
+      if (cloudOn()) { try { const d = await CLOUD.get('worldbot_chars/' + CLOUD.uid()); if (d && d.rk) { merge(JSON.parse(d.rk)); COL.from = 'cloud'; } } catch (e) { COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } }
+      COL.loaded = true; } finally { COL.busy = false; } }
+  async function colSeed() { if (!cloudOn()) return; try { const L = await CLOUD.list('worldbot_chars', 200); for (const r of L) { if (!r || r.bh || !CLS_DEF[r.c] || !r.n) continue; const u = String(r.u || r.__id || '').slice(0, 28), at = +r.at || 0; if (!u) continue;
+        const n = nm(r.n), has = Object.keys(COL.P).find(k => COL.P[k].n === n && COL.P[k].c === r.c); if (has && COL.P[has].seen >= at) continue; upP(has || 'pu' + u + ':' + r.c, { n, c: r.c, cp: Math.round(num(r.cp, 0, 1e7)), lv: Math.round(num(r.lv, 1, 99)), xp: null }, at); } }   // 랭킹을 만들기 전에 놀던 유저도 (계정마다 마지막 캐릭터)
+    catch (e) { COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } }
+  function snapOf(st, src) { const P = Object.entries(st.P).sort((a, b) => b[1].cp - a[1].cp || b[1].lv - a[1].lv).slice(0, TOPN).map(([k, r]) => [k, r.n, r.c, r.cp, r.lv, r.xp, r.seen]);
+    const K = Object.entries(st.K).sort((a, b) => b[1].k - a[1].k || kdv(b[1]) - kdv(a[1])).slice(0, TOPN).map(([k, r]) => [k, r.n, r.kind === 'bot' ? 1 : 0, r.c, r.cl || '', r.k, r.d]);
+    return { v: 1, at: st.at, src, nP: Object.keys(st.P).length, nK: Object.keys(st.K).length, P, K }; }
+  async function colSave(now, force) { const st = state(); try { localStorage.setItem(LSC, JSON.stringify(st)); } catch (e) {} COL.lsAt = now;
+    if ((COL.dirty || force) && (force || now - COL.saveAt > 120e3) && cloudOn() && !COL.busy) { COL.saveAt = now; COL.dirty = false; COL.busy = true;
+      try { await CLOUD.set('worldbot_chars/' + CLOUD.uid(), { v: 'rk1', bh: '1', u: String(CLOUD.uid()), at: String(st.at), rk: JSON.stringify(st) }); COL.saves++; COL.err = ''; } catch (e) { COL.dirty = true; COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } finally { COL.busy = false; } }
+    return st; }
+  function colTick() { const now = Date.now(); if (!COL.loaded) { if (!COL.busy) colLoad(); return; }
+    if (now - COL.prAt > 5000) { COL.prAt = now; colPresence(); }
+    if (now - COL.seedAt > 1800e3 && !COL.busy) { COL.seedAt = now; colSeed(); }
+    if (now - COL.lsAt > 60e3 || now - COL.castAt > 60e3) { const st = colSave(now); Promise.resolve(st).then(s => { if (now - COL.castAt < 60e3) return; COL.castAt = now; const S = snapOf(s, 'col'); setSnap(S, true); try { if (MPP.cast(JSON.stringify(S))) COL.casts++; } catch (e) {} }); } }
+  // ----- 받은 기록 (스냅샷)
+  function okSnap(S) { return S && typeof S === 'object' && Array.isArray(S.P) && Array.isArray(S.K) && +S.at > 0; }
+  function setSnap(S, mine) { if (!okSnap(S) || (SNAP && +S.at < +SNAP.at && !mine)) return; SNAP = S; if (!mine) try { localStorage.setItem(LSS, JSON.stringify(S)); } catch (e) {} render(); }
+  function onSnap(text) { let S = null; try { S = JSON.parse(text); } catch (e) { return; } if (!okSnap(S)) return; S.src = 'relay'; setSnap(S); }
+  try { const S = JSON.parse(localStorage.getItem(LSS) || 'null'); if (okSnap(S)) { S.src = 'cache'; SNAP = S; } } catch (e) {}
+  async function fsPull() { if (fsBusy || !cloudOn() || Date.now() - fsAt < 300e3 || (SNAP && SNAP.src !== 'cache' && Date.now() - SNAP.at < 600e3)) return; fsAt = Date.now(); fsBusy = true;   // 중계 서버로 못 받았으면 창을 열 때 저장된 기록을 직접 (5분에 한 번)
+    try { const L = await CLOUD.list('worldbot_chars', 200), d = L.filter(r => r && r.bh && r.rk).sort((a, b) => (+b.at || 0) - (+a.at || 0))[0]; if (d) { const st = JSON.parse(d.rk); if (st && st.P && st.K) setSnap(snapOf({ at: +st.at || +d.at || Date.now(), P: st.P, K: st.K }, 'cloud')); } }
+    catch (e) {} finally { fsBusy = false; } }
+  // ----- 1초마다
+  function tick() { const now = Date.now(); if (now - cT < 1000) return; cT = now;
+    for (const o of NET.others().concat(NET.bhs())) { const L = o.pr && o.pr.rke; if (Array.isArray(L)) for (const e of L) onEv(e); }
+    if (out.length) { const A = out.filter(e => now - e[7] < EV_T); if (A.length !== out.length) { out = A; NET.setExtra('rke', A.length ? A.slice() : null); } }
+    if (seen.size > 400 || now - rT > 60e3) { rT = now; for (const [k, t] of seen) if (now - t > 180e3) seen.delete(k); for (const [k, t] of vcool) if (now - t > 60e3) vcool.delete(k); }
+    if (!BOTHOST.on() && window.__gameOn) { const s = ME.k + ',' + ME.d; if (s !== kdSig) { kdSig = s; NET.setExtra('kd', ME.k || ME.d ? [ME.k, ME.d] : null); } }
+    COL.on = isCol(); if (COL.on) colTick();
+    const w = $('rankwin'); if (w && !w.hidden && now % 3000 < 1000) render(); }
+  // ----- 창
+  const kdv = r => r.d ? r.k / r.d : r.k, kdTxt = (k, d) => d ? (k / d).toFixed(2) : k ? '∞' : '-', ago = t => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? '방금' : m < 60 ? m + '분 전' : m < 1440 ? Math.round(m / 60) + '시간 전' : Math.round(m / 1440) + '일 전'; };
+  function live() { const L = []; if (window.__gameOn && !BOTHOST.on() && !ADMIN.on()) L.push({ key: myKey(), n: nm(PNAME()), c: CLASS, cp: myCP().total || 0, lv: hero.lv, xp: Math.max(0, Math.min(1000, Math.floor((hero.exp || 0) / needExp(hero.lv) * 1000))) || 0, me: 1, kd: [ME.k, ME.d] });
+    for (const o of NET.others()) { const r = prRow(o); if (r) L.push(r); } return L; }
+  function cpRows() { const M = new Map(), on = live(); if (SNAP) for (const [key, n, c, cp, lv, xp, s] of SNAP.P) M.set(key, { key, n, c, cp, lv, xp, seen: s, bot: 0 });
+    for (const r of on) { for (const [k, v] of M) if (k !== r.key && v.n === r.n && v.c === r.c) M.delete(k); M.set(r.key, Object.assign({}, r, { on: 1, bot: 0 })); }
+    if (withBots) { try { for (const b of FBOT.rkBots()) M.set('b' + b.uid, { key: 'b' + b.uid, n: b.name, c: b.cls, cp: b.cp, lv: b.lv, xp: -1, bot: 1, cl: b.clan, on: 1 }); } catch (e) {} }
+    return [...M.values()].sort((a, b) => b.cp - a.cp || b.lv - a.lv || (a.n < b.n ? -1 : 1)); }
+  function kdRows() { const M = new Map(), put = (key, r) => { const o = M.get(key); if (!o) { M.set(key, Object.assign({ key }, r)); return; } o.k = Math.max(o.k, r.k); o.d = Math.max(o.d, r.d); if (r.on) o.on = 1; if (r.me) o.me = 1; };
+    if (SNAP) for (const [key, n, kind, c, cl, k, d] of SNAP.K) put(key, { n, bot: kind ? 1 : 0, c, cl, k, d });
+    for (const k in LP) { const r = LP[k]; put(k, { n: r.n, bot: r.kind === 'bot' ? 1 : 0, c: r.c, cl: r.cl, k: r.k, d: r.d }); }   /* 이 창을 연 뒤에 본 사건 (기록 서버가 없으면 이것만) */
+    for (const r of live()) if (r.me || (r.kd && (r.kd[0] || r.kd[1])) || M.has(r.key)) put(r.key, { n: r.n, bot: 0, c: r.c, cl: '', k: r.kd ? r.kd[0] : 0, d: r.kd ? r.kd[1] : 0, on: 1, me: r.me });
+    return [...M.values()].sort((a, b) => b.k - a.k || kdv(b) - kdv(a) || a.d - b.d || (a.n < b.n ? -1 : 1)); }
+  function render() { const w = $('rankwin'), body = $('rk-body'); if (!w || !body || w.hidden) return; const mk = BOTHOST.on() ? '' : myKey(), cls = c => E(CLASS_NAME[c] || '-');
+    const note = SNAP ? `기록 서버 기준 · ${ago(+SNAP.at)} 갱신${SNAP.src === 'cache' ? ' (지난번에 받은 기록)' : ''} · <i class="rk-on"></i> 지금 접속 중(실시간)` : '<b class="rk-off">기록 서버 연결 전</b> · 지금 접속 중인 사람과 이 창을 연 뒤의 PVP 기록만 보여요';
+    let h = `<div class="rk-tabs" role="tablist"><button type="button" role="tab" data-rt="cp" aria-selected="${tab === 'cp'}"${tab === 'cp' ? ' class="on"' : ''}>전투력 랭킹</button><button type="button" role="tab" data-rt="kd" aria-selected="${tab === 'kd'}"${tab === 'kd' ? ' class="on"' : ''}>PVP 랭킹</button></div>`;
+    if (tab === 'cp') { const R = cpRows().slice(0, TOPN);
+      h += `<label class="rk-chk"><input type="checkbox" id="rk-bots"${withBots ? ' checked' : ''}> 봇 포함</label><div class="rk-hd rk-cp"><span>순위</span><span>아이디</span><span>전투력</span><span>레벨</span><span>경험치</span><span>클래스</span></div>`;
+      h += R.map((r, i) => `<div class="rk-r rk-cp${r.key === mk ? ' me' : ''}${r.bot ? ' bot' : ''}" data-k="${E(r.key)}"><span class="rk-no">${i + 1}</span><span class="rk-n">${r.on && !r.bot ? '<i class="rk-on"></i>' : ''}${E(r.n)}${r.bot ? '<small> 봇</small>' : ''}</span><span class="rk-v">${cpFmt(r.cp)}</span><span>${r.lv | 0}</span><span>${r.xp >= 0 ? (r.xp / 10).toFixed(1) + '%' : '-'}</span><span class="rk-c">${cls(r.c)}</span></div>`).join('') || '<div class="rk-empty">아직 기록이 없어요</div>'; }
+    else { const R = kdRows().slice(0, TOPN);
+      h += `<div class="rk-hd rk-kd"><span>순위</span><span>아이디</span><span>킬</span><span>데스</span><span>K/D</span><span>구분</span></div>`;
+      h += R.map((r, i) => `<div class="rk-r rk-kd${r.key === mk ? ' me' : ''}${r.bot ? ' bot' : ''}" data-k="${E(r.key)}"><span class="rk-no">${i + 1}</span><span class="rk-n">${r.on && !r.bot ? '<i class="rk-on"></i>' : ''}${E(r.n)}</span><span class="rk-v">${r.k | 0}</span><span>${r.d | 0}</span><span>${kdTxt(r.k, r.d)}</span><span class="rk-c">${r.bot ? '봇' + (r.cl ? ' · ' + E(r.cl) : '') : '유저'}</span></div>`).join('') || '<div class="rk-empty">아직 PVP 기록이 없어요</div>'; }
+    h += `<div class="rk-note">${note}<br>${tab === 'cp' ? '전투력순 · 접속을 끊은 사람은 마지막으로 본 값' : 'PVP = 필드에서 유저·봇끼리 쓰러뜨린 수 (봇끼리 포함 · 처음부터 누적) · 수호탑 대전·콜로세움·결투장은 세지 않아요 · 펫·소환수가 잡으면 주인 몫'}</div>`;
+    if (body.dataset.h === h) return; body.dataset.h = h; const st = body.scrollTop; body.innerHTML = h; body.scrollTop = st;
+    if (!body.__rk) { body.__rk = true; body.addEventListener('click', ev => { const t = ev.target && ev.target.closest ? ev.target.closest('[data-rt]') : null; if (t) { tab = t.dataset.rt; render(); } });
+      body.addEventListener('change', ev => { if (ev.target && ev.target.id === 'rk-bots') { withBots = !!ev.target.checked; render(); } }); } }
+  function open(t) { const w = $('rankwin'); if (!w) return; if (!w.hidden && !t) { w.hidden = true; return; } if (t) tab = t; w.hidden = false; render(); fsPull(); }
+  { const b = $('btn-rank'); if (b) b.onclick = () => open(); }
+  return { tick, open, render, onEv, onSnap, emit, who, myKey,
+    botDie(f, by) { if (!f || !f.bot || f.pbot) return; const K = who(by); if (!K) return; emit(K, who(f)); },   // 필드 봇: 지역 호스트가 부름 (FBOT.botDie)
+    pbDie(e, by) { if (!e || !e.bot) return; const K = who(by); if (!K) return; emit(K, ['b' + e.bot.uid, nm(e.bot.name), e.bot.cls, 1, nm(e.bot.clan)]); },   // 파티 봇: 주인 PC
+    heroDie(src) { if (BOTHOST.on() || !src) return; const K = who(src); if (!K || K[0] === myKey()) return; emit(K, [myKey(), nm(PNAME()), CLASS, 0, '']); },   // 내 캐릭터: 수호탑·콜로세움·결투장은 heroDie에서 뺌
+    dump: () => ME.k || ME.d ? { k: ME.k, d: ME.d } : undefined, load(o) { ME.k = o && +o.k > 0 ? Math.round(+o.k) : 0; ME.d = o && +o.d > 0 ? Math.round(+o.d) : 0; kdSig = ''; },
+    me: () => Object.assign({}, ME), COL, LP, DBG, snap: () => SNAP, setSnap, state, snapOf, merge, colSave: () => colSave(Date.now(), true), colLoad, cpRows, kdRows,
+    reset() { ME.k = ME.d = 0; out = []; seen.clear(); vcool.clear(); for (const k in LP) delete LP[k]; Object.assign(COL, { loaded: false, P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0 }); SNAP = null; NET.setExtra('rke', null); } };
+})();
+window.__RANK = RANK;
 // 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·변신·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
 const WHO = (() => { const $ = id => document.getElementById(id), E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const ORDER = ['weapon', 'shield', 'helm', 'armor', 'shirt', 'cloak', 'gloves', 'belt', 'boots', 'amulet', 'ring1', 'ring2', 'doll'], LBL = Object.fromEntries(SLOTS), ELK = { e: 'earth', w: 'water', f: 'fire', a: 'wind' };
@@ -12817,7 +12937,7 @@ function frame(now){
   frameAt = performance.now(); if (!BGRUN) { rafAt = frameAt; RAFQ = 0; } holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
-  if (hitstop>0 && !HF.fx()) hitstop=0; if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); FBOT.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
+  if (hitstop>0 && !HF.fx()) hitstop=0; if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); FBOT.tick(dt); RANK.tick(); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
     for (let k=floats.length-1;k>=0;k--){ floats[k].t+=dt; if (floats[k].t>=floats[k].life) floats.splice(k,1); }
     for (let k=bursts.length-1;k>=0;k--){ bursts[k].t+=dt; if (bursts[k].t>=0.35) bursts.splice(k,1); }
     for (let k=parts.length-1;k>=0;k--){ const p=parts[k]; p.life-=dt; if (p.life<=0){ parts.splice(k,1); continue; } p.x+=p.vx*dt; p.y+=p.vy*dt; if (p.dust){ p.vx*=0.92; p.vy+=50*dt; } else if (!p.ember) p.vy+=380*dt; }
@@ -13039,7 +13159,7 @@ const MUI = (() => {
     const on = (id, f) => { const b = $m(id); if (b) b.addEventListener('click', ev => { ev.stopPropagation(); f(); }); };
     on('mob-chat-b', () => { menu(false); openChat(); }); on('mob-bag-b', () => { menu(false); INV.toggleWin('invwin'); }); on('mob-char-b', () => { menu(false); INV.toggleWin('charwin'); }); on('mob-map-b', () => { menu(false); $m('btn-map').click(); }); on('mob-menu-b', () => menu());
     const mm = (id, f, keep) => on(id, () => { f(); if (!keep) menu(false); else syncMenu(); });
-    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-poly', () => $m('btn-poly').click()); mm('mm-clan', () => $m('btn-clan').click());  mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
+    mm('mm-auto', () => AUTO.openSet()); mm('mm-pot', () => INV.openAuto()); mm('mm-alch', () => $m('btn-alch').click()); mm('mm-codex', () => $m('btn-codex').click()); mm('mm-poly', () => $m('btn-poly').click()); mm('mm-clan', () => $m('btn-clan').click()); mm('mm-rank', () => $m('btn-rank').click());  mm('mm-mp', () => $m('btn-mp').click()); mm('mm-upd', () => $m('btn-upd').click()); mm('mm-home', () => $m('btn-home').click());
     mm('mm-saver', () => $m('btn-saver').click()); mm('mm-bgm', () => { $m('btn-bgm').click(); try { SND.set({ bgmOn: $m('btn-bgm').getAttribute('aria-pressed') === 'true' }); } catch (e) {} }, true);
     mm('mm-zoom', () => { const i = ZS.indexOf(MOB_ZS); MOB_ZS = ZS[(i + 1) % ZS.length]; try { localStorage.setItem('aden_mz', String(MOB_ZS)); } catch (e) {} zoomT = zoom = mobZ(); pixel = Number.isInteger(zoomT); say(`화면 크기: ${ZL[MOB_ZS]}`, '#9c9682'); }, true);
     mm('mm-q', () => { MOB_LOWQ = !MOB_LOWQ; try { localStorage.setItem('aden_lowq', MOB_LOWQ ? '1' : '0'); } catch (e) {} resize(); say(`화질: ${MOB_LOWQ ? '절약 (배터리·발열 줄임)' : '선명'}`, '#9c9682'); }, true);
