@@ -46,10 +46,10 @@ const lastLog = (p, n = 8) => p.evaluate(n => __T.log.slice(-n).map(x => String(
   console.log(`   에이션트 자이언트   HP ${st.giant.hp} (피닉스 ${st.phx.hp}) · 피해 ${st.giant.dmg} (${st.phx.dmg}) · 경험치 ${st.giant.exp} · 골드 ${st.giant.coin} · 달리기 ${st.phx.run}→${st.giant.run}`);
   { const N5 = st.rows.filter(r => !r.mid), av = f => N5.reduce((x, r) => x + f(r), 0) / N5.length, R = { hp: av(r => r.hp) / st.B.hp, d0: av(r => +r.dmg.split('~')[0]) / st.B.d0, d1: av(r => +r.dmg.split('~')[1]) / st.B.d1, exp: av(r => r.exp) / st.B.exp, c0: av(r => +r.coin.split('~')[0]) / st.B.c0, c1: av(r => +r.coin.split('~')[1]) / st.B.c1 };
     console.log('   일반 5종 평균 ÷ 화둥 평균:', JSON.stringify(Object.fromEntries(Object.entries(R).map(([k, v]) => [k, +v.toFixed(3)]))));
-    ok(Object.values(R).every(v => Math.abs(v - 3) < 0.03), `④ 일반 5종 평균 HP·공격·경험치·골드 = 화둥 2구역 평균의 3배 (${Object.values(R).map(v => v.toFixed(2)).join(' · ')})`); }
+    ok(['hp', 'd0', 'd1'].every(k => Math.abs(R[k] - 1.5) < 0.03) && ['exp', 'c0', 'c1'].filter(k => R[k] != null).every(k => Math.abs(R[k] - 3) < 0.03), `④ 일반 5종 평균 HP·공격 = 화둥 2구역의 1.5배 · 경험치·골드 = 3배 (${Object.entries(R).map(([k, v]) => k + ' ' + v.toFixed(2)).join(' · ')})`); }
   ok(st.rows.every(r => Math.abs(r.run - r.run0 * 2) < 0.02 && Math.abs(r.walk - r.walk0 * 2) < 0.02) && Math.abs(st.giant.run - st.phx.run * 2) < 0.02, '④ 이동 속도 = 원래 몹의 2배 (보스 = 피닉스 2배)');
   ok(st.rows.every(r => r.aggr > 0 && !r.el) && st.giant.aggr > 0 && !st.giant.el, '④ 전부 선공 · 무속성');
-  ok(st.giant.hp === st.phx.hp * 3 && st.giant.exp === st.phx.exp * 3 && st.giant.dmg[0] === st.phx.dmg[0] * 3, '④ 에이션트 자이언트 = 피닉스 × 3 (HP·피해·경험치·골드)');
+  ok(st.giant.hp === st.phx.hp * 1.5 && st.giant.exp === st.phx.exp * 3 && st.giant.dmg[0] === Math.round(st.phx.dmg[0] * 1.5), '④ 에이션트 자이언트 = 피닉스 HP·피해 × 1.5 · 경험치·골드 × 3');
   // ---------- ⑤ 귀환·순간이동 막힘
   const bl = await p.evaluate(async () => { const T = __T, H = T.hero, I = T.INV, F = __FG, MSG = F.FGI.MSG, z = () => T.SCENE === 'field' && T.ISLE && T.ISLE.id === 25, msg = () => T.log.slice(-4).some(x => String(x.t || x).includes(MSG)), wait = ms => new Promise(r => setTimeout(r, ms)), o = {};
     const charm = I.bag().find(x => x.id === 'return_charm'); I.use(charm); await wait(80); o.charm = z() && msg(); T.log.push({ t: '-' });

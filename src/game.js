@@ -3107,7 +3107,7 @@ const FGI = {
   NO_SPAWN_R: 11,     // 이 안에는 몹 스폰 없음 (도착 자리·NPC 주변만 비움)
   NEAR_R: 28,         // 'near' 몹은 NO_SPAWN_R~NEAR_R 고리에 몰려 있음 → 광장을 조금만 벗어나면 몹 떼
   N_NEAR: 20, N_FAR: 28, D_NEAR: 20, D_FAR: 28,   // 일반 5종 × (고리 20 + 섬 나머지 28) = 240 · 드레이크 고리 20 + 나머지 28 = 48 → 288 = 몽환의 섬(144)의 2배 · 일반:드레이크 = 5:1 (정령:대정령과 같음)
-  X: 3,               // 화둥 2구역 평균의 몇 배 (HP·공격·경험치·골드)
+  X: 1.5, XR: 3,      // 화둥 2구역 평균의 몇 배 — X = HP·공격 (11/4 프로듀서 3 → 1.5) · XR = 경험치·골드 (3배 그대로)
   MAC: -2,            // 몹 AC — 화둥 평균 약 +1.3. '방어 3배'를 명중 식 그대로(AC −16) 하면 누구나 최저 명중 20%라서 AC −2(명중 약 −10%p) + 레벨 60~64(레벨 차로 −25%p 더)로 (아침에 조정)
   HIT: 0.96, MR_K: 1.5, SPD: 2,   // 몹 명중 · MR = 화둥 평균 × 1.5 · 이동 속도 = 원래 몹 × 2
   RARE_P: 0.04, HERO_P: 0.005, RARE_GEAR: 0.5, HERO_GEAR: 0.75,   // 일반 몹(드레이크 포함): 희귀 4%(장비 50% · 희귀 주문서 50%) · 영웅 0.5%(장비 75% · 축데이 25%) — 고급·일반 아이템 없음 · 혈맹 파티 봇이 있으면 × 1/N × 1.1
@@ -3135,13 +3135,13 @@ const FG_TINT = { fg_bugbear: 'grayscale(.6) sepia(.3) hue-rotate(160deg) satura
   fg_ettin: 'grayscale(.6) sepia(.35) hue-rotate(140deg) saturate(1.3) brightness(1.1) contrast(1.1)', fg_gast: 'grayscale(.55) sepia(.35) hue-rotate(170deg) saturate(1.4) brightness(1.3) contrast(1.1)',
   fg_shelob: 'grayscale(.4) sepia(.4) hue-rotate(150deg) saturate(1.8) brightness(2.1) contrast(1.05)', fg_drake: 'brightness(1.3) grayscale(.5) sepia(.35) hue-rotate(150deg) saturate(1.7) contrast(1.08)',
   fg_giant: 'grayscale(.7) sepia(.45) hue-rotate(130deg) saturate(1.15) brightness(1.15) contrast(1.15)' };
-for (const k in FG_DEF) { const [src, name, lv, hk, dk, cd, ex] = FG_DEF[k], B = MOB[src], X = FGI.X, rk = ex.fgMid ? 2 : hk;
+for (const k in FG_DEF) { const [src, name, lv, hk, dk, cd, ex] = FG_DEF[k], B = MOB[src], X = FGI.X, XR = FGI.XR, rk = ex.fgMid ? 2 : hk;
   MOB[k] = { name, lv, hp: Math.round(FG_BASE.hp * X * hk), dmg: [Math.round(FG_BASE.d0 * X * dk), Math.round(FG_BASE.d1 * X * dk)], mac: FGI.MAC, hit: FGI.HIT, mr: Math.round(FG_BASE.mr * FGI.MR_K),
-    exp: Math.round(FG_BASE.exp * X * rk), coin: [Math.round(FG_BASE.c0 * X * rk), Math.round(FG_BASE.c1 * X * rk)], walk: +(B.walk * FGI.SPD).toFixed(2), run: +(B.run * FGI.SPD).toFixed(2), cd, aggr: 6, fgi: true,
+    exp: Math.round(FG_BASE.exp * XR * rk), coin: [Math.round(FG_BASE.c0 * XR * rk), Math.round(FG_BASE.c1 * XR * rk)], walk: +(B.walk * FGI.SPD).toFixed(2), run: +(B.run * FGI.SPD).toFixed(2), cd, aggr: 6, fgi: true,
     art: B.art, tint: FG_TINT[k], sc: (B.sc || 1) * (k === 'fg_shelob' ? 0.5 : !B.aggr ? AGGR_SC : 1), hw: B.hw, hh: B.hh, ...ex };   // 무속성(el 없음) · 셸로브 = 보스 크기의 절반 · 선공 몹 1.3배 크기 규칙(원본이 비선공이면 여기서)
   const M = MSHEET[src]; if (M) { const f = k === 'fg_shelob' ? 0.5 : !B.aggr ? AGGR_SC : 1; MSHEET[k] = { ...M, src: M.src || src, tint: FG_TINT[k], lava: undefined, s: M.s * f, hh: Math.round(M.hh * f), hw: Math.round(M.hw * f) }; } }
 // 보스 에이션트 자이언트: 피닉스(HP 150000 · 피해 39~66 · Lv60) × 3 — 선공 · 이동 2배 · 무속성 · 3~4명 이상 (2인 보스처럼 전리품 2번) · 그림은 1차 임시(오우거 렌더를 크게·이끼 낀 돌빛으로)
-MOB.fg_giant = { name: '에이션트 자이언트', lv: 66, hp: MOB.phoenix.hp * FGI.X, dmg: MOB.phoenix.dmg.map(v => v * FGI.X), mac: FGI.MAC - 2, hit: 0.97, mr: 70, exp: MOB.phoenix.exp * FGI.X, coin: MOB.phoenix.coin.map(v => v * FGI.X),
+MOB.fg_giant = { name: '에이션트 자이언트', lv: 66, hp: MOB.phoenix.hp * FGI.X, dmg: MOB.phoenix.dmg.map(v => Math.round(v * FGI.X)), mac: FGI.MAC - 2, hit: 0.97, mr: 70, exp: MOB.phoenix.exp * FGI.XR, coin: MOB.phoenix.coin.map(v => v * FGI.XR),
   walk: +(MOB.phoenix.walk * FGI.SPD).toFixed(2), run: +(MOB.phoenix.run * FGI.SPD).toFixed(2), cd: 1.9, boss: true, solo: true, duo: true, atkMul: 1.7, aggr: 6, fgi: true, skills: true, art: 'vil', tint: FG_TINT.fg_giant, sc: 3.4, hw: 96, hh: 200, ring: 54, atkTxt: '거인의 주먹' };
 { const M = MSHEET.ogre; if (M) MSHEET.fg_giant = { ...M, src: M.src || 'ogre', tint: FG_TINT.fg_giant, s: M.s * 1.45, hh: Math.round(M.hh * 1.45), hw: Math.round(M.hw * 1.45) }; }
 // 11/2 메모리: 예전엔 시작할 때 몬스터 111종 × 3동작 그림을 모두 받아 풀어 둠(풀면 약 1.2GB) → 그 몬스터가 처음 생기거나 그려질 때 받음 (MIMG[종류]를 읽는 순간)
@@ -13499,14 +13499,15 @@ CXI.ic_fg_belt = '<defs><linearGradient id="fgb_a" x1="0" y1="0" x2="0" y2="1"><
 // ----- 보스 에이션트 자이언트: 시간표(BOSS.fg_giant) · 기술 3개(피닉스 기술 × 3 · 땅) · 드랍(피닉스 표 비슷 + 빛바랜 벨트 1~5 · 고대의 주문서 1~5 반드시 · 전설 벨트 3% 한 번만)
 DROP_TABLE.fg_giant = [['scroll_acc', 0.3], ['scroll_earth', 0.4, 1, 5], ['scroll_armor', 0.5], ['scroll_weapon', 0.45], ['bscroll_armor', 0.22], ['bscroll_weapon', 0.15], ['bless_scroll', 0.4, 1, 3], ['gold_wing', 0.12]];   // 피닉스 표에서 불 주문서 → 땅 주문서
 DROP_MIN.fg_giant = 4; BOSS_FIXED.fg_giant = [['fg_faded_belt', FGI.BOSS_FADED[0], FGI.BOSS_FADED[1]], ['fg_scroll', FGI.BOSS_SCROLL[0], FGI.BOSS_SCROLL[1]]]; BOSS_EXTRA.fg_giant = [['fg_belt', FGI.BOSS_LEG_P]];
+const FG_SK = a => a.map(v => Math.round(v * FGI.X / 3));   // 11/4: 섬 기술 피해도 몹 배율(FGI.X)에 맞춤 (처음 만들 때 3배 기준 값)
 BOSS_SKILL.fg_giant = [
-  { id: 'stomp', cd: [10, 14], range: 3, cast: 1.0, use(f) { say('에이션트 자이언트가 발을 높이 듭니다! 붉은 원 밖으로 피하세요!', '#ff8a6a'); AOES.push({ kind: 'slam', x: f.x, z: f.z, r: 3.4, warn: 1.1, t: 0, life: 1.6, landed: false, dmg: [78, 114], onLand: DG_LAND.quake, msg: ['거인의 발 구르기에 짓밟혔습니다!', '발 구르기를 피했습니다.'] }); } },
+  { id: 'stomp', cd: [10, 14], range: 3, cast: 1.0, use(f) { say('에이션트 자이언트가 발을 높이 듭니다! 붉은 원 밖으로 피하세요!', '#ff8a6a'); AOES.push({ kind: 'slam', x: f.x, z: f.z, r: 3.4, warn: 1.1, t: 0, life: 1.6, landed: false, dmg: FG_SK([78, 114]), onLand: DG_LAND.quake, msg: ['거인의 발 구르기에 짓밟혔습니다!', '발 구르기를 피했습니다.'] }); } },
   { id: 'boulder', cd: [8, 11], range: 9, cast: 0.9, use(f) { say('에이션트 자이언트가 바위를 뽑아 던집니다! 붉은 원을 피하세요!', '#ff9a7a'); const grp = Math.random(), a0 = Math.random() * 6.283;
-      for (let k = 0; k < 3; k++) { const rr = k ? 1.8 : 0, an = a0 + k * 2.1; AOES.push({ grp, kind: 'slam', x: BT.x + Math.cos(an) * rr, z: BT.z + Math.sin(an) * rr, r: 1.5, warn: 1.1, t: 0, life: 1.6, landed: false, dmg: [72, 108], nostun: true, onLand: DG_LAND.quake, msg: ['날아온 바위에 맞았습니다!', '바위를 피했습니다.'] }); } } },
+      for (let k = 0; k < 3; k++) { const rr = k ? 1.8 : 0, an = a0 + k * 2.1; AOES.push({ grp, kind: 'slam', x: BT.x + Math.cos(an) * rr, z: BT.z + Math.sin(an) * rr, r: 1.5, warn: 1.1, t: 0, life: 1.6, landed: false, dmg: FG_SK([72, 108]), nostun: true, onLand: DG_LAND.quake, msg: ['날아온 바위에 맞았습니다!', '바위를 피했습니다.'] }); } } },
   { id: 'roar', cd: [20, 26], range: 7, cast: 0.9, use(f) { say('에이션트 자이언트가 고대의 말로 포효합니다! 몸이 무거워집니다!', '#c9a0ff'); shake = Math.max(shake, 0.4); if (hero.hp > 0 && cheb(f.i, f.j, hero.i, hero.j) <= 7 && !GOD_INV) BUFF.slow = Math.max(BUFF.slow, 4);
       if (AC && SFX_ON) { const t0 = AC.currentTime; tone(t0, 'sawtooth', 80, 40, 1.2, 0.2); nz(t0, 0.9, 300, 80, 0.3); } } },
 ];
-BOSS_SKILL.fg_drake = [{ id: 'breath', cd: [6, 7], range: 3, cast: 0.6, use(f) { breathCone(f, 3, [126, 198]); } }];   // 화둥 사라만다 숨결 × 3
+BOSS_SKILL.fg_drake = [{ id: 'breath', cd: [6, 7], range: 3, cast: 0.6, use(f) { breathCone(f, 3, FG_SK([126, 198])); } }];   // 화둥 사라만다 숨결 × 3 → 11/4 × FGI.X(1.5)
 Object.assign(BOSS_TALK, { fg_giant: { meet: ['작은 것이여… {이름}, 네 발소리가 내 잠을 깨웠다.', '이 섬의 노래를 잊은 자들이 또 왔구나.'], mid: ['섬은 나를 기억한다!', '바위여, 일어나라!', '잊혀진 것은 사라지지 않는다, {이름}.'], die: ['노래가… 끝나지… 않는다… 나는 다시… 깨어난다…'] } });
 // ----- 도감: 아이템 도감 '얻는 곳' · 월드맵 사냥터 도감(일반 몬스터 드랍 목록·설명)
 function fgCodexIds() { const P = fgPools(); return [...P.rareGear, ...P.rareScr, ...P.heroGear, ...P.heroScr, 'fg_scroll', 'fg_faded_belt']; }
