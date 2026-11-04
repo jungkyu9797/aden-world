@@ -10307,8 +10307,9 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     if (auto && unsafe(true)) { gBusy = false; b.disabled = false; AU.v = newVer; AU.at = Date.now() + 5000; return; }   /* 받는 사이에 위험해졌으면 다시 기다림 */
     say('캐릭터를 저장하고 새 버전을 불러옵니다… (잠깐 뒤 그 자리에서 이어져요)', '#ffd86a');
     ACCOUNT.keepForUpdate(); try { if (SAVE.on()) await SAVE.now(true, true); } catch (e) {} try { localStorage.setItem('aden_patch_to', String(newVer)); } catch (e) {} setTimeout(() => location.reload(), 500); }
-  // 11/3 프로듀서: 새 버전이 나오면 자동 업데이트 — 2분마다 확인 · 안전할 때(쓰러짐·보스 전투·교환·콜로세움·수호탑·할로윈·몽환의 섬·결투·입력 중·HP 40% 아래가 아닐 때) 20초 알림 뒤 저장 → 받기 → 그 자리·파티·자동사냥 그대로
+  // 11/3 프로듀서: 새 버전이 나오면 자동 업데이트 — 2시간마다 확인(11/4 2분 → 2시간 · 켤 때·로그인 화면에서는 바로 확인) · 안전할 때(쓰러짐·보스 전투·교환·콜로세움·수호탑·할로윈·몽환의 섬·결투·입력 중·HP 40% 아래가 아닐 때) 20초 알림 뒤 저장 → 받기 → 그 자리·파티·자동사냥 그대로
   //   [업데이트]를 누르면 바로 · 운영자 모드·봇 호스트(러너가 따로 새로 고침)·테스트 페이지는 자동 안 함 · 파일이 아직 안 퍼졌으면 1분 뒤 다시(최대 5번)
+  const UPD_EVERY = 2 * 3600e3;   // 11/4 프로듀서: 새 버전 확인은 2시간마다 (예전 2분)
   const AU = { v: 0, at: 0, said: 0, saidH: 0, held: '', n: 0, next: 0 }, AU_SEC = 20;
   const auOk = () => (!(window.ADEN_DEMO || window.DEMO_MODE) || window.__AU_TEST) && !(typeof BOTHOST !== 'undefined' && BOTHOST.on()) && !(typeof ADMIN !== 'undefined' && ADMIN.on());
   const auTry = v => { try { const o = JSON.parse(sessionStorage.getItem('aden_au') || 'null'); return o && o.v === v ? o.n | 0 : 0; } catch (e) { return 0; } }, auMark = v => { try { sessionStorage.setItem('aden_au', JSON.stringify({ v, n: auTry(v) + 1 })); } catch (e) {} };   // 같은 버전으로 자동 업데이트를 2번 했는데도 예전 판이면 자동은 그만 (다시 불러오기 반복 방지)
@@ -10326,8 +10327,8 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
     AU.held = ''; const left = Math.ceil((AU.at - Date.now()) / 1000);
     if (left > 0) { if (b) b.textContent = `⬇ 자동 업데이트 ${left}초 (v${AU.v})`; if (!AU.said) { AU.said = 1; say(`[업데이트] 새 버전(v${AU.v})이 나왔어요. ${left}초 뒤 자동으로 업데이트해요. 저장한 뒤 그 자리·파티·자동사냥 그대로 이어져요. (바로 하려면 화면 위 [업데이트])`, '#ffd86a'); } return; }
     auMark(AU.v); if (n && n.update) runIn(true); else runWeb(true); }
-  { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = () => runIn(); setTimeout(checkIn, 8000); setInterval(checkIn, 2 * 60 * 1000); setInterval(auTick, 1000); }
-    else if (b && !n && !window.ADEN_DEMO) { b.onclick = () => runWeb(); setTimeout(checkWeb, 15000); setInterval(checkWeb, 2 * 60 * 1000); setInterval(auTick, 1000); }
+  { const b = $('btn-upd'), n = N(); if (b && n && n.update) { b.onclick = () => runIn(); setTimeout(checkIn, 8000); setInterval(checkIn, UPD_EVERY); setInterval(auTick, 1000); }
+    else if (b && !n && !window.ADEN_DEMO) { b.onclick = () => runWeb(); setTimeout(checkWeb, 15000); setInterval(checkWeb, UPD_EVERY); setInterval(auTick, 1000); }
     if (n && n.onUpdate) n.onUpdate(m => { if (gBusy && m.step === 'file') { const bb = $('btn-upd'); if (bb) bb.textContent = `업데이트 중… ${m.n + 1}/${m.total}`; } }); }
   // v151: PC 게임을 켜면 로그인 화면보다 먼저 최신 버전 확인 → 새 버전이면 자동으로 받고 다시 시작 (예전 버전으로 접속해서 아이템이 사라지는 일 방지)
   let gateOn = false;
