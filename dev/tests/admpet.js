@@ -16,13 +16,13 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
     return { P, msg, after, refuse, plain: { n: plain.name, lv: plain.lv, evo: plain.evo || 0, mh: plain.maxhp } }; });
   console.log(JSON.stringify(r.P)); console.log(r.msg);
   const [A, B] = r.P;
-  ok(A && B && B.n === '베리' && B.kind === A.kind && B.lv === A.lv && B.evo === A.evo && JSON.stringify(B.eb) === JSON.stringify(A.eb), `베리 = 상한 맞춤된 펫과 레벨·진화·진화 기준 같음 (Lv.${B && B.lv} · 진화 기준 ${B && JSON.stringify(B.eb)})`);
-  ok(B && B.mh === A.mh && B.mxh === A.mxh && B.hp === B.mxh && B.rng.join() === A.rng.join(), `HP ${B && B.mxh} · 공격 ${B && B.rng.join('~')} 같음 (HP는 가득)`);
+  ok(A && A.lv === 363, `11/4: 높던 옛 펫은 이제 레벨을 내리지 않음 (Lv.${A && A.lv})`);   /* 예전: 상한 맞춤된 펫과 비교 */
+  ok(B && B.n === '베리' && B.hp === B.mxh, `베리 HP ${B && B.mxh} (가득)`);
   ok(B && B.lv === 61 && B.eb.lv === 61 && B.eb.hp === 223 && B.mh === 1423 && B.rng.join() === '36,73', '값: Lv.61 · 진화 기준 Lv.61(HP 223·10~20) · 최대 HP 1423 · 공격 36~73 (카리스마 보너스 없을 때)');
   ok(B && B.ok === 1 && B.st === 'stored' && B.inv === 4, '새 목걸이: 상한 확인 표시(경험치 넘김 없음) · 보관 상태 · 펫 가방 4칸');
   ok(/\[운영자\] 펫 목걸이\(Lv\.61 베리 · 진화 · 진화 기준 Lv\.61\)를 받았습니다/.test(r.msg), '안내 문구');
-  ok(r.after.every(x => x === '61:61'), `상한 확인을 다시 돌려도 그대로 (${r.after.join(', ')})`);
-  ok(r.refuse.n === 0 && /주인 레벨을 넘을 수 없어요/.test(r.refuse.msg), `운영자 캐릭터가 Lv.55면 Lv.61 펫은 안 만들고 안내 (${r.refuse.msg.slice(0, 60)})`);
+  ok(r.after.includes('61:61'), `상한 확인을 다시 돌려도 베리는 그대로 (${r.after.join(', ')})`);
+  ok(r.refuse.n === 1 && /받았습니다/.test(r.refuse.msg), `11/4: 운영자 캐릭터가 Lv.55여도 Lv.61 펫을 만들 수 있음 (성장만 멈춤) (${r.refuse.msg.slice(0, 60)})`);
   ok(r.plain.lv === 30 && r.plain.evo === 0 && r.plain.mh === 26 + 7 * 29 && r.plain.n.length === 8, `진화 안 한 펫도 (Lv.30 · HP ${r.plain.mh} · 이름 8글자까지 "${r.plain.n}")`);
   // 운영자 창 UI 칸 (기본값)
   const ui = await p.evaluate(() => { const w = document.getElementById('admwin'); return w ? ['adm-pl', 'adm-pe', 'adm-pb', 'adm-pn', 'adm-spet'].map(id => { const el = document.getElementById(id); return el ? (el.type === 'checkbox' ? el.checked : el.value || el.textContent) : null; }) : null; });
