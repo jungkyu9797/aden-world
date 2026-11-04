@@ -8085,7 +8085,7 @@ const SESS = (() => {
   const fnv = t => { let h = 2166136261 >>> 0; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16).padStart(8, '0'); };
   const ah = () => { if (ahC) return ahC; const a = typeof ACCOUNT !== 'undefined' && ACCOUNT.acc && ACCOUNT.acc(); return a ? (ahC = fnv('aden:' + String(a).toLowerCase())) : null; };
   function begin() { t0 = Date.now(); }
-  function kick(why) { if (kicked) return; kicked = true; window.__gameOn = false;
+  function kick(why) { if (kicked) return; kicked = true; window.__gameOn = false; try { localStorage.removeItem('aden_rc'); } catch (e) {}   /* 11/4: 끊긴 창은 멈춤 복구로 다시 들어가지 않게 */
     try { SAVE.stop(); } catch (e) {} try { if (AUTO.on()) AUTO.toggle(); } catch (e) {} try { NET.setRoom(null); } catch (e) {} try { MPP.leave(); } catch (e) {}
     const w = document.createElement('div'); w.id = 'dupkick'; w.setAttribute('role', 'alertdialog');
     w.innerHTML = why === 'admin' ? '<div class="dk-box"><b>운영자에 의해 접속이 종료되었어요</b><p>진행 상황은 저장했어요.</p><button type="button" id="dk-re">다시 접속하기</button></div>' : '<div class="dk-box"><b>다른 곳에서 같은 계정으로 접속했어요</b><p>같은 계정은 한 곳에서만 플레이할 수 있어서 이 창의 접속을 끊었어요.<br>진행 상황은 새로 접속한 쪽에서 이어서 저장돼요. (이 창은 더 이상 저장하지 않아요)<br><small>잠시 뒤 이 창은 게임을 멈추고 메모리를 비운 채 처음 화면으로 돌아가요.</small></p><button type="button" id="dk-re">다시 접속하기</button></div>';
@@ -11067,7 +11067,7 @@ const ACCOUNT = (() => {
     if (rs && rs.exp > Date.now() && rs.acc && CLS_DEF[rs.cls]) { acc = rs.acc; chars = rs.chars || {}; srv = rs.srv || 'legacy'; if (rs.fb) CLOUD.restore(rs.fb); sel = rs.cls;   // 게임 중 업데이트 → 다시 켜지면 그 자리에서
       begin(rs.cls, rs.name).then(() => { if (!started) return; const p = rs.pos || {}; if (p.isle && ISLAND.def(p.isle)) TOWN.toZone(p.isle, p.x, p.z); else if (p.scene === 'town') TOWN.placeAt(p.x, p.z);
         if (rs.pt) NET.setParty(rs.pt); if (rs.mp) MPP.start(rs.mp);
-        for (const rid of rs.pets || []) { const e = INV.bag().find(x => x.pet && x.pet.rid === rid); if (e && e.pet.state === 'stored') PET.summon(e); } say(`***** 업데이트 완료 (v${GAME_VER}) — 그 자리에서 이어서 플레이합니다 *****`, '#9fd08a'); if (rs.auto) setTimeout(() => { if (!AUTO.on()) AUTO.toggle(); }, 800); if (rs.sv) setTimeout(() => { try { SAVER.resume(rs.sv); } catch (e) {} }, 1300); }); return; }
+        for (const rid of rs.pets || []) { const e = INV.bag().find(x => x.pet && x.pet.rid === rid); if (e && e.pet.state === 'stored') PET.summon(e); } say(rs.rc ? '***** 게임 화면이 멈춰서 다시 불러왔어요 — 그 자리에서 이어서 플레이합니다 *****' : `***** 업데이트 완료 (v${GAME_VER}) — 그 자리에서 이어서 플레이합니다 *****`, '#9fd08a'); if (rs.auto) setTimeout(() => { if (!AUTO.on()) AUTO.toggle(); }, 800); if (rs.sv) setTimeout(() => { try { SAVER.resume(rs.rc ? Object.assign(rs.sv, { rc: 1 }) : rs.sv); } catch (e) {} }, 1300); }); return; }
     if (boot && boot.acc && CLS_DEF[boot.cls]) { acc = boot.acc; chars = boot.chars || {}; srv = boot.srv || 'legacy'; if (boot.fb) CLOUD.restore(boot.fb); sel = boot.cls; begin(boot.cls, boot.name); return; }
     { let au = null; try { au = JSON.parse(store.get('aden_auto') || 'null'); } catch (e) {}
       if (au && au.acc && au.exp > Date.now() && (au.srv !== 'cloud' || (au.fb && au.fb.uid && au.fb.ref))) { acc = au.acc; chars = au.chars || {}; srv = au.srv || 'legacy'; if (au.fb) CLOUD.restore(au.fb); store.set('aden_acc', acc); openSel(false); csMsg('자동으로 로그인했어요. 다른 계정은 [로그아웃]을 누른 뒤 접속해 주세요.', true);
@@ -11076,10 +11076,10 @@ const ACCOUNT = (() => {
     const w = $('loginscr'); if (!w) return; w.hidden = false; { const sv = $('lg-srv'); if (sv) { if (window.ADEN_DEMO) { sv.textContent = '○ 데모 전용 계정 — 실제 계정 서버와 분리돼 이 데모 페이지에만 저장돼요'; sv.className = 'lg-srv no'; } else { sv.textContent = '계정 서버 확인 중…'; CLOUD.ping().then(ok => { sv.textContent = ok ? '● 계정 서버 연결됨 — 어느 PC에서든 이어서 플레이' : '○ 계정 서버에 연결되지 않음 — 이 기기에만 저장돼요'; sv.className = 'lg-srv ' + (ok ? 'ok' : 'no'); }); } } } const a = store.get('aden_acc'); $('lg-acc').value = a || ''; setMode('login'); setTimeout(() => (a ? $('lg-pw') : $('lg-acc')).focus(), 60); }), 120);   /* v151: 업데이트 확인이 끝나야 로그인 */
   // v137: 다시 접속하면(다른 PC · 중복 접속 포함) 마지막으로 있던 곳에서 이어서 — 콜로세움이었거나 쓰러진 채였으면 마을
   function resumePos(p) { try { const d = p.z && ISLAND.def(p.z); if (d && !d.arena && !d.tw) { TOWN.toZone(p.z, p.x, p.y); say(`마지막 위치(${d.name})에서 이어서 시작합니다.`, '#9fd08a'); } else if (p.t && p.x != null) TOWN.placeAt(p.x, p.y); } catch (e) {} }
-  function keepForUpdate() { if (!started) return false; const pos = { scene: SCENE, isle: ISLE ? ISLE.id : null, x: +hero.x.toFixed(2), z: +hero.z.toFixed(2) };
+  function keepForUpdate(k, x) { if (!started) return false; const pos = { scene: SCENE, isle: ISLE ? ISLE.id : null, x: +hero.x.toFixed(2), z: +hero.z.toFixed(2) };   /* 11/4 k·x: 멈춤 복구(CRF)가 aden_rc에 · rc 표시 */
     const pets = INV.bag().filter(e => e.pet && e.pet.state === 'out').map(e => (e.pet.rid = e.pet.rid || 'p' + Math.random().toString(36).slice(2, 9)));
     let sv = null; try { sv = window.SAVER ? SAVER.keepOut() : null; } catch (e) {}   // 11/1: 절전 중 업데이트 → 다시 켜지면 절전과 그동안의 처치·경험치·획득 아이템을 이어서
-    try { localStorage.setItem('aden_resume', JSON.stringify({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), pets, sv, exp: Date.now() + 180000 })); return true; } catch (e) { return false; } }
+    try { localStorage.setItem(k || 'aden_resume', JSON.stringify(Object.assign({ acc, cls: CLASS, name: PNAME(), chars, srv, fb: CLOUD.session(), pos, auto: AUTO.on(), mp: MPP.code(), pt: NET.partyId(), pets, sv, exp: Date.now() + 180000 }, x || {}))); return true; } catch (e) { return false; } }
   return { acc: () => acc, openSel, started: () => started, mode: () => srv, keepForUpdate };
 })();
 const AUTO = (() => {
@@ -12695,7 +12695,7 @@ window.SAVER = (() => {
       S.exp += n(o.exp); S.xp += n(o.xp); S.kills += n(o.kills) | 0; S.dead += n(o.dead) | 0; S.ret += n(o.ret) | 0; if (o.lv0) { S.lv0 = o.lv0; S.pct0 = +o.pct0 || 0; } S.coins0 = coins - (+o.gd || 0);
       for (const [id, c] of Array.isArray(o.items) ? o.items : []) if (ITEMS[id]) S.items.set(id, (S.items.get(id) || 0) + n(c));
       for (const [id, v] of Array.isArray(o.buys) ? o.buys : []) { const w = S.buys.get(id) || { n: 0, g: 0 }; w.n += n(v && v.n); w.g += n(v && v.g); S.buys.set(id, w); }
-      t0 = performance.now() - Math.min(86400, n(o.el)) * 1000; S.notes = []; note(`업데이트(v${GAME_VER}) 뒤 절전 모드를 이어서 해요.`, '#9fd08a'); render(); },
+      t0 = performance.now() - Math.min(86400, n(o.el)) * 1000; S.notes = []; note(o.rc ? '게임 화면이 멈춰서 다시 불러온 뒤 절전 모드를 이어서 해요.' : `업데이트(v${GAME_VER}) 뒤 절전 모드를 이어서 해요.`, '#9fd08a'); render(); },
     exp(n) { if (!on || !(n > 0)) return; S.exp += n; let r = n, lv = hero.lv, e = hero.exp; for (let k = 0; k < 6 && r > 0; k++) { const nd = needExp(lv), t = Math.min(r, Math.max(1, nd - e)); S.xp += t / nd * 100; r -= t; e = 0; lv++; } },   /* 레벨 % 로도 셈 (레벨이 오르면 나눠서) */ kill() { if (on) S.kills++; }, item(id, n) { if (!on || SCENE === 'town' || !ITEMS[id]) return; if (id === 'gold_pile') return; S.items.set(id, (S.items.get(id) || 0) + (n || 1)); if (ITEMS[id].rar === '영웅' || ITEMS[id].rar === '희귀') note(`${JOSA(ITEMS[id].name, '을', '를')} 얻었어요!`, rarC(id)); },
     death() { if (!on) return; S.dead++; S.pend = true; note('캐릭터가 쓰러졌어요.', '#ff5a4a'); render(); },
     buy(o) { if (!on || !S || !o || !(o.q > 0)) return; const k = o.id || '?', v = S.buys.get(k) || { n: 0, g: 0 }; v.n += o.q; v.g += o.g || 0; S.buys.set(k, v); },
@@ -12703,11 +12703,39 @@ window.SAVER = (() => {
 })();
 // 11/1 프로듀서: 게임 창을 최소화하거나 다른 창·탭에 가려지면 브라우저가 requestAnimationFrame을 멈춰(또는 1초에 한 번) 사냥·보스 공격·지역 호스트 몬스터가 멈추던 것
 //   → 워커 타이머(가려져도 안 느려짐)가 50ms마다 확인: 화면 프레임이 0.15초 넘게 안 왔으면 그리기 없이 게임만 한 걸음(frame · BGRUN) · 다시 보이면 원래대로 화면 프레임이 이어 감 (rAF는 화면 프레임에서만 예약 → 한 줄만 돎)
-let BGRUN = false, frameAt = performance.now(), rafAt = performance.now(), bgSteps = 0;   // rafAt: 마지막 화면 프레임 · frameAt: 마지막 게임 걸음(화면·백그라운드)
+let BGRUN = false, frameAt = performance.now(), rafAt = performance.now(), bgSteps = 0, RAFQ = 0, rafFix = 0;   // rafAt: 마지막 화면 프레임 · frameAt: 마지막 게임 걸음(화면·백그라운드) · 11/4 RAFQ: 화면 프레임 예약됨 · rafFix: 끊긴 화면 프레임을 다시 이은 횟수
 { const BG_GAP = 150, tick = () => { if (typeof BOTHOST !== 'undefined' && BOTHOST.on && BOTHOST.on()) return; const now = performance.now(); if (now - rafAt < BG_GAP) return;
+    if (!RAFQ && now - (tick.fx || 0) > 1000) { tick.fx = now; RAFQ = 1; rafFix++; requestAnimationFrame(frame); }   /* 11/4 멈춤 복구: 화면 프레임 중 오류가 나면 다음 프레임 예약이 끊겨 화면이 영영 멈췄음(게임은 뒤에서 계속) → 예약이 없으면 다시 예약 (가려져서 쉬는 것은 예약이 남아 있으니 그대로) */
     const n = Math.min(w ? 3 : 20, Math.max(1, Math.round((now - frameAt) / 50))); /* 워커를 못 쓰면(일반 타이머는 가려지면 1초에 한 번) 한 번에 최대 1초어치 */ for (let k = 0; k < n; k++) { BGRUN = true; try { frame(now - (n - 1 - k) * 50); bgSteps++; } catch (e) { console.warn('bg frame', e); } finally { BGRUN = false; } } };
   let w = null; try { w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' }))); w.onmessage = tick; } catch (e) { w = null; }
   if (!w) setInterval(tick, 50); window.__bgInfo = () => ({ steps: bgSteps, timer: w ? 'worker' : 'interval' }); }
+// 11/4 멈춤 복구 (crashfix · main.js·preload.js와 같이): 오래 켜 두거나 절전 화면에 둔 채 화면이 꺼지거나 잠자기에 들어가면 그래픽카드가 초기화될 때가 있음
+//   ① 그러면 미리 그려 둔 그림(바닥·색 바꾼 그림·동작 프레임·UI 틀 등 캔버스)이 모두 빈 그림이 되어 화면이 까맣게 남음 (11/4 Electron 44에서 확인: 그래픽 프로세스가 죽으면 모든 캔버스가 contextlost → contextrestored, 내용은 비어 있음)
+//      → 화면 캔버스(cv)가 되찾아지면(또는 잃은 채 8초) 저장 → 그 자리에서 이어하기로 다시 불러와 그림을 전부 새로 만듦 (새 그래픽(WebGL)도) · 10분에 2번까지 · 교환·글자 입력·쓰러짐은 끝난 뒤(최대 90초)
+//   ② PC: 게임 창 프로세스가 죽거나 멈추면 main.js가 index.html?rc=1로 다시 불러옴 → 10초마다 적어 둔 자리(aden_rc)에서 이어서 (자동사냥·절전·파티 그대로)
+//   ③ main.js가 깨어날 때·1분마다 묻는 'app:wake'에 대답 (캔버스·화면 프레임 상태를 같이 보냄)
+const CRF = (() => { const N = () => window.native, ss = k => { try { return JSON.parse(sessionStorage.getItem(k) || '[]'); } catch (e) { return []; } };
+  let rc = false; try { const u = new URL(location.href); rc = u.searchParams.get('rc') === '1'; if (rc) { u.searchParams.delete('rc'); history.replaceState(history.state, '', u.href); } } catch (e) {}
+  try { const s = localStorage.getItem('aden_rc'); localStorage.removeItem('aden_rc'); if (rc && s && !localStorage.getItem('aden_resume')) { const o = JSON.parse(s); if (o && o.acc) localStorage.setItem('aden_resume', JSON.stringify(Object.assign(o, { exp: Date.now() + 180000, rc: 1 }))); } } catch (e) {}
+  if (BOTHOST.on()) return { rc };
+  setInterval(() => { if (!N()) return; try { if (window.__gameOn && ACCOUNT.started()) ACCOUNT.keepForUpdate('aden_rc'); else localStorage.removeItem('aden_rc'); } catch (e) {} }, 10000);
+  const lost = () => { try { return !!(ctx.isContextLost && ctx.isContextLost()); } catch (e) { return false; } };
+  let lostAt = 0, busy = false, said = 0;
+  async function redo(why) { if (busy) return; const L = ss('aden_crf').filter(t => Date.now() - t < 600000);
+    if (L.length >= 2) { if (!said++) say('[화면] 그래픽카드가 초기화돼서 그림이 빠졌을 수 있어요. 화면이 이상하면 게임을 껐다 켜 주세요.', '#f0c080'); return; }
+    busy = true; try { console.warn('[화면] 캔버스를 잃었음 (' + why + ') → 저장 뒤 다시 불러와 그림을 새로 만듦'); TELE.ev('ctxlost', { why }); } catch (e) {}
+    for (let k = 0; k < 90; k++) { let w = ''; try { w = UPD.unsafe(true); } catch (e) {} if (w !== '교환' && w !== '글자 입력' && w !== '쓰러진 상태') break; await new Promise(r => setTimeout(r, 1000)); }
+    L.push(Date.now()); try { sessionStorage.setItem('aden_crf', JSON.stringify(L)); } catch (e) {}
+    if (ACCOUNT.started()) { say('[화면] 그래픽카드가 초기화돼서 그림을 새로 만들어요. 저장한 뒤 그 자리에서 이어집니다…', '#ffd86a'); ACCOUNT.keepForUpdate(null, { rc: 1 });
+      try { if (SAVE.on()) await Promise.race([SAVE.now(true, true), new Promise(r => setTimeout(r, 4000))]); } catch (e) {} ACCOUNT.keepForUpdate(null, { rc: 1 }); }
+    location.reload(); }
+  cv.addEventListener('contextlost', () => { lostAt = performance.now(); try { console.warn('[화면] 캔버스를 잃음 (그래픽카드 초기화)'); } catch (e) {} });   /* preventDefault 안 함 = 브라우저가 되찾아 줌 */
+  cv.addEventListener('contextrestored', () => { lostAt = 0; redo('되찾음'); });
+  setInterval(() => { if (!lostAt && lost()) lostAt = performance.now(); if (lostAt && performance.now() - lostAt > 8000) { lostAt = 0; redo('잃은 채 8초'); } }, 2000);
+  const st = () => ({ lost: lost(), raf: Math.round(performance.now() - rafAt), q: RAFQ, fix: rafFix, on: !!window.__gameOn, sv: !!(window.SAVER && SAVER.on()), vis: document.visibilityState });
+  if (N() && N().onWake) N().onWake(() => { const s = st(); if (s.lost && !lostAt) lostAt = performance.now(); return s; });
+  window.__crf = { st, rc };   /* 확인용 (/렉·테스트) */
+  return { rc, st, redo, lost }; })();
 // 11/2 렉: 프레임 기록 — /렉 진단(초당 프레임·계산/그리기 ms·그래픽카드·호스트) · 저사양 그래픽 자동 전환(PC에서 10초씩 두 번 연속 초당 24프레임 아래면)
 const PERF = (() => { const N = 300, GAP = new Float32Array(N), UP = new Float32Array(N), DR = new Float32Array(N); let k = 0, n = 0, last = 0, tMid = 0, win = [], winT = 0, slow = 0, gpu = null;
   const med = a => { const b = Array.from(a).sort((x, y) => x - y); return b.length ? b[b.length >> 1] : 0; }, sayOut = (t, c) => say(t, c);
@@ -12724,7 +12752,7 @@ const PERF = (() => { const N = 300, GAP = new Float32Array(N), UP = new Float32
   async function report() { const s = stats(), hi = NET.hostInfo ? NET.hostInfo() : {}, mobs = foxes.filter(f => !f.dead && !f.gone).length, C = '#9fe0ff', L = [], say = (t, c) => { L.push(t.replace('[렉 진단] ', '')); sayOut(t, c); };
     say(`[렉 진단] 초당 프레임 ${s.fps} · 프레임 간격 보통 ${s.gapMed}ms / 최악 ${s.gapMax}ms · 느린 프레임(40ms↑) ${s.slowPct}% · 계산 ${s.upd}ms · 그리기 ${s.draw}ms`, C);
     say(`[렉 진단] 창 ${innerWidth}×${innerHeight} · 배율 ${(devicePixelRatio || 1).toFixed(2)} → 그림 배율 ${DPR} (${cv.width}×${cv.height}) · 그래픽 ${LOWG.on() ? '저사양' + (LOWG.mode() === 'a' ? '(자동)' : '') : '보통'} · 새 그래픽(베타) ${window.GLR && GLR.on && GLR.on() ? '켬' : '끔'} · 타격 연출 ${['끔', '보통', '강'][HF.lv] || '-'}${LOWG.on() ? '(저사양: 꺼짐)' : ''}`, C);
-    let gs = ''; try { if (window.native && native.gpuStatus) { const r = await native.gpuStatus(); const st = (r && r.st) || {}; gs = ` · 2D 그림 ${st['2d_canvas'] || '?'} · 합성 ${st.gpu_compositing || '?'}${r && r.safe ? ' · (안전 모드)' : ''}`; } } catch (e) {}
+    let gs = ''; try { if (window.native && native.gpuStatus) { const r = await native.gpuStatus(); const st = (r && r.st) || {}; gs = ` · 2D 그림 ${st['2d_canvas'] || '?'} · 합성 ${st.gpu_compositing || '?'}${r && r.safe ? ' · (안전 모드' + (r.until ? ' ~' + r.until : '') + ')' : ''}${r && r.rv ? ' · 멈춤 복구 ' + r.rv + '번' : ''}`; } } catch (e) {}
     say(`[렉 진단] 그래픽카드: ${gpuName()}${gs}`, C);
     say(`[렉 진단] ${zoneTitle()} · 몹 ${mobs} · 접속 ${NET.count()}명 · 몬스터 계산: ${!hi.guest ? '내 컴퓨터' : hi.bot ? '봇 서버' : '다른 플레이어'}${hi.guest ? ` (받는 간격 ${Math.round((hi.gap || 0) * 1000)}ms)` : ''} — 이 채팅을 찍어서 보내 주세요`, C);
     { let b = document.getElementById('lag-diag'); if (b) b.remove(); b = document.createElement('div'); b.id = 'lag-diag'; b.setAttribute('role', 'dialog'); b.style.cssText = 'position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:99999;background:rgba(10,8,4,.94);color:#f0e0b0;font:12px/1.6 "Noto Sans KR",sans-serif;padding:12px 16px;border:1px solid #c8a050;border-radius:6px;white-space:pre-wrap;width:min(720px,calc(100vw - 32px));box-sizing:border-box;cursor:pointer';
@@ -12732,7 +12760,7 @@ const PERF = (() => { const N = 300, GAP = new Float32Array(N), UP = new Float32
     return s; }
   return { mid, drawn, stats, report, gpuName }; })();
 function frame(now){
-  frameAt = performance.now(); if (!BGRUN) rafAt = frameAt; holdTick(); if (MOBILE) MUI.tick();
+  frameAt = performance.now(); if (!BGRUN) { rafAt = frameAt; RAFQ = 0; } holdTick(); if (MOBILE) MUI.tick();
   const dt=Math.max(0,Math.min(0.05,(now-last)/1000)); last=now; time+=dt; zoom+=(zoomT-zoom)*Math.min(1,dt*10);
   shake=Math.max(0,shake-dt); potCd=Math.max(0,potCd-dt); if (mark){ mark.life-=dt; if (mark.life<=0) mark=null; }
   if (hitstop>0) hitstop-=dt; else { updateHero(dt); foxes.forEach(f=>updateFox(f,dt)); if (SCENE==='town') TOWN.update(dt); ISLAND.tick(dt); NET.tick(dt); ADMIN.tick(dt); COLO.tick(dt); TWM.tick(dt); FBOT.tick(dt); HWM.tick(dt); DRM.tick(dt); CRAFT.tick(dt); TRADE.tick(dt); PET.tick(dt); SAVE.tick(dt); GROUND.tick(dt); skillTick(dt); skillFxTick(dt); spellFxTick(dt); DN.update(dt); INV.tick(dt); if (!DEATH && !COLO_LOCK) AUTO.tick(dt); if (OFFL_HOOK) OFFL_HOOK.tick(dt); invT-=dt; if (invT<=0){ invT=0.4; INV.render(); TOWN.bgmTick(); if (ACCOUNT.started()) heavyCheck(); }
@@ -12751,7 +12779,7 @@ function frame(now){
   if (!(window.GLR && GLR.on() && GLR.frame(drawWorld, drawUI, lc, ctx, low, cv, pw, ph, z*DPR, !pixel, vw, vh))) {
   drawWorld(lc,vw,vh); drawUI(lc,vw,vh);
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(low,0,0); } PERF.drawn(); }
-  curZ = z; if (BOTHOST.on()) BOTHOST.frameDone(dt); else if (!BGRUN) requestAnimationFrame(frame);
+  curZ = z; if (BOTHOST.on()) BOTHOST.frameDone(dt); else if (!BGRUN) { RAFQ = 1; requestAnimationFrame(frame); }
 }
 // ============================================================ v169: 모바일 웹 앱 — 홈 화면에 설치 (웹 버전 주소에서만 · PC 실행 파일·테스트 페이지에서는 숨김)
 const APP = (() => { const $a = id => document.getElementById(id), URL_ = 'https://jungkyu9797.github.io/aden-world/';   // 휴대폰 웹 주소 (GitHub Pages)
@@ -13646,6 +13674,6 @@ const NBS = (() => { const $ = id => document.getElementById(id); let used = 0; 
     const iw = $('invwin'); if (iw && iw.hidden) INV.toggle('invwin'); else INV.render(); try { SAVE.now(false, true); } catch (e) {} }
   return { open, render, why, used: () => used, dump: () => used ? { u: used } : undefined, load(o) { used = (o && +o.u) || 0; } };
 })();
-if (BOTHOST.on()) BOTHOST.loop(frame); else requestAnimationFrame(frame);
+if (BOTHOST.on()) BOTHOST.loop(frame); else { RAFQ = 1; requestAnimationFrame(frame); }
 if (!BOTHOST.on()) setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();

@@ -146,7 +146,9 @@ void main(){ int sh=vM&3, pa=(vM>>2)&3; float d=length(vT); float w=max(length(v
       RAMP.tex = gl.createTexture(); actTex(NS); bindTex(RAMP.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, RAMP.H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); smpB(NS, SMP[1]); actTex(0);
       RAMP.c = document.createElement('canvas'); RAMP.c.width = 256; RAMP.c.height = 1; RAMP.g = RAMP.c.getContext('2d', { willReadFrequently: true });
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.enable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-      cvs.addEventListener('webglcontextlost', ev => { LOST = true; why = '컨텍스트 잃음'; hide(); try { console.warn('[GL] WebGL 컨텍스트를 잃어서 원래 그래픽으로 돌아갑니다'); } catch (e) {} });
+      // 11/4 멈춤 복구: 잃으면 이 페이지에서는 원래 그래픽(2D)으로 · 되찾기(preventDefault)는 안 함 — 되찾아도 텍스처·셰이더·빛 번짐·그림자 버퍼를 전부 새로 만들어야 해서,
+      //   그래픽카드 초기화(그래픽 프로세스가 죽음)면 2D 그림도 모두 비므로 game.js(CRF)가 저장 뒤 다시 불러오며 GL도 처음부터 새로 켬 · WebGL만 잃은 경우는 2D로 계속
+      cvs.addEventListener('webglcontextlost', ev => { LOST = true; why = '컨텍스트 잃음'; hide(); syncBtn(); try { console.warn('[GL] WebGL 컨텍스트를 잃어서 원래 그래픽으로 돌아갑니다'); } catch (e) {} });
       document.body.insertBefore(cvs, document.body.firstChild); patch(); return true;
     } catch (e) { FAILED = true; why = String(e && e.message || e); gl = null; try { console.warn('[GL] 새 그래픽을 켤 수 없어 원래 그래픽으로:', why); } catch (x) {} if (cvs && cvs.parentNode) cvs.remove(); return false; } }
   function hide() { if (cvs) cvs.style.display = 'none'; }
