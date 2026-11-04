@@ -38,7 +38,7 @@ const SETUP = R => { __T.GOD_INV = true; __FB.setRef(R); Object.assign(__FB.DBG,
     T.BUFF.immune = im; return { idle, im, n, msg, d0, d1, dead: T.DEATH };`);
   console.log('③', JSON.stringify(r3)); ok(r3.idle === 0, '③ 파티장이 안 싸울 때는 이뮨을 안 걸어 줌'); ok(r3.im >= 16 && r3.n >= 1 && r3.msg.length === 1, `③ 싸우는 파티장에게 이뮨 투 함 (${r3.im.toFixed(1)}초 · ${r3.msg[0]})`); ok(r3.d1 < r3.d0 && Math.abs(r3.d1 / r3.d0 - 0.7) < 0.06, `③ 이뮨 중 받는 피해 ${r3.d0} → ${r3.d1} (−30%)`);
   // ④ 싸우는 기사 봇에게 이뮨 · 다친 봇 힐 (봇끼리)
-  const r4 = await ev(`const m = window.__m0; T.BUFF.immune = 99; F.pb.cmd('fight'); H.target = m; K.immT = 0; F.sim(1); const kt = !!K.px.tgt; W.px.sk.imm = 0; F.sim(1.5); const ki = K.immT - T.time;
+  const r4 = await ev(`const m = window.__m0; T.BUFF.immune = 99; F.pb.cmd('fight'); H.target = m; K.immT = 0; F.sim(1); const kt = !!K.px.tgt; K.immT = 0; W.px.sk.imm = 0; F.sim(1.5);   /* 11/4: 처음 1초 안에 이미 걸었으면 남은 시간이 16초 아래라 — 지우고 다시 걸리는지 봄 */ const ki = K.immT - T.time;
     F.pb.cmd('move'); H.target = null; m.dead = true; m.deadT = -1e9; F.sim(0.5); const s0 = F.stat().pbHeal || 0; K.hp = Math.round(K.max * 0.4); K.px.pot = 1e9; const k0 = K.hp; W.px.sk.heal = 0; F.sim(1); const k1 = K.hp; K.px.pot = 0; T.BUFF.immune = 0; return { kt, ki, k0, k1, mx: K.max, n: (F.stat().pbHeal || 0) - s0 };`);
   console.log('④', JSON.stringify(r4)); ok(r4.kt && r4.ki > 16, `④ 싸우는 기사 봇에게 이뮨 투 함 (${r4.ki.toFixed(1)}초)`); ok(r4.k1 > r4.k0 && r4.n >= 1, `④ 법사 봇이 다친 봇도 힐 (${r4.k0} → ${r4.k1}/${r4.mx})`);
   // ⑤ 기사 봇 자기 버프 (필드 기사 봇과 같음)
