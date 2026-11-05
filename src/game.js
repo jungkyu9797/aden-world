@@ -2053,7 +2053,7 @@ const PRESC = new Map();
 function prescaled(img, sc) { const W0 = img && (img.naturalWidth || img.width); if (!W0 || sc >= 0.999) return sc >= 0.999 ? img : null; let m = PRESC.get(img); if (!m) PRESC.set(img, m = {}); const k = sc.toFixed(3); if (m[k]) return m[k];
   const w = Math.max(1, Math.round(W0 * sc)), h = Math.max(1, Math.round((img.naturalHeight || img.height) * sc)), c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, w, h); return (m[k] = c); }
 // 임시로 물들인 몬스터(오크숲): 그릴 크기로 줄인 프레임을 한 번 물들여 저장 (매 프레임 filter는 아주 느림)
-const TFR = new Map(); let TFRpx = 0;   // 11/2 메모리: 개수(900)뿐 아니라 화소 합계(2000만 ≈ 80MB)로도 제한
+const TFR = new Map(); let TFRpx = 0;   // 11/2 메모리: 개수(900)뿐 아니라 화소 합계로도 제한 — 11/5 렉: 2000만 → 3200만(≈128MB) · 잊섬(물들인 몹 6종이 떼로 · 화면 몹 100마리)에서 쓰는 칸이 약 2400만 화소라 2000만이면 오래된 칸을 지우고 다시 만들기를 초당 35~150번 반복(그리기 렉) · 지역을 옮기면 그 지역에 없는 몹 칸은 바로 비움(MIMG_TRIM)
 // 화룡의 둥지: 용암 피부 — 우리 스프라이트 위에 코드로 만든 용암 무늬(검붉은 바위 · 갈라진 틈이 빛남)를 입힘. 그림 원본 복사·트레이싱 없음 (무늬는 무작위 점으로 만든 보로노이 균열)
 //   mode 'rock' = 몸 전체가 용암 바위 (라바 골렘) · 'skin' = 그을린 몸에 빛나는 용암 균열 (불타는 전사·궁수)
 //   v2(10/30 다듬기): 2배로 그려 무늬를 만든 뒤 줄여 저장(가는 금까지 매끈) · 굵기가 바뀌는 큰 균열 + 가는 잔금 · 균열 주위 빛 번짐 · 원래 그림의 명암 유지(그늘진 쪽은 어둡게)
@@ -2100,11 +2100,11 @@ function lavaSkin(c, mode, fr, row, q) { const w = c.width, h = c.height, g = c.
   g.putImageData(SD, 0, 0); const cv = () => { const k = document.createElement('canvas'); k.width = w; k.height = h; return k; }, B = cv(), K = cv(), L = cv(), lg = L.getContext('2d'); B.getContext('2d').putImageData(E, 0, 0); K.getContext('2d').putImageData(MK, 0, 0);
   lg.globalCompositeOperation = 'lighter'; lg.filter = `blur(${1.5 * q}px)`; lg.globalAlpha = rock ? .5 : .42; lg.drawImage(B, 0, 0); lg.filter = `blur(${4.5 * q}px)`; lg.globalAlpha = rock ? .3 : .18; lg.drawImage(B, 0, 0);
   lg.filter = 'none'; lg.globalAlpha = 1; lg.globalCompositeOperation = 'destination-in'; lg.drawImage(K, 0, 0); g.globalCompositeOperation = 'lighter'; g.drawImage(L, 0, 0); g.globalCompositeOperation = 'source-over'; }   // 빛 번짐 (가까이·넓게 두 겹) — 몸 안에만 (밖으로 번지면 흐릿해 보임)
-function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) { TFR.delete(key); TFR.set(key, c); return c; } while (TFR.size >= 900 || (TFRpx > 20e6 && TFR.size)) { const k0 = TFR.keys().next().value, c0 = TFR.get(k0); TFR.delete(k0); TFRpx -= c0.width * c0.height; }   /* 11/1: 가득 차면 다 지우던 것 → 오래 안 쓴 것부터 하나씩 (다 지우면 화둥처럼 몹 종류가 많은 곳에서 다시 만드느라 끊김) */
+function tintFrame(k, a, img, M, fr, row) { const key = k + a + fr + '_' + row; let c = TFR.get(key); if (c) { TFR.delete(key); TFR.set(key, c); return c; } while (TFR.size >= 900 || (TFRpx > 32e6 && TFR.size)) { const k0 = TFR.keys().next().value, c0 = TFR.get(k0); TFR.delete(k0); TFRpx -= c0.width * c0.height; }   /* 11/1: 가득 차면 다 지우던 것 → 오래 안 쓴 것부터 하나씩 (다 지우면 화둥처럼 몹 종류가 많은 곳에서 다시 만드느라 끊김) */
   const sc = M.s || 1, w = Math.ceil(M.W * sc), h = Math.ceil(M.H * sc); c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   if (M.lava) { const q = MOBILE ? 1 : 2, c2 = document.createElement('canvas'); c2.width = w * q; c2.height = h * q; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.imageSmoothingEnabled = true; g2.imageSmoothingQuality = 'high'; g2.filter = M.tint; g2.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w * q, h * q); g2.filter = 'none'; lavaSkin(c2, M.lava, fr, row, q); g.drawImage(c2, 0, 0, w, h); }   // 용암 몹: 2배로 그려 무늬를 만든 뒤 줄여서 (가는 금까지 매끈)
   else { g.filter = M.tint; g.drawImage(img, fr * M.W, row * M.H, M.W, M.H, 0, 0, w, h); g.filter = 'none'; }
-  TFR.set(key, c); TFRpx += c.width * c.height; return c; }
+  c._k = k; TFR.set(key, c); TFRpx += c.width * c.height; return c; }
 // 10/30: 화룡의 둥지 불타는 전사·궁수·라바 골렘이 죽을 때 — 드래곤 플라이처럼 하얗게 바래며 재가 되고, 위에서부터 부스러져 흰 재 가루·불티로 날아올라 증발
 //   몸 그림(죽을 때는 늘 같은 한 장: 서 있는 1번 그림 · 방향별)에서 재 색·부스러지는 순서를 한 번만 만들어 두고(ASHC), 죽는 몹마다 작은 캔버스 하나를 1/30초마다 다시 칠함 · 가루는 코드로 몇십 개
 const ASH_DIE = new Set(['fn_warrior', 'fn_archer', 'fn_golem']), ASH_END = 1.85, ASHC = new Map(), ASHM = new WeakMap();
@@ -2373,7 +2373,7 @@ function drawMobBody(g, f){ if (f === hero.target && !f.dead && !TGO.busy) { TGO
       if (sheetAtk){ a='attack'; const af=M.af||16; fr=Math.min(af-1,Math.floor(f.atkT/ATK_T*af)); } else if (moving&&!f.dead){ a='walk'; fr=Math.floor(f.dist*4)%8; } else if (f.dead) fr=0;
       if (I[a].complete && I[a].naturalWidth){ if (M.tint){ const c=tintFrame(f.kind, a, I[a], M, fr, f.row), sc=M.s||1, dx=Math.round(-M.ax*sc), dy=Math.round(-M.ay*sc), fl2=f.dead&&f.deadT>0.1?null:fl, fla=fl2&&fl2.startsWith('brightness(2.6)');   /* 10/30: 물들인 몬스터(화둥 등)는 맞을 때·죽을 때도 물들인 그림(용암 스킨)으로 — 예전엔 번쩍임이 원래 그림으로 그려져 죽는 내내 스킨 전 몬스터가 보였음 */
         if (f.dead&&ASH_DIE.has(f.kind)&&ashDie(g,f,c,dx,dy,M)){ g.restore(); return; }   /* 10/30: 화둥 전사·궁수·골렘은 하얗게 재가 되어 증발 */
-        g.globalAlpha=al; if (fl2&&!fla) g.filter=fl2; g.drawImage(c, dx, dy); g.filter='none'; if (fla){ g.globalCompositeOperation='lighter'; g.globalAlpha=al*0.8; g.drawImage(c, dx, dy); g.drawImage(c, dx, dy); g.globalCompositeOperation='source-over'; } } else drawSheet(g, I[a], M, fr, f.row, 0, 0, al, fl); } if (S.flame && !f.dead) fnFlame(g, f, S); g.restore(); return; }
+        g.globalAlpha=al; if (fl2&&!fla){ g.filter=fl2; g.drawImage(c, dx, dy); g.filter='none'; } else g.drawImage(c, dx, dy); if (fla){   /* 11/5 렉: 필터가 없으면 filter를 건드리지 않음 (몹마다 'none'을 넣던 것) */ g.globalCompositeOperation='lighter'; g.globalAlpha=al*0.8; g.drawImage(c, dx, dy); g.drawImage(c, dx, dy); g.globalCompositeOperation='source-over'; } } else drawSheet(g, I[a], M, fr, f.row, 0, 0, al, fl); } if (S.flame && !f.dead) fnFlame(g, f, S); g.restore(); return; }
     if (ART==='fox'){ const anim = f.dead ? 'Survey' : moving ? (f.aggro?'Run':'Walk') : 'Survey';
       const fr = f.dead ? 0 : moving ? Math.floor(f.dist*(f.aggro?3:4))%8 : Math.floor(time*6+f.hi)%8;
       const img = S.tint ? tinted(f.kind,anim) : im['fox_'+anim]; if (img) drawSheet(g, img, S.sc!==1?{...FX,s:S.sc}:FX, fr, f.row, 0, 0, al, fl); g.restore(); return; }
@@ -2406,7 +2406,10 @@ function drawWorld(g, vw, vh){
       if (!s || !im[p.type+p.v]){ const pc=propCanvas(p.type, p.v); if (pc){ g.save(); g.globalAlpha=fade?0.4:1; g.drawImage(pc.c, Math.round(x-pc.ax), Math.round(y-pc.ay), pc.w, pc.h); g.restore(); } if (p.type==='bonfire') campFlame(g,x,y); return; }   // 사막 소품(코드 그림) — im['cactus0'] 등 정식 그림이 들어오면 위의 스프라이트 경로로
       if (im[p.type+p.v].complete){ const pim = ISLE && ISLE.def.sand ? sandProp(p.type+p.v, p.type) : ISLE && ISLE.def.snow ? snowImg(im[p.type+p.v]) : im[p.type+p.v]; g.save(); g.globalAlpha=fade?0.4:1; const sc=s.s||1, ps=prescaled(pim, sc); if (ps) g.drawImage(ps, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc)); else { if (sc<1){ g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; } g.drawImage(pim, Math.round(x-s.ax*sc), Math.round(y-s.ay*sc), s.W*sc, s.H*sc); } g.restore(); } }}); }
   if (ISLE && ISLE.def.altar){ const A=ISLE.def.altar; list.push({d:A.i+A.j-4, f:()=>drawAltar(g,A,0)}); list.push({d:A.i+A.j+1, f:()=>drawAltar(g,A,1)}); }   /* v126: 소환의 제단 */
-  for (const f of foxes){ if (f.dead&&f.deadT>(ASH_DIE.has(f.kind)?ASH_END:f.kind==='fn_ifrit'?IFRIT_END:1.4)) continue; if (!DN.seen(f.i,f.j)) continue; list.push({d:f.x+f.z, f:()=>HF.body(g, f, drawMobBody)}); }   // HF.body: 맞은 직후 찌그러짐 (타격감)
+  const vL=cam[0]-vw/2, vR=cam[0]+vw/2, vT=cam[1]-vh/2, vB=cam[1]+vh/2;   /* 11/5 렉: 화면 밖 몹은 안 그림 — 잊섬(몹 288)에서 화면 밖까지 매 프레임 다 그리느라 색칠 그림 캐시가 넘쳐 초당 150장씩 새로 만들던 것 (그리기 40ms) */
+  for (const f of foxes){ if (f.dead&&f.deadT>(ASH_DIE.has(f.kind)?ASH_END:f.kind==='fn_ifrit'?IFRIT_END:1.4)) continue; if (!DN.seen(f.i,f.j)) continue;
+    if (f!==hero.target && !f.twr){ const S=MOB[f.kind], bg=S?Math.min(2.4,Math.max(1,((S.sc||1)*(S.hh||60))/60)):2.4, [x,y]=W2P(f.x,f.z); if (x<vL-130*bg-60||x>vR+130*bg+60||y<vT-80*bg-60||y>vB+240*bg+80) continue; }   // 큰 몹(최대 2.4배)도 몸·그림자·광폭화 기운이 잘리지 않을 만큼 넉넉히
+    list.push({d:f.x+f.z, f:()=>HF.body(g, f, drawMobBody)}); }   // HF.body: 맞은 직후 찌그러짐 (타격감)
   if (DEATH) {} else   // 무덤은 어둠 위(이름표 단계)에서 그림
   list.push({d:hero.x+hero.z, f:()=>{ const [x,y]=W2P(hero.x,hero.z); const NF=a=>KN.anims[a].frames; let anim='idle', fr=Math.floor(time*6)%NF('idle');
     if (hero.atk){ anim=hero.atk.v||'attack'; const nf=KN.anims[anim]?NF(anim):8; fr=Math.min(nf-1,Math.floor(hero.atk.t/hero.atk.dur*nf)); if (!KN.anims[anim]&&CLASS==='knight') anim='attack'; } else if (hero.t<1){ anim='walk'; fr=Math.floor(hero.dist*4)%8; } else if (SCENE==='town' && KN.anims.look && CLASS==='knight'){ anim='look'; fr=Math.floor(time*2.5)%NF('look'); }
@@ -3162,7 +3165,8 @@ MOB.fg_giant = { name: '에이션트 자이언트', lv: 66, hp: Math.round(MOB.p
 //   지역에 들어갈 때 그 지역 몬스터 그림만 미리 받고, 20초 넘게 안 그린 다른 몬스터 그림은 놓음 (MIMG_TRIM) · 도감·카드·가호 아이콘은 idle 한 장만 (mIdle)
 const MIMG0 = {}, MIMG = new Proxy(MIMG0, { get(o, k) { if (typeof k === 'string' && !Object.prototype.hasOwnProperty.call(o, k) && MSHEET[k]) { const S = o[k] = {};
     for (const a of ['idle', 'walk', 'attack']) { const i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_${a}.webp`; S[a] = i; } }   /* 11/4 메모리: i.decode() 뺌 — 캔버스는 그 결과를 안 쓰고 따로 다시 풀어서, 그림마다 다 푼 사본(종류당 3장 20~90MB)이 하나 더 생겼음 (처음 그릴 때 걸리는 시간도 그대로였음) */ const e = o[k]; if (e && typeof e === 'object') e.t = time; return e; } });
-function MIMG_TRIM(keep) { for (const k in MIMG0) { const e = MIMG0[k]; if (!keep.has(k) && !(time - (e.t || 0) < 20)) delete MIMG0[k]; } }
+function MIMG_TRIM(keep) { for (const k in MIMG0) { const e = MIMG0[k]; if (!keep.has(k) && !(time - (e.t || 0) < 20)) delete MIMG0[k]; }
+  for (const [key, c] of TFR) if (c._k && !keep.has(c._k)) { TFR.delete(key); TFRpx -= c.width * c.height; } }   /* 11/5: 새 지역에 없는 몹의 물들인 칸도 비움 (서먼·다른 지역 몹이 다시 나오면 그릴 때 다시 만듦) */
 const MIDLE = new Map(); function mIdle(k) { const o = MIMG0[k]; if (o) return o.idle; if (!MSHEET[k]) return null; let i = MIDLE.get(k); if (i) { MIDLE.delete(k); MIDLE.set(k, i); return i; }
   i = new Image(); i.src = `assets/classic/mon_${MSHEET[k].src || k}_idle.webp`; MIDLE.set(k, i); while (MIDLE.size > 48) MIDLE.delete(MIDLE.keys().next().value); return i; }
 // 11/4 메모리: 가호 아이콘·월드맵 초상·변신 카드 그림은 서 있는 그림의 한 칸(row줄 0번)만 씀 — 예전엔 서 있는 그림 전체(<img> · 풀면 한 장 10~29MB)를 그려서 크롬이 다 푼 사본을 몇 분씩 쥐고 있었음
