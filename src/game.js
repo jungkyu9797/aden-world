@@ -5241,7 +5241,7 @@ const ITEMS = {
   hw_pouch: { name: '할로윈 호박 주머니', icon: 'hw_pouch', use: 'hwpouch', w: 0.5, stack: true, rar: '고급', get desc() { return '호박씨 100개로 바꾼 주머니. 열면 하나가 나옵니다 — ' + HWM.pouchTxt('hw_pouch'); } },
   hw_pouch_r: { name: '희귀 호박 주머니', icon: 'hw_pouch_r', use: 'hwpouch', w: 0.5, stack: true, rar: '희귀', get desc() { return '열면 하나가 나옵니다 — ' + HWM.pouchTxt('hw_pouch_r'); } },
   hw_pouch_h: { name: '영웅 호박 주머니', icon: 'hw_pouch_h', use: 'hwpouch', w: 0.5, stack: true, rar: '영웅', get desc() { return '열면 하나가 나옵니다 — ' + HWM.pouchTxt('hw_pouch_h'); } },
-  hw_candy: { name: '호박 사탕', icon: 'hw_candy', use: 'hwcandy', w: 0.1, stack: true, rar: '고급', desc: '달콤한 호박 맛 사탕. 먹으면 30분 동안 몬스터를 잡아 얻는 경험치 +20%. (다시 먹으면 30분으로 다시 채워짐 · 할로윈 호박밭 안에서는 못 먹어요)' },
+  hw_candy: { name: '호박 사탕', icon: 'hw_candy', use: 'hwcandy', buff: 'hwexp',   /* 11/5 프로듀서: 자동 사용 (효과가 끝나면 바로 다시 먹음 · 버프 키 hwexp) */ w: 0.1, stack: true, rar: '고급', desc: '달콤한 호박 맛 사탕. 먹으면 30분 동안 몬스터를 잡아 얻는 경험치 +20%. (다시 먹으면 30분으로 다시 채워짐 · 할로윈 호박밭 안에서는 못 먹어요)' },
   hw_lantern: { name: '잭오랜턴', icon: 'hw_lantern', use: 'candle', buff: 'light', ldur: 3600, w: 0.5, stack: true, rar: '고급', desc: '호박 속에 촛불을 켠 등불. 켜면 1시간 동안 밤 시야가 넓어져요. (양초 6개 분량)' },
   hw_cloak: { name: '할로윈 망토', slot: 'cloak', icon: 'hw_cloak', ac: 3, mr: 10, hp: 20, w: 3, rar: '희귀', desc: '호박빛 안감을 댄 마녀의 망토. 할로윈 호박대장이 아주 낮은 확률로 떨어뜨려요. (AC -3 · MR +10 · 최대 HP +20)' },
   old_sword: { wtype: 'sword', name: '낡은 한손검', slot: 'weapon', icon: 'sword', dmg: [1, 5], w: 5 },
