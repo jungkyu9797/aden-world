@@ -20,7 +20,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(/기록 서버 연결 전/.test(s1.note), '① 기록 서버가 없으면 "기록 서버 연결 전" (접속 중인 사람만)');
   await P.click('[data-rt="kd"]'); await P.waitForTimeout(200);
   const s1b = await P.evaluate(() => [...document.querySelectorAll('#rankwin .rk-hd span')].map(x => x.textContent));
-  ok(s1b.join() === '순위,아이디,킬,데스,K/D,구분', '① PVP 탭 열: 순위·아이디·킬·데스·K/D·구분 ' + s1b.join());
+  ok(s1b.join() === '순위,아이디,킬,데스,K/D,클래스,구분', '① PVP 탭 열: 순위·아이디·킬·데스·K/D·클래스·구분 (11/5 클래스 추가) ' + s1b.join());
   await P.click('[data-rt="cp"]'); await P.click('#rk-bots'); await P.waitForTimeout(200);
   const s1c = await P.evaluate(() => ({ bots: document.querySelectorAll('#rankwin .rk-r.bot').length, rows: document.querySelectorAll('#rankwin .rk-r').length }));
   ok(s1c.bots >= 30, `① [봇 포함] → 봇 줄 ${s1c.bots}개 (전체 ${s1c.rows})`);
@@ -88,7 +88,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(gone && !gone.on && gone.lv === '33', '⑥ 나간 사람(rkGone)도 마지막 값으로 남음 (접속 표시 없음)');
   { const nm = s6.rows.map(r => r.n.replace(/ 봇$/, '')); ok(new Set(nm).size === nm.length, '⑥ 같은 이름이 두 줄로 안 나옴 ' + nm.join(',')); }
   ok(meR && meR.on && /%$/.test(meR.xp), '⑥ 내 줄: 실시간 · 경험치 %');
-  ok(s6.kd.length >= 4 && s6.kd.some(r => /rkOne\|1\|1\|1\.00\|유저/.test(r)) && s6.kd.some(r => /\|봇 · /.test(r)), '⑥ PVP 탭: 나 1/1 · 봇(혈맹 이름) 포함');
+  ok(s6.kd.length >= 4 && s6.kd.some(r => /rkOne\|1\|1\|1\.00\|(기사|요정|마법사)\|유저/.test(r)) && s6.kd.some(r => /\|(기사|요정|마법사)\|봇 · /.test(r)), '⑥ PVP 탭: 나 1/1 · 클래스 · 봇(혈맹 이름) 포함 ' + s6.kd.slice(0, 3).join(' / '));
   await P.screenshot({ path: 'dev/out/ranking_kd.png' }); await P.evaluate(() => __RANK.open('cp')); await P.screenshot({ path: 'dev/out/ranking_cp.png' });
 
   // ⑦ 저장 · 다시 불러오기
