@@ -7881,7 +7881,7 @@ const SELL = (() => {
 
 // ============================================================ 창고: 인벤토리와 같이 열림 · 끌어다 놓아 맡기기 / 더블클릭·끌어서 찾기
 const STORE = (() => {
-  const $ = id => document.getElementById(id), CAP = 80, box = [], RO = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3, '전설': 4 }, GMAX = 2e9; let gold = 0;   // v127: 창고 골드 (계정 공유)
+  const $ = id => document.getElementById(id), CAP = 150, box = [],   /* 11/5 프로듀서: 창고 80 → 150칸 */ RO = { '일반': 0, '고급': 1, '희귀': 2, '영웅': 3, '전설': 4 }, GMAX = 2e9; let gold = 0;   // v127: 창고 골드 (계정 공유)
   function goldMove(dir) { const inp = $('st-gin'); let q = Math.floor(+(inp && inp.value) || 0); const have = dir > 0 ? Math.floor(coins) : gold; if (q <= 0) q = have; q = Math.min(q, have); if (dir > 0) q = Math.min(q, GMAX - gold);
     if (q <= 0) { say(dir > 0 ? (have > 0 ? '창고 골드가 가득 찼습니다.' : '맡길 골드가 없습니다.') : '창고에 맡긴 골드가 없습니다.', '#f08a7a'); return; }
     if (dir > 0) { coins -= q; gold += q; } else { coins += q; gold -= q; } if (inp) inp.value = ''; say(`창고${dir > 0 ? '에 맡김' : '에서 찾음'}: 골드 ${q.toLocaleString()} (창고 ${gold.toLocaleString()})`, '#f2d060'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }
