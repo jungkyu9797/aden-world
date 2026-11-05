@@ -45,7 +45,7 @@
 - 작업량이 아주 크면 먼저 `dev/rooms/<카드 id>.md`에 할 일·맥락을 적어 main에 올리고 보조 작업자에게 맡긴다. 메인방이 교대돼도 그 메모로 이어 간다.
 
 ## 대화방 역할
-- **배포 담당 방**: 작업방 결과 합치기, GAME_VER·업데이트 소식, 승인, 배포, 메인 테스트 페이지, 원래 컴퓨터 게임 폴더 반영, 서버 관리.
+- **배포 담당 방**: 작업방 결과 합치기, GAME_VER·업데이트 소식, 승인, 배포, 메인 테스트 페이지, 서버 관리.
 - **작업방**(할로윈 / 서먼·보스 밸런스 / AI 봇 / 버그·작은 수정 …): 자기 갈래(브랜치)에서만 작업. 방마다 `dev/rooms/<이름>.md`에 할 일과 맥락이 있다.
 
 ## 작업방 규칙
@@ -61,7 +61,8 @@
 
 ## 배포 담당 방 규칙
 - 배포 시점: 프로듀서가 메인방에 "업데이트"라고 할 때. 급한 버그는 프로듀서에게 묻고 바로.
-- 순서: `git fetch` → main에 **업데이트 대기(status `queued`) 카드의 갈래만** merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 그 카드들의 `notes` 반영(`silent`·첫 줄이 `# 잠수패치`인 `dev/notes` 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → (프로듀서의 "업데이트" 한마디가 승인) `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 원래 컴퓨터 `C:\Users\hjk97\Downloads\AdenWorld\aden-survivors_1\game\`에 `src/game.js`·`index.html`(+새 에셋) 넣기(device_commit_files, force). 컴퓨터가 연결 안 돼 있으면 프로듀서에게 알린다 → 작업판 카드 status `done` + `ver`, `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기 → 채팅에 최종 소식안·배포 결과 → 남은 승인 대기로 테스트 판 다시 올리기(위 작업방 규칙 7과 같은 방법).
+- 원래 컴퓨터 게임 폴더에 파일을 직접 넣지 않는다 (11/5 프로듀서: PC 자동 업데이트가 있으니 안 해도 됨 — 2분마다 확인 · 2시간 뒤 저절로 적용).
+- 순서: `git fetch` → main에 **업데이트 대기(status `queued`) 카드의 갈래만** merge(충돌 정리) → `GAME_VER` +1, 소식 목록에 그 카드들의 `notes` 반영(`silent`·첫 줄이 `# 잠수패치`인 `dev/notes` 파일은 소식에 안 넣고 조용히 같이 배포) → 테스트 → (프로듀서의 "업데이트" 한마디가 승인) `python3 dev/release.py` → `bash dev/keycheck.sh` → commit(끝에 Co-Authored-By 줄) → `git push origin main` → `git ls-remote origin HEAD` 확인 → 작업판 카드 status `done` + `ver`, `releases/v<번호>`·`meta/live` 기록 → 반영한 `dev/notes` 파일 비우기 → 채팅에 최종 소식안·배포 결과 → 남은 승인 대기로 테스트 판 다시 올리기(위 작업방 규칙 7과 같은 방법).
 - 메인방은 프로듀서가 말을 걸 때마다: 메모함(`ideas` status `new`)·`rework`·`pnote`가 있는 카드를 확인해서 분류·작업 시작, 그리고 `meta/test`에 없는 승인 대기 갈래가 있으면 묶음 테스트 판을 다시 올린다.
 
 ## 테스트 아티팩트
