@@ -7552,7 +7552,7 @@ const TOWN = (() => {
         row._calc = quiet => { const L = mk.left(); row._q = 0; row._tot = 0; row.classList.toggle('sold', !L); row.querySelector('.pr').textContent = L ? price.toLocaleString() + ' 골드' : '품절';
           calc.innerHTML = L ? (coins >= price ? `${fmt(coins)} − ${fmt(price)} = <b class="ok">${fmt(coins - price)}</b>` : `<b class="neg">${fmt(price - coins)} 골드 부족</b>`) : '<span class="muted">다음 교체 때 다시 들어와요</span>'; buy.textContent = L ? '구입' : '품절'; buy.disabled = !L || coins < price; if (!quiet) foot(); };
         row._buy = bulk => { if (bulk) return false; if (!mk.left()) { say('이미 팔린 물건입니다. 다음 교체 때 다시 들어와요.', '#f0c080'); row._calc(true); return null; } if (coins < price) return false;
-          coins -= price; mk.buy(); TELE.ev('buy', { id: IID || '', q: 1, g: price, mk: 1 }); if (IID) INV.add(IID, 1, true); say(`시장에서 ${n}을(를) 샀습니다. -${fmt(price)} 골드`, '#ffd86a'); return true; };
+          coins -= price; mk.buy(); TELE.ev('buy', { id: IID || '', q: 1, g: price, mk: 1 }); goldTax(price, 'mkt'); if (IID) INV.add(IID, 1, true); say(`시장에서 ${n}을(를) 샀습니다. -${fmt(price)} 골드`, '#ffd86a'); return true; };
         if (IID && ITEMS[IID]) row.onpointerdown = ev => { if (ev.target.closest('button,input')) return; INV.holdStart(ev, { id: IID, n: 1, preview: true }); };
         buy.onclick = () => { row._calc(true); const r = row._buy(false); if (r) upd(); else if (r === false) say('골드가 부족합니다. (' + n + ')', '#f08a7a'); };
         list.appendChild(row); row._calc(true); return; }
@@ -7560,7 +7560,7 @@ const TOWN = (() => {
       row._calc = quiet => { const tg = Math.max(0, Math.min(999, Math.floor(+inp.value || 0))), fixed = !!(fx && fx.checked), own = fixed ? INV.count(IID) : 0; q = fixed ? Math.max(0, tg - own) : tg; const tot = price * q, left = coins - tot; row._q = q; row._tot = tot;
         const pre = fixed ? `<span class="fixinfo">고정 ${fmt(tg)} · 보유 ${fmt(own)}${q ? ` → <b>${fmt(q)}개</b>` : ''}</span> ` : '';
         calc.innerHTML = q ? `${pre}${fmt(coins)} − ${fmt(tot)} = <b class="${left < 0 ? 'neg' : 'ok'}">${left < 0 ? '−' + fmt(-left) + ' (부족)' : fmt(left)}</b>` : fixed ? `${pre}<span class="muted">가방에 충분해요</span>` : '<span class="muted">수량 0</span>'; buy.disabled = !q || left < 0; row.classList.toggle('picked', q > 0); if (!quiet) foot(); };
-      row._buy = bulk => { const tot = price * q; if (!q || coins < tot) return false; coins -= tot; TELE.ev('buy', { id: IID || '', q, g: tot }); if (IID) INV.add(IID, q, true);
+      row._buy = bulk => { const tot = price * q; if (!q || coins < tot) return false; coins -= tot; TELE.ev('buy', { id: IID || '', q, g: tot }); goldTax(tot, 'shop'); if (IID) INV.add(IID, q, true);
         if (!bulk) say(`${n} ${q}개를 구입했습니다. -${fmt(tot)} 골드`, '#cfe4a8'); if (!(fx && fx.checked)) inp.value = 0; return true; };
       if (fx) fx.onchange = () => { if (fx.checked) FIX[n] = Math.max(0, Math.min(999, Math.floor(+inp.value || 0))); else delete FIX[n]; fixSave(); row.classList.toggle('fixed', fx.checked); row._calc(); };
       const fixUpd = () => { if (fx && fx.checked) { FIX[n] = Math.max(0, Math.min(999, Math.floor(+inp.value || 0))); fixSave(); } };
@@ -7658,7 +7658,7 @@ const TOWN = (() => {
     $('wm-name').textContent = r[1]; $('wm-grade').textContent = `${r[2]} 사냥터 · 권장 Lv.${r[3]}` + (r[0] === 'dream_island' ? ` · ${dreamLeftTxt()}` : ''); $('wm-grade').className = 'g' + ['초보', '중급', '상급'].indexOf(r[2]); $('wm-desc').textContent = r[6]; { const cx_ = $('wm-codex'); if (cx_) { cx_.innerHTML = codexHTML(r); drawPortraits(cx_); } }
     $('wm-warn').hidden = hero.lv >= parseInt(r[3], 10) - 3; }
   const WM_FEE = 1000, feeOf = r => r && r[1] === '이야기섬' ? 0 : r && r[0] === 'forgotten_island' ? FGI.FEE : WM_FEE, feeShort = fee => say(`이동 비용 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a');
-  $('wm-go').onclick = () => { if (!sel) return; if (fgBlock()) return; const r = sel, fee = feeOf(r); if (r[0] === 'dream_island' && !DRM.canEnter()) return;   /* 시간을 다 썼으면 이동 비용을 내기 전에 막음 */ if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
+  $('wm-go').onclick = () => { if (!sel) return; if (fgBlock()) return; const r = sel, fee = feeOf(r); if (r[0] === 'dream_island' && !DRM.canEnter()) return;   /* 시간을 다 썼으면 이동 비용을 내기 전에 막음 */ if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); goldTax(fee, r[0] === 'forgotten_island' ? 'entry' : 'tele'); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
   $('wm-town').onclick = () => askTown();
   function askTown() { if (SCENE === 'town') { closeAll(); return; } if (fgBlock()) return; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
@@ -8045,7 +8045,7 @@ const CFGSYNC = (() => { const get = k => { try { return localStorage.getItem(k)
     WHEEL_LOCK = get('aden_wlock') === '1'; { const a = get('mm_on'); if (a != null) MM.setOn(a === '1'); const b = parseFloat(get('mm_op')); if (isFinite(b)) MM.setOp(b); } }
   return { dump, load }; })();
 const SAVE = (() => {
-  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', lastP = '', lastD = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0, offUT = null, nowUT = null, startP = null;   /* v120: offUT = 불러온 캐릭터 저장의 서버 수정 시각(=지난 종료) · nowUT = 이번 접속 기록의 서버 시각 */   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
+  let on = false, cls = null, t = 0, busy = false, lastC = '', lastS = '', lastP = '', lastD = '', lastG = '', pend = null, ut = { c: null, u: null }, sessP = null, chkT = 0, offUT = null, nowUT = null, startP = null;   /* v120: offUT = 불러온 캐릭터 저장의 서버 수정 시각(=지난 종료) · nowUT = 이번 접속 기록의 서버 시각 */   // ut: 계정 서버 문서의 마지막 수정 시각 (캐릭터 c · 계정 u)
   const hex = s => [...new TextEncoder().encode(String(s).toLowerCase())].map(b => b.toString(16).padStart(2, '0')).join('');
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   let db; async function adb() { if (db !== undefined) return db; db = null; try { if (window.claude && claude.use) db = await claude.use('db'); } catch (e) { db = null; } return db; }
@@ -8060,12 +8060,12 @@ const SAVE = (() => {
     if (s.dd) { const P = deathPenalty(false); hero.hp = Math.max(1, Math.ceil(hero.max * 0.5)); hero.mp = Math.floor(hero.maxmp * 0.5); setTimeout(() => say(`쓰러진 채로 접속을 끊어서 마을에서 부활했어요. (경험치 −${P.ex.toLocaleString()} · 골드 −${P.g.toLocaleString()})`, '#f2e6a8'), 1500); }
     INV.render(); return true; }
   const cloud = () => ACCOUNT.mode() === 'cloud' && CLOUD.on();
-  const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c, skey = () => 'aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), pkey = () => 'aden_pcard_' + String(ACCOUNT.acc() || '').toLowerCase(), dkey = () => 'aden_dcard_' + String(ACCOUNT.acc() || '').toLowerCase();   /* pkey: 변신 카드 · dkey: 마법인형 (계정 공유 · 이 기기 저장일 때) */
+  const lkey = c => 'aden_save_' + String(ACCOUNT.acc() || '').toLowerCase() + '_' + c, skey = () => 'aden_store_' + String(ACCOUNT.acc() || '').toLowerCase(), pkey = () => 'aden_pcard_' + String(ACCOUNT.acc() || '').toLowerCase(), dkey = () => 'aden_dcard_' + String(ACCOUNT.acc() || '').toLowerCase(), gkey = () => 'aden_gtax_' + String(ACCOUNT.acc() || '').toLowerCase();   /* pkey: 변신 카드 · dkey: 마법인형 (계정 공유 · 이 기기 저장일 때) */
   async function load(c) { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}/chars/${c}`); ut.c = d ? d.__ut || null : null; offUT = ut.c; return d && d.data ? JSON.parse(d.data) : null; }
       const a = await adb(); if (a) { try { const sn = await a.doc(`saves/${hex(ACCOUNT.acc())}_${c}`).get(); if (sn.exists) return JSON.parse(sn.data().data); } catch (e) {} } const v = ls.get(lkey(c)); return v ? JSON.parse(v) : null; }
     catch (e) { console.warn('load', e); return undefined; } }   // undefined = 서버 오류 (null = 저장 없음)
-  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; PCG.load(d ? d.polyCards : null); DCG.load(d ? d.dollCards : null); return d && d.store ? JSON.parse(d.store) : null; } PCG.load(ls.get(pkey())); DCG.load(ls.get(dkey())); const v = ls.get(skey()); return v ? JSON.parse(v) : null; } catch (e) { console.warn('loadStore', e); return undefined; } }   // undefined = 불러오기 실패
-  function start(c, store) { cls = c; on = true; t = 0; DCG.migStart(); lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); lastP = PCG.raw(); lastD = DCG.raw(); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); }
+  async function loadStore() { try { if (cloud()) { const d = await CLOUD.get(`users/${CLOUD.uid()}`); ut.u = d ? d.__ut || null : null; PCG.load(d ? d.polyCards : null); DCG.load(d ? d.dollCards : null); GTAX.load(d ? d.goldTax : null); return d && d.store ? JSON.parse(d.store) : null; } PCG.load(ls.get(pkey())); DCG.load(ls.get(dkey())); GTAX.load(ls.get(gkey())); const v = ls.get(skey()); return v ? JSON.parse(v) : null; } catch (e) { console.warn('loadStore', e); return undefined; } }   // undefined = 불러오기 실패
+  function start(c, store) { cls = c; on = true; t = 0; DCG.migStart(); lastC = JSON.stringify(snap()); lastS = JSON.stringify(STORE.list()); lastP = PCG.raw(); lastD = DCG.raw(); lastG = GTAX.raw(); if (store) { STORE.load(store); lastS = JSON.stringify(STORE.list()); }
     SESS.begin(); if (cloud()) sessP = CLOUD.set(`users/${CLOUD.uid()}`, { sess: SESS.id, sessAt: String(Date.now()) }, true).then(r => { if (typeof r === 'string') { ut.u = r; nowUT = r; } }).catch(() => {}); startP = sessP; }   // v117: 이 접속을 계정의 '현재 접속'으로 표시 → 먼저 있던 접속은 다음 저장 때 끊김
   // v120: 오프라인 정산용 시각 — 계정 서버면 서버가 기록한 시각만 씀 (PC 시계를 바꿔도 소용없음)
   async function times(o) { if (cloud()) { if (startP) { try { await startP; } catch (e) {} } const a = Date.parse(offUT || ''), b = Date.parse(nowUT || ''); return isFinite(a) && isFinite(b) ? { off: a, now: b, key: String(offUT) } : null; }
@@ -8078,14 +8078,14 @@ const SAVE = (() => {
       if (force || j !== lastC) { if (cloud()) { const doc = { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()), sd: SESS.id }, P = `users/${CLOUD.uid()}/chars/${cls}`; let r; try { r = await CLOUD.set(P, doc, false, ut.c || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if ((await sessOk(true)) !== true) { busy = false; pend = null; return false; } let cur = null; try { cur = await CLOUD.get(P); } catch (e2) { busy = false; pend = null; return false; } if (cur && cur.sd && cur.sd !== SESS.id) { SESS.kick('server'); busy = false; pend = null; return false; } r = await CLOUD.set(P, doc, false, (cur && cur.__ut) || undefined); }   /* v159: 다른 접속이 더 나중에 저장했으면 절대 덮어쓰지 않음 (그 접속이 이어서 함) */ if (typeof r === 'string') ut.c = r; }
         else { const a = await adb(); let done = false; if (a) { try { await a.doc(`saves/${hex(ACCOUNT.acc())}_${cls}`).set({ data: j, at: Date.now() }); done = true; } catch (e) {} } if (!done) ls.set(lkey(cls), j); }
         lastC = j; }
-      { const pc = PCG.raw(), dc = DCG.raw(), o = {}; if (force || st !== lastS) o.store = st; if (pc != null && (force || pc !== lastP)) o.polyCards = pc; if (dc != null && (force || dc !== lastD)) o.dollCards = dc;   /* 변신 카드: 계정 문서 users/{uid}.polyCards · 마법인형: dollCards (불러오기에 실패했으면 null → 덮어쓰지 않음) · 창고와 같은 문서라 한 번에 */
-        if (o.store != null || o.polyCards != null || o.dollCards != null) { if (cloud()) { const P = `users/${CLOUD.uid()}`; let r; try { r = await CLOUD.set(P, o, true, ut.u || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if ((await sessOk(true)) !== true) { busy = false; pend = null; return false; } r = await CLOUD.set(P, o, true); } if (typeof r === 'string') ut.u = r; } else { if (o.store != null) ls.set(skey(), st); if (o.polyCards != null) ls.set(pkey(), pc); if (o.dollCards != null) ls.set(dkey(), dc); } if (o.store != null) lastS = st; if (o.polyCards != null) lastP = pc; if (o.dollCards != null) lastD = dc; } }
+      { const pc = PCG.raw(), dc = DCG.raw(), gt = GTAX.raw(), o = {}; if (force || st !== lastS) o.store = st; if (pc != null && (force || pc !== lastP)) o.polyCards = pc; if (dc != null && (force || dc !== lastD)) o.dollCards = dc; if (gt != null && (force || gt !== lastG)) o.goldTax = gt;   /* 11/5 골드 세금 (불러오기에 실패했으면 null → 덮어쓰지 않음) */   /* 변신 카드: 계정 문서 users/{uid}.polyCards · 마법인형: dollCards (불러오기에 실패했으면 null → 덮어쓰지 않음) · 창고와 같은 문서라 한 번에 */
+        if (o.store != null || o.polyCards != null || o.dollCards != null || o.goldTax != null) { if (cloud()) { const P = `users/${CLOUD.uid()}`; let r; try { r = await CLOUD.set(P, o, true, ut.u || undefined); } catch (e) { if (e.code !== 'FAILED_PRECONDITION') throw e; if ((await sessOk(true)) !== true) { busy = false; pend = null; return false; } r = await CLOUD.set(P, o, true); } if (typeof r === 'string') ut.u = r; } else { if (o.store != null) ls.set(skey(), st); if (o.polyCards != null) ls.set(pkey(), pc); if (o.dollCards != null) ls.set(dkey(), dc); if (o.goldTax != null) ls.set(gkey(), gt); } if (o.store != null) lastS = st; if (o.polyCards != null) lastP = pc; if (o.dollCards != null) lastD = dc; if (o.goldTax != null) lastG = gt; } }
       if (!quiet) say('저장했습니다.' + (cloud() ? ' (계정 서버)' : ' (이 기기)'), '#9fd08a'); }
     catch (e) { ok = false; console.warn('save', e); if (!quiet) say('저장하지 못했어요. 인터넷 연결을 확인해 주세요. (잠시 뒤 자동으로 다시 시도)', '#f08a7a'); }
     busy = false; pend = null; return ok; }
   function tick(dt) { if (!on) return; t += dt; chkT += dt; if (t >= 20) { t = 0; chkT = 0; now(false, true); } else if (chkT >= 60) { chkT = 0; sessOk(); } }   // 바뀐 게 없어도 1분마다 현재 접속 확인
   // 창 닫기 직전: 기다릴 수 없으니 keepalive로 마지막 저장
-  function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }, false, ut.c || undefined); const st = JSON.stringify(STORE.list()), pc = PCG.raw(), dc = DCG.raw(), o = {}; if (st !== lastS) o.store = st; if (pc != null && pc !== lastP) o.polyCards = pc; if (dc != null && dc !== lastD) o.dollCards = dc; if (o.store != null || o.polyCards != null || o.dollCards != null) CLOUD.beacon(`users/${CLOUD.uid()}`, o, true, ut.u || undefined); } else { ls.set(lkey(cls), j); ls.set(skey(), JSON.stringify(STORE.list())); const pc = PCG.raw(), dc = DCG.raw(); if (pc != null) ls.set(pkey(), pc); if (dc != null) ls.set(dkey(), dc); } } catch (e) {} }
+  function flush() { if (!on) return; try { const S_ = snap(), j = JSON.stringify(S_); if (cloud()) { if (j !== lastC) CLOUD.beacon(`users/${CLOUD.uid()}/chars/${cls}`, { name: S_.name, data: j, ver: String(GAME_VER), at: String(Date.now()) }, false, ut.c || undefined); const st = JSON.stringify(STORE.list()), pc = PCG.raw(), dc = DCG.raw(), gt = GTAX.raw(), o = {}; if (st !== lastS) o.store = st; if (pc != null && pc !== lastP) o.polyCards = pc; if (dc != null && dc !== lastD) o.dollCards = dc; if (gt != null && gt !== lastG) o.goldTax = gt; if (o.store != null || o.polyCards != null || o.dollCards != null || o.goldTax != null) CLOUD.beacon(`users/${CLOUD.uid()}`, o, true, ut.u || undefined); } else { ls.set(lkey(cls), j); ls.set(skey(), JSON.stringify(STORE.list())); const pc = PCG.raw(), dc = DCG.raw(); if (pc != null) ls.set(pkey(), pc); if (dc != null) ls.set(dkey(), dc); const gt = GTAX.raw(); if (gt != null) ls.set(gkey(), gt); } } catch (e) {} }
   addEventListener('beforeunload', flush); addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => { if (!on) return; if (document.hidden) now(false, true); else sessOk(); });   // v168: 다른 앱으로 가거나 화면을 끄면 바로 저장 (폰 → PC로 옮겨도 이어짐) · 돌아오면 바로 현재 접속인지 확인 (다른 기기가 이어 하고 있으면 바로 접속 종료)
   if (window.native && window.native.onClosing) window.native.onClosing(async () => { try { await Promise.race([now(false, true), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} window.native.closeNow && window.native.closeNow(); });   // PC: 창 닫을 때 저장 끝나고 닫힘
@@ -8619,7 +8619,7 @@ const ADMIN = (() => {
   function respond(to, sq, cmd, data) { NET.admRespond(to, sq, cmd, data); }
   function inspData(cc) { const st = INV.stat(), eq = INV.bag().filter(e => e.on).map(e => [e.id, e.en || 0, e.blessed ? 1 : 0]); { const dv = INV.eqE('doll'); if (dv && dv.dv) eq.push([dv.id, 0, 0]); }   /* 11/5 마법인형 칸 */ let bag = INV.bag().filter(e => !e.on).map(e => [e.id, e.n, e.en || 0, e.blessed ? 1 : 0]);
     const D = { n: PNAME(), c: CLASS, lv: hero.lv, ex: +(hero.exp / Math.max(1, needExp(hero.lv)) * 100).toFixed(1), hp: [Math.ceil(hero.hp), hero.max], mp: [Math.floor(hero.mp), hero.maxmp], ac: INV.ac(), mr: mrTotal(),
-      st: { str: st.str, dex: st.dex, con: st.con, int: st.int, wis: st.wis, cha: st.cha }, bp: hero.bonusPts | 0, g: Math.floor(coins), z: zoneTitle(), w: Math.round((INV.wPct ? INV.wPct() : 0) * 100), eq, bag }; try { const DS = DCG.state(), n = Object.values(DS.cards).reduce((a, v) => a + v, 0), l = DCARD.filter(c => c.g === '전설').reduce((a, c) => a + (DS.cards[c.id] || 0), 0); D.dc = [n, l, DCG.owned()]; } catch (q) {}   /* 11/5 마법인형 보관함: 개수·전설·종류 */
+      st: { str: st.str, dex: st.dex, con: st.con, int: st.int, wis: st.wis, cha: st.cha }, bp: hero.bonusPts | 0, g: Math.floor(coins), z: zoneTitle(), w: Math.round((INV.wPct ? INV.wPct() : 0) * 100), eq, bag }; try { const DS = DCG.state(), n = Object.values(DS.cards).reduce((a, v) => a + v, 0), l = DCARD.filter(c => c.g === '전설').reduce((a, c) => a + (DS.cards[c.id] || 0), 0); D.dc = [n, l, DCG.owned()]; } catch (q) {}   /* 11/5 마법인형 보관함: 개수·전설·종류 */ try { const G = GTAX.me(); if (!G.bad) D.gt = [GTAX.gold(G.c), G.s]; } catch (q) {}   /* 11/5 골드 세금: 낸 세금(골드)·쓴 골드 (계정 공유) */
     let cap = 1800; if (cc) { try { D.cc = CCOPY.make(); if (window.__bigNet) cap += JSON.stringify(D.cc).length; } catch (e) {} }   // 11/1 캐릭터 복사: 운영자가 [복사 코드]를 누를 때만 붙임 (공용 서버는 가방 목록을 줄여 전체 1,800자 안 · 전용 서버는 복사 정보만큼 더)
     while (JSON.stringify(D).length > cap && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
   function setLv(L) { L = Math.max(1, Math.min(99, L | 0)); const CD = CLS_DEF[CLASS]; let bh = CD.hp, bm = CD.mp, sd = L * 977 + 13; const R0 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
@@ -8680,7 +8680,7 @@ const ADMIN = (() => {
       <div class="row">골드 <input id="adm-sg" type="number" style="width:120px" placeholder="금액"> <button type="button" id="adm-sgadd">만들기</button> &nbsp; 레벨 <input id="adm-sl" type="number" style="width:50px" min="1" max="99"> <button type="button" id="adm-slv">설정</button> <span class="muted">· 이동 5배 · 무적 · 몬스터 공격 안 함</span></div>
       <div class="row">펫 목걸이 레벨 <input id="adm-pl" type="number" value="61" min="1" max="99" style="width:46px"> <label><input id="adm-pe" type="checkbox" checked> 진화</label> 진화 기준 Lv <input id="adm-pb" type="number" value="61" min="50" max="99" style="width:46px"> 이름 <input id="adm-pn" maxlength="8" value="베리" style="width:70px"> <button type="button" id="adm-spet">만들기</button></div>
       <div class="row"><button type="button" id="adm-ccme">내 캐릭터 복사 코드</button> <span class="muted">테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣으면 이 캐릭터와 똑같이</span></div><div id="adm-ccme-out"></div>
-      <h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><div id="adm-cc-out"></div><datalist id="adm-items"></datalist>`;
+      <h4>아덴 성 금고 <span class="muted">(골드 세금 ${GTAX.PCT}% · 계정별)</span></h4><div id="adm-vault"></div><h4>운영자 기기</h4><div id="adm-devs"></div><h4>접속자 <span id="adm-cnt" class="muted"></span></h4><table id="adm-list"></table><div id="adm-det"></div><div id="adm-cc-out"></div><datalist id="adm-items"></datalist>`;
     document.body.appendChild(w);
     $('adm-x').onclick = () => { w.hidden = true; }; w.addEventListener('keydown', ev => ev.stopPropagation());
     const selfIdOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === String(nm || '').trim() && !ITEMS[k].hidden);
@@ -8695,11 +8695,14 @@ const ADMIN = (() => {
       if (!b || b.dataset.a === 'insp') { if (sel !== peer && $('adm-cc-out')) $('adm-cc-out').innerHTML = ''; sel = peer; send(peer, 'insp'); drawList(); drawDet(); return; }
       if (b.dataset.a === 'go') { if (goTo(o.pr.z, +o.pr.x || 0, +o.pr.y || 0)) say(`[운영자] ${o.pr.n}님 옆으로 이동했습니다.`, ADMC); else say('그 위치로는 이동할 수 없어요.', '#f08a7a'); }
       if (b.dataset.a === 'pull') send(peer, 'pull', { z: zkey(), x: +hero.x.toFixed(1), y: +hero.z.toFixed(1) }); }; }
-  function drawList() { const w = $('admwin'); if (!w || w.hidden) return; const L = NET.others(); $('adm-cnt').textContent = `${L.length}명`;
+  function drawVault() { const el = $('adm-vault'); if (!el) return; let V; try { V = RANK.vault(); } catch (e) { return; } const g = c => GTAX.gold(c).toLocaleString(), L = Object.entries(V.M).sort((a, b) => b[1].c - a[1].c);   // 11/5 골드 세금: 금고 합계·계정별
+    const h = `<div class="row"><b style="color:#ffd86a">합계 ${g(V.t)} 골드</b> <span class="muted">· 계정 ${L.length}개 · ${V.snap ? '기록 서버 + 지금 접속 중' : '기록 서버 연결 전 (지금 접속 중인 사람만)'}</span></div>` + (L.length ? L.slice(0, 40).map(([k, r]) => `<div class="row"><span>${String(r.n || k).replace(/[<>&"]/g, '')}</span> <b>${g(r.c)}</b> 골드${r.on ? ' <span class="muted">· 접속 중</span>' : ''}</div>`).join('') : '<div class="muted">아직 쌓인 세금이 없어요.</div>');
+    if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; } }
+  function drawList() { const w = $('admwin'); if (!w || w.hidden) return; drawVault(); const L = NET.others(); $('adm-cnt').textContent = `${L.length}명`;
     $('adm-list').innerHTML = L.length ? L.map(o => { const pr = o.pr, hp = pr.hm ? Math.round((pr.hp || 0) / pr.hm * 100) : 0; return `<tr data-p="${o.peer}" class="${o.peer === sel ? 'sel' : ''}"><td><b>${String(pr.n || '?').replace(/</g, '')}</b> <span class="muted">${CLS_N[pr.c] || ''} Lv.${pr.lv || 1}</span></td><td class="muted">${zoneName(pr.z)}</td><td>${hp}%</td><td style="text-align:right;white-space:nowrap"><button type="button" data-a="insp">살펴보기</button> <button type="button" data-a="go">가기</button> <button type="button" data-a="pull">부르기</button></td></tr>`; }).join('') : '<tr><td class="muted">지금 접속한 다른 유저가 없어요.</td></tr>'; }
   const KEEP = ['adm-it', 'adm-in', 'adm-ie', 'adm-g', 'adm-l', 'adm-m', 'adm-tpl', 'adm-tpb', 'adm-tpn'];
   function drawDet() { const box = $('adm-det'); if (!box) return; const kept = {}; for (const k of KEEP) { const el = $(k); if (el) kept[k] = el.value; } const kb = $('adm-ib') && $('adm-ib').checked, kpe = $('adm-tpe') ? $('adm-tpe').checked : true, foc = document.activeElement && document.activeElement.id; const o = sel && NET.others().find(q => q.peer === sel); if (!o) { box.innerHTML = ''; return; } const I = insp.get(sel), D = I && I.d;
-    const info = D ? `<div class="grid"><span>레벨 <b>${D.lv}</b> (${D.ex}%)</span><span>HP <b>${D.hp[0]}/${D.hp[1]}</b></span><span>MP <b>${D.mp[0]}/${D.mp[1]}</b></span><span>AC <b>${D.ac}</b></span><span>MR <b>${D.mr}</b></span><span>골드 <b>${(D.g || 0).toLocaleString()}</b></span>
+    const info = D ? `<div class="grid"><span>레벨 <b>${D.lv}</b> (${D.ex}%)</span><span>HP <b>${D.hp[0]}/${D.hp[1]}</b></span><span>MP <b>${D.mp[0]}/${D.mp[1]}</b></span><span>AC <b>${D.ac}</b></span><span>MR <b>${D.mr}</b></span><span>골드 <b>${(D.g || 0).toLocaleString()}</b></span>${D.gt ? `<span style="grid-column:span 2">낸 세금 <b>${(+D.gt[0] || 0).toLocaleString()}</b> <span class="muted">(쓴 골드 ${(+D.gt[1] || 0).toLocaleString()})</span></span>` : ''}
       <span>힘 ${D.st.str} · 민첩 ${D.st.dex}</span><span>체력 ${D.st.con} · 지능 ${D.st.int}</span><span>지혜 ${D.st.wis} · 매력 ${D.st.cha}</span><span>보너스 ${D.bp}</span><span>무게 ${D.w}%</span><span class="muted">${D.z}</span></div>
       <div style="margin-top:4px"><b>착용</b> ${D.eq.map(([id, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}</span>`).join('') || '<span class="muted">없음</span>'}</div>
       ${D.dc ? `<div style="margin-top:3px"><b>마법인형 보관함</b> ${D.dc[0]}개 <span class="muted">(${D.dc[2]}종 · 전설 ${D.dc[1]}개 · 계정 공유)</span></div>` : ''}<div style="margin-top:3px"><b>가방</b> ${D.bag.map(([id, n, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}${n > 1 ? ' ×' + n : ''}</span>`).join('') || '<span class="muted">비어 있음</span>'}${D.more ? ` <span class="muted">외 ${D.more}개</span>` : ''}</div>
@@ -8887,7 +8890,7 @@ const COLO = (() => {
   function open(quiet) { const w = $('colowin'); if (!w) return; w.hidden = false; render(); badge(); if (!quiet) say('콜로세움 관리인 로물루스: 모래 위에서 보스를 쓰러뜨린 자만이 가호를 얻지! 입장권은 필요 없네 — 하루에 한 번, 혼자든 동료와 함께든 들어오게.', '#ffc870'); }
   function buy() { if (bought() >= DAY_MAX) { say(`입장권은 계정마다 하루 ${DAY_MAX}장까지만 살 수 있어요. (매일 새벽 5시 초기화)`, '#f08a7a'); return; } if (coins < PRICE) { say(`골드가 모자라요. (입장권 ${PRICE.toLocaleString()} 골드)`, '#f08a7a'); return; }
     INV.askYesNo('콜로세움 입장권을 사시겠습니까?', `${PRICE.toLocaleString()} 골드 · 오늘 ${bought()} / ${DAY_MAX}장 샀어요 (계정마다 하루 ${DAY_MAX}장)`, () => { if (bought() >= DAY_MAX || coins < PRICE) return;
-      coins -= PRICE; rec = { n: bought() + 1, d: dayKey() }; INV.add('col_ticket', 1, true); TELE.ev('buy', { id: 'col_ticket', q: 1, g: PRICE }); say(`콜로세움 입장권을 샀습니다. (-${PRICE.toLocaleString()} 골드 · 오늘 ${rec.n} / ${DAY_MAX}장)`, '#ffd86a'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }); }
+      coins -= PRICE; goldTax(PRICE, 'entry'); rec = { n: bought() + 1, d: dayKey() }; INV.add('col_ticket', 1, true); TELE.ev('buy', { id: 'col_ticket', q: 1, g: PRICE }); say(`콜로세움 입장권을 샀습니다. (-${PRICE.toLocaleString()} 골드 · 오늘 ${rec.n} / ${DAY_MAX}장)`, '#ffd86a'); INV.render(); render(); try { SAVE.now(false, true); } catch (e) {} }); }
   // ----- 입장 대기 · 입장
   function queue() { if (SCENE !== 'town' || wait) return; if (DEATH) { deadSay(); return; } if (fighters().length) { say('지금 다른 도전자들이 콜로세움에서 싸우는 중이에요.', '#f08a7a'); return; }
     if (entToday() >= ENT_MAX) { say('오늘은 이미 콜로세움에 들어갔어요. (캐릭터마다 하루 1번 · 새벽 5시 초기화)', '#f08a7a'); return; }
@@ -9047,7 +9050,7 @@ const HWM = (() => { let day = '', used = 0, last = 0, warned = 0;
     el('hw-info').innerHTML = `<div>할로윈 모자: <b>${hat < 0 ? '없음' : '+' + hat + ' (가장 높은 모자)'}</b></div><div>오늘 남은 시간: <b>${fmt(L)}</b> <small>(새벽 5시 초기화)</small></div><div>호박씨: <b>${seeds.toLocaleString()}개</b> → 주머니 ${Math.floor(seeds / HWC.SEEDS)}개 교환 가능</div>`;
     el('hw-buy').textContent = `할로윈 모자 사기 (${HWC.HAT_PRICE.toLocaleString()} 골드)`; el('hw-enter').disabled = hat < 0 || L <= 0; el('hw-ex1').disabled = el('hw-exall').disabled = seeds < HWC.SEEDS; }
   function open() { if (COLO_LOCK) { COLO.lockSay(); return; } const w = el('hwwin'); if (!w) return; w.hidden = false; render(); say('할로윈 허수아비 잭: 히히… 호박밭에 들어가 볼 텐가? 모자를 쓴 자만 들어갈 수 있지. 호박씨 100개를 모아 오면 주머니로 바꿔 주마!', '#ffa040'); }
-  function buy() { if (coins < HWC.HAT_PRICE) { say(`골드가 부족합니다. (할로윈 모자 ${HWC.HAT_PRICE} 골드)`, '#f08a7a'); return; } coins -= HWC.HAT_PRICE; INV.add('hw_hat', 1); render(); }
+  function buy() { if (coins < HWC.HAT_PRICE) { say(`골드가 부족합니다. (할로윈 모자 ${HWC.HAT_PRICE} 골드)`, '#f08a7a'); return; } coins -= HWC.HAT_PRICE; goldTax(HWC.HAT_PRICE, 'entry'); INV.add('hw_hat', 1); render(); }
   function enter() { if (SCENE !== 'town') return; if (INV.hwHat() < 0) { say('가방에 할로윈 모자가 있어야 들어갈 수 있어요.', '#f08a7a'); return; } if (left() <= 0) { say('오늘 이용 시간을 모두 썼습니다. 새벽 5시 뒤에 다시 들어올 수 있어요.', '#f08a7a'); return; }
     el('hwwin').hidden = true; if (AUTO.on()) AUTO.toggle(); TOWN.toZone(HWC.ZID); say('호박 머리 허수아비로 변신했습니다! 마법은 쓸 수 없고 모두 근거리로 싸웁니다. (나가려면 귀환 주문서·귀환 부적)', '#ffa040'); }
   function exch(all) { const s = INV.count('hw_seed'), n = all ? Math.floor(s / HWC.SEEDS) : Math.min(1, Math.floor(s / HWC.SEEDS)); if (n <= 0) return; INV.take('hw_seed', n * HWC.SEEDS); INV.add('hw_pouch', n, true); say(`호박씨 ${(n * HWC.SEEDS).toLocaleString()}개를 할로윈 호박 주머니 ${n}개로 바꿨습니다.`, '#ffa040'); render(); }
@@ -9687,8 +9690,8 @@ const FBOT = (() => {
   //   규칙(프로듀서가 넣음): match /worldbot_chars/{uid} { allow read: if request.auth != null; allow write: if request.auth != null && request.auth.uid == uid; }
   const CH = { next: Date.now() + 20e3, sig: '', writes: 0, lists: 0, err: '', listNext: 0, mode: 'off', top: '', n: 0, at: 0 };
   function charTick() { const now = nowMs(); if (now < CH.next) return; CH.next = now + C.CHAR_T * 1000; if (!cloudOn() || meBh() || ADMIN.on() || !window.__gameOn) { CH.next = now + 30e3; return; }   // 아직 로그인 전이면 30초 뒤 다시
-    const me = mine(); if (!me) return; const sig = JSON.stringify([me.c, me.lv, me.cp, me.cb, me.eq, me.pf, me.dl, me.st]); if (sig === CH.sig || CH.busy) return;
-    const body = { v: '1', u: String(CLOUD.uid() || ''), n: me.n, c: me.c, lv: String(me.lv), cp: String(me.cp), at: String(now), d: JSON.stringify(me) }; CH.busy = true; CH.sig = sig;   // 쓰는 동안 같은 값을 또 쓰지 않게 · 실패하면 sig를 비워 다음에 다시
+    const me = mine(); if (!me) return; const gtc = GTAX.c(), sig = JSON.stringify([me.c, me.lv, me.cp, me.cb, me.eq, me.pf, me.dl, me.st, gtc]); if (sig === CH.sig || CH.busy) return;
+    const body = { v: '1', u: String(CLOUD.uid() || ''), n: me.n, c: me.c, lv: String(me.lv), cp: String(me.cp), at: String(now), d: JSON.stringify(me), ...(gtc > 0 && SESS.ah() ? { ah: String(SESS.ah()), gt: String(gtc) } : {}) };   /* 11/5 골드 세금: 계정 누적(1/100골드) · 랭킹 기록 서버가 30분마다 모음 */ CH.busy = true; CH.sig = sig;   // 쓰는 동안 같은 값을 또 쓰지 않게 · 실패하면 sig를 비워 다음에 다시
     CLOUD.set('worldbot_chars/' + CLOUD.uid(), body).then(() => { CH.writes++; CH.mode = 'on'; CH.err = ''; CH.at = now; }).catch(e => { CH.sig = ''; CH.err = String((e && (e.code || e.message)) || e).slice(0, 40); CH.mode = 'fail'; if (e && (e.status === 403 || /PERMISSION/i.test(String(e.message)))) CH.next = now + 300e3; }).finally(() => { CH.busy = false; }); }
   async function topChar() { const now = nowMs(); if (now < CH.listNext) return null;
     try { const L = await CLOUD.list('worldbot_chars', 200); CH.lists++; let best = null, n = 0;
@@ -10989,6 +10992,35 @@ const MPP = (() => {
   setInterval(render, 1000);
   return { open, leave, start, state: () => state, code: () => (state !== 'off' ? code : null), cast: text => { if (!cli || !cli.isOpen() || state !== 'on') return false; cli.pub(base() + '/rk', text, 1); return true; } };   /* 11/4 랭킹: 봇 서버가 기록을 보냄 (retain) */
 })();
+// ============================================================ 11/5 프로듀서: 골드 세금 6% 적립 (공성전 준비) — 가격은 그대로 · NPC에게 쓴 골드의 6%가 '아덴 성 금고'에 쌓임 (나머지 94%는 예전처럼 없어짐)
+//   매김 (골드를 뺀 바로 뒤에 goldTax(쓴 골드, 분류)): NPC 상점 shop · 시장 상인(30분마다 바뀌는 희귀 장비) mkt · 자동사냥 마을 정비 auto · 오프라인 사냥 중 산 소모품 offl
+//        · 변신 뽑기 poly · 마법인형 뽑기 doll · 전설 재뽑기 rr · 월드맵 이동비 tele · 입장료 entry (잊혀진 섬 50만 · 콜로세움 입장권 · 할로윈 모자)
+//   뺌: 유저끼리 교환 · 창고에 맡기기 · 쓰러져서 잃는 골드 · 운영자 지급/회수 · 봇 호스트 · 본섭 운영자 모드(골드를 마음대로 만들 수 있어서 · 테스트 페이지는 셈)
+//   내 세금: 계정 문서 users/{uid}.goldTax = { v:1, c: 1/100골드 누적(쓴 골드 × 6 · 오차 없음), s: 쓴 골드 누적, by: {분류: 쓴 골드} } — 변신 카드(polyCards)처럼 SAVE.loadStore가 읽고 SAVE.now가 같은 문서에 병합 저장
+//        · 읽은 값이 깨져 있으면(bad) 저장하지 않음(덮어쓰지 않게) · 계정의 모든 캐릭터가 같은 값 · 이 기기 저장(로컬·테스트)은 localStorage aden_gtax_<계정>
+//   금고(모든 유저 합): presence gt(내 계정 누적 c) + worldbot_chars/{내 uid}.gt·ah (3분마다 · 봇 호스트가 꺼져 있을 때 낸 세금도 다시 켜지면 모음)
+//        → 랭킹 기록 서버(봇 호스트 첫 탭)가 계정(ah)마다 큰 값을 모아 랭킹 표와 같이 저장(worldbot_chars/{봇 호스트 uid}.rk)·중계 rk(retain)로 뿌림 — Firestore 규칙·봇 서버 코드 그대로
+//        → [랭킹] 창 위쪽: 받은 기록 + 지금 접속 중인 사람(presence) + 나 를 계정마다 큰 값으로 합침 (기록 서버가 꺼져 있어도 줄지 않음)
+const GTAX = (() => {
+  const PCT = 6, MAXC = 1e13;   // 세율 6% (쓴 골드 1당 금고 0.06골드 = 1/100골드 6칸)
+  const CAT = { shop: '상점', mkt: '시장 상인', auto: '자동 정비', offl: '오프라인 사냥', poly: '변신 뽑기', doll: '인형 뽑기', rr: '전설 재뽑기', tele: '텔레포트', entry: '입장료' };
+  const blank = () => ({ v: 1, c: 0, s: 0, by: {} });
+  let D = blank(), bad = false, loaded = false, last;
+  const n0 = v => { v = Math.floor(+v || 0); return isFinite(v) && v > 0 ? Math.min(v, MAXC) : 0; };
+  const skip = () => { try { return BOTHOST.on() || (!window.DEMO_MODE && (ADMIN.on() || GOD)); } catch (e) { return false; } };
+  function pub() { try { if (BOTHOST.on()) return; const v = !bad && loaded && D.c > 0 ? D.c : null; if (v === last) return; last = v; NET.setExtra('gt', v); } catch (e) {} }   // presence gt: 내 계정 누적 (1/100골드)
+  function load(raw) { bad = false; loaded = true; D = blank();
+    if (raw != null && raw !== '') try { const o = typeof raw === 'string' ? JSON.parse(raw) : raw; if (!o || typeof o !== 'object') throw new Error('bad goldTax');
+        D.c = n0(o.c); D.s = n0(o.s); if (o.by && typeof o.by === 'object') for (const k in o.by) { const v = n0(o.by[k]); if (v) D.by[String(k).slice(0, 12)] = v; } }
+      catch (e) { bad = true; D = blank(); console.warn('goldTax', e); }
+    pub(); }
+  const raw = () => bad || !loaded ? null : JSON.stringify(D);   // null = 저장하지 않음
+  function pay(g, cat) { g = Math.floor(+g || 0); if (!(g > 0) || skip()) return 0; const c = g * PCT, k = CAT[cat] ? cat : 'etc';
+    D.c = Math.min(MAXC, D.c + c); D.s = Math.min(MAXC, D.s + g); D.by[k] = (D.by[k] || 0) + g; pub(); return c; }
+  return { PCT, CAT, load, raw, pay, pub, skip, c: () => bad ? 0 : D.c, me: () => ({ c: D.c, s: D.s, by: Object.assign({}, D.by), bad, loaded }), gold: c => Math.floor((+c || 0) / 100) };
+})();
+function goldTax(g, cat) { try { return GTAX.pay(g, cat); } catch (e) { return 0; } }   // 11/5 골드 세금 6% — NPC에게 골드를 쓴 바로 뒤에 부름 (가격은 그대로)
+window.__GTAX = GTAX;
 // ============================================================ 11/4 프로듀서: 랭킹 창 (전투력 · PVP) — 모두 기록 · 접속을 끊어도 마지막 값으로 남음 · PVP는 처음부터 누적(초기화 없음)
 //   기록 모으기: 24시간 봇 서버(봇 호스트)의 첫 탭(지역 열쇠가 가장 작은 탭)이 presence(이름·직업·레벨·전투력·경험치 xp·킬데스 kd)와 PVP 사건(rke)을 모아 표 두 개로 가짐
 //   저장: Firestore worldbot_chars/{봇 호스트 uid} (bh:1 · rk = 표 JSON · 2분마다 바뀌었을 때만) + 같은 브라우저 localStorage(1분) — 봇 서버 코드(run.js)·Firestore 규칙은 그대로
@@ -11001,7 +11033,7 @@ const RANK = (() => {
   const ME = { k: 0, d: 0 };   // 내 캐릭터 킬·데스 (캐릭터 저장에 같이 · 기록 서버는 큰 값을 씀)
   let out = [], seq = 0, SNAP = null, tab = 'cp', withBots = false, rT = 0, cT = 0, fsAt = 0, fsBusy = false, kdSig = '';
   const seen = new Map(), vcool = new Map(), LP = {};   // LP: 이 창(페이지)을 연 뒤에 본 PVP 사건 (기록 서버가 없을 때 보여 줌)
-  const COL = { on: false, loaded: false, q: [], P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0, busy: false, saves: 0, casts: 0, err: '', from: '' };
+  const COL = { on: false, loaded: false, q: [], P: {}, K: {}, G: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0, busy: false, saves: 0, casts: 0, err: '', from: '' };
   const DBG = { col: false, noCloud: false };   // 테스트: col = 일반 탭도 기록 서버처럼
   const num = (v, a, b) => { v = +v; return isFinite(v) ? Math.max(a, Math.min(b, v)) : a; }, nm = s => String(s == null ? '' : s).replace(/[\u0000-\u001f<>&"]/g, '').slice(0, 16);
   const cloudOn = () => { try { return !DBG.noCloud && CLOUD.on() && !!CLOUD.uid(); } catch (e) { return false; } };
@@ -11030,24 +11062,29 @@ const RANK = (() => {
   function prRow(o) { const pr = o.pr; if (!pr || pr.bh || !pr.n || !CLS_DEF[pr.c] || !(+pr.st > 0) || (pr.adm && pr.adm.t)) return null;   /* st: 게임에 들어온 접속만 (캐릭터 선택 중 제외) */ return { key: pkey(pr.ah, pr.n, pr.c), n: nm(pr.n), c: pr.c, cp: Math.round(num(pr.cp, 0, 1e7)), lv: Math.round(num(pr.lv, 1, 99)), xp: Math.round(num(pr.xp, 0, 1000)), kd: Array.isArray(pr.kd) ? [Math.round(num(pr.kd[0], 0, 1e7)), Math.round(num(pr.kd[1], 0, 1e7))] : null }; }
   function upP(key, r, at) { const P = COL.P; for (const k in P) if (k !== key && P[k].n === r.n && P[k].c === r.c && (k[1] === 'u' || P[k].seen <= at)) delete P[k];   // 같은 이름·직업은 한 줄 (서버 캐릭터 목록에서 온 pu… 줄은 접속하면 그 줄로 바꿈)
     const o = P[key]; if (o && o.seen > at) return; P[key] = { n: r.n, c: r.c, cp: r.cp, lv: r.lv, xp: r.xp != null ? r.xp : (o ? o.xp : -1), seen: at }; COL.dirty = true; }
-  function colPresence() { const now = Date.now(); for (const o of NET.others()) { const r = prRow(o); if (!r) continue; upP(r.key, r, now);
+  // 11/5 골드 세금: 계정(ah)마다 낸 세금 누적(1/100골드) — 큰 값만 (같은 값을 여러 번 받아도 그대로 · 메시지를 놓쳐도 다음에 맞춰짐)
+  function upG(ah, n, c, at, quiet) { ah = String(ah || ''); if (!/^[0-9a-f]{8}$/.test(ah)) return; c = Math.round(num(c, 0, 1e13)); if (!c) return; const o = COL.G[ah]; at = +at || 0;
+    if (o && o.c >= c) { if (n && at >= (o.at || 0)) { o.n = nm(n); o.at = at; } return; } COL.G[ah] = { n: nm(n) || (o ? o.n : ''), c, at: Math.max(at, o ? o.at || 0 : 0) }; if (!quiet) COL.dirty = true; }
+  function colPresence() { const now = Date.now(); for (const o of NET.others()) { const pr = o.pr; if (pr && !pr.bh && pr.gt) upG(pr.ah, pr.n, pr.gt, now); const r = prRow(o); if (!r) continue; upP(r.key, r, now);
       if (r.kd && (r.kd[0] || r.kd[1])) { const K = COL.K[r.key] || (COL.K[r.key] = { n: r.n, kind: 'player', c: r.c, cl: '', k: 0, d: 0 }); if (r.kd[0] > K.k || r.kd[1] > K.d) { K.k = Math.max(K.k, r.kd[0]); K.d = Math.max(K.d, r.kd[1]); COL.dirty = true; } K.n = r.n; } } }
   function merge(st) { if (!st || typeof st !== 'object') return; const P = st.P && typeof st.P === 'object' ? st.P : {}, K = st.K && typeof st.K === 'object' ? st.K : {};
     for (const k in P) { const r = P[k]; if (!r || typeof k !== 'string' || k[0] !== 'p' || !CLS_DEF[r.c]) continue; const o = COL.P[k], s = +r.seen || 0; if (!o || s > o.seen) COL.P[k] = { n: nm(r.n), c: r.c, cp: Math.round(num(r.cp, 0, 1e7)), lv: Math.round(num(r.lv, 1, 99)), xp: r.xp == null ? -1 : Math.round(num(r.xp, -1, 1000)), seen: s }; }
     for (const k in K) { const r = K[k]; if (!r || typeof k !== 'string' || !/^[pb]/.test(k)) continue; const o = COL.K[k] || (COL.K[k] = { n: nm(r.n), kind: k[0] === 'b' ? 'bot' : 'player', c: r.c, cl: nm(r.cl), k: 0, d: 0 }); o.k = Math.max(o.k, Math.round(num(r.k, 0, 1e7))); o.d = Math.max(o.d, Math.round(num(r.d, 0, 1e7))); if (r.n) o.n = nm(r.n); }   // 누적 수는 큰 값 (같은 기록을 두 번 합쳐도 그대로)
+    if (st.G && typeof st.G === 'object') for (const k in st.G) { const r = st.G[k]; if (r && typeof r === 'object') upG(k, r.n, r.c, r.at, 1); }   // 골드 세금: 큰 값
     COL.base = Math.max(COL.base, +st.at || 0); }
   function state() { const P = Object.entries(COL.P).sort((a, b) => b[1].cp - a[1].cp).slice(0, KEEP), K = Object.entries(COL.K).filter(([, r]) => r.k || r.d).sort((a, b) => b[1].k - a[1].k || b[1].d - a[1].d).slice(0, KEEP);
-    return { v: 1, at: Date.now(), P: Object.fromEntries(P), K: Object.fromEntries(K) }; }
+    return { v: 1, at: Date.now(), P: Object.fromEntries(P), K: Object.fromEntries(K), G: Object.fromEntries(Object.entries(COL.G).sort((a, b) => b[1].c - a[1].c).slice(0, KEEP)) }; }
   const tmo = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);   // 서버가 대답하지 않아도 멈추지 않게
   async function colCloud() { if (!cloudOn()) return; COL.cAt = Date.now(); try { const d = await tmo(CLOUD.get('worldbot_chars/' + CLOUD.uid()), 20000); if (d && d.rk) { merge(JSON.parse(d.rk)); COL.from = 'cloud'; } COL.cok = true; } catch (e) { COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } }   // 저장된 기록을 못 읽었으면 Firestore에 쓰지 않음 (빈 표로 덮어쓰지 않게 · 1분마다 다시 읽기)
   async function colLoad() { COL.busy = true; try { try { merge(JSON.parse(localStorage.getItem(LSC) || 'null')); COL.from = 'local'; } catch (e) {}
       await colCloud(); COL.loaded = true; const Q = COL.q; COL.q = []; for (const [K, V, at] of Q) colEv(K, V, at); } finally { COL.busy = false; } }
-  async function colSeed() { if (!cloudOn()) return; try { const L = await tmo(CLOUD.list('worldbot_chars', 200), 20000); for (const r of L) { if (!r || r.bh || !CLS_DEF[r.c] || !r.n) continue; const u = String(r.u || r.__id || '').slice(0, 28), at = +r.at || 0; if (!u) continue;
+  async function colSeed() { if (!cloudOn()) return; try { const L = await tmo(CLOUD.list('worldbot_chars', 200), 20000); for (const r of L) { if (r && !r.bh && r.ah && r.gt) upG(r.ah, r.n, r.gt, +r.at || 0); if (!r || r.bh || !CLS_DEF[r.c] || !r.n) continue; const u = String(r.u || r.__id || '').slice(0, 28), at = +r.at || 0; if (!u) continue;
         const n = nm(r.n), has = Object.keys(COL.P).find(k => COL.P[k].n === n && COL.P[k].c === r.c); if (has && COL.P[has].seen >= at) continue; upP(has || 'pu' + u + ':' + r.c, { n, c: r.c, cp: Math.round(num(r.cp, 0, 1e7)), lv: Math.round(num(r.lv, 1, 99)), xp: null }, at); } }   // 랭킹을 만들기 전에 놀던 유저도 (계정마다 마지막 캐릭터)
     catch (e) { COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } }
   function snapOf(st, src) { const P = Object.entries(st.P).sort((a, b) => b[1].cp - a[1].cp || b[1].lv - a[1].lv).slice(0, TOPN).map(([k, r]) => [k, r.n, r.c, r.cp, r.lv, r.xp, r.seen]);
     const K = Object.entries(st.K).sort((a, b) => b[1].k - a[1].k || kdv(b[1]) - kdv(a[1])).slice(0, TOPN).map(([k, r]) => [k, r.n, r.kind === 'bot' ? 1 : 0, r.c, r.cl || '', r.k, r.d]);
-    return { v: 1, at: st.at, src, nP: Object.keys(st.P).length, nK: Object.keys(st.K).length, P, K }; }
+    const G = Object.entries(st.G || {}).filter(([, r]) => r && +r.c > 0).sort((a, b) => b[1].c - a[1].c).slice(0, KEEP).map(([k, r]) => [k, r.n || '', Math.round(+r.c)]), T = G.reduce((a, g) => a + g[2], 0);   // 골드 세금: [계정, 이름, 1/100골드] · T = 합
+    return { v: 1, at: st.at, src, nP: Object.keys(st.P).length, nK: Object.keys(st.K).length, P, K, G, T }; }
   function colSave(now, force) { const st = state(); try { localStorage.setItem(LSC, JSON.stringify(st)); } catch (e) {} COL.lsAt = now;
     if ((COL.dirty || force) && (force || now - COL.saveAt > 120e3) && cloudOn() && COL.cok && !COL.cbusy) { COL.saveAt = now; COL.dirty = false; COL.cbusy = true;
       return (async () => { try { await tmo(CLOUD.set('worldbot_chars/' + CLOUD.uid(), { v: 'rk1', bh: '1', u: String(CLOUD.uid()), at: String(st.at), rk: JSON.stringify(st) }), 30000); COL.saves++; COL.err = ''; } catch (e) { COL.dirty = true; COL.err = String((e && (e.code || e.message)) || e).slice(0, 40); } finally { COL.cbusy = false; } return st; })(); }
@@ -11063,7 +11100,7 @@ const RANK = (() => {
   function onSnap(text) { let S = null; try { S = JSON.parse(text); } catch (e) { return; } if (!okSnap(S)) return; S.src = 'relay'; setSnap(S); }
   try { const S = JSON.parse(localStorage.getItem(LSS) || 'null'); if (okSnap(S)) { S.src = 'cache'; SNAP = S; } } catch (e) {}
   async function fsPull() { if (fsBusy || !cloudOn() || Date.now() - fsAt < 300e3 || (SNAP && SNAP.src !== 'cache' && Date.now() - SNAP.at < 600e3)) return; fsAt = Date.now(); fsBusy = true;   // 중계 서버로 못 받았으면 창을 열 때 저장된 기록을 직접 (5분에 한 번)
-    try { const L = await tmo(CLOUD.list('worldbot_chars', 200), 20000), d = L.filter(r => r && r.bh && r.rk).sort((a, b) => (+b.at || 0) - (+a.at || 0))[0]; if (d) { const st = JSON.parse(d.rk); if (st && st.P && st.K) setSnap(snapOf({ at: +st.at || +d.at || Date.now(), P: st.P, K: st.K }, 'cloud')); } }
+    try { const L = await tmo(CLOUD.list('worldbot_chars', 200), 20000), d = L.filter(r => r && r.bh && r.rk).sort((a, b) => (+b.at || 0) - (+a.at || 0))[0]; if (d) { const st = JSON.parse(d.rk); if (st && st.P && st.K) setSnap(snapOf({ at: +st.at || +d.at || Date.now(), P: st.P, K: st.K, G: st.G }, 'cloud')); } }
     catch (e) {} finally { fsBusy = false; } }
   // ----- 1초마다
   function tick() { const now = Date.now(); if (now - cT < 1000) return; cT = now;
@@ -11086,9 +11123,20 @@ const RANK = (() => {
     for (const k in LP) { const r = LP[k]; put(k, { n: r.n, bot: r.kind === 'bot' ? 1 : 0, c: r.c, cl: r.cl, k: r.k, d: r.d }); }   /* 이 창을 연 뒤에 본 사건 (기록 서버가 없으면 이것만) */
     for (const r of live()) if (r.me || (r.kd && (r.kd[0] || r.kd[1])) || M.has(r.key)) put(r.key, { n: r.n, bot: 0, c: r.c, cl: '', k: r.kd ? r.kd[0] : 0, d: r.kd ? r.kd[1] : 0, on: 1, me: r.me });
     return [...M.values()].sort((a, b) => b.k - a.k || kdv(b) - kdv(a) || a.d - b.d || (a.n < b.n ? -1 : 1)); }
+  // 11/5 골드 세금: 아덴 성 금고 = 계정마다 큰 값(받은 기록 · 기록 서버 표 · 지금 접속 중인 사람 · 나)의 합
+  function vault() { const M = {}, put = (ah, n, c, on) => { ah = String(ah || ''); c = Math.round(num(c, 0, 1e13)); if (!ah || !c) return; const o = M[ah]; if (!o) { M[ah] = { n: nm(n), c, on: on ? 1 : 0 }; return; } if (c > o.c) o.c = c; if (on) { o.on = 1; if (n) o.n = nm(n); } };
+    if (SNAP && Array.isArray(SNAP.G)) for (const g of SNAP.G) if (Array.isArray(g)) put(g[0], g[1], g[2], 0);
+    if (COL.on) for (const k in COL.G) put(k, COL.G[k].n, COL.G[k].c, 0);
+    for (const o of NET.others()) { const pr = o.pr; if (pr && !pr.bh && pr.gt) put(pr.ah, pr.n, pr.gt, 1); }
+    if (!BOTHOST.on() && window.__gameOn) put(SESS.ah(), PNAME(), GTAX.c(), 1);
+    let t = 0; for (const k in M) t += M[k].c; return { t, M, n: Object.keys(M).length, snap: !!(SNAP && Array.isArray(SNAP.G)) }; }
+  function vaultHTML() { const V = vault(), me = GTAX.me(), g = c => GTAX.gold(c).toLocaleString();
+    return `<div class="rk-vault"><div class="rk-vt"><span class="rk-vi" aria-hidden="true">🏰</span> <span>아덴 성 금고</span> <b class="rk-vg">${g(V.t)}</b> <span>골드</span> <span class="rk-vr">세율 ${GTAX.PCT}%</span></div>`
+      + `<div class="rk-vs">공성전에서 성의 주인에게 · NPC에게 쓴 골드의 ${GTAX.PCT}%가 쌓여요 (가격은 그대로)</div>`
+      + `<div class="rk-vm">내가 낸 세금 ${me.bad ? '<b class="rk-off">읽지 못함</b>' : `<b>${g(me.c)}</b> 골드`}</div></div>`; }
   function render() { const w = $('rankwin'), body = $('rk-body'); if (!w || !body || w.hidden) return; const mk = BOTHOST.on() ? '' : myKey(), cls = c => E(CLASS_NAME[c] || '-');
     const note = SNAP ? `기록 서버 기준 · ${ago(+SNAP.at)} 갱신${SNAP.src === 'cache' ? ' (지난번에 받은 기록)' : ''} · <i class="rk-on"></i> 지금 접속 중(실시간)` : '<b class="rk-off">기록 서버 연결 전</b> · 지금 접속 중인 사람과 이 창을 연 뒤의 PVP 기록만 보여요';
-    let h = `<div class="rk-tabs" role="tablist"><button type="button" role="tab" data-rt="cp" aria-selected="${tab === 'cp'}"${tab === 'cp' ? ' class="on"' : ''}>전투력 랭킹</button><button type="button" role="tab" data-rt="kd" aria-selected="${tab === 'kd'}"${tab === 'kd' ? ' class="on"' : ''}>PVP 랭킹</button></div>`;
+    let h = vaultHTML() + `<div class="rk-tabs" role="tablist"><button type="button" role="tab" data-rt="cp" aria-selected="${tab === 'cp'}"${tab === 'cp' ? ' class="on"' : ''}>전투력 랭킹</button><button type="button" role="tab" data-rt="kd" aria-selected="${tab === 'kd'}"${tab === 'kd' ? ' class="on"' : ''}>PVP 랭킹</button></div>`;
     if (tab === 'cp') { const R = cpRows().slice(0, TOPN);
       h += `<label class="rk-chk"><input type="checkbox" id="rk-bots"${withBots ? ' checked' : ''}> 봇 포함</label><div class="rk-hd rk-cp"><span>순위</span><span>아이디</span><span>전투력</span><span>레벨</span><span>경험치</span><span>클래스</span></div>`;
       h += R.map((r, i) => `<div class="rk-r rk-cp${r.key === mk ? ' me' : ''}${r.bot ? ' bot' : ''}" data-k="${E(r.key)}"><span class="rk-no">${i + 1}</span><span class="rk-n">${r.on && !r.bot ? '<i class="rk-on"></i>' : ''}${E(r.n)}${r.bot ? '<small> 봇</small>' : ''}</span><span class="rk-v">${cpFmt(r.cp)}</span><span>${r.lv | 0}</span><span>${r.xp >= 0 ? (r.xp / 10).toFixed(1) + '%' : '-'}</span><span class="rk-c">${cls(r.c)}</span></div>`).join('') || '<div class="rk-empty">아직 기록이 없어요</div>'; }
@@ -11106,8 +11154,8 @@ const RANK = (() => {
     pbDie(e, by) { if (!e || !e.bot) return; const K = who(by); if (!K) return; emit(K, ['b' + e.bot.uid, nm(e.bot.name), e.bot.cls, 1, nm(e.bot.clan)]); },   // 파티 봇: 주인 PC
     heroDie(src) { if (BOTHOST.on() || !src) return; const K = who(src); if (!K || K[0] === myKey()) return; emit(K, [myKey(), nm(PNAME()), CLASS, 0, '']); },   // 내 캐릭터: 수호탑·콜로세움·결투장은 heroDie에서 뺌
     dump: () => ME.k || ME.d ? { k: ME.k, d: ME.d } : undefined, load(o) { ME.k = o && +o.k > 0 ? Math.round(+o.k) : 0; ME.d = o && +o.d > 0 ? Math.round(+o.d) : 0; kdSig = ''; },
-    me: () => Object.assign({}, ME), COL, LP, DBG, snap: () => SNAP, setSnap, state, snapOf, merge, colSave: () => colSave(Date.now(), true), colLoad, cpRows, kdRows,
-    reset() { ME.k = ME.d = 0; out = []; seen.clear(); vcool.clear(); for (const k in LP) delete LP[k]; Object.assign(COL, { loaded: false, cok: false, cAt: 0, q: [], P: {}, K: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0 }); SNAP = null; NET.setExtra('rke', null); } };
+    me: () => Object.assign({}, ME), vault, vaultHTML, upG, COL, LP, DBG, snap: () => SNAP, setSnap, state, snapOf, merge, colSave: () => colSave(Date.now(), true), colLoad, cpRows, kdRows,
+    reset() { ME.k = ME.d = 0; out = []; seen.clear(); vcool.clear(); for (const k in LP) delete LP[k]; Object.assign(COL, { loaded: false, cok: false, cAt: 0, q: [], P: {}, K: {}, G: {}, dirty: false, base: 0, saveAt: 0, lsAt: 0, castAt: 0, seedAt: 0, prAt: 0 }); SNAP = null; NET.setExtra('rke', null); } };
 })();
 window.__RANK = RANK;
 // 10/30: 접속자 정보 창 — 접속자 목록에서 이름을 누르면 그 캐릭터의 레벨·변신·전투력·위치·착용 장비·모습 (실시간 presence로 받은 것만 · 가방·창고·골드는 안 보냄)
@@ -11289,7 +11337,7 @@ const AUTO = (() => {
   const regionOf = () => (ISLE && ISLE.name || '').replace(/\s*\d구간$/, '') || '이야기섬';
   const pct = () => Math.round(hero.hp / hero.max * 100);
   function goHome(why) { if (fgLocked()) { fgBlockAuto(why); return false; }   /* 11/3 잊혀진 섬: 물약이 떨어져도·HP가 낮아도 귀환 안 함 */ say('자동사냥: ' + why + ' → 마을로 귀환합니다.', '#9fd0e8'); selfMove = true; TOWN.goTown(); selfMove = false; state = 'town'; bought = false; wait = 0; return true; }
-  function buyAll() { const got = [];   /* v167: 마을에 오면 이유와 상관없이 체크해 둔 소모품을 모두 정한 개수까지 채움 · 산 것은 한 줄로 알림 */ const want = (id, n) => { if (REMOVED_ITEMS[id] || !ITEMS[id] || !PRICE[id]) return; const p = PRICE[id],   /* v165: 없어진 아이템(마나 회복 물약)은 예전 설정이 남아 있어도 사지 않음 */ k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); got.push([id, k, k * p]); } if (k) {} else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
+  function buyAll() { const got = [];   /* v167: 마을에 오면 이유와 상관없이 체크해 둔 소모품을 모두 정한 개수까지 채움 · 산 것은 한 줄로 알림 */ const want = (id, n) => { if (REMOVED_ITEMS[id] || !ITEMS[id] || !PRICE[id]) return; const p = PRICE[id],   /* v165: 없어진 아이템(마나 회복 물약)은 예전 설정이 남아 있어도 사지 않음 */ k = Math.max(0, Math.min(n - INV.count(id), Math.floor(coins / p))); if (k) { coins -= k * p; INV.add(id, k, true); TELE.ev('buy', { id, q: k, g: k * p, auto: 1 }); goldTax(k * p, 'auto'); got.push([id, k, k * p]); } if (k) {} else if (INV.count(id) < n) say(`자동사냥: 골드가 부족해 ${ITEMS[id].name}을(를) 못 샀습니다.`, '#f08a7a'); };
     if (C.buy) for (const id in C.buyQ) if (C.buyQ[id] > 0) want(id, C.buyQ[id]); if (!C.buy) say('자동사냥: [물약 자동 구매]가 꺼져 있어 물약은 사지 않았어요. (자동사냥 설정에서 켜고 종류별 개수를 정하면 마을에 올 때마다 채워요)', '#f0c080'); else if (!Object.values(C.buyQ).some(v => v > 0)) say('자동사냥: 물약 구매 개수가 모두 0이라 사지 않았어요. (자동사냥 설정에서 종류별 개수를 정해 주세요)', '#f0c080'); if (C.buyHaste) for (const id in C.hasteQ) if (C.hasteQ[id] > 0) { want(id, C.hasteQ[id]); if (!INV.count(id)) hasteSkip[id] = true; }
     if (C.buyPoly) for (const id in C.polyQ) { const d = ITEMS[id]; if (!d || !(C.polyQ[id] > 0)) continue; if (hero.lv < ((POLY_TIER[d.tier] || {}).lv || 99)) { say(`자동사냥: ${d.name}은(는) Lv.${POLY_TIER[d.tier].lv}부터 쓸 수 있어 사지 않았어요.`, '#f0c080'); continue; } want(id, C.polyQ[id]); }   /* v167: 변신 주문서 자동 구매 */
     if (C.buyWard && C.wardN > 0) want('immortal_ward', Math.min(20, Math.floor(C.wardN)));   /* 11/5 프로듀서: 불멸의 가호 자동 구매 — 정한 개수까지 채움 (쓰러지면 1개씩 타서 없어짐) */
@@ -11519,7 +11567,7 @@ const OFFL = (() => {
       res.min = Math.round(t);
       for (const id in have) { const dl = have[id] - start[id]; if (dl < 0) INV.take(id, -dl); else if (dl > 0) INV.add(id, dl, true); }
       for (const id in res.got) INV.add(id, res.got[id], true);
-      coins = cash; used = Math.min(DAY, used + res.min); done = T.key; INV.render();
+      coins = cash; goldTax(res.spent, 'offl'); used = Math.min(DAY, used + res.min); done = T.key; INV.render();
     } finally { settling = false; }
     try { TELE.ev('offline', { m: res.min, x: res.x, g: res.g, n: Object.keys(res.got).length }); } catch (e) {}
     await SAVE.now(true, true); show(res, mins, o.i); }
@@ -12340,7 +12388,7 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
     if (kind === 'free') { const L = freeLeft(); return L > 0 ? `무료 뽑기는 ${tl(L)} 뒤에 다시 할 수 있어요. (2시간마다 1회 · 쌓이지 않음)` : ''; }
     const cost = costOf(kind); return coins < cost ? `골드가 부족합니다. (${N} ${kind}회 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})` : ''; }
   function draw(kind) { if (busy) return null; kind = kind === 'free' ? 'free' : +kind === 11 ? 11 : 1; const w = why(kind); if (w) { say(w, kind === 'free' ? '#f0c080' : '#f08a7a'); return null; }
-    const n = kind === 11 ? 11 : 1, cost = costOf(kind); coins -= cost; if (kind === 'free') D.freeAt = Date.now(); else last = n;
+    const n = kind === 11 ? 11 : 1, cost = costOf(kind); coins -= cost; goldTax(cost, DL ? 'doll' : 'poly'); if (kind === 'free') D.freeAt = Date.now(); else last = n;
     const res = roll(n); for (const r of res) { r.isNew = !has(r.c.id); add(r.c.id); } D.mile += n; D.draws += n;
     try { TELE.ev(K.ev.g, { k: String(kind), g: cost, got: res.map(r => r.c.id).join(',') }); } catch (e) {}
     saveNow(); try { INV.render(); } catch (e) {} lastRes = { k: 'draw', t: kind === 'free' ? '무료 뽑기' : `${n}회 뽑기`, L: res, hide: !skip }; refresh(); afterDraw(res, lastRes.t, kind); return res; }
@@ -12376,7 +12424,7 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
     INV.askYesNo(`[전설] ${c.name} ${카드를} 다시 뽑을까요? (${t + 1}번째 · ${fmt(cost)} 골드)`, `전설 ${POOL['전설'].length}종 중 1${U이} 무작위로 나와요 (같은 ${카드가} 나올 수도 있어요) · 이 ${카드로} ${RR_MAX}번 하면 그다음엔 원하는 전설을 무료로 골라요 · 보유 ${fmt(coins)} 골드`, () => rrDo(id, t)); return 'ask'; }
   function rrDo(id, t0) { const c = PC_BY[id], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } const t = t0 == null ? rrTry(id) : t0; if (t >= RR_MAX || !rrOk(id, t)) return null; const cost = RR_COST[t];
     if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
-    const nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; rrTake(id, t); rrPut(nc.id, n2); try { TELE.ev(K.ev.rr, { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {}
+    const nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; goldTax(cost, 'rr'); rrTake(id, t); rrPut(nc.id, n2); try { TELE.ev(K.ev.rr, { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {}
     saveNow(); try { INV.render(); } catch (e) {} rrMode = null; sel = nc.id; const r = { c: nc, isNew, tag: '재뽑기' }, nx = n2 >= RR_MAX ? `이 ${카드는} 다음에 <b>원하는 전설을 무료로</b> 고를 수 있어요` : `이 ${C}의 다음 재뽑기 <b>${man(RR_COST[n2])} 골드</b>`;
     lastRes = { k: 'draw', t: `전설 재뽑기 ${n2}번째 · ${c.name} →`, L: [r], hide: !skip }; refresh();
     afterOne([r], `전설 재뽑기 ${n2}번째`, '전설 재뽑기', `[전설] ${esc(c.name)} → <b>[전설] ${esc(nc.name)}</b>${isNew ? ` (새 ${C}!)` : ''} · 재뽑기 <b>${n2} / ${RR_MAX}</b> · ${nx}`); return r; }
