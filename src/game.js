@@ -12298,7 +12298,7 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
   const PCARD = K.CARDS, PC_BY = K.BY, PC_GO = K.GO, PC_GRADE = K.GRADE, GO5 = ['일반', '고급', '희귀', '영웅', '전설'];   // 이 안의 PCARD·PC_BY·PC_GO·PC_GRADE = 그 시스템의 카드 목록·등급 (마법인형은 고급~전설 4등급) · GO5 = 연출 등급(희귀 이상 금빛)
   const N = K.N, C = K.C, U = K.U, SLN = K.SLN, WN = K.WN, jo = (w, x, y) => JOSA(w, x, y).slice(String(w).length), bc = w => !!jo(w, '1', '');   // bc: 받침 있음
   const 카드를 = C + jo(C, '을', '를'), 카드가 = C + jo(C, '이', '가'), 카드는 = C + jo(C, '은', '는'), 카드로 = C + jo(C, '으로', '로'), 카드예요 = C + (bc(C) ? '이에요' : '예요'), 카드라 = C + (bc(C) ? '이라' : '라'), U이 = U + jo(U, '이', '가'), U을 = U + jo(U, '을', '를'), U은 = U + jo(U, '은', '는');
-  const COST1 = 50000, COST11 = 500000, FREE_MS = 2 * 3600e3, MILE = 1000, ROW = 1, MORPH = 0, RR_COST = [3e6, 6e6, 12e6], RR_MAX = 3;   // RR: 전설 재뽑기 1·2·3번째 값 · 그다음은 원하는 전설 무료
+  const COST1 = K.COST1 || 50000, COST11 = K.COST11 || 500000, FREE_MS = 2 * 3600e3,   /* 11/5 프로듀서: 마법인형 뽑기는 예전 주머니 값 그대로 1회 10만 · 11회 100만 (나머지 확률·합성·마일리지는 변신과 같음) */ MILE = 1000, ROW = 1, MORPH = 0, RR_COST = [3e6, 6e6, 12e6], RR_MAX = 3;   // RR: 전설 재뽑기 1·2·3번째 값 · 그다음은 원하는 전설 무료
   const SYN = K.SYN, MAN = K.MAN, AUTO_G = K.AUTO_G;   // 합성 (변신: 일반→고급 30% · 고급→희귀 30% · 희귀→영웅 10%(천장 7) · 영웅→전설 10%(천장 10) · 마법인형: 일반이 없어 고급→희귀부터)
   const POOL = {}; for (const c of PCARD) (POOL[c.g] = POOL[c.g] || []).push(c);
   const blank = () => Object.assign({ v: 2, cards: {}, lock: {}, mile: 0, freeAt: 0, draws: 0, pity: { h: 0, l: 0 }, slot: {}, rr: {} }, DL ? { mig: {} } : {});   // mig(마법인형만): 옛 인형 아이템 옮긴 기록 {직업: [[번호, {인형: 개수}], …]}   // rr: 전설 재뽑기 횟수 (카드 id → 그 카드 장들의 횟수 목록 · 0번인 장은 안 적음)
@@ -12799,7 +12799,7 @@ window.PCG = mkCG({ key: 'poly', N: '변신 카드', C: '카드', U: '장', SLN:
   CARDS: PCARD, BY: PC_BY, GO: PC_GO, GRADE: PC_GRADE, SYN: { 일반: { to: '고급', p: 0.3 }, 고급: { to: '희귀', p: 0.3 }, 희귀: { to: '영웅', p: 0.1, pity: 7, pk: 'h' }, 영웅: { to: '전설', p: 0.1, pity: 10, pk: 'l' } }, MAN: ['희귀', '영웅'], AUTO_G: ['일반', '고급'],
   ev: { g: 'pcg', mile: 'pcmile', rr: 'pcrr', rrp: 'pcrrpick', syn: 'pcsyn', slot: 'pcmorph' }, btns: ['btn-poly', 'cw-poly'], other: 'dollwin' });
 // 11/5 마법인형 (위 메뉴 [마법인형]): 값·확률·합성·천장·마일리지·전설 재뽑기 = 변신과 같음 (등급 이름대로: 고급 90% = 변신의 일반+고급 · 희귀 8 · 영웅 1.8 · 전설 0.2) · 계정 공유 · 거래 불가 · 직업마다 인형 칸 1개
-window.DCG = mkCG({ key: 'doll', N: '마법인형', C: '인형', U: '개', SLN: '인형 칸', WN: '[마법인형]', ON: '소환 중', DO: '소환돼요', SLT: '소환', STOP: '뽑기·합성·인형 칸', SLW: '인형 칸을 바꿀', sk: 'dollCards', lsk: 'aden_dcg_skip',
+window.DCG = mkCG({ key: 'doll', COST1: 100000, COST11: 1000000, N: '마법인형', C: '인형', U: '개', SLN: '인형 칸', WN: '[마법인형]', ON: '소환 중', DO: '소환돼요', SLT: '소환', STOP: '뽑기·합성·인형 칸', SLW: '인형 칸을 바꿀', sk: 'dollCards', lsk: 'aden_dcg_skip',
   CARDS: DCARD, BY: DC_BY, GO: DC_GO, GRADE: DC_GRADE, SYN: DC_SYN, MAN: ['희귀', '영웅'], AUTO_G: ['고급'],
   ev: { g: 'dcg', mile: 'dcmile', rr: 'dcrr', rrp: 'dcrrpick', syn: 'dcsyn', slot: 'dcslot' }, btns: ['btn-doll', 'cw-doll'], other: 'polywin' });
 window.DOLL = (() => {

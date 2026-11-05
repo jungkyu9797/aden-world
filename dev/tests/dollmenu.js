@@ -25,8 +25,8 @@ const ERR = [];
   let v = await p.evaluate(() => ({ open: !document.getElementById('dollwin').hidden, title: document.querySelector('#dollwin .gw-plate').textContent, n: document.querySelectorAll('#dw-grid .pw-c').length, rows: [...document.querySelectorAll('#dw-grid .pw-gn')].map(e => e.firstChild.textContent), kinds: [...document.querySelectorAll('#dw-grid .pw-gn small')].map(e => e.textContent), foot: document.getElementById('dw-foot').textContent, d11: document.getElementById('dw-d11').textContent, d1: document.getElementById('dw-d1').textContent }));
   console.log(JSON.stringify(v));
   ok('[마법인형] 창: 인형 21종 · 고급·희귀·영웅·전설', v.open && v.title === '마법인형' && v.n === 21 && v.rows.join() === '고급,희귀,영웅,전설' && v.kinds.join(' ') === '0/6종 0/6종 0/6종 0/3종');
-  ok('뽑기 값·확률 = 변신과 같음 (11회 50만 · 1회 5만 · 고급 90 · 희귀 8 · 영웅 1.8 · 전설 0.2)', /500,000/.test(v.d11) && /50,000/.test(v.d1) && /고급 90% · 희귀 8% · 영웅 1\.8% · 전설 0\.2%/.test(v.foot) && /계정의 모든 캐릭터/.test(v.foot) && /거래·판매 불가/.test(v.foot));
-  ok('같은 설정: 마일리지 1000 · 무료 2시간 · 전설 재뽑기 300만~', await p.evaluate(() => DCG.MILE === PCG.MILE && DCG.FREE_MS === PCG.FREE_MS && DCG.COST1 === PCG.COST1 && DCG.COST11 === PCG.COST11 && JSON.stringify(DCG.RR_COST) === JSON.stringify(PCG.RR_COST) && /300만/.test(document.getElementById('dw-again').textContent)));
+  ok('뽑기 값·확률 = 변신과 같음 (11회 100만 · 1회 10만 · 고급 90 · 희귀 8 · 영웅 1.8 · 전설 0.2)', /1,000,000/.test(v.d11) && /100,000/.test(v.d1) && /고급 90% · 희귀 8% · 영웅 1\.8% · 전설 0\.2%/.test(v.foot) && /계정의 모든 캐릭터/.test(v.foot) && /거래·판매 불가/.test(v.foot));
+  ok('같은 설정: 마일리지 1000 · 무료 2시간 · 전설 재뽑기 300만~ (뽑기 값만 인형 10만·100만 · 변신 5만 그대로)', await p.evaluate(() => DCG.MILE === PCG.MILE && DCG.FREE_MS === PCG.FREE_MS && DCG.COST1 === 100000 && DCG.COST11 === 1000000 && PCG.COST1 === 50000 && JSON.stringify(DCG.RR_COST) === JSON.stringify(PCG.RR_COST) && /300만/.test(document.getElementById('dw-again').textContent)));
   await p.click('#btn-poly'); await p.waitForTimeout(200); const ex1 = await p.evaluate(() => [document.getElementById('polywin').hidden, document.getElementById('dollwin').hidden]);
   await p.click('#btn-doll'); await p.waitForTimeout(200); const ex2 = await p.evaluate(() => [document.getElementById('polywin').hidden, document.getElementById('dollwin').hidden]);
   ok('[변신]·[마법인형] 창은 하나만 열림', !ex1[0] && ex1[1] && ex2[0] && !ex2[1], [ex1, ex2]);
@@ -37,9 +37,9 @@ const ERR = [];
   // ② 뽑기 골드 · 마일리지 (모션 스킵)
   await p.evaluate(() => { DCG.setSkip(true); DCG.openWin(true); });
   let c0 = await p.evaluate(() => __T.coins), S0 = await st(p); await p.click('#dw-d1'); await p.waitForTimeout(300); let c1 = await p.evaluate(() => __T.coins), S1 = await st(p);
-  ok('1회 뽑기: 50,000 골드 · 1개 · 마일리지 +1', c0 - c1 === 50000 && tot(S1) - tot(S0) === 1 && S1.mile === 1, [c0 - c1, tot(S1), S1.mile]);
+  ok('1회 뽑기: 100,000 골드 · 1개 · 마일리지 +1', c0 - c1 === 100000 && tot(S1) - tot(S0) === 1 && S1.mile === 1, [c0 - c1, tot(S1), S1.mile]);
   await p.click('#dw-d11'); await p.waitForTimeout(300); let c2 = await p.evaluate(() => __T.coins), S2 = await st(p);
-  ok('11회 뽑기: 500,000 골드 · 11개 · 마일리지 12', c1 - c2 === 500000 && tot(S2) - tot(S1) === 11 && S2.mile === 12, [c1 - c2, tot(S2), S2.mile]);
+  ok('11회 뽑기: 1,000,000 골드 · 11개 · 마일리지 12', c1 - c2 === 1000000 && tot(S2) - tot(S1) === 11 && S2.mile === 12, [c1 - c2, tot(S2), S2.mile]);
   ok('뽑은 인형은 모두 인형 21종 중 (계정 문서 dollCards 모양 = polyCards)', Object.keys(S2.cards).every(k => /^[a-z_]+$/.test(k)) && ['v', 'cards', 'lock', 'mile', 'freeAt', 'draws', 'pity', 'slot', 'rr', 'mig'].every(k => k in S2) && await p.evaluate(ks => ks.every(k => __T.ITEMS['doll_' + k] && __T.ITEMS['doll_' + k].doll === k), Object.keys(S2.cards)));
   // 확률 (sim · 보관함은 그대로)
   const sim = await p.evaluate(() => { const a = DCG.sim(200000, 1), q = DCG.sim(4000, 11), per = {}; for (const k in a.per) per[k] = a.per[k]; return { g: a.g, per, no11: q.no11 }; });
