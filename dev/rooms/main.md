@@ -13,6 +13,7 @@
 2. 내 대화방 주소(커밋 끝 `Claude-Session:` 줄의 주소)를 확인해서
    - 작업판 db `meta/main` = `{ url: <내 주소>, at: <지금 ISO>, prev: "https://claude.ai/code/session_01CV4TroADTYCEHxYpHJTZ7D" }` (ArtifactData set, 작업판 https://claude.ai/artifact/XemyTMkY4DDuWZsAUJ3pQX) → 작업판의 [메인방 열기]·[메인방에서 업데이트] 버튼이 내 방으로 바뀜
    - CLAUDE.md의 메인방 주소를 내 주소로 고쳐서 main에 commit·push (게임 파일이 아니라서 배포 아님)
+   - **작업판 [업데이트] 버튼 다시 잇기 (11/5~)**: 내 세션에서 `send_later`(at = 1년 뒤 · name '작업판 [업데이트] 버튼 → 메인방' · message는 예전 예약과 같은 문구 — `list_triggers`로 예전 것을 보고 그대로) → 나온 `trigger_id`를 작업판 db `meta/main.trig`에 update. 예전 메인방의 예약은 `delete_trigger`(그 방으로 울리지 않게).
 3. 프로듀서에게 한 줄: "메인방 교대했어요 · 이제 여기서 말씀해 주세요" + 아래 '지금 상태' 요약 3줄.
 
 ## 프로듀서와 일하는 방식 (요약 — 자세한 건 CLAUDE.md)
