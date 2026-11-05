@@ -53,7 +53,7 @@ const { chromium } = require('playwright'); const login = require('../tq.js');
   await p.evaluate(() => { const T = __T; T.INV.load({ bag: [{ id: 'gfrag_phoenix', n: 4 }, { id: 'gfrag_drake_king', n: 5 }, { id: 'red_potion', n: 5 }], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.render(); T.CRAFT_.open(); document.querySelector('#craftwin [data-ct="make"]').click(); });
   await p.waitForTimeout(500);
   const R4 = await L('make tab (4 frags)', () => { const bt = document.querySelector('#cr-list button[data-mk="phoenix"]'), row = bt && bt.closest('.cr-row'); return { has: !!bt, dis: bt && bt.disabled, txt: row && row.querySelector('.cr-t').innerText.replace(/\s+/g, ' ') }; });
-  ok(R4.has && R4.dis, 'phoenix make row/button'); ok(/용암·화산탄 피해를 받지 않아요/.test(R4.txt || '') && !/\+1%/.test(R4.txt || ''), 'make row text');
+  ok(R4.has && R4.dis, 'phoenix make row/button'); ok(/용암·화산탄 피해 없음/.test(R4.txt || '') && /골드 획득 \+1%/.test(R4.txt || ''), 'make row text (11/5: 용암 면역 + 골드 획득 +1%)');
   await p.evaluate(() => { __T.INV.add('gfrag_phoenix', 1, true); __T.INV.render(); }); await p.waitForTimeout(500);
   await p.evaluate(() => { const L = document.getElementById('cr-list'), r = L.querySelector('button[data-mk="phoenix"]').closest('.cr-row'); L.scrollTop = r.offsetTop - L.offsetTop - 120; });
   await p.waitForTimeout(300); await (await p.$('#craftwin')).screenshot({ path: 'dev/out/phx_gaho.png' });
@@ -62,25 +62,25 @@ const { chromium } = require('playwright'); const login = require('../tq.js');
   await p.evaluate(() => { const R = Math.random; Math.random = () => 0.05; try { document.getElementById('ask-yes').click(); } finally { Math.random = R; } });
   await p.waitForTimeout(400);
   const M = await L('made', () => ({ gaho: __T.INV.count('gaho_phoenix'), frag: __T.INV.count('gfrag_phoenix'), log: __T.log.slice(-2).map(x => x.t || x.text || x), icon: /gpx_b/.test(__T.CXI.gaho_phoenix) && /gpx_b/.test(__T.CXI.gfrag_phoenix) }));
-  ok(M.gaho === 1 && M.frag === 0, 'phoenix gaho not crafted'); ok(M.icon, 'icon overwritten'); ok(M.log.some(t => /용암·화산탄 피해를 받지 않아요/.test(t)), 'make message');
+  ok(M.gaho === 1 && M.frag === 0, 'phoenix gaho not crafted'); ok(M.icon, 'icon overwritten'); ok(M.log.some(t => /용암·화산탄 피해 없음.*골드 획득 \+1%/.test(t)), 'make message');
   // 툴팁
-  const TP = await L('tip', () => __T.INV.tipOf(__T.INV.bag().find(e => e.id === 'gaho_phoenix')).split('\n')); ok(TP.some(t => /적용 중/.test(t)) && !TP.some(t => /\+\d+%/.test(t)), 'tooltip');
+  const TP = await L('tip', () => __T.INV.tipOf(__T.INV.bag().find(e => e.id === 'gaho_phoenix')).split('\n')); ok(TP.some(t => /적용 중/.test(t)) && TP.some(t => /골드 획득 \+1%/.test(t)) && TP.some(t => /용암·화산탄 피해 없음/.test(t)), 'tooltip');
   // 6) [가호 조합]: 피닉스의 가호 2개 → 강화 없음 (버튼 꺼짐 · data-mx 없음) · 다른 가호는 그대로 조합 가능
   await p.evaluate(() => { const T = __T; T.INV.add('gaho_phoenix', 1, true); T.INV.add('gaho_drake_king', 1, true); T.INV.add('gaho_drake_king', 1, true); T.INV.render(); document.querySelector('#craftwin [data-ct="mix"]').click(); });
   await p.waitForTimeout(500);
   const X = await L('mix tab', () => { const rows = [...document.querySelectorAll('#cr-list .cr-row')].map(r => ({ t: r.querySelector('.cr-t').innerText.replace(/\s+/g, ' '), mx: r.querySelector('button').dataset.mx || '', dis: r.querySelector('button').disabled })); return { rows, note: document.getElementById('cr-note').textContent }; });
   const px = X.rows.find(r => /피닉스의 가호/.test(r.t)), dk = X.rows.find(r => /드레이크 킹의 가호/.test(r.t));
-  ok(px && px.dis && !px.mx && /강화할 수 없는/.test(px.t), 'phoenix mix row'); ok(dk && !dk.dis && dk.mx === 'drake_king', 'drake king mix row broken');
+  ok(px && !px.dis && px.mx === 'phoenix', 'phoenix mix row (11/5: 조합 가능)'); ok(dk && !dk.dis && dk.mx === 'drake_king', 'drake king mix row broken');
   await (await p.$('#craftwin')).screenshot({ path: 'dev/out/phx_gaho_mix.png' });
   await p.evaluate(() => document.querySelector('#craftwin [data-closewin="craftwin"]').click());
   // 7) 축복 부여 주문서: 피닉스의 가호만 있으면 쓸 대상 없음 · 무기가 있어도 피닉스의 가호를 누르면 안 됨
   await p.evaluate(() => { const T = __T; T.INV.load({ bag: [{ id: 'gaho_phoenix', n: 1 }, { id: 'bless_scroll', n: 3 }], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.render(); T.INV.use(T.INV.bag().find(e => e.id === 'bless_scroll')); });
-  const S1 = await L('bless only gaho', () => ({ targeting: document.getElementById('invwin').classList.contains('targeting'), log: __T.log.slice(-1).map(x => x.t || x.text || x)[0] })); ok(!S1.targeting, 'bless targeting started with only phoenix gaho');
+  const S1 = await L('bless only gaho', () => ({ targeting: document.getElementById('invwin').classList.contains('targeting'), log: __T.log.slice(-1).map(x => x.t || x.text || x)[0] })); ok(S1.targeting, 'bless targeting with phoenix gaho (11/5: 축복 가능)');
   await p.evaluate(() => { const T = __T; T.INV.add('dv_sword', 1, true); T.INV.render(); T.INV.use(T.INV.bag().find(e => e.id === 'bless_scroll')); });
   await p.waitForTimeout(200);
   const S2 = await L('bless click gaho', () => { const T = __T, bag = T.INV.bag(), e = bag.find(x => x.id === 'gaho_phoenix'), k = bag.indexOf(e); const c = document.querySelectorAll('#inv-grid .slot')[k]; const was = document.getElementById('invwin').classList.contains('targeting'); c && c.click();
     return { was, blessed: !!e.blessed, scrolls: T.INV.count('bless_scroll'), log: T.log.slice(-1).map(x => x.t || x.text || x)[0] }; });
-  ok(S2.was && !S2.blessed && S2.scrolls === 3 && /축복할 수 없습니다/.test(S2.log || ''), 'bless on phoenix gaho');
+  ok(S2.was && S2.scrolls < 3 && (S2.blessed || /축복 부여 실패/.test(S2.log || '')), 'bless on phoenix gaho (11/5: 축복 시도됨 · 성공하면 골드 +1%)');
   // 8) 월드맵 도감 · 아이템 출처
   const SRC = await L('codex', () => { const T = __T; try { T.TOWN.goTown(); } catch (e) {} return { hello22: T.ISLAND.def(22).hello, hello23: T.ISLAND.def(23).hello }; });
   ok(/피닉스의 가호/.test(SRC.hello22) && /피닉스의 가호/.test(SRC.hello23), 'hello text');
