@@ -12820,8 +12820,9 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
   { for (const id of K.btns) { const b = document.getElementById(id); if (b) b.onclick = () => openWin(); } bind(); }
   /* 11/5 프로듀서: 캐릭터 창 [변신 카드] 칸에 지금 변신 중인 카드 그림·등급 (변신 안 했으면 예전처럼 '변신 카드' 글자) */
   function cwSlot() { if (DL) return; const b = document.getElementById('cw-poly'); if (!b) return; const c = bad ? null : mySlot(), key = c ? c.id : ''; if (b.dataset.pc === key && (!c || b.querySelector('img[src]'))) return; b.dataset.pc = key;
-    if (!c) { b.classList.remove('on'); b.style.removeProperty('--gc'); b.innerHTML = '변신<small>카드</small>'; b.title = '변신 카드: 내 카드 · 변신하기'; b.setAttribute('aria-label', '변신 카드 창 열기'); return; }
-    const u = art(c.id); b.classList.add('on'); b.style.setProperty('--gc', GC(c.g)); b.innerHTML = `<img alt=""${u ? ` src="${u}"` : ` data-pc="${esc(c.id)}"`}><i class="cw-pg">${esc(c.g[0])}</i>`; if (!u) fillArt(b);
+    if (!c) { b.className = 'cw-poly'; b.style.removeProperty('--gc'); b.style.removeProperty('--rar'); b.innerHTML = '변신<small>카드</small>'; b.title = '변신 카드: 내 카드 · 변신하기'; b.setAttribute('aria-label', '변신 카드 창 열기'); return; }
+    const u = art(c.id), rc = c.g === '일반' ? '#b9b4a8' : RARITY_C[c.g]; b.className = 'cw-poly on eq has rar r-' + (RAR_N[c.g] || 0); b.style.setProperty('--gc', GC(c.g)); b.style.setProperty('--rar', rc);   /* 11/5: 인형 칸과 같은 효과 — 장비 칸 등급 테두리·바탕(eq rar r-N) + 전설은 금빛 반짝임(lg-fx) */
+    b.innerHTML = `<img alt=""${u ? ` src="${u}"` : ` data-pc="${esc(c.id)}"`}>${c.g === '전설' ? `<i class="lg-fx" aria-hidden="true" style="--lgd:${(-performance.now() / 1000).toFixed(2)}s"><b></b><b></b></i>` : ''}<i class="cw-pg">${esc(c.g[0])}</i>`; if (!u) fillArt(b);
     b.title = `변신 중: ${c.name} (${c.g} · ${effTxt(c)}) · 누르면 변신 카드 창`; b.setAttribute('aria-label', `변신 중: ${c.name} · 변신 카드 창 열기`); }
   setInterval(() => { if (DL) migTick(); if (sync()) { try { INV.render(); } catch (e) {} refresh(); } tick(); cwSlot(); if (auto && !busy && !autoT) { const w = $('polywin'); if (!w || w.hidden) autoStop(`${N} 창을 닫아서 자동 뽑기를 멈췄어요.`); } }, 1000);   // 변신 칸 맞추기 · 보유 골드 · 무료 뽑기 남은 시간
   // ----- 11/5 마법인형 칸 = 장비 [인형] 칸: INV.dollV가 가방에 없는 '보이는 장착'(dv)으로 끼움 → 능력치·따라다니는 인형·접속 정보(dl)·봇 복사·전투력이 예전 장착 인형과 똑같이 씀
