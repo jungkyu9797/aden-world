@@ -143,7 +143,7 @@ input[type=text] { flex: 1; min-width: 0; font: 14px var(--body); color: var(--i
   <header>
     <div>
       <h1>아덴 작업판</h1>
-      <p class="sub">말은 메인방 하나에만 하세요 — Claude가 그 방 안에서 여러 작업을 동시에 돌려요. 이 판은 현황판이에요. 끝난 건 승인 대기 → 승인하면 업데이트 대기 → 아래 [업데이트] 버튼(또는 메인방에 "업데이트" 한마디)으로 한 번에 배포.</p>
+      <p class="sub">말은 메인방 하나에만 하세요 — Claude가 그 방 안에서 여러 작업을 동시에 돌려요. 이 판은 현황판이에요. 끝난 건 승인 대기 → 승인하면 업데이트 대기 → 메인방에서 "업데이트" 한마디로 한 번에 배포.</p>
     </div>
     <div class="hbtns"><span id="live"></span><a class="big" id="main-room" data-main href="https://claude.ai/code/session_01PSbXoDoYAy5czXPAwG2P4a" target="_blank" rel="noopener">메인방 열기 →</a></div>
   </header>
@@ -170,7 +170,7 @@ input[type=text] { flex: 1; min-width: 0; font: 14px var(--body); color: var(--i
   <section class="stage" id="s-queued" aria-label="업데이트 대기">
     <div class="sh"><h2>업데이트 대기 <span class="cnt" style="--tc:var(--accent)" id="n-queued">0</span> <small>승인한 것 · 다음 업데이트에 같이 나가요</small></h2></div>
     <ol class="rows" id="queued"></ol>
-    <div class="bar" id="go-bar"><p><b>최종 업데이트</b> — [업데이트]를 누르면 메인방이 여기 있는 것 전부를 소식안과 함께 한 번에 배포해요. 끝나면 휴대폰 알림이 가요.</p><span class="acts" id="go-acts"><button type="button" class="big" id="go-btn">업데이트</button></span></div>
+    <div class="bar" id="go-bar"><p><b>최종 업데이트</b> — 메인방에 <b>"업데이트"</b>라고 보내면 여기 있는 것 전부를 소식안과 함께 한 번에 배포해요. 끝나면 휴대폰 알림이 가요.</p><span class="acts" id="go-acts"></span></div>
     <p class="hint" id="go-state" hidden></p>
   </section>
 
@@ -292,35 +292,14 @@ function row(t, n, kind) {
         : `<div class="acts">${kind === 'ready' ? `${canWrite ? `<button type="button" class="ok" data-ok="${esc(t.id)}">승인</button><button type="button" class="ghost" data-rwopen="${esc(t.id)}">수정 요청</button>` : ''}<a class="room-btn" href="https://claude.ai/artifact/MZNnyPab1VtMTqbtEyuay6" target="_blank" rel="noopener">테스트 페이지 →</a>` : canWrite ? `<button type="button" class="ghost" data-undo="${esc(t.id)}">승인 취소 (승인 대기로)</button>` : ''}</div>`}
     </div>` : ''}</li>`;
 }
-// ---------- 최종 업데이트 버튼 (11/5 프로듀서): 메인방에 걸어 둔 예약 메시지(meta/main.trig)를 Claude Code Remote의 fire_trigger로 깨움 → 메인방 채팅에 '업데이트'가 들어가 배포 ----------
-const GO = { confirm: false, busy: false, msg: '', err: false };
-function goState(t, err) { GO.msg = t || ''; GO.err = !!err; const el = $('go-state'); if (!el) return; el.hidden = !GO.msg; el.textContent = GO.msg; el.style.color = err ? 'var(--wait)' : ''; }
-function goRender(queued) { const box = $('go-acts'); if (!box) return;
-  if (!canWrite || !isOwner) { box.innerHTML = `<a class="big" data-main href="${esc((mainMeta && safeUrl(mainMeta.url)) || MAIN_ROOM)}" target="_blank" rel="noopener">메인방에서 업데이트 →</a>`; return; }
-  const sent = deployMeta && deployMeta.at && !(live && live.at && Date.parse(live.at) >= Date.parse(deployMeta.at)) && Date.now() - Date.parse(deployMeta.at) < 40 * 60000;
-  box.innerHTML = GO.confirm ? `<span class="hint">${sent ? '방금 보낸 업데이트를 메인방이 처리하는 중이에요. 그래도 다시 보낼까요?' : `업데이트 대기 ${queued.length}건을 지금 배포할까요?`}</span><button type="button" class="big" id="go-yes">배포하기</button><button type="button" class="ghost" id="go-no">취소</button>`
-    : `<button type="button" class="big" id="go-btn"${GO.busy ? ' disabled' : ''}>${GO.busy ? '보내는 중…' : sent ? '보냄 · 배포 중' : '업데이트'}</button>`;
-  if (!GO.msg && sent) goState(`${when(deployMeta.at)}에 메인방에 보냈어요 · 배포가 끝나면 '업데이트 기록'에 올라오고 휴대폰 알림이 가요`);
-  const b = $('go-btn'); if (b) b.onclick = () => { GO.confirm = true; goState(''); render(); };
-  const y = $('go-yes'); if (y) y.onclick = () => { GO.confirm = false; goFire(queued); };
-  const n = $('go-no'); if (n) n.onclick = () => { GO.confirm = false; render(); }; }
-async function goFire(queued) { if (GO.busy) return;
-  const trig = mainMeta && /^trig_[A-Za-z0-9]+$/.test(String(mainMeta.trig || '')) ? mainMeta.trig : null;
-  if (!trig) { goState('메인방 연결 정보가 아직 없어요 · [메인방 열기]에서 "업데이트"라고 써 주세요', true); render(); return; }
-  GO.busy = true; goState('메인방에 보내는 중…'); render();
-  let mcp = null; try { mcp = await claude.use('mcp'); } catch (e) { mcp = null; }
-  if (!mcp) { GO.busy = false; goState('이 화면에서는 버튼으로 보낼 수 없어요 · 메인방에 "업데이트"라고 써 주세요', true); render(); return; }
-  const ids = queued.map(t => t.id), text = `작업판 [업데이트] 버튼 · ${new Date().toLocaleString('ko-KR')} · 업데이트 대기 ${ids.length}건: ${ids.join(', ')}`;
-  try { await mcp.callTool('Claude Code Remote', 'fire_trigger', { trigger_id: trig, text }, { cache: false });
-    try { await db.doc('meta/deploy').set({ at: nowIso(), n: ids.length, ids, by: 'board' }); } catch (e) {}
-    goState('메인방에 보냈어요 · 배포가 끝나면 \'업데이트 기록\'에 올라오고 휴대폰 알림이 가요 (보통 5~10분)'); }
-  catch (e) { const c = e && e.code;
-    goState(c === 'approval_required' || c === 'not_in_manifest' || c === 'consent_required' ? '버튼을 쓰려면 허락이 필요해요 · 다시 누르고 나오는 창에서 [허락]을 눌러 주세요'
-      : c === 'server_not_connected' || c === 'needs_reauth' || c === 'selection_required' ? 'claude.ai 설정 → 커넥터에서 Claude Code Remote 연결이 필요해요 · 지금은 메인방에 "업데이트"라고 써 주세요'
-      : c === 'tool_error' ? '메인방 예약이 꺼져 있어서 보내지 못했어요 · 메인방에 "업데이트"라고 써 주세요 (메인방이 예약을 다시 걸어 둬요)'
-      : c === 'server_unavailable' || c === 'upstream_error' || c === 'cancelled' ? '보냈는지 확실하지 않아요 · 10분 안에 알림이 없으면 메인방에 "업데이트"라고 써 주세요 (다시 누르면 두 번 갈 수 있어요)'
-      : '보내지 못했어요 · 메인방에 "업데이트"라고 써 주세요', true); }
-  GO.busy = false; render(); }
+// ---------- 최종 업데이트 버튼 (11/5 프로듀서): 누르면 '업데이트'를 복사하고 메인방을 열어요 — 메인방 채팅에 붙여 넣어 보내면 배포
+//   (처음엔 메인방 예약 메시지를 fire_trigger로 깨우려 했지만 플랫폼이 페이지에서 예약을 바로 실행하는 것을 막아서 이 방식으로)
+const GO = { msg: '' };
+function goState(t, err) { GO.msg = t || ''; const el = $('go-state'); if (!el) return; el.hidden = !GO.msg; el.textContent = GO.msg; el.style.color = err ? 'var(--wait)' : ''; }
+function goRender(queued) { const box = $('go-acts'); if (!box) return; const url = (mainMeta && safeUrl(mainMeta.url)) || MAIN_ROOM;
+  box.innerHTML = `<a class="big" id="go-btn" data-main href="${esc(url)}" target="_blank" rel="noopener">업데이트 (메인방 열기) →</a>`;
+  const b = $('go-btn'); if (b) b.onclick = () => { let copied = false; try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText('업데이트').then(() => {}, () => {}); copied = true; } } catch (e) {}
+    goState(copied ? "메인방이 열려요 · 채팅에 '업데이트'를 붙여 넣어(복사해 뒀어요) 보내면 업데이트 대기 " + queued.length + "건이 배포돼요" : "메인방이 열려요 · 채팅에 '업데이트'라고 보내면 업데이트 대기 " + queued.length + "건이 배포돼요"); }; }
 async function upd(id, data, okMsg) { if (!db) return; try { await db.doc('tasks/' + id).update(Object.assign({ updated: nowIso() }, data)); if (okMsg) toast(okMsg); } catch (e) { toast('저장하지 못했어요. 잠시 뒤 다시 해 주세요.'); } }
 function bind() {
   document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { UI.filter = b.dataset.f; render(); });
