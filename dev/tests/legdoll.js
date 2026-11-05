@@ -1,16 +1,9 @@
-// 11/5 전설 마법인형 (KT_PORT=8901 bash dev/runkt.sh dev/tests/legdoll.js) — 정의·능력치(받는 피해 % · 마법 명중 · cx) · 전투력·봇 복사 · 합성(영웅 4 → 전설 20%) · 연출(밀기·누르기·Space·건너뛰기) · 따라다니는 인형 오로라 · 도감 · 390px
+// 11/5 전설 마법인형 (KT_PORT=8901 bash dev/runkt.sh dev/tests/legdoll.js) — 정의·능력치(받는 피해 % · 마법 명중 · cx) · 전투력·봇 복사 · (11/5 dollmenu) 인형 칸 = [마법인형] 창(DCG) · 영웅 4 → 전설 10% 합성(변신과 같은 홀 연출) · 따라다니는 인형 오로라 · 도감 · LDOLL 연출(데모) · 390px
 const { chromium } = require('playwright'); const login = require('../tq.js');
 const R = {}; const ok = (k, v, x) => { R[k] = !!v; console.log((v ? 'OK  ' : 'FAIL') + ' ' + k + (x !== undefined ? '  ' + (typeof x === 'string' ? x : JSON.stringify(x)) : '')); };
 const LEG = ['doll_deathknight', 'doll_phoenix', 'doll_ice_queen'], HERO4 = ['doll_drake', 'doll_kbugbear', 'doll_troll', 'doll_wyvern'];
 const st = p => p.evaluate(() => window.LDOLL && LDOLL.state());
 const waitPh = (p, ph, to) => p.waitForFunction(ph => { const s = window.LDOLL && LDOLL.state(); return s && s.ph === ph; }, ph, { timeout: to || 9000 });
-// 가방에 영웅 인형 4개(+α)를 넣고 제작 장인 [인형 합성] → 3단계 자동 넣기 → 합성 → (Math.random 고정) 예
-async function mix(p, seq, bag) {
-  await p.evaluate(([bag]) => { const T = __T; T.INV.load({ bag: bag.map(id => ({ id, n: 1, en: 0 })), bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.render(); T.CRAFT_.open(); }, [bag || HERO4]);
-  await p.waitForTimeout(150); await p.click('#craftwin [data-ct=doll]'); await p.waitForTimeout(150); await p.click('#craftwin [data-da="3"]'); await p.waitForTimeout(120);
-  const sel = await p.evaluate(() => __T.CRAFT_.dollSel(3).map(e => e && e.id)); await p.click('#craftwin [data-dl="3"]'); await p.waitForSelector('#askwin:not([hidden])');
-  await p.evaluate(seq => { const o = Math.random; let i = 0; Math.random = () => i < seq.length ? seq[i++] : o(); document.getElementById('ask-yes').click(); Math.random = o; }, seq);   // 고친 Math.random은 누른 직후 바로 되돌림 (게임 루프가 먹지 않게)
-  return sel; }
 const bagIds = p => p.evaluate(() => __T.INV.bag().map(e => e.id));
 async function knobDrag(p, full) { const k = await p.evaluate(() => { const r = document.querySelector('.ld-ov .ef-knob').getBoundingClientRect(), t = document.querySelector('.ld-ov .ef-track').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, x1: t.right - 8 }; });
   await p.mouse.move(k.x, k.y); await p.mouse.down(); const end = full ? k.x1 + 40 : k.x + (k.x1 - k.x) * 0.5; for (let i = 1; i <= 10; i++) { await p.mouse.move(k.x + (end - k.x) * i / 10, k.y); await p.waitForTimeout(25); } const mid = await st(p); await p.mouse.up(); return mid; }
@@ -24,9 +17,9 @@ async function knobDrag(p, full) { const k = await p.evaluate(() => { const r = 
   ok('데스나이트: 근추5 근명5 받피5% MP회복3 무게10%', JSON.stringify(D[0].st) === JSON.stringify({ xdmgM: 5, hitM: 5, drPct: 5, mpRegen: 3, wPct: 10 }) && D[0].txt === '근거리 추가 피해 +5 · 근거리 명중 +5 · 받는 피해 5% 감소 · MP 회복 +3 · 가방 최대 무게 +10%');
   ok('피닉스: SP5 마명5 받피5% MP회복3 무게10%', JSON.stringify(D[1].st) === JSON.stringify({ sp: 5, hitMg: 5, drPct: 5, mpRegen: 3, wPct: 10 }) && /마법 명중 \+5/.test(D[1].txt));
   ok('얼음여왕: 원추5 원명5 받피5% MP회복3 무게10%', JSON.stringify(D[2].st) === JSON.stringify({ xdmgR: 5, hitR: 5, drPct: 5, mpRegen: 3, wPct: 10 }));
-  ok('설명: 영웅 4개 · 20%', D.every(d => /영웅\(3단계\) 인형 4개/.test(d.desc) && /20%/.test(d.desc)));
+  ok('설명: 위 메뉴 [마법인형] · 금빛 기운 · 거래 불가', D.every(d => /위 메뉴 \[마법인형\]/.test(d.desc) && /금빛 기운/.test(d.desc) && /거래 불가/.test(d.desc)));
   // ② 능력치 (cx · 받는 피해 % · 마법 명중 · 전투력 · 봇 복사)
-  const S = await p.evaluate(() => { const T = __T, I = T.INV, bonus = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, put = id => { I.load({ bag: id ? [{ id, n: 1, en: 0, on: 'doll' }] : [], bonus }); I.render(); };
+  const S = await p.evaluate(() => { const T = __T, I = T.INV, bonus = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, put = id => { I.load({ bag: [], bonus }); const k = id && id.slice(5); if (k) { const S = DCG.state(); S.cards[k] = Math.max(1, S.cards[k] || 0); DCG.setSlot(k); } else DCG.clearSlot(true); I.render(); };   /* 11/5: 인형 칸 = [마법인형] 창 (DCG) */
     const read = () => { const o = {}; for (const k of ['xdmgM', 'hitM', 'xdmgR', 'hitR', 'sp', 'hitMg', 'drPct', 'mpRegen']) o[k] = I.cx(k); o.dmg = I.dmg(); o.maxW = I.maxW(); o.cp = T.CP_(); o.sp_ = I.sp(); return o; };
     const hurt = (src, kind) => { T.GOD_INV = false; const h = T.HERO; h.max = Math.max(h.max, 5000); h.hp = 5000; const o = Math.random; Math.random = () => 0; try { T.HURT_(100, src, kind); } finally { Math.random = o; } return 5000 - h.hp; };
     const mob = () => ({ kind: 'goblin', x: T.HERO.x, z: T.HERO.z }), pvp = () => ({ isRemote: true, peer: 'x', x: T.HERO.x, z: T.HERO.z }), boss = () => ({ kind: 'baphomet', x: T.HERO.x, z: T.HERO.z });
@@ -44,63 +37,38 @@ async function knobDrag(p, full) { const k = await p.evaluate(() => { const r = 
   ok('봇 복사: 받는 피해 % (cb.dp)', S.mnDp === 5);
   // 마법 명중 (마법사로 다시 들어가서)
   { const p2 = await ctx.newPage(); p2.on('pageerror', e => errs.push('wiz: ' + e.message)); await login(p2, { cls: 'wizard', name: 'ldWZ' });
-    const M = await p2.evaluate(() => { const T = __T, I = T.INV, bonus = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, put = id => { I.load({ bag: id ? [{ id, n: 1, en: 0, on: 'doll' }] : [], bonus }); I.render(); }, S = { lv: T.HERO.lv, mac: 10 }, D = { lv: T.HERO.lv + 15, ac: -60 };
+    const M = await p2.evaluate(() => { const T = __T, I = T.INV, bonus = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, put = id => { I.load({ bag: [], bonus }); const k = id && id.slice(5); if (k) { const S = DCG.state(); S.cards[k] = Math.max(1, S.cards[k] || 0); DCG.setSlot(k); } else DCG.clearSlot(true); I.render(); }, S = { lv: T.HERO.lv, mac: 10 }, D = { lv: T.HERO.lv + 15, ac: -60 };
       put(null); const a = { h: T.HEROHIT_(S, 'magic'), hm: T.HEROHIT_(S), pv: T.PVPHIT_(D, 'magic'), cp: T.CP_().total, hb: T.FBOT_.mine().cb.hb };
       put('doll_phoenix'); const b = { h: T.HEROHIT_(S, 'magic'), hm: T.HEROHIT_(S), pv: T.PVPHIT_(D, 'magic'), cp: T.CP_().total, hb: T.FBOT_.mine().cb.hb }; put(null); return { a, b }; });
     console.log('magic hit', JSON.stringify(M));
     ok('마법 명중 +5 → 마력탄 명중 +15%p (근거리는 그대로)', Math.abs(M.b.h - M.a.h - 0.15) < 1e-9 && M.b.hm === M.a.hm);
     ok('마법 명중 +5 → 대인전 마법 명중 +15%p · 봇 복사 hb', Math.abs(M.b.pv - M.a.pv - 0.15) < 1e-9 && Math.abs(M.b.hb - M.a.hb - 0.15) < 0.002);
     ok('마법사 전투력도 오름', M.b.cp > M.a.cp); await p2.close(); }
-  // ③ 확률 (2만 번 · 가방은 그대로)
-  const sim = await p.evaluate(() => __T.CRAFT_.dollSim(3, 20000)); const legN = ['doll_deathknight', 'doll_phoenix', 'doll_ice_queen'].map(k => sim.got[k] || 0);
-  console.log('sim', JSON.stringify(sim));
-  ok('영웅 4 → 전설 약 20%', Math.abs(sim.p - 0.2) < 0.015, sim.p); ok('전설 3종 각 약 1/3', legN.every(n => Math.abs(n / sim.ok - 1 / 3) < 0.04), legN);
-  { const s2 = await p.evaluate(() => [__T.CRAFT_.dollSim(1, 8000).p, __T.CRAFT_.dollSim(2, 8000).p]); ok('1→2 40% · 2→3 30% 그대로', Math.abs(s2[0] - 0.4) < 0.03 && Math.abs(s2[1] - 0.3) < 0.03, s2); }
-  // ④ 합성 성공: 영웅 4개 사라지고 전설 1개 (연출 전에 이미 가방에) → 연출: 어두운 화면 · 돎 · 밀어서 확인 · 금빛
-  await p.evaluate(() => { try { localStorage.removeItem('aden_ldseen'); } catch (e) {} const N = __T.NET, o = N.announceAll; window.__ann = []; N.announceAll = m => { window.__ann.push(m); try { return o.call(N, m); } catch (e) {} }; });
-  const sel = await mix(p, [0.05, 0.5], HERO4.concat(['pot_red']));
-  ok('자동 넣기: 영웅 인형 4개 (섞어서)', sel.length === 4 && sel.every(id => HERO4.includes(id)) && new Set(sel).size === 4, sel);
-  let bag = await bagIds(p); ok('성공: 넣은 영웅 4개 없어지고 피닉스 인형 1개 — 연출 시작 전에 이미 가방에', !bag.some(id => HERO4.includes(id)) && bag.filter(id => id === 'doll_phoenix').length === 1 && bag.filter(id => LEG.includes(id)).length === 1, bag);
-  await p.waitForTimeout(250); let s = await st(p); ok('연출: 전체 화면 어두운 막', s && (s.ph === 'in' || s.ph === 'orbit') && await p.evaluate(() => { const r = document.querySelector('.ld-ov').getBoundingClientRect(); return r.width === innerWidth && r.height === innerHeight; }));
-  ok('처음 보는 기기는 건너뛰기 없음', s && !s.skip);
-  await p.waitForTimeout(1900); s = await st(p); ok('영웅 인형 4개가 돎 (orbit) · 화면 흔들림', s.ph === 'orbit' && s.parts > 10 && s.shk > 0, s); await p.screenshot({ path: 'dev/out/legdoll_orbit.png' });
-  { const h0 = await p.evaluate(() => __T.HF_.lv); await p.evaluate(() => __T.HF_.set(0)); await p.waitForTimeout(300); const s0 = await st(p); await p.evaluate(v => __T.HF_.set(v), h0); ok('타격 연출 [끔]이면 흔들림만 없음 (입자는 그대로)', s0.shk === 0 && s0.parts > 10, s0); }
-  ok('연출 중 가방 = 최종 결과 (새로고침해도 그대로)', JSON.stringify(await bagIds(p)) === JSON.stringify(bag));
-  await waitPh(p, 'seal'); await p.waitForTimeout(500); s = await st(p); ok('봉인된 구슬 + 밀어서 확인하기', s.slide && await p.evaluate(() => /밀어서 확인하기/.test(document.querySelector('.ld-ov .ef-hint').textContent)));
-  await p.screenshot({ path: 'dev/out/legdoll_slide.png' });
-  const half = await knobDrag(p, false); await p.waitForTimeout(400); s = await st(p); ok('반만 밀면 안 열리고 제자리', half.p > 0.3 && s.ph === 'seal' && s.p < 0.2, [half.p, s.p]);
-  const fullM = await knobDrag(p, true); await p.waitForTimeout(80); s = await st(p); ok('끝까지 밀면 열림 (마우스 끌기)', fullM.p > 0.95 && (s.ph === 'rev' || s.ph === 'done'), s.ph);
-  await p.waitForTimeout(280); await p.screenshot({ path: 'dev/out/legdoll_burst.png' });
-  await p.waitForTimeout(1400); s = await st(p); ok('성공 결과: 큰 그림 · 이름·전설·능력치 · 확인', s.res && s.okBtn && s.art && await p.evaluate(() => { const r = document.querySelector('.ld-res'); return /피닉스 인형/.test(r.textContent) && /전설/.test(r.querySelector('.ld-badge').textContent) && r.querySelectorAll('.ld-st span').length === 5 && /마법 명중 \+5/.test(r.textContent); }));
-  ok('결과가 열린 뒤엔 건너뛰기 보임', s.skip);
-  ok('전체 공지: ○○님이 전설 [피닉스 인형]을 합성했습니다!', await p.evaluate(() => window.__ann.length === 1 && /님이 전설 \[피닉스 인형\]을 합성했습니다!$/.test(window.__ann[0])), await p.evaluate(() => window.__ann));
-  await p.waitForTimeout(900); await p.screenshot({ path: 'dev/out/legdoll_success.png' });
-  await p.click('.ld-ov .ld-ok'); await p.waitForTimeout(200); ok('확인 → 닫힘 · 합성 칸 결과 금빛', !(await st(p)) && !(await p.$('.ld-ov')) && await p.evaluate(() => !!document.querySelector('#craftwin .dg-res.ok.t4')));
-  ok('공지는 한 번만', await p.evaluate(() => window.__ann.length === 1));
-  // ⑤ 합성 실패: 넣은 것 중 1개 돌려받음 · 누르기(3번)로 열기 · 잿빛
-  const sel2 = await mix(p, [0.9, 0.1, 0.9], HERO4); bag = await bagIds(p);
-  { const dl = bag.filter(id => id.startsWith('doll_')); ok('실패: 영웅 1개만 돌려받음 (넣은 것 중)', dl.length === 1 && dl[0] === sel2[3] && !bag.some(id => LEG.includes(id)), [sel2, bag]); }
-  s = await st(p); ok('한 번 본 기기는 처음부터 건너뛰기', s && s.skip);
-  await waitPh(p, 'seal'); await p.waitForTimeout(450); const c = await p.evaluate(() => { const r = document.querySelector('.ld-ov').getBoundingClientRect(); return [r.width / 2, r.height * 0.42]; });
-  for (let i = 0; i < 2; i++) { await p.mouse.click(c[0], c[1]); await p.waitForTimeout(120); } s = await st(p); ok('누르기 2번: 아직 (금만 감)', s.ph === 'seal' && s.p > 0.5, s.p);
-  await p.mouse.click(c[0], c[1]); await p.waitForTimeout(60); s = await st(p); ok('누르기 3번 → 열림 (대신 누르기)', s.ph === 'rev', s.ph);
-  await p.waitForTimeout(350); await p.screenshot({ path: 'dev/out/legdoll_fail_crack.png' });
-  await p.waitForTimeout(1500); s = await st(p); ok('실패 결과: 실패… 영웅 인형 1개를 돌려받았어요', s.res && await p.evaluate(() => /실패/.test(document.querySelector('.ld-res').textContent) && /영웅 인형 1개를 돌려받았어요/.test(document.querySelector('.ld-res').textContent)));
-  ok('실패는 공지 없음', await p.evaluate(() => window.__ann.length === 1)); await p.screenshot({ path: 'dev/out/legdoll_fail.png' });
-  await p.keyboard.press('Enter'); await p.waitForTimeout(150); ok('Enter로 닫기', !(await st(p)));
-  // ⑥ 건너뛰기: 돌고 있을 때 → 바로 결과 (결과 그대로)
-  await mix(p, [0.1, 0.9], HERO4); bag = await bagIds(p); await p.waitForTimeout(900); s = await st(p); ok('건너뛰기 버튼 (orbit 중)', s.skip && s.ph !== 'done');
-  await p.click('.ld-ov .ld-skip'); await p.waitForTimeout(250); s = await st(p); ok('건너뛰기 → 바로 결과 화면', s.ph === 'done' && s.res && s.okBtn && await p.evaluate(() => /얼음여왕 인형/.test(document.querySelector('.ld-res').textContent)));
-  ok('건너뛰어도 결과·가방 그대로 · 공지 1번', JSON.stringify(await bagIds(p)) === JSON.stringify(bag) && bag.includes('doll_ice_queen') && await p.evaluate(() => window.__ann.length === 2 && /얼음여왕/.test(window.__ann[1])));
-  await p.screenshot({ path: 'dev/out/legdoll_skip.png' }); await p.keyboard.press('Escape'); await p.waitForTimeout(150); ok('결과에서 Esc → 닫힘', !(await st(p)));
-  // ⑦ Space 꾹 누르기
-  await mix(p, [0.01, 0.01], HERO4); await waitPh(p, 'seal'); await p.waitForTimeout(300); await p.keyboard.down('Space'); await p.waitForTimeout(1300); s = await st(p); await p.keyboard.up('Space'); ok('Space 꾹 → 열림 (데스나이트)', (s.ph === 'rev' || s.ph === 'done') && s.id === 'doll_deathknight', s);
-  await p.waitForTimeout(1800); await p.screenshot({ path: 'dev/out/legdoll_success_dk.png' }); await p.click('.ld-ov .ld-ok'); await p.waitForTimeout(150);
-  // ⑧ 전설은 합성에 못 넣음 · 합성 칸
-  ok('전설 인형은 합성 칸에 못 넣음', await p.evaluate(() => { const T = __T, e = T.INV.bag().find(x => x.id === 'doll_deathknight'); T.CRAFT_.dollToggle(e); return !T.CRAFT_.dollSel(3).includes(e) && ![1, 2].some(t => T.CRAFT_.dollSel(t).includes(e)); }));
-  await p.screenshot({ path: 'dev/out/legdoll_craft.png' });
+  // ③ 합성 확률 (변신과 같음: 영웅→전설 10% · 전설 3종 각 1/3 · 고급→희귀 30% · 희귀→영웅 10%) — 보관함은 되돌림
+  const sim = await p.evaluate(() => { const bk = DCG.raw(), o = {}; for (const g of ['고급', '희귀', '영웅']) { let k = 0; const got = {}, n = 20000; for (let i = 0; i < n; i++) { const r = DCG.synOne(g); if (r.ok) { k++; got[r.c.id] = (got[r.c.id] || 0) + 1; } } o[g] = { p: k / n, ok: k, got }; } DCG.load(bk); return o; });
+  const legN = ['deathknight', 'phoenix', 'ice_queen'].map(k => sim['영웅'].got[k] || 0); console.log('sim', JSON.stringify(sim['영웅']));
+  ok('영웅 4 → 전설 약 10% (변신과 같음)', Math.abs(sim['영웅'].p - 0.1) < 0.01, sim['영웅'].p); ok('전설 3종 각 약 1/3', legN.every(n => Math.abs(n / sim['영웅'].ok - 1 / 3) < 0.05), legN);
+  ok('고급→희귀 30% · 희귀→영웅 10%', Math.abs(sim['고급'].p - 0.3) < 0.015 && Math.abs(sim['희귀'].p - 0.1) < 0.01, [sim['고급'].p, sim['희귀'].p]);
+  // ④ [마법인형] 창에서 영웅 4개 합성 → 전설 (Math.random 고정 · 결과는 연출 전에 이미 보관함에) → 홀 연출 · 전체 공지 1번
+  await p.evaluate(() => { const N = __T.NET, o = N.announceAll; window.__ann = []; N.announceAll = m => { window.__ann.push(m); try { return o.call(N, m); } catch (e) {} }; const S = DCG.state(); S.cards = { drake: 1, kbugbear: 1, troll: 1, wyvern: 1 }; S.slot = {}; S.lock = {}; DCG.setSkip(false); DCG.openWin(true); });
+  await p.click('#dw-synb .pw-mt[data-g="영웅"]'); await p.waitForTimeout(150); await p.click('#dw-synb [data-a="fill"]'); await p.waitForTimeout(150);
+  await p.evaluate(() => { const o = Math.random; let i = 0; const seq = [0.05, 0.4]; Math.random = () => i < seq.length ? seq[i++] : o(); try { document.querySelector('#dw-synb [data-a="go"]').click(); } finally { Math.random = o; } });
+  let S1 = await p.evaluate(() => JSON.parse(JSON.stringify(DCG.state().cards))); ok('성공: 영웅 4개 없어지고 전설 1개 (연출 시작 전에 이미 보관함에)', !S1.drake && !S1.kbugbear && !S1.troll && !S1.wyvern && Object.keys(S1).length === 1 && ['deathknight', 'phoenix', 'ice_queen'].includes(Object.keys(S1)[0]), S1);
+  await p.waitForTimeout(1800); ok('홀 연출 (변신 카드와 같은 화면)', await p.evaluate(() => { const o = DCG.ov(); return o && o.k === 'tsyn' && o.n === 1; })); await p.screenshot({ path: 'dev/out/legdoll_syn_hall.png' });
+  await p.evaluate(() => { const g = DCG._tg(); if (g) g.openAll(); }); await p.waitForTimeout(400); await p.mouse.click(640, 360); await p.waitForTimeout(6500); await p.screenshot({ path: 'dev/out/legdoll_syn_reveal.png' }); await p.evaluate(() => DCG.close()); await p.waitForTimeout(300);
+  await p.waitForFunction(() => window.__ann.length > 0, null, { timeout: 4000 }).catch(() => {}); await p.waitForTimeout(800);
+  ok('전체 공지: ○○님이 마법인형 합성에서 [전설] ○○ 인형을 얻었습니다! (1번)', await p.evaluate(() => window.__ann.length === 1 && /님이 마법인형 합성에서 \[전설\] .+ 인형을 얻었습니다!$/.test(window.__ann[0])), await p.evaluate(() => window.__ann));
+  // ⑤ 실패: 영웅 1개 돌려받음 · 공지 없음 · 전설은 합성 재료가 아님(희귀·영웅만)
+  await p.evaluate(() => { DCG.setSkip(true); const S = DCG.state(); S.cards = { drake: 2, kbugbear: 1, troll: 1, phoenix: 1 }; const o = Math.random; Math.random = () => 0.9; try { DCG.manSyn(['drake', 'drake', 'kbugbear', 'troll']); } finally { Math.random = o; } });
+  S1 = await p.evaluate(() => JSON.parse(JSON.stringify(DCG.state().cards))); ok('실패: 영웅 1개만 돌려받음 · 공지 없음', Object.entries(S1).filter(([k]) => ['drake', 'kbugbear', 'troll', 'wyvern', 'shelob', 'spartoi'].includes(k)).reduce((a, [, v]) => a + v, 0) === 1 && S1.phoenix === 1 && await p.evaluate(() => window.__ann.length === 1), S1);
+  ok('전설 인형은 합성 재료가 아님', await p.evaluate(() => DCG.manSyn(['phoenix', 'phoenix', 'phoenix', 'phoenix']) === null && !('전설' in DCG.SYN)));
+  // ⑥ LDOLL 연출(v236)은 남아 있음 (데모): 밀어서 확인하기 · 건너뛰기
+  await p.evaluate(() => { document.getElementById('dollwin').hidden = true; try { localStorage.removeItem('aden_ldseen'); } catch (e) {} LDOLL.demo(true, 'doll_phoenix'); }); await waitPh(p, 'seal', 9000); await p.waitForTimeout(500);
+  const half = await knobDrag(p, false); await p.waitForTimeout(400); let s = await st(p); ok('LDOLL: 반만 밀면 안 열리고 제자리', half.p > 0.3 && s.ph === 'seal' && s.p < 0.2, [half.p, s.p]);
+  const fullM = await knobDrag(p, true); await p.waitForTimeout(80); s = await st(p); ok('LDOLL: 끝까지 밀면 열림', fullM.p > 0.95 && (s.ph === 'rev' || s.ph === 'done'), s.ph);
+  await p.waitForTimeout(1600); s = await st(p); ok('LDOLL: 결과 · 확인', s.res && s.okBtn); await p.click('.ld-ov .ld-ok'); await p.waitForTimeout(200); ok('LDOLL: 닫힘', !(await st(p)));
   // ⑨ 따라다니는 인형: 금빛 오로라 · 다른 유저(presence dl) · 장비 이펙트 끔
-  await p.evaluate(() => { document.getElementById('craftwin').hidden = true; const T = __T; T.INV.load({ bag: [{ id: 'doll_deathknight', n: 1, en: 0, on: 'doll' }], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); T.INV.render(); });
+  await p.evaluate(() => { const T = __T; T.INV.load({ bag: [], bonus: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }); const S = DCG.state(); S.cards.deathknight = Math.max(1, S.cards.deathknight || 0); S.slot = {}; DCG.setSlot('deathknight'); T.INV.render(); });
   await p.waitForFunction(() => window.DOLL && DOLL.ready(4), null, { timeout: 10000 }); await p.waitForTimeout(1200);
   const a0 = await p.evaluate(() => DOLL.aura()); ok('내 전설 인형: 금빛 오로라 (전설 변신과 같은 방식)', a0 > 0, a0);
   await p.evaluate(() => { const T = __T; window.__rm = setInterval(() => { DOLL.remote('ldR1', T.HERO.x + 2.2, T.HERO.z + 0.5, 1, 'phoenix', 0); DOLL.remote('ldR2', T.HERO.x - 2.2, T.HERO.z + 0.5, 3, 'ice_queen', 1); DOLL.remote('ldR3', T.HERO.x, T.HERO.z + 2, 1, 'nope_zz', 0); DOLL.remote('fbX', T.HERO.x + 1, T.HERO.z - 2, 5, 'deathknight', 0); }, 100); });
@@ -113,12 +81,12 @@ async function knobDrag(p, full) { const k = await p.evaluate(() => { const r = 
   await p.evaluate(() => { document.getElementById('charwin').hidden = false; __T.INV.render(); }); await p.waitForTimeout(200);
   const cw = await p.evaluate(() => [document.getElementById('cw-drx').textContent, document.getElementById('cw-hitx').textContent]); ok('캐릭터 창: 받는 피해 감소 5% · 명중 근/원/마 +5', /5%/.test(cw[0]) && /^\+5 \/ \+0 \/ \+0$/.test(cw[1]), cw);
   await p.evaluate(() => { document.getElementById('charwin').hidden = true; });
-  const tip = await p.evaluate(() => __T.INV.tipOf(__T.INV.bag()[0])); ok('툴팁: 4단계 마법인형 · 능력치', /4단계 마법인형/.test(tip) && /받는 피해 5% 감소/.test(tip));
+  const tip = await p.evaluate(() => __T.INV.tipOf(__T.INV.eqE('doll'))); ok('툴팁: 4단계 마법인형 · 능력치', /4단계 마법인형/.test(tip) && /받는 피해 5% 감소/.test(tip));
   // ⑩ 도감 [마법인형] — 전설 칸 · 얻는 곳
   await p.click('#btn-codex').catch(() => p.evaluate(() => CODEX.open())); await p.waitForTimeout(250);
   await p.evaluate(() => { const t = [...document.querySelectorAll('#cdx-tabs [data-k]')].find(x => /마법인형/.test(x.textContent)); t && t.click(); }); await p.waitForTimeout(250);
   const cdx = await p.evaluate(() => { const L = document.getElementById('cdx-list'); const sub = [...document.querySelectorAll('#codexwin [data-s], #codexwin .cdx-subt')].map(x => x.textContent.trim()); return { t: L.textContent, sub }; });
-  ok('도감: 전설 인형 3종 · 영웅 4개 → 20% · 전설 칸', ['데스나이트 인형', '피닉스 인형', '얼음여왕 인형'].every(n => cdx.t.includes(n)) && /영웅\(3단계\) 인형 4개 → 성공 20%/.test(cdx.t) && cdx.sub.some(x => /^전설/.test(x)), cdx.sub);
+  ok('도감: 전설 인형 3종 · 영웅 인형 4개 합성 10% · 전설 칸', ['데스나이트 인형', '피닉스 인형', '얼음여왕 인형'].every(n => cdx.t.includes(n)) && /영웅 인형 4개 합성 10%/.test(cdx.t) && cdx.sub.some(x => /^전설/.test(x)), cdx.sub);
   { const tb = await p.evaluate(() => { const x = [...document.querySelectorAll('#codexwin .cdx-subt')].find(e => /^전설/.test(e.textContent.trim())); if (x) x.click(); return !!x; }); await p.waitForTimeout(200); const t2 = await p.evaluate(() => document.getElementById('cdx-list').textContent);
     ok('도감 [전설] 칸 = 전설 인형 3개만', tb && (t2.match(/인형/g) || []).length >= 3 && !/킹 버그베어 인형/.test(t2) && /데스나이트 인형/.test(t2)); await p.screenshot({ path: 'dev/out/legdoll_codex.png' }); }
   await p.evaluate(() => { document.getElementById('codexwin').hidden = true; });

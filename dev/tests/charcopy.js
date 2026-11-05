@@ -26,14 +26,14 @@ const J = x => JSON.stringify(x);
     on.weapon = wear('lg_sword', { en: 5, attr: { el: 'fire', lv: 2 } });
     on.armor = wear(pick('armor'), { en: 4, blessed: true }); on.helm = wear(pick('helm'), { en: 3 }); on.cloak = wear(pick('cloak'), { en: 1 }); on.gloves = wear(pick('gloves'), { en: 2 }); on.boots = wear(pick('boots'), { en: -1 });
     on.shield = wear(pick('shield'), { en: 2 }); on.shirt = wear(pick('shirt')); on.belt = wear(pick('belt'), { blessed: true }); on.amulet = wear(pick('amulet'), { en: 2 });
-    on.ring1 = wear(pick('ring', 0), { en: 3, blessed: true }); on.ring2 = wear(pick('ring', 1), { en: 1 }); on.doll = wear('doll_troll');
+    on.ring1 = wear(pick('ring', 0), { en: 3, blessed: true }); on.ring2 = wear(pick('ring', 1), { en: 1 }); on.doll = (() => { const S2 = DCG.state(); S2.cards.troll = (S2.cards.troll || 0) + 1; return DCG.setSlot('troll') && 'doll'; })();   // 11/5: 인형 칸 = [마법인형] 창 (DCG)
     // 가방 효과: 가호 (같은 가호는 높은 것만) · 할로윈 모자
     const add = (id, set) => { I.add(id, 1, true); Object.assign(I.bag().filter(x => x.id === id).pop(), set || {}); };
     add('gaho_baphomet', { en: 3, blessed: true }); add('gaho_baphomet', { en: 1 }); add('gaho_queen_ant', { en: 2 }); add('hw_hat', { en: 4 });
     // 변신 카드 (변신 칸) · 버프
     const S = PCG.state(); S.cards.deathknight = 1; const pcOk = PCG.setSlot('deathknight');
     Object.assign(T.BUFF, { shieldm: 500, advsp: 1500, haste2: 1000, rmagic: 400 }); I.render(); H.hp = H.max; H.mp = H.maxmp;
-    return { on, pcOk, eq: I.bag().filter(x => x.on).length, cur: PCG.cur() }; });
+    return { on, pcOk, eq: I.bag().filter(x => x.on).length + (I.eqE('doll') && I.eqE('doll').dv ? 1 : 0), cur: PCG.cur() }; });
   console.log('A 착용:', J(SET.on));
   chk(Object.values(SET.on).every(Boolean) && SET.eq === 13 && SET.pcOk && SET.cur === 'pc_deathknight', `A 준비: 13칸 착용 (${SET.eq}) · 변신 카드 데스나이트 (${SET.cur})`);
 
@@ -120,7 +120,7 @@ const J = x => JSON.stringify(x);
   const code2 = await A.evaluate(() => { const T = __T, I = T.INV, scr = Object.keys(T.ITEMS).find(id => T.ITEMS[id].use === 'poly' && T.ITEMS[id].tier === 'silver'); I.add(scr, 1, true); I.use(I.bag().find(x => x.id === scr)); return { c: __CC.code(), m: __CC.make(), cur: PCG.cur() }; });
   chk(code2.m.ps === 'pm_sknight' && code2.m.pt > 1700 && code2.m.pc === 'deathknight', `A 실버 변신 주문서 → 코드 ps ${code2.m.ps} (${code2.m.pt}초) · 변신 칸은 그대로`);
   await B.evaluate(t => { document.getElementById('gp-cc-in').value = t; document.getElementById('gp-cc-go').click(); document.getElementById('ask-yes').click(); }, code2.c); await B.waitForTimeout(200);
-  const R2 = await B.evaluate(() => ({ res: document.getElementById('gp-cc-res').textContent, m: __CC.make(), cur: PCG.cur(), bag: __T.INV.bag().filter(e => e.on).length, all: __T.INV.bag().length }));
+  const R2 = await B.evaluate(() => ({ res: document.getElementById('gp-cc-res').textContent, m: __CC.make(), cur: PCG.cur(), bag: __T.INV.bag().filter(e => e.on).length + (__T.INV.eqE('doll') && __T.INV.eqE('doll').dv ? 1 : 0), all: __T.INV.bag().length }));
   chk(/똑같이 맞췄어요/.test(R2.res) && R2.cur === 'pm_sknight' && R2.m.ps === 'pm_sknight' && R2.m.pc === 'deathknight' && R2.m.s.cp === code2.m.s.cp && R2.m.s.ac === code2.m.s.ac, `변신 주문서까지 복사: ${R2.cur} · 전투력 ${R2.m.s.cp} = ${code2.m.s.cp} · ${R2.res}`);
   chk(R2.bag === 13, `두 번째 적용: 착용 13칸 · 가방 ${R2.all}칸 (앞서 복사한 장비는 가방으로)`);
   // 다른 점이 있으면 목록으로 (코드 수치를 일부러 바꿈)

@@ -3,7 +3,7 @@
 const { chromium } = require('playwright'); const login = require('../tq.js');
 const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL') + ' ' + k); };
 const iw = p => p.evaluate(() => { const w = document.getElementById('itemwin'); return { open: !w.hidden, name: ((w.querySelector('.iw-name') || {}).innerText || '').trim(), lines: w.querySelectorAll('.iw-lines li').length, hint: ((w.querySelector('.iw-hint') || {}).innerText || '').trim(), ctl: !!w.querySelector('.iw-ctl [data-act=use]'), pv: !!w.querySelector('.iw-pv') }; });
-const setup = async p => { await p.evaluate(() => { const I = __T.INV; I.add('dragon_scale', 60, true); I.add('drake_claw', 6, true); I.add('dragon_heart', 1, true); I.add('gfrag_baphomet', 3, true); I.add('gaho_ogre', 1, true); I.add('gaho_ogre', 1, true); __T.DOLL_DEF.filter(r => r[2] === 1).slice(0, 2).forEach(r => { I.add('doll_' + r[0], 1, true); I.add('doll_' + r[0], 1, true); }); __T.CRAFT_.open(); }); await p.waitForTimeout(200); };
+const setup = async p => { await p.evaluate(() => { const I = __T.INV; I.add('dragon_scale', 60, true); I.add('drake_claw', 6, true); I.add('dragon_heart', 1, true); I.add('gfrag_baphomet', 3, true); I.add('gaho_ogre', 1, true); I.add('gaho_ogre', 1, true); __T.CRAFT_.open(); }); await p.waitForTimeout(200); };
 const hold = async (p, sel, ms = 700) => { const el = await p.$(sel); await el.scrollIntoViewIfNeeded(); const b = await el.boundingBox(); await p.mouse.move(b.x + Math.min(20, b.width / 2), b.y + b.height / 2); await p.mouse.down(); await p.waitForTimeout(ms); await p.mouse.up(); await p.waitForTimeout(150); };
 (async () => { const b = await chromium.launch(); const errs = []; try {
   // ---- PC
@@ -29,17 +29,13 @@ const hold = async (p, sel, ms = 700) => { const el = await p.$(sel); await el.s
     await p.screenshot({ path: 'dev/out/craft_tip_mat.png' }); await p.keyboard.press('Escape');
     // 제작 버튼은 그대로 (꾹 눌러도 상세 안 뜸)
     await hold(p, gsel + ' .cr-go'); ok('제작 버튼은 상세 안 뜸', !(await iw(p)).open); ok('제작 버튼은 그대로 (제작 확인창)', await p.evaluate(() => !document.getElementById('askwin').hidden)); await p.click('#ask-no'); await p.waitForTimeout(150);
-    // 가호 제작 · 가호 조합 · 인형 합성 탭
+    // 가호 제작 · 가호 조합 탭
     await p.click('#craftwin [data-ct=make]'); await p.waitForTimeout(400);
     await hold(p, '#cr-list .cr-row[data-pv=gaho_baphomet] .ic'); { const s = await iw(p); ok('가호 제작: 가호 꾹 → 상세', s.open && /바포메트/.test(s.name)); } await p.keyboard.press('Escape');
     await hold(p, '#cr-list small[data-pv=gfrag_baphomet]'); ok('가호 제작: 조각 꾹 → 상세', (await iw(p)).open); await p.keyboard.press('Escape');
     await p.click('#craftwin [data-ct=mix]'); await p.waitForTimeout(400);
     await hold(p, '#cr-list .cr-row[data-pv=gaho_ogre] .ic'); { const s = await iw(p); ok('가호 조합: 가진 가호 꾹 → 상세', s.open && /가방에 있는 가호/.test(s.hint)); } await p.keyboard.press('Escape');
-    await p.click('#craftwin [data-ct=doll]'); await p.waitForTimeout(400);
-    await p.click('#cr-list [data-da="1"]'); await p.waitForTimeout(300);
-    const nIn = () => p.evaluate(() => document.querySelectorAll('#cr-list .dg-sl.has').length); const n0 = await nIn();
-    await hold(p, '#cr-list .dg-sl.has'); { const s = await iw(p); ok('인형 합성: 칸의 인형 꾹 → 상세', s.open && /합성 칸/.test(s.hint)); } ok('꾹 누른 뒤 손 떼도 인형이 칸에서 안 빠짐', (await nIn()) === n0 && n0 > 0);
-    await p.keyboard.press('Escape'); await p.click('#cr-list .dg-sl.has'); await p.waitForTimeout(200); ok('짧게 누르면 예전처럼 칸에서 빠짐', (await nIn()) === n0 - 1);
+    ok('인형 합성 탭 없음 (11/5: 위 메뉴 [마법인형]에서 합성)', !(await p.$('#craftwin [data-ct=doll]')));
     await p.close(); }
   // ---- 모바일 (터치)
   { const ctx = await b.newContext({ viewport: { width: 915, height: 412 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 }); const p = await ctx.newPage(); p.on('pageerror', e => errs.push('mob: ' + e.message));
