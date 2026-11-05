@@ -13,7 +13,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
   const r8 = await p.evaluate(() => { const T = __T, e8 = T.INV.bag().find(x => x.en === 8); T.INV.showDetail(e8); return document.getElementById('itemwin').textContent.replace(/\s+/g, ' '); });
   console.log(JSON.stringify({ base: r.base, info9: (r.info9.match(/공격 [^강]*/) || [''])[0], info8: (r8.match(/공격 [^강]*/) || [''])[0], cmp: (r.cmp.match(/공격.{0,90}/) || [''])[0], attr: (r.cmp.match(/속성.{0,30}/) || [''])[0] }));
   const [b0, b1] = r.base || [0, 0];
-  ok(r.info9.includes(`공격 ${b0 + 27}~${b1 + 27} = 기본 ${b0}~${b1} · 강화 +27`), `+9(속성 없음) 정보: 공격 = 기본 + 강화 +27`);
-  ok(r8.includes(`공격 ${b0 + 29}~${b1 + 29} = 기본 ${b0}~${b1} · 강화 +24 · 속성 3단 +5`), `+8(속성 3단) 정보: 공격 = 기본 + 강화 +24 + 속성 3단 +5`);
-  ok(r.cmpVis && /강화 \+24 · 속성 \+5 포함/.test(r.cmp) && /강화 \+27 포함/.test(r.cmp) && /3단 \(\+5\)/.test(r.cmp), `비교 창: 공격 칸 아래 강화·속성 몫 · 속성 칸에 (+5)`);
+  ok(r.info9.includes(`공격 ${b0 + 48}~${b1 + 48} = 기본 ${b0}~${b1} · 강화 +27 · 고강화 +21`), `+9(속성 없음) 정보: 공격 = 기본 + 강화 +27 + 고강화 +21 (11/5 hienchant)`);
+  ok(r8.includes(`공격 ${b0 + 38}~${b1 + 38} = 기본 ${b0}~${b1} · 강화 +24 · 고강화 +9 · 속성 3단 +5`), `+8(속성 3단) 정보: 공격 = 기본 + 강화 +24 + 고강화 +9 + 속성 3단 +5`);
+  ok(r.cmpVis && /강화 \+24 · 고강화 \+9 · 속성 \+5 포함/.test(r.cmp) && /강화 \+27 · 고강화 \+21 포함/.test(r.cmp) && /3단 \(\+5\)/.test(r.cmp), `비교 창: 공격 칸 아래 강화·속성 몫 · 속성 칸에 (+5)`);
   ok(!errs.length, '오류 없음 ' + errs.slice(0, 2).join(' | ')); console.log(fails ? `FAIL ${fails}` : 'ALL OK'); await b.close(); process.exitCode = fails ? 1 : 0; })();
