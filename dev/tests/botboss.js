@@ -17,7 +17,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
     return { boss: T.MOB[boss.kind].name, bhp: boss.max, zoneBots: here.map(x => x.team + ':' + x.name), dead: boss.dead, sec: t, hitT, minB: Math.round(minB * 100), exp: (S.bossExp || 0) - e0, by: K.by || '', die: (S.die || 0) - d0, recall: (S.low || 0) - l0,
       fighters: fs.map(f => `${f.bot.team} ${f.bot.cls} Lv${f.bot.st.lv} 물약${f.bx.potN >= 1e8 ? '∞' : f.bx.potN}${f.dead ? ' 죽음' : f.gone ? ' 빠짐' : ''}`), potA: pot.filter(x => x[0] === 'A').map(x => x[1]), potB: pot.filter(x => x[0] === 'B').map(x => x[1]) }; }, { REF, MAXS, Z });
   console.log(JSON.stringify(r));
-  ok(r.potA.every(v => v === -1 || v >= 1e8) && r.potB.every(v => v === -1 || (v >= 250 && v <= 300)), `물약: 반왕 무제한 · 라인 250~300개 (${JSON.stringify(r.potB)})`);
+  ok(r.potA.every(v => v === -1 || v >= 1e8) && r.potB.every(v => v === -1 || v >= 1e8), `물약: 반왕·라인 모두 무제한 (11/5) (${JSON.stringify(r.potB)})`);
   ok(r.hitT > 0, `봇 무리가 ${r.boss}에게 감 (${r.hitT}초에 첫 타 · 원정 부름 ${r.exp}번)`);
   ok(r.dead, `${r.boss}(HP ${r.bhp}) 잡음 — ${Math.round(r.sec / 60)}분 · 토벌 ${r.by} · 남은 HP 최저 ${r.minB}%`);
   console.log(errs.slice(0, 3).join('\n') || 'no errors'); ok(!errs.length, '오류 없음'); console.log(fails ? `FAIL ${fails}` : 'ALL OK'); await b.close(); process.exitCode = fails ? 1 : 0; })();
