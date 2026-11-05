@@ -24,6 +24,6 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
   console.log(JSON.stringify({ churn, cull, trim }));
   ok(cull.inView > 5 && cull.inMiss === 0, `① 화면 안 몹은 모두 그림 (${cull.inView}마리 중 빠짐 ${cull.inMiss})`);
   ok(cull.drawn < cull.alive * 0.6 && cull.farDrawn === 0, `① 화면 밖 몹은 안 그림 (살아 있는 ${cull.alive} · 그림 ${cull.drawn} · 멀리 있는 ${cull.far}마리 중 그림 ${cull.farDrawn})`);
-  ok(churn.perSec <= 3, `② 자동사냥 중 새 캔버스 초당 ${churn.perSec}장 (전: 35~150) · 칸 ${churn.tfrN}개 ${churn.tfrMpx}M화소`);
+  ok(churn.perSec <= 15 && churn.tfrMpx < 31, `② 자동사냥 중 새 캔버스 초당 ${churn.perSec}장 (전: 35~150 · 처음 보는 칸만 · 상한 32M화소에 안 닿음) · 칸 ${churn.tfrN}개 ${churn.tfrMpx}M화소`);
   ok(trim.after < trim.before * 0.5, `③ 다른 지역으로 가면 잊섬 몹 칸 비움 (${trim.before} → ${trim.after}M화소)`);
   ok(!errs.length, '오류 없음 ' + errs.slice(0, 2).join(' | ')); console.log(fails ? `FAIL ${fails}` : 'ALL OK'); await b.close(); process.exitCode = fails ? 1 : 0; })();
