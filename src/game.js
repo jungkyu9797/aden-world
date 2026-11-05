@@ -14232,6 +14232,8 @@ const NBS = (() => { const $ = id => document.getElementById(id); let used = 0; 
     const iw = $('invwin'); if (iw && iw.hidden) INV.toggle('invwin'); else INV.render(); try { SAVE.now(false, true); } catch (e) {} }
   return { open, render, why, used: () => used, dump: () => used ? { u: used } : undefined, load(o) { used = (o && +o.u) || 0; } };
 })();
+/* 11/5 프로듀서: 장비·물약 종류를 빼고는 모든 아이템 무게 0 — 지금 있는 것과 앞으로 추가되는 아이템 모두 (ITEMS를 다 만든 이 맨 끝에서 한 번에 정함 · 물약 = 가방 [물약] 탭과 같은 기준 · 새 아이템에 w를 적어도 장비·물약이 아니면 0) */
+{ const POT = d => d.use === 'heal' || d.use === 'haste' || d.use === 'mana' || d.use === 'cure' || d.use === 'antidote' || /^pot_/.test(d.icon || '') || /물약|해독제/.test(d.name || ''); for (const id in ITEMS) { const d = ITEMS[id]; if (d && !d.slot && d.w && !POT(d)) d.w = 0; } }
 if (BOTHOST.on()) BOTHOST.loop(frame); else { RAFQ = 1; requestAnimationFrame(frame); }
 if (!BOTHOST.on()) setTimeout(() => { try { ISLAND.prebake(2); } catch (e) {} }, 2500);   // 2구간 바닥(언덕)을 미리 조금씩 구워 둠 → 들어갈 때 멈춤 없음
 })();
