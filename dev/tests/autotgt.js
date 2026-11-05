@@ -9,8 +9,8 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
     const L = T.foxes.filter(f => !f.dead && !f.gone && T.MOB[f.kind] && !T.MOB[f.kind].boss && !f.fb).slice(0, 3); if (L.length < 3) return { err: 'mobs ' + L.length };
     const [a, m, c] = L, put = (f, i, j) => { f.i = i; f.j = j; f.x = i + 0.5; f.z = j + 0.5; };
     const out = {}; const run = s => { for (let k = 0; k < Math.round(s / 0.05); k++) { H.atk = null; A.tick(0.05); } };
-    // ① 내가 때린 몹 a(3칸) · 다른 몹 m이 옆에서 나를 때리는 중 · 더 가까운 몹 c(2칸)
-    put(a, H.i + 3, H.j); put(m, H.i + 1, H.j + 1); put(c, H.i, H.j + 2); for (const f of L) { f.aggro = false; f.tgt = null; f.hitMeT = 0; f.myDmg = 0; f.dmgBy = null; }
+    // ① 내가 때린 몹 a(2칸 — 11/5부터 멀리 있는 몹은 붙어서 치는 몹에게 양보) · 다른 몹 m이 옆에서 나를 때리는 중 · 더 가까운 몹 c(2칸)
+    put(a, H.i + 2, H.j); put(m, H.i + 1, H.j + 1); put(c, H.i, H.j + 2); for (const f of L) { f.aggro = false; f.tgt = null; f.hitMeT = 0; f.myDmg = 0; f.dmgBy = null; }
     a.myDmg = 30; m.aggro = true; m.tgt = H; m.hitMeT = T.time; H.target = a; run(2); out.locked = H.target === a;
     // ② 아직 안 때린 몹 a에게 걸어가는 중이면 지금처럼 나를 때리는 몹으로 갈아탐
     a.myDmg = 0; a.dmgBy = null; a.aggro = false; a.tgt = null; a.hitMeT = 0; m.hitMeT = T.time; H.target = a; run(2); out.swap = H.target === m;

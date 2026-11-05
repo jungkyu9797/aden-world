@@ -14,13 +14,13 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
     const out = {}; put(e, H.i - 1, H.j); e.i = H.i - 1; e.j = H.j;
     // ① 봇을 치는 몹 A(5칸) · 새 몹 B(2칸) → A
     clr(); put(ma, H.i - 5, H.j); put(mb, H.i + 2, H.j); put(mc, H.i, H.j + 7); ma.aggro = true; ma.tgt = e; e.hitBy = ma; e.hitByT = T.time; H.target = null; run(0.3); out.one = nm(H.target);
-    // ② 나를 치는 몹 C(7칸)도 있으면 C 먼저
-    H.target = null; mc.aggro = true; mc.tgt = H; mc.hitMeT = T.time; run(0.3); out.two = nm(H.target);
+    // ② 붙어서 나를 치는 몹 C(1칸)가 있으면 C 먼저 (11/5: 멀리서 치는 몹은 파티원 치는 몹 다음)
+    H.target = null; put(mc, H.i, H.j + 1); mc.aggro = true; mc.tgt = H; mc.hitMeT = T.time; run(0.3); out.two = nm(H.target);
     // ③ 새 몹 B에게 걸어가는 중(아직 안 때림)에 A가 봇을 치기 시작 → A로 갈아탐
     clr(); put(mb, H.i + 3, H.j); H.target = mb; run(0.2); ma.aggro = true; ma.tgt = e; e.hitBy = ma; e.hitByT = T.time; run(1.2); out.three = nm(H.target);
     // ④ 잡던 몹(내가 때림)이면 봇을 치는 몹이 있어도 마저 잡음
     clr(); mb.myDmg = 20; H.target = mb; ma.aggro = true; ma.tgt = e; e.hitBy = ma; e.hitByT = T.time; run(1.2); out.four = nm(H.target);
-    // ⑤ 봇 스타일이 근처 각개면(일점사 없음) 봇을 치는 몹을 먼저 고르지 않음 → 가까운 새 몹 B
+    // ⑤ 11/5: 봇 스타일이 근처 각개여도 파티원(봇)을 치는 몹 A가 새 몹 B보다 먼저
     clr(); const m0 = F.pb.S.m[0], st0 = m0.st; m0.st = 'near'; put(mb, H.i + 2, H.j); put(ma, H.i - 6, H.j); ma.aggro = true; ma.tgt = e; e.hitBy = ma; e.hitByT = T.time; H.target = null; run(0.3); out.five = nm(H.target); m0.st = st0;
     if (A.on()) A.toggle(); return out; });
   console.log(JSON.stringify(r));
@@ -28,5 +28,5 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
   ok(r.two === 'C(나를 침)', `② 나를 치는 몹이 있으면 그 몹이 먼저 (${r.two})`);
   ok(r.three === 'A(봇을 침)', `③ 새 몹에게 가는 중에 봇이 맞으면 그 몹으로 (${r.three})`);
   ok(r.four === 'B(새 몹)', `④ 이미 때리던 몹은 마저 잡음 (${r.four})`);
-  ok(r.five === 'B(새 몹)', `⑤ 일점사 봇이 없으면 지금처럼 가까운 몹 (${r.five})`);
+  ok(r.five === 'A(봇을 침)', `⑤ 각개 스타일이어도 파티원을 치는 몹 먼저 (${r.five})`);
   ok(!errs.length, '오류 없음 ' + errs.slice(0, 2).join(' | ')); console.log(fails ? `FAIL ${fails}` : 'ALL OK'); await b.close(); process.exitCode = fails ? 1 : 0; })();
