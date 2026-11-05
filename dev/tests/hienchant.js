@@ -129,6 +129,13 @@ async function live(p, tag) {
     const f = T.mkMob_('drake', spot[0] + 6, spot[1]); f.max = f.hp = 1e6; f.stunT = 1e6; T.foxes.push(f); H.target = f; const p0 = [H.i, H.j], h0 = f.hp; let bolts = 0; const mon = setInterval(() => { for (const q of T.arrows) if (q.pl && q.kind === 'bolt' && !q._c) { q._c = 1; bolts++; } }, 16);
     await new Promise(r => setTimeout(r, 6000)); clearInterval(mon); const moved = H.i !== p0[0] || H.j !== p0[1]; const res = { moved, dist: Math.max(Math.abs(f.i - H.i), Math.abs(f.j - H.j)), bolts, dmg: (f.dmgBy && f.dmgBy.get(H)) || 0 };   /* 내가 준 피해 (몹 HP는 바뀔 수 있음) */ H.target = null; f.gone = true; f.dead = true; return res; });
   await w.screenshot({ path: 'dev/out/hienchant_manual.png' });
+  // 서먼 자동 마법사(소환수 탱크)는 보스와 3~6칸 떨어져서 — 이제 그 자리에서 마력탄도 쏨 (예전: 마법만)
+  const SU = await w.evaluate(async () => { const T = __T, H = T.hero; T.LEARNED.add('summon'); if (!T.INV.autoSk('summon')) T.INV.setAutoSk('summon', true); if (!T.AUTO.on()) T.AUTO.toggle();
+    const f = T.mkMob_('ogre', H.i + 5, H.j); f.max = f.hp = 1e7; f.stunT = 1e6; T.foxes.push(f); const keep = setInterval(() => { H.target = f; f.stunT = 1e6; }, 100); H.target = f; let n = 0, last = null; const ds = [];
+    const mon = setInterval(() => { const a = H.atk; if (a && a !== last && a.f === f && a.v !== 'cast') { n++; ds.push(Math.max(Math.abs(f.i - H.i), Math.abs(f.j - H.j))); } last = a; }, 16);
+    await new Promise(r => setTimeout(r, 6000)); clearInterval(keep); clearInterval(mon); if (T.AUTO.on()) T.AUTO.toggle(); const d = Math.max(Math.abs(f.i - H.i), Math.abs(f.j - H.j)); H.target = null; f.dead = true; f.gone = true; T.LEARNED.delete('summon');
+    return { n, ds, end: d, mine: (f.dmgBy && f.dmgBy.get(H)) || 0 }; });
+  ok('서먼 자동 마법사: 보스와 3~7칸에서 마력탄 (붙지 않음)', SU.n >= 1 && SU.ds.every(d => d >= 3 && d <= 7) && SU.end >= 3, SU);
   ok('수동 대상(6칸): 다가가지 않고 마력탄을 쏨', !MN.err && !MN.moved && MN.dist === 6 && MN.bolts >= 3 && MN.dmg > 0, MN);
   // 자동사냥 실제 (몹을 얼림): 공격할 때 거리 · 마력탄 · MISS
   const L = await live(w, ''); console.log('LIVE', JSON.stringify(L));
