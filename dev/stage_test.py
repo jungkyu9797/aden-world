@@ -17,6 +17,8 @@ git('checkout', '-q', '-B', 'stage/test', 'origin/main')
 merged, skipped = [], []
 for b in brs:
     r = git('merge', '--no-ff', '--no-edit', '-q', f'origin/{b}', ok=True)
+    if r.returncode and not git('diff', '--name-only', '--diff-filter=U').stdout.strip() and git('commit', '-q', '--no-edit', ok=True).returncode == 0:
+        merged.append(b); print(f'예전에 정리해 둔 충돌 풀이(rerere)로 합침: {b}'); continue   # 11/5: rerere.autoupdate로 풀렸으면 그대로 커밋
     if r.returncode:
         git('merge', '--abort', ok=True); skipped.append(b); print(f'충돌로 뺌: {b}')
     else: merged.append(b)
