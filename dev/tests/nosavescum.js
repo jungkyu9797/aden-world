@@ -156,6 +156,18 @@ const B0 = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
   await p.waitForFunction(() => !__RS.held() && !PCG.busy(), null, { timeout: 15000 }); const cz2 = await chat(p);
   ok(z1.r && z1.busy && z1.mile === 0 && !cz1.some(t => /마일리지 전설 받기/.test(t)) && cz2.some(t => /마일리지 전설 받기/.test(t)), '마일리지 전설: 저장 뒤 결과', cz2.slice(-1));
 
+  // ===== 감사 기록(work/auditlog)과 같이: 기록은 결과가 정해질 때(저장 전) 바로 남고 · 공개는 저장 뒤 · 기록이 두 번 남지 않음
+  await p.evaluate(B0 => { __FS.sd = 2500; window.__AUDIT._force(true); const I = __T.INV; I.load({ bag: [{ id: 'plate_armor', n: 1, en: 6 }, { id: 'scroll_armor', n: 5 }], bonus: B0 }); I.render(); }, B0);
+  const au = () => p.evaluate(() => Object.keys(__FS.db).filter(k => k.startsWith('audit/')).map(k => { const o = __FS.db[k], d = typeof o.d === 'string' ? JSON.parse(o.d) : o.d; return { k: o.k, r: d && d.r, m: d && d.m, got: d && d.got }; }));
+  const enB = L => L.filter(x => x.k === 'en' && x.r === 'boom').length, gL = L => L.filter(x => x.k === 'gacha' && x.m === 'g').length;
+  lg = await L0(); await p.evaluate(() => { const I = __T.INV, e = I.bag().find(x => x.id === 'plate_armor'); I.setHot(11, 'scroll_armor'); I.useHot(11); I.applyScroll(e); const R0 = Math.random; Math.random = () => 0.99; try { document.getElementById('ask-yes').onclick(); } finally { Math.random = R0; } });
+  await p.waitForTimeout(700); const u1 = await au(), cu1 = await chat(p), un1 = await p.evaluate(() => __RS.unsaved());
+  await p.waitForFunction(() => !__RS.held(), null, { timeout: 20000 }); await p.waitForTimeout(300); const u2 = await au(), cu2 = await chat(p);
+  lg = await L0(); await p.evaluate(() => { const leg = PCG.K.CARDS.find(c => c.g === '전설'); PCG._force([leg.id]); PCG.draw(1); });
+  await p.waitForTimeout(700); const u3 = await au(), cu3 = await chat(p), un3 = await p.evaluate(() => __RS.unsaved());
+  await p.waitForFunction(() => !__RS.held() && !PCG.busy(), null, { timeout: 20000 }); await p.waitForTimeout(400); const u4 = await au(), cu4 = await chat(p); await p.evaluate(() => window.__AUDIT._force(false));
+  ok(un1 && enB(u1) === 1 && !cu1.some(t => /증발/.test(t)) && enB(u2) === 1 && cu2.some(t => /증발/.test(t)), '감사 기록: 증발 기록은 저장 중(결과 공개 전)에 이미 남음 · 공개 뒤에도 1건', { u1, n2: u2.length });
+  ok(un3 && gL(u3) === 1 && !cu3.some(t => /1회 뽑기/.test(t)) && gL(u4) === 1 && cu4.some(t => /1회 뽑기/.test(t)), '감사 기록: 전설 뽑기 기록도 저장 중에 남음 · 공개(플레이 기록 TELE) 뒤에도 1건 (중복 없음)', { u3: u3.filter(x => x.k === 'gacha'), n4: gL(u4) });
   // ===== ⓔ 로컬(이 기기 저장) 계정: 지금처럼 바로
   const ctx2 = await br.newContext({ viewport: { width: 1280, height: 800 } }); const q = await ctx2.newPage(); q.on('pageerror', e => errs.push('B: ' + e.message));
   await login(q, { cls: 'knight', name: 'rsB' });

@@ -6474,9 +6474,9 @@ const INV = (() => {
       if (id === 'bscroll_acc') { spellFx('enbless', hero, RARITY_C['영웅']); const m = `${PNAME()}님이 축복 주문서 주머니에서 [${it.name}]를 얻었습니다!`; announce(m, RARITY_C['영웅']); NET.announceAll(m); if (AC && SFX_ON) [784, 988, 1175, 1568].forEach((f, k) => tone(AC.currentTime + 0.1 + k * 0.09, 'triangle', f, f, 0.35, 0.12)); }
       else { spellFx('enok', hero, '#ffe8a0'); if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.18, 2600, 900, 0.12); tone(t0 + 0.08, 'triangle', 660, 1320, 0.25, 0.1); } } render(); }); return; }
     if (d.use === 'dollbox') { say('마법인형 주머니는 이제 열 수 없어요. 마법인형은 위 메뉴 [마법인형]에서 뽑아요 · 상점에 팔면 산 값 10만(100,000) 골드를 돌려받아요.', '#f0c080'); return; }   // 11/5 프로듀서: 주머니 판매 끝 · 가진 것은 상점에 산 값으로
-    if (d.use === 'twbox') { if (!RSAVE.can('상자 열기')) return; const r = TWM.roll(d.box), K_ = RSAVE.begin(); take(e.id); cd = 0.6; if (r.gold) coins += r.gold; else add(r.id, r.n, true);   // 11/6: 결과는 계정 서버에 저장한 뒤에
+    if (d.use === 'twbox') { if (!RSAVE.can('상자 열기')) return; const r = TWM.roll(d.box), K_ = RSAVE.begin(), tv = audit('pre', 'twbox', { b: d.box, g: r.gold || 0, id: r.id || '' }); take(e.id); cd = 0.6; if (r.gold) coins += r.gold; else add(r.id, r.n, true);   // 11/6: 결과는 계정 서버에 저장한 뒤에
       RSAVE.then(K_, () => { if (r.gold) { say(`${JOSA(d.name, '을', '를')} 열었습니다... 골드 ${r.gold.toLocaleString()}!`, '#ffd86a'); } else { const it = ITEMS[r.id], nm = it.name + (r.n > 1 ? ` ${r.n}개` : ''); say(`${JOSA(d.name, '을', '를')} 열었습니다... ${rarTag(r.id)}${JOSA(nm, '이', '가')} 나왔습니다!`, rarC(r.id)); }
-      spellFx('enbless', hero, '#ffd86a'); if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.18, 2600, 900, 0.12); [660, 880, 1100].forEach((f, k) => tone(t0 + 0.08 + k * 0.08, 'triangle', f, f, 0.25, 0.1)); } render(); TELE.ev('twbox', { b: d.box, g: r.gold || 0, id: r.id || '' }); }); return; }   // v183: 수호탑 상자
+      spellFx('enbless', hero, '#ffd86a'); if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.18, 2600, 900, 0.12); [660, 880, 1100].forEach((f, k) => tone(t0 + 0.08 + k * 0.08, 'triangle', f, f, 0.25, 0.1)); } render(); TELE.ev('twbox', tv || { b: d.box, g: r.gold || 0, id: r.id || '' }); }); return; }   // v183: 수호탑 상자
     if (d.use === 'hwcandy') { take(e.id); cd = 0.5; BUFF.hwexp = BUFF_DEF.hwexp.dur; drinkFx(e.id); spellFx('enok', hero, '#ffa040'); say(`호박 사탕을 먹었습니다. 30분 동안 몬스터 경험치 +${HWC.CANDY_EXP}%!`, '#ffa040'); render(); return; }
     if (d.use === 'hwpouch') { if (!RSAVE.can('주머니 열기')) return; const [id, n] = HWM.rollPouch(e.id), it = id && ITEMS[id]; if (!it) return; const K_ = RSAVE.begin(); take(e.id); cd = 0.6; add(id, n, true);   // 11/6: 결과는 계정 서버에 저장한 뒤에
       RSAVE.then(K_, () => { TELE.ev('hwpouch', { p: e.id, id });
@@ -6555,12 +6555,12 @@ const INV = (() => {
   // 판정만 하고 상태를 바꿈 (채팅·공지는 결과를 보여 줄 때)
   function enRoll(t, sid) { const sd = ITEMS[sid], td = ITEMS[t.id], cur = t.en || 0, before = nameOf(t), beforeH = nameHTML(t), acc = bkAcc(td);
     if (t.nb || (!sd.curse && !acc && td.slot === 'weapon' && cur >= WEN_MAX) || !take(sid)) return null;   // 11/5: 무기는 +10까지
-    if (sd.curse) { t.en = cur - 1; return { kind: 'curse', t, td, sid, cur, en: t.en, add: -1, before, beforeH }; }
+    if (sd.curse) { t.en = cur - 1; audit('en', t, sid, cur, t.en, 'w' + ENH.tab); return { kind: 'curse', t, td, sid, cur, en: t.en, add: -1, before, beforeH }; }
     const p = acc ? ACC_P[cur] : cur >= SAFE_EN(td) ? 1 / 3 : 1;
-    if (Math.random() >= p) { rsBoom(t); return { kind: 'boom', t, td, sid, cur, before, beforeH, p }; }
+    if (Math.random() >= p) { audit('en', t, sid, cur, null, 'w' + ENH.tab, p); rsBoom(t); return { kind: 'boom', t, td, sid, cur, before, beforeH, p }; }
     if (p < 1 && t.on && RSAVE.need()) t._shEn = cur;   // 11/6: 저장 전에는 착용 모습(강화 빛) 그대로
     const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; t.en = acc ? Math.min(8, cur + add) : bkHat(td) ? Math.min(HWC.HAT_MAX, cur + add) : td.slot === 'weapon' ? Math.min(WEN_MAX, cur + add) : cur + add;
-    return { kind: t.en - cur > 1 ? 'bless' : 'ok', t, td, sid, cur, en: t.en, add: t.en - cur, before, beforeH, p }; }
+    audit('en', t, sid, cur, t.en, 'w' + ENH.tab, p); return { kind: t.en - cur > 1 ? 'bless' : 'ok', t, td, sid, cur, en: t.en, add: t.en - cur, before, beforeH, p }; }
   function enShout(r) { const td = r.td, acc = bkAcc(td); if ((r.kind === 'ok' || r.kind === 'bless') && r.en >= (acc ? 7 : td.slot === 'weapon' ? 8 : 7)) announce(`${PNAME()}님이 ${JOSA('+' + r.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, r.en >= (acc ? 8 : 9) ? '#ff9a3a' : '#9fe0ff'); }
   function enReveal(r) { if (!r || r.shown) return; r.shown = true; rsShow(r.t); const nm = r.kind === 'boom' ? r.before : nameOf(r.t);
     if (r.kind === 'boom') { say(`${JOSA(r.before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다.${bkAcc(r.td) ? ` (성공 확률 ${Math.round(r.p * 100)}%)` : ''}`, '#ff6a5a'); NET.fx('boom', '증발…', r.before); spellFx('boom', hero); }
@@ -6705,10 +6705,10 @@ const INV = (() => {
     if (t.locked) { say(`${nameOf(t)}: 잠긴 아이템이라 주문서를 쓸 수 없습니다. (상세 정보에서 잠금 해제)`, '#f08a7a'); cancelTarget(true); return; }
     if (t.nb) { say(`${nameOf(t)}: ${NB_NO}`, '#f08a7a'); cancelTarget(true); return; }   /* 11/4 신규지원: 강화·축복·속성·변경 주문서 불가 */
     if (sd.use === 'ancient') { cancelTarget(true); if (!td.faded) { say(`${nameOf(t)}: 고대의 주문서는 [빛을 바랜 전설의 벨트]에만 쓸 수 있어요. (주문서는 그대로예요)`, '#f08a7a'); return; }   /* 11/3 잊혀진 섬: 주문서·빛바랜 벨트 둘 다 사라지고 벨트 하나 */
-      if (!RSAVE.can('고대의 주문서')) return; if (!take(sid)) return; if (!take(t.id)) { add(sid, 1, true); return; } const r = fgRoll(), it = ITEMS[r.id]; if (!it) return; const K_ = RSAVE.begin(); add(r.id, 1, true); render(); const ne = bag.slice().reverse().find(x => x.id === r.id) || { id: r.id };   // 11/6: 결과는 계정 서버에 저장한 뒤에
+      if (!RSAVE.can('고대의 주문서')) return; if (!take(sid)) return; if (!take(t.id)) { add(sid, 1, true); return; } const r = fgRoll(), it = ITEMS[r.id]; if (!it) return; const K_ = RSAVE.begin(), tv = audit('pre', 'fgRoll', { id: r.id, r: r.tier }); add(r.id, 1, true); render(); const ne = bag.slice().reverse().find(x => x.id === r.id) || { id: r.id };   // 11/6: 결과는 계정 서버에 저장한 뒤에
       RSAVE.then(K_, () => { render(); say(`고대의 주문서가 빛을 바랜 전설의 벨트에 스며듭니다… 빛이 되살아나 [${r.tier}] ${JOSA(it.name, '이', '가')} 되었습니다! (전설 ${fgPct(FGI.ROLL[0])} · 영웅 ${fgPct(FGI.ROLL[1])} · 희귀 ${fgPct(FGI.ROLL[2])})`, rarC(r.id)); enFx(rarC(r.id), `[${r.tier}] ${it.name}`);
       enchantFx(ne, r.tier === '희귀' ? 'ok' : 'bless', r.tier === '전설' ? `전설 ${it.name}!` : `[${r.tier}] ${it.name}`); try { centerNote(`[${r.tier}] ${it.name}`, r.tier === '전설' ? '빛을 바랜 벨트에서 거인 왕의 반지가 깨어났습니다!' : '빛을 바랜 벨트의 정체가 드러났습니다', rarC(r.id), 3200); } catch (e_) {}
-      TELE.ev('fgRoll', { id: r.id, r: r.tier }); if (r.tier !== '희귀') { const m = `${PNAME()}님이 고대의 주문서로 [${r.tier}] ${JOSA(it.name, '을', '를')} 되살려 냈습니다!`; announce(m, RARITY_C[r.tier]); NET.announceAll(m); } }); return; }
+      TELE.ev('fgRoll', tv || { id: r.id, r: r.tier }); if (r.tier !== '희귀') { const m = `${PNAME()}님이 고대의 주문서로 [${r.tier}] ${JOSA(it.name, '을', '를')} 되살려 냈습니다!`; announce(m, RARITY_C[r.tier]); NET.announceAll(m); } }); return; }
     if (sd.use === 'eqchg' && !canScroll(sd, td)) { say(`${nameOf(t)}: 장비 변경 주문서는 전설 장비에만 쓸 수 있어요. (주문서는 그대로예요)`, '#f08a7a'); cancelTarget(true); return; }   // 11/1
     if (!canScroll(sd, td)) { say((sd.use === 'blessit' && td.gonoff ? `${JOSA(td.name, '은', '는')} 효과가 켜짐/꺼짐뿐이라 축복할 수 없습니다.` : sd.use === 'accchg' ? '장신구 변경 주문서는 힘·민첩·지식의 반지·목걸이에만 쓸 수 있습니다.' : sd.ench === 'hwhat' ? '호박 강화 주문서는 할로윈 모자에만 쓸 수 있습니다.' : td === ITEMS.hw_hat ? '할로윈 모자는 호박 강화 주문서로만 강화할 수 있습니다.' : sd.ench === 'acc' ? '장신구 마법 주문서는 힘·민첩·지능·모든 능력치가 붙은 반지·목걸이에만 쓸 수 있습니다.' : sd.use === 'attr' ? '속성 강화 주문서는 무기에만 쓸 수 있습니다.' : sd.ench === 'weapon' ? '무기 마법 주문서는 무기에만 쓸 수 있습니다.' : '갑옷 마법 주문서는 투구·갑옷·방패·망토·티셔츠·장갑·부츠에만 쓸 수 있습니다.') + ' 강화를 취소했습니다.', '#f08a7a'); cancelTarget(true); return; }
     if (sd.use === 'attr') { const lv = t.attr && t.attr.el === sd.el ? t.attr.lv : 0;
@@ -6720,35 +6720,35 @@ const INV = (() => {
     if (sd.use === 'blessit') { const LEG = td.rar === '전설', LW = LEG && td.slot === 'weapon', lbn = t.blessed ? (t.blessSp || 1) : 0;   /* 11/1 프로듀서: 전설 장비 축복 1% · 전설 무기는 3단까지(단마다 공격 속도 +1%) */
       if (t.blessed && !(LW && lbn < LEG_BLESS_MAX)) { say(LW ? `${nameOf(t)}: 이미 축복 ${LEG_BLESS_MAX}단(최대)입니다. 강화를 취소했습니다.` : `${nameOf(t)}: 이미 축복받은 장비입니다. 강화를 취소했습니다.`, '#9c9682'); cancelTarget(true); return; }
       if (!RSAVE.can('축복 부여')) { cancelTarget(true); return; } cancelTarget(true); take(sid); const before = nameOf(t), K_ = RSAVE.begin();   // 11/6: 결과는 계정 서버에 저장한 뒤에
-      if (LW) { const ok_ = Math.random() < LEG_BLESS_P; if (ok_) { t.blessed = true; t.blessSp = lbn + 1; } RSAVE.then(K_, () => { if (ok_) { say(`${JOSA(before, '이', '가')} 성스러운 금빛에 휩싸입니다! → ${nameOf(t)} (축복 ${t.blessSp}단 · 공격 속도 +${t.blessSp}%)`, '#ffd86a'); enFx('#ffd86a', `축복 ${t.blessSp}단!`); render(); enchantFx(t, 'bless', `축복 ${t.blessSp}단 성공!`); }
+      if (LW) { const ok_ = Math.random() < LEG_BLESS_P; if (ok_) { t.blessed = true; t.blessSp = lbn + 1; } audit('bless', t, ok_); RSAVE.then(K_, () => { if (ok_) { say(`${JOSA(before, '이', '가')} 성스러운 금빛에 휩싸입니다! → ${nameOf(t)} (축복 ${t.blessSp}단 · 공격 속도 +${t.blessSp}%)`, '#ffd86a'); enFx('#ffd86a', `축복 ${t.blessSp}단!`); render(); enchantFx(t, 'bless', `축복 ${t.blessSp}단 성공!`); }
         else { say(`${before}: 아무 일도 일어나지 않았습니다. (전설 축복 ${lbn + 1}단 실패 · 성공 확률 ${Math.round(LEG_BLESS_P * 100)}%)`, '#c0b8a0'); render(); enchantFx(t, 'fail', '축복 부여 실패…'); } }); return; }
-      const ok_ = Math.random() < (LEG ? LEG_BLESS_P : 0.2); if (ok_) { t.blessed = true; if (td.wtype === 'staff') t.blessSp = 1 + Math.floor(Math.random() * 2); }
+      const ok_ = Math.random() < (LEG ? LEG_BLESS_P : 0.2); if (ok_) { t.blessed = true; if (td.wtype === 'staff') t.blessSp = 1 + Math.floor(Math.random() * 2); } audit('bless', t, ok_);
       RSAVE.then(K_, () => { if (ok_) { say(`${JOSA(before, '이', '가')} 성스러운 금빛에 휩싸입니다! → ${nameOf(t)} (${td.gaho ? td.gtxt + ' +1%' : ACC_BL.has(td.slot) ? '명중 +1' : td.slot === 'weapon' ? td.wtype === 'staff' ? 'SP +' + t.blessSp : '추가 타격' : '방어 +1'})`, '#ffd86a'); enFx('#ffd86a', '축복!'); render(); enchantFx(t, 'bless', '축복 부여 성공!'); }
       else { say(`${before}: 아무 일도 일어나지 않았습니다. (축복 부여 실패)`, '#c0b8a0'); render(); enchantFx(t, 'fail', '축복 부여 실패…'); } }); return; }
     if (sd.curse) { const cur0 = t.en || 0; if (cur0 <= -7) { say(`${nameOf(t)}: 더 이상 낮출 수 없습니다. (최저 -7) 강화를 취소했습니다.`, '#9c9682'); cancelTarget(true); return; }
-      cancelTarget(true); take(sid); const before = nameOf(t); t.en = cur0 - 1; say(`${JOSA(before, '이', '가')} 한순간 검게 빛납니다. → ${nameOf(t)}`, '#c890e8'); enFx('#c890e8', String(t.en)); render(); enchantFx(t, 'curse', `${t.en} 저주…`); return; }
+      cancelTarget(true); take(sid); const before = nameOf(t); t.en = cur0 - 1; audit('en', t, sid, cur0, t.en, 'scroll'); say(`${JOSA(before, '이', '가')} 한순간 검게 빛납니다. → ${nameOf(t)}`, '#c890e8'); enFx('#c890e8', String(t.en)); render(); enchantFx(t, 'curse', `${t.en} 저주…`); return; }
     if (sd.use === 'eqchg') { cancelTarget(true); if (!RSAVE.can('장비 변경')) return; const P = Object.keys(ITEMS).filter(id => ITEMS[id].rar === '전설' && ITEMS[id].slot === td.slot && !ITEMS[id].hidden);   // 11/1 장비 변경 주문서: 전설 3종(모든 직업) 중 무작위 · 같은 것도 나옴 · 강화·축복·속성·잠금 그대로
       askYesNo(`${nameOf(t)}을(를) 바꾸시겠습니까?`, `${P.map(id => ITEMS[id].name).join(' · ')} 중 하나로 무작위로 바뀌어요. (내 직업과 상관없이 · 같은 무기가 나올 수도 있어요) 강화 수치(+${t.en || 0})${t.blessed ? '·축복' : ''}${t.attr ? '·속성' : ''}은 그대로예요. 장비 변경 주문서 1장을 써요.`, () => {
-        if (!bag.includes(t) || ITEMS[t.id] !== td || !RSAVE.can('장비 변경') || !take(sid)) return; const K_ = RSAVE.begin(), nid = P[Math.floor(Math.random() * P.length)], nd = ITEMS[nid], same = nid === t.id; if (K_ && t.on) t._shId = t.id; t.id = nid;   // 11/6: 결과는 계정 서버에 저장한 뒤에 (그 전엔 착용 모습 그대로)
+        if (!bag.includes(t) || ITEMS[t.id] !== td || !RSAVE.can('장비 변경') || !take(sid)) return; const K_ = RSAVE.begin(), nid = P[Math.floor(Math.random() * P.length)], nd = ITEMS[nid], same = nid === t.id; audit('chg', t, nid); if (K_ && t.on) t._shId = t.id; t.id = nid;   // 11/6: 결과는 계정 서버에 저장한 뒤에 (그 전엔 착용 모습 그대로)
         let off = ''; if (t.on && !GOD && ((nd.cls && !nd.cls.includes(CLASS)) || (nd.lv && hero.lv < nd.lv))) { if (K_) t.on = false; else unequip(t, true); off = ` · ${CLASS_NAME[CLASS]}는 착용할 수 없어 벗었어요`; }   // 착용 중: 장신구 변경처럼 그 자리에서 바뀜 (다른 직업 무기가 나오면 벗음)
         RSAVE.then(K_, () => { rsShow(t); render(); say(`[전설] ${td.name} → [전설] ${nd.name}${same ? ' (같은 무기)' : ''} (강화 ${(t.en || 0) >= 0 ? '+' : ''}${t.en || 0} 그대로${t.blessed ? ' · 축복 그대로' : ''}${t.attr ? ' · 속성 그대로' : ''})${off}`, RARITY_C['전설']); enFx(RARITY_C['전설'], '변경!'); enchantFx(t, 'bless', '장비 변경!'); }); }); return; }
     if (sd.use === 'accchg') { cancelTarget(true); const k = accKey(td), want = CLS_ST[CLASS], nid = accChgId(td.slot, want);
       if (k === want) { say(`${nameOf(t)}: 이미 ${CLASS_NAME[CLASS]}용(${ACC_ST[want]}) 장신구입니다.`, '#9c9682'); return; } if (!nid) return; const nd = ITEMS[nid];
       askYesNo(`${nameOf(t)}을(를) ${nd.name}(으)로 바꾸시겠습니까?`, `같은 부위의 ${CLASS_NAME[CLASS]} 장신구로 바뀌어요. 강화 수치(+${t.en || 0})는 그대로예요. (${(td.optTxt || []).join(' · ') || '—'} → ${(nd.optTxt || []).join(' · ') || '—'})`, () => {
-        if (!bag.includes(t) || t.id !== td && ITEMS[t.id] !== td || !take(sid)) return; const before = nameOf(t); t.id = nid; render(); say(`${before} → ${nameOf(t)}(으)로 바뀌었습니다.`, '#d0b0ff'); enFx('#d0b0ff', '변경!'); enchantFx(t, 'bless', '장신구 변경!'); }); return; }
+        if (!bag.includes(t) || t.id !== td && ITEMS[t.id] !== td || !take(sid)) return; const before = nameOf(t); audit('chg', t, nid); t.id = nid; render(); say(`${before} → ${nameOf(t)}(으)로 바뀌었습니다.`, '#d0b0ff'); enFx('#d0b0ff', '변경!'); enchantFx(t, 'bless', '장신구 변경!'); }); return; }
     if (sd.ench === 'hwhat' && (t.en || 0) >= HWC.HAT_MAX) { say(`${nameOf(t)}: 이미 최대 강화(+${HWC.HAT_MAX})입니다.`, '#9c9682'); cancelTarget(true); return; }   // 할로윈 모자: 아래 일반 강화와 같은 규칙 (안전 HWC.HAT_SAFE · 넘으면 1/3)
     if (sd.ench === 'acc') { const cur = t.en || 0; cancelTarget(true); if (cur >= 8) { say(`${nameOf(t)}: 이미 최고 강화(+8)입니다.`, '#9c9682'); return; } const p = ACC_P[cur], stn = accName(td);
       const go = () => { if (!bag.includes(t) || (t.en || 0) !== cur || !RSAVE.can('강화') || !take(sid)) return; const before = nameOf(t), K_ = RSAVE.begin();   // 11/6: 결과는 계정 서버에 저장한 뒤에
-        if (Math.random() >= p) { const fx_ = () => enchantFx(t, 'boom', '증발…'); if (!K_) fx_(); rsBoom(t); RSAVE.then(K_, () => { if (K_) fx_(); rsShow(t); say(`${JOSA(before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다. (성공 확률 ${Math.round(p * 100)}%)`, '#ff6a5a'); enFx('#ff6a5a', '증발!'); render(); }); return; }
-        const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; if (K_ && t.on) t._shEn = cur; t.en = Math.min(8, cur + add); RSAVE.then(K_, () => { rsShow(t); if (t.en >= 7) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 8 ? '#ff9a3a' : '#9fe0ff');
+        if (Math.random() >= p) { audit('en', t, sid, cur, null, 'scroll', p); const fx_ = () => enchantFx(t, 'boom', '증발…'); if (!K_) fx_(); rsBoom(t); RSAVE.then(K_, () => { if (K_) fx_(); rsShow(t); say(`${JOSA(before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다. (성공 확률 ${Math.round(p * 100)}%)`, '#ff6a5a'); enFx('#ff6a5a', '증발!'); render(); }); return; }
+        const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; if (K_ && t.on) t._shEn = cur; t.en = Math.min(8, cur + add); audit('en', t, sid, cur, t.en, 'scroll', p); RSAVE.then(K_, () => { rsShow(t); if (t.en >= 7) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 8 ? '#ff9a3a' : '#9fe0ff');
         say(`${JOSA(before, '이', '가')} 한순간 ${t.en - cur > 1 ? '은빛으로 ' + (t.en - cur) + '번' : '파랗게'} 빛납니다. → ${nameOf(t)} (${stn} +${t.en})`, t.en - cur > 1 ? '#e8e0ff' : '#8ad0ff'); enFx(t.en - cur > 1 ? '#e8e0ff' : '#8ad0ff', '+' + t.en); render(); enchantFx(t, t.en - cur > 1 ? 'bless' : 'ok', `+${t.en} 강화 성공!`); }); };
       if (!RSAVE.can('강화')) return; askYesNo(`${nameOf(t)}을(를) 강화하시겠습니까?`, `${sd.name} 사용 · +${cur + 1} 성공 확률 ${Math.round(p * 100)}% · 성공하면 ${stn} +1. 장신구는 안전 강화가 없어 실패하면 증발합니다.`, go); return; }
     if (td.slot === 'weapon' && (t.en || 0) >= WEN_MAX) { say(`${nameOf(t)}: 이미 최대 강화(+${WEN_MAX})입니다. 무기는 +${WEN_MAX}까지만 강화할 수 있어요.`, '#9c9682'); cancelTarget(true); return; }   // 11/5 프로듀서: 무기 최대 +10
     const safe = SAFE_EN(td), cur = t.en || 0;
     const go = () => { const risky = cur >= safe; if (risky && !RSAVE.can('강화')) return; if (!take(sid)) return; const before = nameOf(t), K_ = risky ? RSAVE.begin() : null;   // 11/6: 안전 강화를 넘는 강화는 계정 서버에 저장한 뒤에 결과를 보여 줌 (안전 강화 안은 그대로 바로)
-      if (risky && Math.random() >= 1 / 3) { const fx_ = () => enchantFx(t, 'boom', '증발…'); if (!K_) fx_(); rsBoom(t); RSAVE.then(K_, () => { if (K_) fx_(); rsShow(t);
+      if (risky && Math.random() >= 1 / 3) { audit('en', t, sid, cur, null, 'scroll', 1 / 3); const fx_ = () => enchantFx(t, 'boom', '증발…'); if (!K_) fx_(); rsBoom(t); RSAVE.then(K_, () => { if (K_) fx_(); rsShow(t);
         say(`${JOSA(before, '이', '가')} 강렬하게 빛나더니 증발되어 사라집니다.`, '#ff6a5a'); enFx('#ff6a5a', '증발!'); render(); }); return; }
-      const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; if (K_ && t.on) t._shEn = cur; t.en = td.slot === 'weapon' ? Math.min(WEN_MAX, cur + add) : cur + add; RSAVE.then(K_, () => { rsShow(t); if (t.en >= (td.slot === 'weapon' ? 8 : 7)) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 9 ? '#ff9a3a' : '#9fe0ff');   // 축복 주문서: +1~2, 현재 +7 이상이면 +1만
+      const add = sd.bless && cur < 7 ? 1 + Math.floor(Math.random() * 2) : 1; if (K_ && t.on) t._shEn = cur; t.en = td.slot === 'weapon' ? Math.min(WEN_MAX, cur + add) : cur + add; audit('en', t, sid, cur, t.en, 'scroll', risky ? 1 / 3 : 1); RSAVE.then(K_, () => { rsShow(t); if (t.en >= (td.slot === 'weapon' ? 8 : 7)) announce(`${PNAME()}님이 ${JOSA('+' + t.en + ' ' + td.name, '을', '를')} 만들어 냈습니다!`, t.en >= 9 ? '#ff9a3a' : '#9fe0ff');   // 축복 주문서: +1~2, 현재 +7 이상이면 +1만
       say(`${JOSA(before, '이', '가')} 한순간 ${add > 1 ? '은빛으로 ' + add + '번' : '파랗게'} 빛납니다. → ${nameOf(t)}`, add > 1 ? '#e8e0ff' : '#8ad0ff'); enFx(add > 1 ? '#e8e0ff' : '#8ad0ff', '+' + t.en);
       render(); enchantFx(t, add > 1 ? 'bless' : 'ok', `+${t.en} 강화 성공!`); }); };
     cancelTarget(true); if (cur >= safe && !RSAVE.can('강화')) return;
@@ -7109,9 +7109,9 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
     const mats = S.slice(); for (const e of mats) if (!INV.removeEntry(e)) return autoEnd('재료가 바뀜'); const used = cn ? catTake(cn, g) : 0; AU.cat += used; AU.n++;
     S.fill(null); busy = true; render(); INV.render(); autoBtn(); const o = $('al-out'); o.classList.remove('ok', 'fail'); o.textContent = '…'; o.classList.add('spin');
     if (AC && SFX_ON) { const t0 = AC.currentTime; for (let q = 0; q < 3; q++) tone(t0 + q * 0.1, 'triangle', 520 + q * 110, 560 + q * 110, 0.1, 0.04); }
-    const RK = RSAVE.begin(), rollA = () => { const ok = Math.random() < (RATE[g] + (CAT[g] ? Math.min(CAT[g].max, Math.floor(used / CAT[g].per)) / 100 : 0)); return { ok, id: ok ? P[Math.floor(Math.random() * P.length)] : null }; }, R0 = RK ? rollA() : null; if (R0 && R0.ok) INV.add(R0.id, 1, true);   // 11/6: 계정 서버면 결과를 미리 정해 저장 → 돌아가는 연출이 끝나고 저장도 끝나면 보여 줌 (아니면 예전처럼 연출 끝에 굴림)
+    const RK = RSAVE.begin(), rollA = () => { const ok = Math.random() < (RATE[g] + (CAT[g] ? Math.min(CAT[g].max, Math.floor(used / CAT[g].per)) / 100 : 0)); return { ok, id: ok ? P[Math.floor(Math.random() * P.length)] : null }; }, R0 = RK ? rollA() : null; if (R0 && R0.ok) INV.add(R0.id, 1, true); const tvA = R0 && R0.ok ? audit('pre', 'alch', { g, ok: 1, id: R0.id, auto: 1 }) : null;   // 11/6: 계정 서버면 결과를 미리 정해 저장 → 돌아가는 연출이 끝나고 저장도 끝나면 보여 줌 (아니면 예전처럼 연출 끝에 굴림)
     setTimeout(() => RSAVE.then(RK, () => { busy = false; const { ok, id } = R0 || rollA();
-      if (ok) { const it = ITEMS[id]; if (!RK) INV.add(id, 1, true); TELE.ev('alch', { g, ok: 1, id, auto: 1 }); showOut(id, true); spellFx('enbless', hero, RARITY_C[nx]); AU.ok.push(id);
+      if (ok) { const it = ITEMS[id]; if (!RK) INV.add(id, 1, true); TELE.ev('alch', tvA || { g, ok: 1, id, auto: 1 }); showOut(id, true); spellFx('enbless', hero, RARITY_C[nx]); AU.ok.push(id);
         say(`연금술 성공! [${nx}] ${JOSA(it.name, '을', '를')} 얻었습니다!`, RARITY_C[nx]); const msg = `${PNAME()}님이 연금술로 [${nx}] ${JOSA(it.name, '을', '를')} 만들어 냈습니다!`; announce(msg, RARITY_C[nx]); NET.announceAll(msg);
         if (AC && SFX_ON) [784, 988, 1175, 1568].forEach((f, k) => tone(AC.currentTime + k * 0.09, 'triangle', f, f, 0.35, 0.12)); if ($('al-austop') && $('al-austop').checked) AU.stop = true; }
       else { TELE.ev('alch', { g, ok: 0, auto: 1 }); showOut(null, false); }
@@ -7134,9 +7134,9 @@ window.ALCH = (() => { const $ = id => document.getElementById(id);
       const mats = S.slice(); for (const e of mats) if (!INV.removeEntry(e)) { say('재료가 바뀌어서 조합을 취소했어요.', '#f08a7a'); render(); return; } const used = cn ? catTake(cn, g) : 0;
       S.fill(null); busy = true; render(); INV.render(); const o = $('al-out'); o.classList.remove('ok', 'fail'); o.textContent = '…'; o.classList.add('spin'); spellFx('enchant', hero, '#c9a0ff');
       if (AC && SFX_ON) { const t0 = AC.currentTime; for (let q = 0; q < 6; q++) tone(t0 + q * 0.14, 'triangle', 520 + q * 110, 560 + q * 110, 0.14, 0.05); }
-      const RK = RSAVE.begin(), rollA = () => { const ok = Math.random() < (RATE[g] + (CAT[g] ? Math.min(CAT[g].max, Math.floor(used / CAT[g].per)) / 100 : 0)); return { ok, id: ok ? P[Math.floor(Math.random() * P.length)] : null }; }, R0 = RK ? rollA() : null; if (R0 && R0.ok) INV.add(R0.id, 1, true);   // 11/6: 계정 서버면 결과를 미리 정해 저장 → 돌아가는 연출이 끝나고 저장도 끝나면 보여 줌 (아니면 예전처럼 연출 끝에 굴림)
+      const RK = RSAVE.begin(), rollA = () => { const ok = Math.random() < (RATE[g] + (CAT[g] ? Math.min(CAT[g].max, Math.floor(used / CAT[g].per)) / 100 : 0)); return { ok, id: ok ? P[Math.floor(Math.random() * P.length)] : null }; }, R0 = RK ? rollA() : null; if (R0 && R0.ok) INV.add(R0.id, 1, true); const tvA = R0 && R0.ok ? audit('pre', 'alch', { g, ok: 1, id: R0.id }) : null;   // 11/6: 계정 서버면 결과를 미리 정해 저장 → 돌아가는 연출이 끝나고 저장도 끝나면 보여 줌 (아니면 예전처럼 연출 끝에 굴림)
       setTimeout(() => RSAVE.then(RK, () => { busy = false; const { ok, id } = R0 || rollA();
-        if (ok) { const it = ITEMS[id]; if (!RK) INV.add(id, 1, true); TELE.ev('alch', { g, ok: 1, id }); showOut(id, true); spellFx('enbless', hero, RARITY_C[nx]);
+        if (ok) { const it = ITEMS[id]; if (!RK) INV.add(id, 1, true); TELE.ev('alch', tvA || { g, ok: 1, id }); showOut(id, true); spellFx('enbless', hero, RARITY_C[nx]);
           say(`연금술 성공! [${nx}] ${JOSA(it.name, '을', '를')} 얻었습니다!`, RARITY_C[nx]); const msg = `${PNAME()}님이 연금술로 [${nx}] ${JOSA(it.name, '을', '를')} 만들어 냈습니다!`; announce(msg, RARITY_C[nx]); NET.announceAll(msg);
           if (AC && SFX_ON) [784, 988, 1175, 1568].forEach((f, k) => tone(AC.currentTime + k * 0.09, 'triangle', f, f, 0.35, 0.12)); }
         else { TELE.ev('alch', { g, ok: 0 }); showOut(null, false); spellFx('puff', hero, '#8a7a6a'); say('연금술에 실패했습니다... 재료가 모두 사라졌습니다.', '#c9b98a'); if (AC && SFX_ON) { tone(AC.currentTime, 'sawtooth', 300, 110, 0.4, 0.07); nz(AC.currentTime, 0.3, 900, 200, 0.12); } }
@@ -8284,7 +8284,7 @@ const CODES = (() => { let used = [];
       if (d.stack) INV.add(id, q, true); else for (let k = 0; k < Math.min(20, q); k++) INV.insertEntry(Object.assign({ id, n: 1, on: false }, en ? { en: en | 0 } : {}, bl ? { blessed: true } : {}));
       got.push((bl ? '축복받은 ' : '') + (en ? `+${en} ` : '') + d.name + (q > 1 ? ` ×${q}` : '')); }
     used.push(String(P.id)); if (used.length > 200) used = used.slice(-200); INV.render();
-    say(`복구 코드를 사용했습니다! ${got.join(' · ')}을(를) 받았어요.`, '#ffd86a'); try { spellFx('enbless', hero, '#ffd86a'); } catch (e) {} try { SAVE.now(true, true); } catch (e) {} try { TELE.ev('code', { id: P.id }); } catch (e) {} return true; }
+    say(`복구 코드를 사용했습니다! ${got.join(' · ')}을(를) 받았어요.`, '#ffd86a'); try { spellFx('enbless', hero, '#ffd86a'); } catch (e) {} try { SAVE.now(true, true); } catch (e) {} try { TELE.ev('code', { id: P.id }); } catch (e) {} audit('code', P); return true; }
   function open() { let w = document.getElementById('codewin');
     if (!w) { w = document.createElement('div'); w.id = 'codewin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', '복구 코드 입력');
       w.style.cssText = 'position:fixed;z-index:70;left:calc(50% - 215px);top:110px;width:430px;max-width:calc(100vw - 24px);box-sizing:border-box;padding:14px 16px 12px;background:linear-gradient(160deg,#2e2438,#1c1624 55%,#120e16);border:1px solid #8a7040;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.6);color:#f2e6c0;font:13px "Noto Sans KR",sans-serif';
@@ -8726,6 +8726,7 @@ const ADMIN = (() => {
   function inspData(cc) { const st = INV.stat(), eq = INV.bag().filter(e => e.on).map(e => [e.id, e.en || 0, e.blessed ? 1 : 0]); { const dv = INV.eqE('doll'); if (dv && dv.dv) eq.push([dv.id, 0, 0]); }   /* 11/5 마법인형 칸 */ let bag = INV.bag().filter(e => !e.on).map(e => [e.id, e.n, e.en || 0, e.blessed ? 1 : 0]);
     const D = { n: PNAME(), c: CLASS, lv: hero.lv, ex: +(hero.exp / Math.max(1, needExp(hero.lv)) * 100).toFixed(1), hp: [Math.ceil(hero.hp), hero.max], mp: [Math.floor(hero.mp), hero.maxmp], ac: INV.ac(), mr: mrTotal(),
       st: { str: st.str, dex: st.dex, con: st.con, int: st.int, wis: st.wis, cha: st.cha }, bp: hero.bonusPts | 0, g: Math.floor(coins), z: zoneTitle(), w: Math.round((INV.wPct ? INV.wPct() : 0) * 100), eq, bag }; try { const DS = DCG.state(), n = Object.values(DS.cards).reduce((a, v) => a + v, 0), l = DCARD.filter(c => c.g === '전설').reduce((a, c) => a + (DS.cards[c.id] || 0), 0); D.dc = [n, l, DCG.owned()]; } catch (q) {}   /* 11/5 마법인형 보관함: 개수·전설·종류 */ try { const G = GTAX.me(); if (!G.bad) D.gt = [GTAX.gold(G.c), G.s]; } catch (q) {}   /* 11/5 골드 세금: 낸 세금(골드)·쓴 골드 (계정 공유) */
+    try { if (CLOUD.on() && CLOUD.uid()) D.u = String(CLOUD.uid()); } catch (q) {}   /* 11/6 기록: 운영자 [살펴보기 → 기록]이 계정(uid)으로 찾게 */
     let cap = 1800; if (cc) { try { D.cc = CCOPY.make(); if (window.__bigNet) cap += JSON.stringify(D.cc).length; } catch (e) {} }   // 11/1 캐릭터 복사: 운영자가 [복사 코드]를 누를 때만 붙임 (공용 서버는 가방 목록을 줄여 전체 1,800자 안 · 전용 서버는 복사 정보만큼 더)
     while (JSON.stringify(D).length > cap && D.bag.length) D.bag.pop(); D.more = bag.length - D.bag.length; return D; }
   function setLv(L) { L = Math.max(1, Math.min(99, L | 0)); const CD = CLS_DEF[CLASS]; let bh = CD.hp, bm = CD.mp, sd = L * 977 + 13; const R0 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
@@ -8813,7 +8814,7 @@ const ADMIN = (() => {
       <div style="margin-top:4px"><b>착용</b> ${D.eq.map(([id, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}</span>`).join('') || '<span class="muted">없음</span>'}</div>
       ${D.dc ? `<div style="margin-top:3px"><b>마법인형 보관함</b> ${D.dc[0]}개 <span class="muted">(${D.dc[2]}종 · 전설 ${D.dc[1]}개 · 계정 공유)</span></div>` : ''}<div style="margin-top:3px"><b>가방</b> ${D.bag.map(([id, n, en, bl]) => `<span class="it">${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nmOf(id)}${bl ? '(축)' : ''}${n > 1 ? ' ×' + n : ''}</span>`).join('') || '<span class="muted">비어 있음</span>'}${D.more ? ` <span class="muted">외 ${D.more}개</span>` : ''}</div>
       <div class="muted" style="margin-top:2px">${Math.round((Date.now() - I.at) / 1000)}초 전 정보 · <button type="button" id="adm-re">새로고침</button> <button type="button" id="adm-cc" title="테스트 페이지 갓 모드 → [캐릭터 복사]에 붙여 넣는 코드">복사 코드</button></div>` : '<div class="muted">정보를 받는 중… (상대가 접속 중이어야 해요)</div>';
-    box.innerHTML = `<h4>${String(o.pr.n || '').replace(/</g, '')} 살펴보기</h4>${info}
+    box.innerHTML = `<h4>${String(o.pr.n || '').replace(/</g, '')} 살펴보기 <button type="button" id="adm-aud-b" title="강화·축복·뽑기·거래·지급·상태 사진 기록 (누를 때만 서버에서 읽음)">기록</button></h4>${D ? audit('sus', D) || '' : ''}${info}
       <h4>관리</h4>
       <div class="row">아이템 <input id="adm-it" list="adm-items" style="width:140px" placeholder="아이템 이름"> 수량 <input id="adm-in" type="number" value="1" min="1" style="width:56px"> 강화 <input id="adm-ie" type="number" value="0" style="width:44px"> <label><input id="adm-ib" type="checkbox"> 축복</label> <button type="button" data-c="give">지급</button><button type="button" data-c="take">회수</button></div>
       <div class="row">펫 목걸이 레벨 <input id="adm-tpl" type="number" value="61" min="1" max="99" style="width:46px"> <label><input id="adm-tpe" type="checkbox" checked> 진화</label> 진화 기준 Lv <input id="adm-tpb" type="number" value="61" min="50" max="99" style="width:46px"> 이름 <input id="adm-tpn" maxlength="8" value="베리" style="width:70px"> <button type="button" data-c="pet">지급</button> <span class="muted">(새로 만들어 이 유저 가방에)</span></div>
@@ -8823,6 +8824,7 @@ const ADMIN = (() => {
       ${acks.length ? `<div class="muted">${acks.slice(0, 3).join(' · ')}</div>` : ''}`;
     for (const k in kept) { const el = $(k); if (el) el.value = kept[k]; } if ($('adm-ib')) $('adm-ib').checked = !!kb; if ($('adm-tpe')) $('adm-tpe').checked = !!kpe; if (foc && $(foc)) $(foc).focus();
     const re = $('adm-re'); if (re) re.onclick = () => send(sel, 'insp'); const cb = $('adm-cc'); if (cb) cb.onclick = () => ccPeer(sel);
+    { const ab = $('adm-aud-b'); if (ab) ab.onclick = () => audit('view', { n: String(o.pr.n || ''), u: (D && D.u) || '', c: o.pr.c }); audit('sel', String(o.pr.n || '')); }   // 11/6 기록 (다른 사람을 고르면 표를 닫음)
     box.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => { const c = b.dataset.c, idOf = nm => Object.keys(ITEMS).find(k => ITEMS[k].name === nm.trim() && !ITEMS[k].hidden);
       if (c === 'give' || c === 'take') { const id = idOf($('adm-it').value || ''); if (!id) { say('아이템 이름을 목록에서 골라 주세요.', '#f08a7a'); return; } send(sel, c, { id, n: Math.max(1, +$('adm-in').value | 0), en: +$('adm-ie').value | 0, bl: $('adm-ib').checked ? 1 : 0 }); }
       else if (c === 'gadd' || c === 'gsub' || c === 'gset') { const v = Math.floor(+$('adm-g').value || 0); if (!v && c !== 'gset') return; send(sel, 'gold', c === 'gset' ? { op: 'set', v } : { op: 'add', v: c === 'gsub' ? -Math.abs(v) : Math.abs(v) }); }
@@ -10722,7 +10724,7 @@ const TRADE = (() => { const $ = id => document.getElementById(id), MAXIT = 10; 
     if (S.st === 'ok' && (t.st === 'ok' || t.st === 'done') && t.pv === ver && S.pv === t.v) execute(t);
     render(); }
   function summary(list, g) { const a = list.map(e => (ITEMS[e.id] ? INV.nameOf(e) : '?') + (ITEMS[e.id] && ITEMS[e.id].stack && e.n > 1 ? ' ×' + e.n : '')); if (g > 0) a.push(g.toLocaleString() + ' 골드'); return a.length ? a.join(', ') : '없음'; }
-  function execute(t) { if (!S || S.st !== 'ok') return; S.st = 'done'; push();
+  function execute(t) { if (!S || S.st !== 'ok') return; S.st = 'done'; push(); audit('trade', S.name, offer, Math.min(gold, coins), t);   /* 11/6 기록 */
     for (const x of offer) { const bag = INV.bag(); if (!bag.includes(x.e)) continue; const d = ITEMS[x.e.id]; if (d.stack && x.n < x.e.n) { x.e.n -= x.n; INV.render(); } else INV.removeEntry(x.e); }
     coins = Math.max(0, coins - Math.min(gold, coins)) + Math.max(0, t.g | 0);
     for (const e of t.it || []) { const d = ITEMS[e.id]; if (!d) continue; if (d.stack) INV.add(e.id, Math.max(1, e.n | 0), true); else INV.insertEntry(Object.assign({}, e, { on: false, n: 1 })); }
@@ -11135,6 +11137,166 @@ const GTAX = (() => {
 })();
 function goldTax(g, cat) { try { return GTAX.pay(g, cat); } catch (e) { return 0; } }   // 11/5 골드 세금 6% — NPC에게 골드를 쓴 바로 뒤에 부름 (가격은 그대로)
 window.__GTAX = GTAX;
+// ============================================================ 11/6 기록(감사 기록) — 강화·축복·뽑기(영웅·전설)·거래·운영자 지급/회수·상태 사진·골드 급증을 Firestore audit 컬렉션에 사건마다 '새 문서 만들기'로만 남김
+//   까닭: 서버 없이 클라이언트가 Firestore(users/{uid}/chars)에 저장하는 구조라 '실패 직후 강제 종료'·저장 조작을 확인할 길이 없었음 (11/6 프로듀서 · 친구 캐릭터 건) → 운영자 창 [살펴보기 → 기록]에서 그 사람 것만 시간순으로
+//   문서 audit/{uid_시각36_난수}: u(uid) n(캐릭터 이름) c(직업) k(종류 en·bless·chg·gacha·trade·adm·code·snap·gold) t(ms) v(GAME_VER) d(내용 JSON) — 고치기·지우기 없음 (규칙에 update·delete 없음)
+//   Firestore 규칙(프로듀서가 콘솔에 직접): match /audit/{id} { allow create: if request.auth != null && request.resource.data.u == request.auth.uid; allow read: if request.auth != null; }
+//   계정 서버 로그인일 때만 (이 기기·데모·봇 호스트·운영자 모드는 아무것도 안 함) · 메모리 큐(최대 200) → 5초마다 (강화·거래·지급 결과는 바로) · 1분에 60개까지 · 인터넷 오류면 30초 뒤 같은 id로 다시
+//   규칙이 없어 거절(403)되면 콘솔 경고 1번 뒤 5분 쉼 (문서마다 3번까지) · 게임에는 영향 없음 · 읽기는 운영자가 [기록]을 누를 때만 (최근 300개 · 자동 새로고침 없음 — Firestore 무료 한도)
+//   강화 함수의 결과 처리 흐름은 그대로 두고 audit('en', …) 호출만 덧붙임 · 뽑기·벨트는 TELE.ev, 운영자 지급은 ADMIN.apply, 판매 골드는 INV.sellEntry를 감싸서 봄
+const AUDIT = (() => {
+  const MAXQ = 200, GWIN = 60e3, GLIM = 2e6, RATE = 60, C = { first: 15e3, snap: 30 * 60e3 };   // C: 접속 뒤 첫 사진 · 사진 간격 (테스트에서 바꿈)
+  let Q = [], busy = false, holdT = 0, warned = 0, force = false, sk = '', firstAt = 0, snapAt = 0, sent = [], soonT = 0, cur = null;
+  const G = { s: [], x: 0, st: null, cool: 0 };   // 골드 급증: s = 5초마다 {t, g 골드, x 설명된 몫 누계} · x = 거래·운영자 지급·판매·창고에서 찾기·오프라인·상자로 들어온 골드 누계
+  const E = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]), fmt = n => Math.floor(+n || 0).toLocaleString();
+  function ok() { if (force) return true; try { return !window.DEMO_MODE && ACCOUNT.mode() === 'cloud' && CLOUD.on() && !!CLOUD.uid() && !BOTHOST.on() && !ADMIN.on(); } catch (e) { return false; } }
+  const live = () => ok() && !!window.__gameOn && SAVE.on();
+  function add(k, d, now) { if (!live()) return false; const t = Date.now(), u = String(CLOUD.uid());
+    Q.push({ id: `${u}_${t.toString(36)}_${Math.random().toString(36).slice(2, 8)}`, o: { u, n: String(PNAME()), c: String(CLASS), k, t: String(t), v: String(GAME_VER), d: d || {} } }); if (Q.length > MAXQ) Q.splice(0, Q.length - MAXQ);
+    if (now && !soonT) soonT = setTimeout(() => { soonT = 0; flush(); }, 50); return true; }   // 강화 결과 등은 바로 (실패 직후 강제 종료해도 남게)
+  async function flush() { if (busy || !Q.length || Date.now() < holdT || !ok()) return; busy = true;
+    try { while (Q.length) { const now = Date.now(); sent = sent.filter(x => now - x < 60e3); if (sent.length >= RATE) break; const q = Q[0]; let r;
+        try { r = await CLOUD.create('audit/' + q.id, q.o); } catch (e) { q.e = (q.e || 0) + 1; if (q.e > 20) Q.shift(); holdT = Date.now() + 30e3; break; }   // 인터넷·토큰 문제 → 30초 뒤 같은 id로 다시
+        if (r === true) { Q.shift(); sent.push(now); continue; }
+        if (q.e) { Q.shift(); continue; }   // 앞서 응답을 못 받은 문서 → 이미 써졌을 수 있음 (같은 id라 '이미 있음'으로 거절) → 버림
+        q.f = (q.f || 0) + 1; if (q.f >= 3) Q.shift(); if (!warned) { warned = 1; console.warn('[기록] audit 문서를 만들 수 없어요 (Firestore 규칙에 audit가 없으면 403) — 5분 뒤 다시 시도'); } holdT = Date.now() + 5 * 60e3; break; } }
+    finally { busy = false; } }
+  addEventListener('pagehide', () => { try { if (!ok() || !Q.length) return; for (const q of Q.splice(0, 8)) CLOUD.beacon('audit/' + q.id, q.o); } catch (e) {} });   // 창을 닫을 때 남은 것 (만들기만 허용이라 이미 있는 문서는 거절됨)
+  // ----- ① 강화 (a 전 · b 후 · 증발이면 b = null) — 안전 강화를 넘는 시도는 결과 전부 · 안전 구간은 결과가 +7 이상일 때만 · 저주는 +7 이상에서 내릴 때만
+  function en(t, sid, a, b, w, p) { const td = t && ITEMS[t.id]; if (!td) return; a = a | 0; const cu = b != null && b < a, acc = !!accKey(td), safe = acc ? 0 : SAFE_EN(td);
+    if (cu ? a < 7 : !(acc || a >= safe || (b != null && b >= 7))) return;
+    const sd = ITEMS[sid] || {}, d = { i: t.id, a, b: b == null ? null : b, r: b == null ? 'boom' : cu ? 'curse' : b - a > 1 ? 'bless' : 'ok', s: sid || '', w: w || '' };
+    if (sd.bless) d.bs = 1; if (t.blessed) d.ib = 1; if (p != null && p < 1) d.p = Math.round(p * 1000) / 1000; add('en', d, true); }
+  // ② 축복 부여 주문서 결과 · 장비/장신구 변경 주문서(같은 강화 수치로 다른 장비가 됨)
+  function bless(t, okk) { if (t && ITEMS[t.id]) add('bless', { i: t.id, en: t.en || 0, ok: okk ? 1 : 0, sp: t.blessSp || 0 }, true); }
+  function chg(t, to) { if (t && ITEMS[t.id] && ITEMS[to]) add('chg', { f: t.id, i: to, en: t.en || 0 }, true); }
+  function code(P) { if (P && Array.isArray(P.it)) add('code', { id: String(P.id).slice(0, 40), it: P.it.slice(0, 30).map(([id, n, en, bl]) => { const a = [String(id), Math.max(1, n | 0), en | 0]; if (bl) a.push(1); return a; }) }, true); }   // 복구 코드(운영자 서명)로 받은 것
+  // ④ 거래 완료 (받은 것·준 것: [아이템, 수량, 강화, 축복])
+  const ent = e => { const a = [e.id, Math.max(1, e.n | 0 || 1), e.en || 0]; if (e.blessed) a.push(1); return a; };
+  function trade(nm, offer, gv, t) { const get = ((t && t.it) || []).filter(e => e && ITEMS[e.id]).map(ent), give = (offer || []).filter(x => x && x.e).map(x => ent(Object.assign({}, x.e, { n: x.n }))), gg = Math.max(0, (t && t.g) | 0);
+    G.x += gg; add('trade', { p: String(nm || '').slice(0, 12), get, gg, give, gv: Math.max(0, gv | 0) }, true); }
+  // ③ 뽑기(변신 카드·마법인형)의 영웅·전설 · 합성 결과(영웅·전설) · 고대의 주문서 벨트 — TELE.ev(뽑기 쪽이 이미 남기는 사건)를 받아서
+  function tele(k, o) { if (!o) return; const m = /^(pc|dc)(g|mile|rr|rrpick|syn)$/.exec(k);
+    if (m) { const S = m[1] === 'pc' ? window.PCG : window.DCG, by = (S && S.K && S.K.BY) || {}, hi = id => !!by[id] && (by[id].g === '영웅' || by[id].g === '전설'); let got = [];
+      if (m[2] === 'g') got = String(o.got || '').split(',').filter(hi);
+      else if (m[2] === 'syn') for (const x of String(o.got || '').split(',')) { const q = /^([+-])([^!]*)(?:!(.*))?$/.exec(x) || []; if (q[1] === '+' && hi(q[2])) got.push(q[2]); if (q[3] && hi(q[3])) got.push(q[3]); }   // '+' 성공 · '!' 천장으로 더 받은 것 ('-' 실패해서 돌려받은 같은 등급은 뺌)
+      else got = [o.to || o.id].filter(hi);
+      if (got.length) add('gacha', Object.assign({ s: m[1] === 'pc' ? 'poly' : 'doll', m: m[2], got }, m[2] === 'g' ? { q: String(o.k) } : {}, m[2] === 'syn' ? { q: o.n | 0, ok: o.ok | 0 } : {}, o.from ? { f: o.from } : {}), true); return; }
+    if (k === 'fgRoll' && (o.r === '전설' || o.r === '영웅')) add('gacha', { s: 'belt', m: 'fg', got: [o.id] }, true);
+    else if (k === 'alch' && o.ok && o.id && ITEMS[o.id] && (ITEMS[o.id].rar === '영웅' || ITEMS[o.id].rar === '전설')) add('gacha', { s: 'alch', m: 'alch', got: [o.id] }, true);   // 연금술 합성(장비 3개 → 위 등급)
+    else if ((k === 'offline' || k === 'twbox') && o.g > 0) G.x += +o.g || 0; }
+  { const ev0 = TELE.ev; TELE.ev = function (k, o) { const r = ev0.apply(this, arguments); try { if (!(o && o._au)) tele(k, o); } catch (e) {} return r; }; }   // _au = 결과가 정해질 때 pre로 이미 기록함 (11/6 nosavescum: 결과 공개는 저장 뒤라 플레이 기록 TELE.ev는 그때 · 감사 기록은 저장 전)
+  { const se = INV.sellEntry; if (se) INV.sellEntry = function (e, q) { let u = 0; try { u = SELL.unit(e) * Math.max(1, q | 0 || 1); } catch (er) {} const r = se.apply(this, arguments); if (r && u > 0) G.x += u; return r; }; }   // 상점·자동 판매 골드 = 설명된 몫
+  // ⑤ 운영자 지급·회수 받음 (서명 확인이 끝난 명령만 ADMIN.apply로 옴 · from = 운영자 접속 — 운영자는 접속자 목록에서 빠져 있어 이름은 보통 '운영자')
+  const cntOf = id => INV.bag().filter(e => e.id === id).reduce((s, e) => s + (e.n || 1), 0);
+  { const ap = ADMIN.apply; ADMIN.apply = function (cmd, a, from) { if (!from || !/^(give|take|gold|lv|pet)$/.test(cmd)) return ap.apply(this, arguments);
+      let A = {}; try { A = JSON.parse(a || '{}') || {}; } catch (e) {} const g0 = Math.floor(coins), l0 = hero.lv, n0 = A.id ? cntOf(A.id) : 0, r = ap.apply(this, arguments);
+      try { const o = NET.others().find(q => q.peer === from), d = { c: cmd, by: String((o && o.pr && o.pr.n) || '운영자').slice(0, 12) };
+        if (cmd === 'give' || cmd === 'take') { Object.assign(d, { i: String(A.id || ''), n: Math.abs(cntOf(A.id) - n0) }); if (cmd === 'give' && A.en) d.en = Math.max(-7, Math.min(15, A.en | 0)); if (cmd === 'give' && A.bl) d.bl = 1; }
+        else if (cmd === 'gold') { d.g0 = g0; d.g1 = Math.floor(coins); if (d.g1 > g0) G.x += d.g1 - g0; }
+        else if (cmd === 'lv') { d.l0 = l0; d.l1 = hero.lv; } else d.lv = A.lv | 0;
+        add('adm', d, true); } catch (e) {} return r; }; }
+  // ⑥ 상태 사진: 접속 15초 뒤 1번 + 30분마다
+  function snapD() { const B = INV.bag(), ti = e => { const a = [e.id, e.en || 0]; if (e.blessed) a.push(1); return a; }, isEq = e => !!(e && ITEMS[e.id] && ITEMS[e.id].slot);
+    const eq = B.filter(e => e.on).map(ti); try { const dv = INV.eqE('doll'); if (dv && dv.dv) eq.push([dv.id, 0]); } catch (e) {}
+    const hi = B.filter(e => !e.on && isEq(e) && (e.en || 0) >= 7).map(ti); let st = [], sg = 0; try { st = STORE.list().filter(e => isEq(e) && (e.en || 0) >= 7).map(ti); sg = Math.floor(STORE.gold()); } catch (e) {}
+    const cnt = {}; for (const e of B) if (ITEMS[e.id] && ITEMS[e.id].stack) cnt[e.id] = (cnt[e.id] || 0) + (e.n || 1);
+    const o = { lv: hero.lv, ex: +(hero.exp / Math.max(1, needExp(hero.lv)) * 100).toFixed(1), g: Math.floor(coins), cp: 0, eq, hi, st, sg, sk: Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 10) };
+    try { o.cp = combatPower().total; } catch (e) {} try { const T = GTAX.me(); if (!T.bad) o.gt = [GTAX.gold(T.c), T.s]; } catch (e) {}
+    for (const [k, S] of [['pc', window.PCG], ['dc', window.DCG]]) try { const D = S.state(), by = S.K.BY; let n = 0, h = 0, l = 0; for (const id in D.cards) { const c = D.cards[id] | 0, g = by[id] && by[id].g; n += c; if (g === '전설') l += c; else if (g === '영웅') h += c; } o[k] = [n, h, l]; } catch (e) {}   // 변신 카드·마법인형 [전체, 영웅, 전설]
+    return o; }
+  const snap = first => add('snap', Object.assign({ f: first ? 1 : 0 }, snapD()));
+  // ⑦ 골드가 1분 안에 200만 넘게 늘었는데 거래·지급·판매·창고·오프라인·상자로 설명이 안 되면
+  function goldChk(now) { const g = Math.floor(coins); let sg = null; try { sg = Math.floor(STORE.gold()); } catch (e) {} if (G.st != null && sg != null && sg < G.st) G.x += G.st - sg; G.st = sg;
+    G.s = G.s.filter(s => now - s.t <= GWIN); let w = null, best = 0; for (const s of G.s) { const v = (g - s.g) - (G.x - s.x); if (v > best) { best = v; w = s; } }
+    if (w && best > GLIM && now >= G.cool) { add('gold', { a: w.g, b: g, x: Math.round(G.x - w.x), s: Math.round((now - w.t) / 1000) }, true); G.s = []; G.cool = now + GWIN; }
+    G.s.push({ t: now, g, x: G.x }); }
+  function tick() { try { if (live()) { const now = Date.now(), key = CLOUD.uid() + '|' + CLASS + '|' + PNAME();
+        if (key !== sk) { sk = key; firstAt = now + C.first; snapAt = 0; G.s = []; G.st = null; }
+        if (firstAt && now >= firstAt) { firstAt = 0; snap(1); snapAt = now + C.snap; } else if (snapAt && now >= snapAt) { snap(0); snapAt = now + C.snap; }
+        goldChk(now); } else sk = ''; } catch (e) {} flush(); }
+  setInterval(tick, 5000);
+  // ===== 운영자 쪽 =====
+  const nm = id => ITEMS[id] ? ITEMS[id].name : String(id || '?'), itx = (id, en, bl) => `${en ? (en > 0 ? '+' : '') + en + ' ' : ''}${nm(id)}${bl ? '(축)' : ''}`;
+  // ③ 수상한 점: 규칙상 나올 수 없는 강화 수치(빨강) · 확률상 1000분의 1보다 드문 수치(주황) — 확률 = +0에서 그 수치까지 (축복 주문서만 썼을 때 ~ 일반 주문서만 썼을 때)
+  const KND = d => d === ITEMS.hw_hat ? ['할로윈 모자', HWC.HAT_MAX] : accKey(d) ? ['장신구', 8] : d.slot === 'weapon' ? ['무기', WEN_MAX] : ARMOR_SLOTS.has(d.slot) ? ['방어구', 15] : null;
+  function reach(d, en, bl) { const acc = !!accKey(d), safe = acc ? 0 : SAFE_EN(d), q = c => acc ? (ACC_P[c] || 0) : c >= safe ? 1 / 3 : 1, P = new Array(en + 3).fill(1);
+    for (let c = en - 1; c >= 0; c--) P[c] = q(c) * (bl && c < 7 ? 0.5 * P[c + 1] + 0.5 * P[Math.min(c + 2, en)] : P[c + 1]); return P[0]; }
+  const one = p => { const x = 1 / p; return x >= 1e8 ? (x / 1e8).toFixed(x >= 1e9 ? 0 : 1) + '억' : x >= 1e4 ? Math.round(x / 1e4).toLocaleString() + '만' : Math.round(x).toLocaleString(); };
+  function rule(id, en) { const d = ITEMS[id]; en = en | 0; if (!d || en <= 0) return null; if (d.gaho) return en > GAHO_MAX ? { bad: 1, why: `가호 최대 +${GAHO_MAX} 넘음` } : null;
+    const K = KND(d); if (!K) return { bad: 1, why: '강화할 수 없는 아이템인데 강화 수치가 있음' };
+    const acc = !!accKey(d), safe = acc ? 0 : SAFE_EN(d), pb = reach(d, en, 1), pn = reach(d, en, 0); let kMin = 0; for (let c = 0; c < en;) { if (acc || c >= safe) kMin++; c += c < 7 ? 2 : 1; } const kMax = Math.max(0, en - safe);
+    const odds = `${acc ? '+0' : `안전 +${safe}`} 위로 ${kMin === kMax ? kMax : kMin + '~' + kMax}번 연속 성공 · ${pb > 0 ? `약 ${one(pb)}${pn > 0 && pn < pb && one(pn) !== one(pb) ? '~' + one(pn) : ''}분의 1` : '확률 0'}`;
+    if (en > K[1]) return { bad: 1, why: `${K[0]} 최대 +${K[1]} 넘음 — ${odds}` }; return pb < 1e-3 ? { bad: 0, why: odds } : null; }
+  function sus(D) { if (!D) return ''; const seen = new Set(), out = [];
+    const chk = (id, en, where) => { const r = rule(id, en), k = id + '|' + en; if (!r || seen.has(k)) return; seen.add(k); out.push(`<div style="color:${r.bad ? '#ff6a6a' : '#ffb070'}"><b>${r.bad ? '[규칙상 나올 수 없음]' : '[확률상 매우 드묾]'}</b> ${E(itx(id, en))} <span class="muted">(${where})</span> — ${E(r.why)}</div>`); };
+    for (const x of D.eq || []) chk(x[0], x[1], '착용'); for (const x of D.bag || []) chk(x[0], x[2], '가방');
+    return out.length ? `<div class="aud-sus" style="margin:4px 0;padding:3px 6px;border:1px solid #8a3030;background:rgba(90,12,12,.35)">${out.join('')}</div>` : ''; }
+  // 기록 한 줄
+  const KN = { en: '강화', bless: '축복', gacha: '뽑기', trade: '거래', adm: '운영자', code: '복구 코드', snap: '사진', gold: '골드', chg: '변경' }, WN = { wone: '강화 창', wmulti: '다중 강화', scroll: '주문서' };
+  const kst = t => { try { return new Date(t).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); } catch (e) { return new Date(t).toLocaleString(); } };
+  const cardTx = (s, id) => { const S = s === 'poly' ? window.PCG : s === 'doll' ? window.DCG : null, c = S && S.K && S.K.BY && S.K.BY[id]; return c ? `[${c.g}] ${c.name}` : ITEMS[id] ? `[${ITEMS[id].rar || ''}] ${ITEMS[id].name}` : String(id); };
+  const lst = L => (L || []).map(e => itx(e[0], e[2], e[3]) + (e[1] > 1 ? ' ×' + fmt(e[1]) : '')).join(', ');
+  function line(x) { const d = x.d || {};
+    switch (x.k) {
+      case 'en': { const how = `${d.bs ? '축복 주문서' : ITEMS[d.s] ? ITEMS[d.s].name : '주문서'}${WN[d.w] ? ' · ' + WN[d.w] : ''}${d.p ? ` · 확률 ${Math.round(d.p * 1000) / 10}%` : ''}`;
+        if (d.r === 'boom') return E(`증발 ${itx(d.i, d.a, d.ib)} (${how})`); if (d.r === 'curse') return E(`저주 +${d.a}→${d.b > 0 ? '+' : ''}${d.b} ${nm(d.i)}`);
+        return E(`강화 +${d.a}→+${d.b} ${nm(d.i)} 성공 (${how}${d.b - d.a > 1 ? ' · 2단계' : ''})`); }
+      case 'bless': return E(`축복 부여 ${d.ok ? '성공' : '실패'} ${itx(d.i, d.en)}${d.ok && d.sp ? ` (${d.sp}단)` : ''}`);
+      case 'chg': return E(`장비 변경 ${itx(d.f, d.en)} → ${nm(d.i)}`);
+      case 'gacha': { const S = { poly: '변신 카드', doll: '마법인형', belt: '고대의 주문서', alch: '연금술' }[d.s] || d.s, M = { g: `뽑기${d.q ? ' ' + (d.q === 'free' ? '무료' : d.q + '회') : ''}`, mile: '마일리지', rr: '전설 재뽑기', rrpick: '전설 고르기', syn: `합성${d.q ? ` ${d.q}번 중 성공 ${d.ok}` : ''}`, fg: '빛바랜 벨트', alch: '합성' }[d.m] || d.m;
+        return E(`${S} ${M}: ${d.f ? cardTx(d.s, d.f) + ' → ' : ''}${(d.got || []).map(id => cardTx(d.s, id)).join(', ')}`); }
+      case 'trade': { const g = [lst(d.get), d.gg ? '골드 ' + fmt(d.gg) : ''].filter(Boolean).join(', ') || '없음', o = [lst(d.give), d.gv ? '골드 ' + fmt(d.gv) : ''].filter(Boolean).join(', ');
+        return E(`거래 ← ${d.p}: ${g}`) + (o ? ` <span class="muted">${E(`(→ 준 것: ${o})`)}</span>` : ''); }
+      case 'adm': { const by = d.by || '운영자';
+        if (d.c === 'give') return E(`지급 ← ${by}: ${itx(d.i, d.en, d.bl)} ×${fmt(d.n)}`); if (d.c === 'take') return E(`회수 → ${by}: ${nm(d.i)} ×${fmt(d.n)}`);
+        if (d.c === 'gold') { const v = (d.g1 | 0) - (d.g0 | 0); return E(`${v >= 0 ? '지급 ←' : '회수 →'} ${by}: 골드 ${fmt(Math.abs(v))} (${fmt(d.g0)} → ${fmt(d.g1)})`); }
+        if (d.c === 'lv') return E(`레벨 ← ${by}: Lv${d.l0} → Lv${d.l1}`); return E(`지급 ← ${by}: 펫 목걸이 Lv${d.lv}`); }
+      case 'code': return E(`복구 코드 ← 운영자: ${lst(d.it) || '없음'}`);
+      case 'gold': return E(`골드 급증 ${d.s}초 만에 설명 안 되는 +${fmt(d.b - d.a - d.x)} (${fmt(d.a)} → ${fmt(d.b)}${d.x ? ` · 거래·지급·판매 등 ${fmt(d.x)} 뺌` : ''})`);
+      case 'snap': { const bad = (d.eq || []).map(e => [e[0], e[1]]).concat((d.hi || []).map(e => [e[0], e[1]]), (d.st || []).map(e => [e[0], e[1]])).map(([id, en]) => [id, en, rule(id, en)]).filter(z => z[2]);
+        const top = `${d.f ? '접속 사진' : '사진'} Lv${d.lv} (${d.ex}%) · 골드 ${fmt(d.g)}${d.sg ? ` (창고 ${fmt(d.sg)})` : ''} · 전투력 ${fmt(d.cp)}${d.gt ? ` · 낸 세금 ${fmt(d.gt[0])} (쓴 골드 ${fmt(d.gt[1])})` : ''}`;
+        const sub = [`착용: ${(d.eq || []).map(e => itx(e[0], e[1], e[2])).join(', ') || '없음'}`, d.hi && d.hi.length ? `가방 +7↑: ${d.hi.map(e => itx(e[0], e[1], e[2])).join(', ')}` : '', d.st && d.st.length ? `창고 +7↑: ${d.st.map(e => itx(e[0], e[1], e[2])).join(', ')}` : '',
+          d.sk && d.sk.length ? `많은 것: ${d.sk.map(([id, n]) => nm(id) + ' ' + fmt(n)).join(', ')}` : '', d.pc ? `변신 카드 ${d.pc[0]}장 (영웅 ${d.pc[1]} · 전설 ${d.pc[2]})` : '', d.dc ? `마법인형 ${d.dc[0]}개 (영웅 ${d.dc[1]} · 전설 ${d.dc[2]})` : ''].filter(Boolean).join(' · ');
+        return E(top) + `<div class="muted" style="font-size:11px">${E(sub)}</div>` + bad.map(([id, en, r]) => `<div style="color:${r.bad ? '#ff6a6a' : '#ffb070'}">${E(`${r.bad ? '[규칙상 나올 수 없음]' : '[확률상 매우 드묾]'} ${itx(id, en)} — ${r.why}`)}</div>`).join(''); }
+      default: return E(x.k + ' ' + JSON.stringify(d).slice(0, 120)); } }
+  // 사진 두 장 사이 비교: 앞 사진(계정 전체 — 캐릭터마다 마지막 착용·가방 + 창고) + 그 사이 기록(강화·거래·지급·변경) = 기대 → 뒤 사진에 더 많은 +7 이상 장비 = '설명 안 되는 변화'
+  function tracked(d, st) { const M = new Map(); for (const e of (st ? d.st : (d.eq || []).concat(d.hi || [])) || []) { const en = e[1] | 0; if (en >= 7 && ITEMS[e[0]] && ITEMS[e[0]].slot) M.set(e[0] + '|' + en, (M.get(e[0] + '|' + en) || 0) + 1); } return M; }
+  function unexplained(L) { const bags = {}, out = new Map(), inc = (M, k, n) => M.set(k, (M.get(k) || 0) + n), K = (id, en) => id + '|' + (en | 0); let st = null, adj = new Map(), from = new Map(), prev = null;
+    for (const x of L) { const d = x.d || {};
+      if (x.k === 'snap') { const b = tracked(d, 0), s = tracked(d, 1);
+        if (prev) { const exp = new Map(), obs = new Map(); for (const c in bags) for (const [k, n] of bags[c]) { inc(exp, k, n); if (c !== x.c) inc(obs, k, n); }
+          if (!bags[x.c]) for (const [k, n] of b) inc(exp, k, n);   // 처음 보는 캐릭터: 앞 가방을 모르니 지금 것을 기대치로 (창고만 비교)
+          for (const [k, n] of (st || s)) inc(exp, k, n); for (const [k, n] of adj) inc(exp, k, n); for (const [k, n] of b) inc(obs, k, n); for (const [k, n] of s) inc(obs, k, n);
+          const D = []; for (const [k, n] of obs) { const e = Math.max(0, exp.get(k) || 0); if (n > e) { const i = k.lastIndexOf('|'); D.push({ id: k.slice(0, i), en: +k.slice(i + 1), n: n - e, why: from.get(k) || '', at: prev.t }); } }
+          if (D.length) out.set(x, D); }
+        bags[x.c] = b; st = s; adj = new Map(); from = new Map(); prev = x; continue; }
+      if (!prev) continue;
+      if (x.k === 'en') { if (d.a >= 7) { inc(adj, K(d.i, d.a), -1); from.set(K(d.i, d.a), d.r === 'boom' ? 'boom' : 'en'); } if (d.r !== 'boom' && d.b >= 7) inc(adj, K(d.i, d.b), 1); }
+      else if (x.k === 'trade') { for (const e of d.get || []) if (e[2] >= 7) inc(adj, K(e[0], e[2]), 1); for (const e of d.give || []) if (e[2] >= 7) inc(adj, K(e[0], e[2]), -1); }
+      else if (x.k === 'adm' && d.c === 'give' && (d.en | 0) >= 7) inc(adj, K(d.i, d.en), Math.max(1, d.n | 0));
+      else if (x.k === 'code') { for (const e of d.it || []) if ((e[2] | 0) >= 7) inc(adj, K(e[0], e[2]), Math.min(20, Math.max(1, e[1] | 0))); }
+      else if (x.k === 'chg' && d.en >= 7) { inc(adj, K(d.f, d.en), -1); inc(adj, K(d.i, d.en), 1); } }
+    return out; }
+  // ② [살펴보기 → 기록]: audit 최근 문서를 읽어 그 사람(uid · 없으면 이름) 것만 시간순 표 — 버튼을 누를 때만 읽음
+  async function view(tg, n) { const det = document.getElementById('adm-det'); if (!det || !tg) return; let box = document.getElementById('adm-aud');
+    if (!box) { box = document.createElement('div'); box.id = 'adm-aud'; det.insertAdjacentElement('afterend', box); }
+    const me = cur = { tg, n: n || 300 }, hd = s => `<h4>${E(tg.n)} 기록 <span class="muted">${s}</span></h4>`; box.innerHTML = hd('읽는 중…');
+    let R; try { R = await CLOUD.query('audit', 't', me.n); } catch (e) { if (cur === me) box.innerHTML = hd('') + `<div style="color:#ff8a7a">기록을 읽지 못했어요: ${E(e && e.message || e)} — Firestore 규칙에 audit 읽기(allow read)가 있는지 확인해 주세요.</div>`; return; }
+    if (cur !== me) return;
+    const L = (R || []).map(x => { let d = {}; try { d = typeof x.d === 'string' ? JSON.parse(x.d) : x.d || {}; } catch (e) {} return { u: x.u, n: x.n, c: x.c, k: x.k, t: +x.t || 0, v: +x.v || 0, d }; }).filter(x => tg.u ? x.u === tg.u : x.n === tg.n).sort((a, b) => a.t - b.t);
+    const bad = unexplained(L), many = new Set(L.map(x => x.c + '|' + x.n)).size > 1, rows = [];
+    for (const x of L) { rows.push(`<tr class="aud-r aud-${E(x.k)}"${x.k === 'gold' ? ' style="color:#ff8a7a"' : ''}><td class="muted" style="white-space:nowrap">${E(kst(x.t))}</td><td style="white-space:nowrap">${KN[x.k] || E(x.k)}</td><td>${many ? `<span class="muted">[${E(x.n)} · ${E(CLASS_NAME[x.c] || x.c)}]</span> ` : ''}${line(x)}</td></tr>`);
+      const D = bad.get(x); if (D) rows.push(`<tr class="aud-bad" style="color:#ff6a6a;background:rgba(120,20,20,.4)"><td></td><td style="white-space:nowrap"><b>의심</b></td><td><b>설명 안 되는 변화</b> (앞 사진 ${E(kst(D[0].at))} 뒤로): ${D.map(z => E(`${itx(z.id, z.en)}${z.n > 1 ? ' ×' + z.n : ''}`) + ` <span class="muted">${z.why === 'boom' ? '— 증발 기록이 있는데 그대로 있음 (되돌리기 의심)' : z.why === 'en' ? '— 강화 기록 전 수치로 남아 있음 (되돌림?)' : '— 강화·거래·지급 기록 없이 생김'}</span>`).join(' · ')}</td></tr>`); }
+    box.innerHTML = hd(`최근 ${(R || []).length}건 중 ${L.length}건 · ${tg.u ? '계정(uid) 기준' : '이름 기준'} · 한국 시간`) + `<div class="row"><button type="button" data-ar="300">다시 읽기</button><button type="button" data-ar="1000">1000건 읽기</button><button type="button" data-ar="x">닫기</button>${bad.size ? ` <b style="color:#ff6a6a">설명 안 되는 변화 ${bad.size}곳</b>` : ''}</div>`
+      + (L.length ? `<div class="aud-box" style="max-height:380px;overflow:auto;border:1px solid #3a2632"><table class="aud-t">${rows.join('')}</table></div>` : `<div class="muted">이 사람의 기록이 없어요. (기록은 11/6 업데이트 뒤 계정 서버로 접속한 것부터 · Firestore 규칙에 audit가 있어야 쌓여요)</div>`);
+    box.querySelectorAll('[data-ar]').forEach(b => b.onclick = () => { if (b.dataset.ar === 'x') { cur = null; box.innerHTML = ''; } else view(tg, +b.dataset.ar); });
+    const sb = box.querySelector('.aud-box'); if (sb) sb.scrollTop = sb.scrollHeight; }
+  function sel(name) { const box = document.getElementById('adm-aud'); if (box && cur && cur.tg.n !== name) { cur = null; box.innerHTML = ''; } }
+  return { pre: (k, o) => { try { tele(k, o); } catch (e) {} if (o) o._au = 1; return o; }, add, en, bless, chg, code, trade, tick, flush, view, sel, sus, rule, line, unexplained, snapNow: f => snap(f), q: () => Q.map(x => x.o), _force: v => { force = !!v; sk = ''; }, _hold: v => { holdT = v || 0; }, G, C };
+})();
+window.__AUDIT = AUDIT;
+function audit(fn, ...a) { try { return AUDIT[fn](...a); } catch (e) { return undefined; } }   // 11/6 기록 — 어디서 불러도 게임을 멈추지 않게 (AUDIT보다 먼저 정의된 강화·거래 코드에서도)
 // ============================================================ 11/4 프로듀서: 랭킹 창 (전투력 · PVP) — 모두 기록 · 접속을 끊어도 마지막 값으로 남음 · PVP는 처음부터 누적(초기화 없음)
 //   기록 모으기: 24시간 봇 서버(봇 호스트)의 첫 탭(지역 열쇠가 가장 작은 탭)이 presence(이름·직업·레벨·전투력·경험치 xp·킬데스 kd)와 PVP 사건(rke)을 모아 표 두 개로 가짐
 //   저장: Firestore worldbot_chars/{봇 호스트 uid} (bh:1 · rk = 표 JSON · 2분마다 바뀌었을 때만) + 같은 브라우저 localStorage(1분) — 봇 서버 코드(run.js)·Firestore 규칙은 그대로
@@ -12506,7 +12668,8 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
   function draw(kind) { if (busy) return null; kind = kind === 'free' ? 'free' : +kind === 11 ? 11 : 1; const w = why(kind); if (w) { say(w, kind === 'free' ? '#f0c080' : '#f08a7a'); return null; }
     if (!RSAVE.can('뽑기')) { if (auto) autoStop('인터넷 연결이 없어서 자동 뽑기를 멈췄어요.'); return null; } const RK = rsBegin(), n = kind === 11 ? 11 : 1, cost = costOf(kind); coins -= cost; goldTax(cost, DL ? 'doll' : 'poly'); if (kind === 'free') D.freeAt = Date.now(); else last = n;
     const res = roll(n); for (const r of res) { r.isNew = !has(r.c.id); add(r.c.id); } D.mile += n; D.draws += n;
-    rsThen(RK, () => { try { TELE.ev(K.ev.g, { k: String(kind), g: cost, got: res.map(r => r.c.id).join(',') }); } catch (e) {}   // 플레이 기록(PC 로그 파일)도 결과를 보여 줄 때
+    const tv = audit('pre', K.ev.g, { k: String(kind), g: cost, got: res.map(r => r.c.id).join(',') });   // 감사 기록 = 지금(저장 전) · 플레이 기록 = 보여 줄 때
+    rsThen(RK, () => { try { TELE.ev(K.ev.g, tv); } catch (e) {}   // 플레이 기록(PC 로그 파일)도 결과를 보여 줄 때
       try { INV.render(); } catch (e) {} lastRes = { k: 'draw', t: kind === 'free' ? '무료 뽑기' : `${n}회 뽑기`, L: res, hide: !skip }; refresh(); afterDraw(res, lastRes.t, kind); }); return res; }
   const again = () => draw(last || 1);
   // ----- 마일리지 (11/1): 1,000점 → 전설 1장 무작위 (고르기 아님) · 뽑기와 같은 홀 연출
@@ -12514,7 +12677,8 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
     if (D.mile < MILE) { say(`마일리지가 모자라요. (${D.mile} / ${MILE}점 · 뽑은 ${C} 1${U} = 1점)`, '#f0c080'); return null; }
     INV.askYesNo(`마일리지 ${MILE}점으로 전설 ${카드를} 받을까요?`, `전설 ${POOL['전설'].length}종 중 1${U이} 무작위로 나와요 · 남은 마일리지 ${D.mile - MILE}점`, () => mileDo()); return 'ask'; }
   function mileDo() { if (D.mile < MILE || busy || bad || !RSAVE.can('마일리지 받기')) return null; const RK = rsBegin(); D.mile -= MILE; const c = pickF('전설'), r = { c, isNew: !has(c.id), tag: '마일리지' }; add(c.id);
-    rsThen(RK, () => { try { TELE.ev(K.ev.mile, { id: c.id }); } catch (e) {} lastRes = { k: 'draw', t: '마일리지 전설 받기', L: [r], hide: !skip }; refresh(); afterOne([r], '마일리지 전설 받기', '마일리지 전설 받기', `[전설] <b>${esc(c.name)}</b>${r.isNew ? ` (새 ${C}!)` : ` (+1${U})`} · 마일리지 <b>${D.mile} / ${MILE}</b>`); }); return r; }
+    const tv = audit('pre', K.ev.mile, { id: c.id });
+    rsThen(RK, () => { try { TELE.ev(K.ev.mile, tv); } catch (e) {} lastRes = { k: 'draw', t: '마일리지 전설 받기', L: [r], hide: !skip }; refresh(); afterOne([r], '마일리지 전설 받기', '마일리지 전설 받기', `[전설] <b>${esc(c.name)}</b>${r.isNew ? ` (새 ${C}!)` : ` (+1${U})`} · 마일리지 <b>${D.mile} / ${MILE}</b>`); }); return r; }
   const milePick = () => mileGet();   // 예전 이름 (도감 등)
   // 1장 결과(마일리지·재뽑기): 모션 스킵이면 창에 바로 · 아니면 홀 연출
   function afterOne(res, ttl, how, sum) { if (skip) { for (const r of res) annLegend(r.c, how); const g = $('pw-res'); if (g) { g.classList.remove('fresh'); void g.offsetWidth; g.classList.add('fresh'); }
@@ -12542,7 +12706,8 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
     if (coins < cost) { say(`골드가 부족합니다. (전설 재뽑기 ${t + 1}번째 ${fmt(cost)} 골드 · 보유 ${fmt(coins)})`, '#f08a7a'); return null; }
     if (!RSAVE.can('재뽑기')) return null; const RK = rsBegin(), nc = pickF('전설'), isNew = !has(nc.id), n2 = t + 1; coins -= cost; goldTax(cost, 'rr'); rrTake(id, t); rrPut(nc.id, n2);
     rrMode = null; sel = nc.id; const r = { c: nc, isNew, tag: '재뽑기' }, nx = n2 >= RR_MAX ? `이 ${카드는} 다음에 <b>원하는 전설을 무료로</b> 고를 수 있어요` : `이 ${C}의 다음 재뽑기 <b>${man(RR_COST[n2])} 골드</b>`;
-    rsThen(RK, () => { try { TELE.ev(K.ev.rr, { from: id, to: nc.id, n: n2, g: cost }); } catch (e) {} try { INV.render(); } catch (e) {} lastRes = { k: 'draw', t: `전설 재뽑기 ${n2}번째 · ${c.name} →`, L: [r], hide: !skip }; refresh();
+    const tv = audit('pre', K.ev.rr, { from: id, to: nc.id, n: n2, g: cost });
+    rsThen(RK, () => { try { TELE.ev(K.ev.rr, tv); } catch (e) {} try { INV.render(); } catch (e) {} lastRes = { k: 'draw', t: `전설 재뽑기 ${n2}번째 · ${c.name} →`, L: [r], hide: !skip }; refresh();
     afterOne([r], `전설 재뽑기 ${n2}번째`, '전설 재뽑기', `[전설] ${esc(c.name)} → <b>[전설] ${esc(nc.name)}</b>${isNew ? ` (새 ${C}!)` : ''} · 재뽑기 <b>${n2} / ${RR_MAX}</b> · ${nx}`); }); return r; }
   function rrPick(id, to) { const c = PC_BY[id], n = PC_BY[to], w = rrWhy(c); if (w) { say(w, '#f08a7a'); return null; } if (!n || n.g !== '전설' || to === id || rrTry(id) < RR_MAX) return null;
     INV.askYesNo(`[전설] ${c.name} ${카드를} [전설] ${n.name} ${카드로} 바꿀까요? (무료)`, `재뽑기를 ${RR_MAX}번 한 ${카드라} 원하는 전설을 무료로 골라요 · 바꾼 ${C}의 재뽑기는 처음(1번째 ${man(RR_COST[0])} 골드)부터예요`, () => rrPickDo(id, to)); return 'ask'; }
@@ -12580,7 +12745,8 @@ const mkCG = K => { const DL = K.key === 'doll', $ = id => document.getElementBy
     afterSyn(out, `${g} → ${SYN[g].to} 합성`, !skip); return out; }
   const synSum = out => { const by = {}; for (const r of out) { const v = by[r.g] = by[r.g] || { ok: 0, no: 0, p: 0 }; r.ok ? v.ok++ : v.no++; if (r.pity) v.p++; } return Object.entries(by).map(([g, v]) => `${g}→${SYN[g].to} ${v.ok + v.no}번: 성공 ${v.ok} · 실패 ${v.no}${v.p ? ` · 천장 ${v.p}` : ''}`).join(' / '); };
   function afterSyn(out, ttl, anim) { const RK = rsBegin();   // 11/6: 합성 결과는 계정 서버에 저장한 뒤에
-    trayFix(); rsThen(RK, () => { try { TELE.ev(K.ev.syn, { t: ttl, n: out.length, ok: out.filter(r => r.ok).length, got: out.map(r => (r.ok ? '+' : '-') + r.c.id + (r.pity ? '!' + r.pity.id : '')).join(',') }); } catch (e) {} if (!anim) for (const r of out) { if (r.ok) annLegend(r.c, `${N} 합성`); annLegend(r.pity, `${N} 합성 천장`); }   // 연출이 있으면 뒤집을 때 알림
+    const tv = audit('pre', K.ev.syn, { t: ttl, n: out.length, ok: out.filter(r => r.ok).length, got: out.map(r => (r.ok ? '+' : '-') + r.c.id + (r.pity ? '!' + r.pity.id : '')).join(',') });
+    trayFix(); rsThen(RK, () => { try { TELE.ev(K.ev.syn, tv); } catch (e) {} if (!anim) for (const r of out) { if (r.ok) annLegend(r.c, `${N} 합성`); annLegend(r.pity, `${N} 합성 천장`); }   // 연출이 있으면 뒤집을 때 알림
     lastRes = { k: 'syn', t: ttl, L: out, hide: !!anim }; if (!anim) say(`[${N}] ${ttl} — ${synSum(out)}`, '#e0c8ff'); refresh();
     if (anim) { const items = []; for (const r of out) { items.push({ c: r.c, isNew: r.isNew, tag: r.ok ? '성공' : '실패', ann: `${N} 합성` }); if (r.pity) items.push({ c: r.pity, isNew: r.pNew, tag: '천장', ann: `${N} 합성 천장` }); } show(items, ttl, { kind: 'tsyn', out }); } }); }   // 11/1: 희귀→영웅·영웅→전설 합성도 뽑기와 같은 홀 연출
   // ----- 변신 칸 (직업마다 1칸 · 골드 없음 · 시간 제한 없음)
