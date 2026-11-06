@@ -49,3 +49,10 @@
   - 화면 키(발 기준점 ~ 머리 꼭대기 px, 게임의 drawMobBody·drawHeroSprite로 잼): 기사 맨몸 71 · 투구 76 · 요정 66 · 마법사 68 / 전 칼 105 · 활 110 · 두목 111 · 악령 106 (기사의 1.48~1.56배) → 후 칼 72(1.01) · 활 72(1.01) · 두목 75(1.06) · 악령 70(0.99). 임시 그림 경로도 1.00 · 1.00 · 1.06 · 1.00. 클라인 110(1.55) · 파우스트 134(1.89) 그대로.
   - 렌더(`dev/render_giran.py`)를 다시 하면 `GP_SZ`도 다시 맞출 것 (`dev/tests/adenprison.js`의 ⑤가 다시 잼).
 - 테스트: `dev/tests/adenprison.js`(16개 · 스크린샷 `dev/out/adenprison_*.png`) · `giran.js`(16) · `giran_net.js`(3) 모두 통과. `dev/mkkt.py`에 그리기 함수 훅(DMB_·DHS_·W2P_) 한 줄 추가.
+
+## 11/6 두 번째 수정 요청 (메인방)
+- 프로듀서: "월드맵에서 감옥은 아예 없애주고, 파우스트의 악령 변신 확률 40%, 파우스트의 악령이 드래곤의 진주 드랍확률 10%, 드래곤의 진주(이벤트) → (3단 가속)".
+- 월드맵 REGIONS에서 `giran_prison` 줄과 마을→감옥 길(seg)을 뺌 · 월드맵 전용 코드(gpFromMap·GP_HINT·gpLeftTxt·남은 시간 표시) 정리. `REGION_INFO.giran_prison`(huntZones가 씀)·`REGION_BOSS_K`는 그대로.
+- `GIRAN.GHOST_P` 0.2 → 0.4 · `GIRAN.PEARL_P` 0.01 → 0.1 · 아이템 이름 '드래곤의 진주(3단 가속)' · 간수 창 설명(index.html `.gp-note`) 숫자도 바꿈.
+- 테스트: giran.js(월드맵에 없음 · 40% 경계 0.39/0.41 · 진주 10%·이름) · adenprison.js ②(월드맵에 없음).
+

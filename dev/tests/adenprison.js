@@ -30,26 +30,14 @@ async function measure(p, comp) { return p.evaluate(async ({ K, comp }) => { con
   console.log('names', JSON.stringify(nm));
   ok('① 지역 이름 아덴감옥 1층·2층 · 아이템 설명', nm.z26 === '아덴감옥 1층' && nm.z27 === '아덴감옥 2층' && /아덴감옥/.test(nm.pearl) && !/기란/.test(nm.pearl));
   ok('① 게임 원본에 남은 "기란"은 주석·옛 이름 받기뿐 (화면 문구 없음)', !nm.html && nm.lines.length === 3 && nm.lines.every(l => /^\/\/|^if \(name === '아덴감옥' \|\| name === '기란감옥'\)/.test(l)));
-  // ② 월드맵으로는 못 들어감 (마을에서 누르면 간수에게 걸어가서 창이 열림 · 골드 그대로)
+  // ② 월드맵에는 아덴감옥이 아예 없음 (11/6 프로듀서 두 번째 수정 요청) — 입장은 마을 간수 NPC로만
   await p.evaluate(() => document.getElementById('btn-map').click()); await p.waitForTimeout(600);
-  const wm = await p.evaluate(() => { const m = document.querySelector('#wm-stage .mk[data-r="giran_prison"]'); m.click(); return { mk: m.textContent, name: document.getElementById('wm-name').textContent, desc: document.getElementById('wm-desc').textContent, go: document.getElementById('wm-go').textContent, all: document.getElementById('wmap').innerText }; });
-  console.log('wm', JSON.stringify({ mk: wm.mk, name: wm.name, go: wm.go, desc: wm.desc.slice(0, 120) }));
+  const wm = await p.evaluate(() => ({ mk: !!document.querySelector('#wm-stage .mk[data-r="giran_prison"]'), n: document.querySelectorAll('#wm-stage .mk').length, all: document.getElementById('wmap').innerText }));
+  console.log('wm', JSON.stringify({ mk: wm.mk, n: wm.n }));
   await p.screenshot({ path: 'dev/out/adenprison_map.png' });
-  ok('① 월드맵 표시·설명 = 아덴감옥 (기란 없음)', /아덴감옥/.test(wm.mk) && wm.name === '아덴감옥' && /간수 모르텐/.test(wm.desc) && !/기란/.test(wm.all));
+  ok('② 월드맵에 아덴감옥 표시·설명 없음 (기란도 없음)', !wm.mk && wm.n >= 8 && !/아덴감옥|기란/.test(wm.all));
+  await p.evaluate(() => { document.getElementById('wmap').hidden = true; }); await p.waitForTimeout(300);
   const c0 = await p.evaluate(() => __T.coins);
-  await p.evaluate(() => document.getElementById('wm-go').click()); await p.waitForTimeout(400);
-  const w1 = await p.evaluate(() => ({ scene: __T.SCENE, isle: __T.ISLE && __T.ISLE.id, map: document.getElementById('wmap').hidden, coins: __T.coins, log: __T.log.slice(-3).map(x => x.t).join(' | ') }));
-  ok('② 월드맵 [마을 간수에게 입장]: 이동 안 함 · 골드 그대로 · 안내', /간수/.test(wm.go) && w1.scene === 'town' && !w1.isle && w1.coins === c0 && /월드맵으로 갈 수 없어요/.test(w1.log));
-  await p.waitForSelector('#gpwin', { state: 'visible', timeout: 15000 }).catch(() => {});
-  ok('② 마을에서는 간수에게 걸어가서 창이 열림', await p.evaluate(() => !document.getElementById('gpwin').hidden && __T.SCENE === 'town'));
-  await p.evaluate(() => { document.getElementById('gpwin').hidden = true; });
-  // 사냥터(이야기섬)에서 월드맵으로 눌러도 못 감
-  await p.evaluate(() => __T.TOWN.toZone(1)); await p.waitForTimeout(1500);
-  await p.evaluate(() => { document.getElementById('btn-map').click(); }); await p.waitForTimeout(500);
-  await p.evaluate(() => { document.querySelector('#wm-stage .mk[data-r="giran_prison"]').click(); document.getElementById('wm-go').click(); }); await p.waitForTimeout(1200);
-  const w2 = await p.evaluate(() => ({ isle: __T.ISLE && __T.ISLE.id, scene: __T.SCENE, coins: __T.coins, log: __T.log.slice(-2).map(x => x.t).join(' | ') }));
-  console.log('field', JSON.stringify(w2)); ok('② 사냥터에서도 월드맵으로는 못 감 (그 자리 · 골드 그대로)', w2.isle === 1 && w2.scene === 'field' && w2.coins === c0 && /간수 모르텐/.test(w2.log));
-  await p.evaluate(() => { document.getElementById('wmap').hidden = true; __T.TOWN.goTown(); }); await p.waitForTimeout(1200);
   // ③ 마을 NPC 클릭 → 창 → [입장] → 지역 26
   const npc = await p.evaluate(() => __T.TOWN.gpNpc()); console.log('npc', JSON.stringify(npc));
   await p.evaluate(({ i, j }) => { const H = __T.hero; H.i = H.fi = i - 3; H.j = H.fj = j + 1; H.x = H.i + 0.5; H.z = H.j + 0.5; }, npc); await p.waitForTimeout(700);

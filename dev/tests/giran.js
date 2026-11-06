@@ -1,4 +1,4 @@
-// 11/6 아덴감옥(처음 이름 기란감옥 · 지역 26·27): 입장·미로·몹 · 산적 → 악령(20%) · 턴 언데드 · 악령 → 산적으로 다시 태어남 · 드래곤의 진주 · 2층 · 클라인 광폭화 → 파우스트 · 하루 4시간
+// 11/6 아덴감옥(처음 이름 기란감옥 · 지역 26·27): 입장·미로·몹 · 산적 → 악령(40%) · 턴 언데드 · 악령 → 산적으로 다시 태어남 · 드래곤의 진주 · 2층 · 클라인 광폭화 → 파우스트 · 하루 4시간
 // KT_PORT=8895 bash dev/runkt.sh dev/tests/giran.js  (입장은 마을 간수 NPC로만 — 여기서는 내부 toField로 바로 · NPC 입장은 dev/tests/adenprison.js)
 const { chromium } = require('playwright'); const login = require('../tq.js');
 const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL') + ' ' + k); };
@@ -20,6 +20,9 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   // 확률이 안 걸리면 그냥 산적으로 다시 태어남
   const g2 = await p.evaluate(() => { const T = __T, m = T.foxes.find(f => f.kind === 'gp_archer' && !f.dead); const R0 = Math.random; Math.random = () => 0.9; try { m.hp = 0; T.killCheck(m); } finally { Math.random = R0; } return { rise: !!m.gpRise }; });
   ok('확률이 안 걸리면 악령 없음', !g2.rise);
+  // 11/6 프로듀서: 악령 변신 40% (0.39 → 변신 · 0.41 → 안 변신)
+  const g3 = await p.evaluate(() => { const T = __T, r = []; for (const v of [0.39, 0.41]) { const m = T.foxes.find(f => (f.kind === 'gp_bandit' || f.kind === 'gp_chief') && !f.dead); const R0 = Math.random; Math.random = () => v; try { m.hp = 0; T.killCheck(m); } finally { Math.random = R0; } r.push(!!m.gpRise); } return r; });
+  ok('악령 변신 확률 40% (0.39 변신 · 0.41 안 변신)', g3[0] === true && g3[1] === false);
   // 턴 언데드
   const tu = await p.evaluate(async () => { const T = __T, H = T.hero, m = T.foxes.find(f => f.kind === 'gp_ghost' && !f.dead); T.LEARNED.add('turnund'); H.mp = H.maxmp = 999; H.i = m.i + 1; H.j = m.j; H.x = H.i + 0.5; H.z = H.j + 0.5;
     let tries = 0; while (!m.dead && tries < 30) { H.target = m; for (const k in T.SKCD) T.SKCD[k] = 0; H.mp = 999; T.castSkill('turnund'); await new Promise(r => setTimeout(r, 120)); tries++; }
@@ -30,7 +33,7 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   // 드래곤의 진주
   const pr = await p.evaluate(async () => { const T = __T; T.INV.add('dragon_pearl', 2); const e = T.INV.bag().find(x => x.id === 'dragon_pearl'); T.INV.use(e); await new Promise(r => setTimeout(r, 300));
     return { buff: T.BUFF.pearl, n: T.INV.count('dragon_pearl'), drop: T.MOB_DROPS.gp_ghost, name: T.ITEMS.dragon_pearl.name, icon: !!T.CXI.dragon_pearl }; });
-  console.log('pearl', JSON.stringify(pr)); ok('드래곤의 진주: 10분 3단 가속 · 1개 소모 · 악령 드랍 1%', pr.buff > 590 && pr.n === 1 && pr.drop[0][0] === 'dragon_pearl' && pr.drop[0][1] === 0.01 && pr.icon);
+  console.log('pearl', JSON.stringify(pr)); ok('드래곤의 진주(3단 가속): 10분 3단 가속 · 1개 소모 · 악령 드랍 10%', pr.buff > 590 && pr.n === 1 && pr.drop[0][0] === 'dragon_pearl' && pr.drop[0][1] === 0.1 && pr.name === '드래곤의 진주(3단 가속)' && pr.icon);
   // 2층
   await p.evaluate(() => __T.TOWN.toZone(27)); await p.waitForTimeout(2500);
   const f2 = await p.evaluate(() => ({ id: __T.ISLE.id, n: __T.ISLE.mobs.length, hall: __T.ISLE.hall, up: __T.ISLE.portals.some(q => /1층/.test(q.label)) }));
@@ -43,11 +46,11 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   await p.waitForTimeout(1500); await p.screenshot({ path: 'dev/out/giran_faust.png' });
   const kd = await p.evaluate(async () => { const T = __T, m = T.foxes.find(f => f.kind === 'gp_faust' && !f.dead); m.hp = 0; T.killCheck(m); await new Promise(r => setTimeout(r, 300)); return { log: T.log.slice(-8).map(x => x.t).join(' | '), info: T.ISLAND.bossInfo(27).map(x => [x.k, x.alive]) }; });
   console.log('kd', JSON.stringify(kd)); ok('파우스트를 쓰러뜨리면 두목 클라인 토벌로 기록', /두목 클라인/.test(kd.log) && kd.info.some(([k, al]) => k === 'gp_klein' && !al));
-  // 월드맵 도감·표시
+  // 월드맵에는 아덴감옥이 없음 (11/6 프로듀서 — 마을 간수 NPC로만 입장)
   await p.evaluate(() => { __T.TOWN.goTown(); }); await p.waitForTimeout(1500);
   await p.evaluate(() => { __T.setCoins(100000); document.getElementById('btn-map').click(); }); await p.waitForTimeout(600);
-  const wm = await p.evaluate(() => { const m = document.querySelector('#wm-stage .mk[data-r="giran_prison"]'); if (!m) return null; m.click(); const t = m.querySelector('.wm-tl'); return { t: t && t.textContent, grade: document.getElementById('wm-grade').textContent, codex: document.getElementById('wm-codex') ? document.getElementById('wm-codex').textContent.slice(0, 300) : '' }; });
-  console.log('wm', JSON.stringify(wm)); ok('월드맵에 아덴감옥(정보) · 남은 시간 · 도감', wm && /오늘 남은 시간/.test(wm.t || '') && /칼 산적/.test(wm.codex) && /두목 클라인/.test(wm.codex));
+  const wm = await p.evaluate(() => ({ mk: !!document.querySelector('#wm-stage .mk[data-r="giran_prison"]'), n: document.querySelectorAll('#wm-stage .mk').length, all: document.getElementById('wmap').innerText }));
+  console.log('wm', JSON.stringify({ mk: wm.mk, n: wm.n })); ok('월드맵에 아덴감옥 없음 (다른 사냥터 표시는 그대로)', !wm.mk && wm.n >= 8 && !/아덴감옥/.test(wm.all));
   await p.screenshot({ path: 'dev/out/giran_map.png' }); await p.evaluate(() => { document.getElementById('wmap').hidden = true; });
   // 하루 4시간
   await p.evaluate(() => __T.TOWN.toZone(26)); await p.waitForTimeout(2000);
