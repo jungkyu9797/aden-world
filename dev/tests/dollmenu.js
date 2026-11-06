@@ -85,7 +85,7 @@ const ERR = [];
   await p.click('#dw-grid .pw-c[data-id="ogre"]'); await p.waitForTimeout(150); await p.click('#dw-sel [data-a="put"]'); await p.waitForTimeout(400);
   let sl = await p.evaluate(() => { const I = __T.INV, pl = __T.NET.dbgPayload(); return { max: __T.HERO.max, eq: I.equipped('doll'), inBag: I.bag().some(e => e.id === 'doll_ogre'), dl: pl.dl, wq: pl.wq && pl.wq.doll, mine: __T.FBOT_.mine().dl, slot: DCG.state().slot, full: document.getElementById('dw-slot').classList.contains('full'), txt: document.getElementById('dw-slot').textContent, ic: document.querySelector('#dw-grid .pw-c[data-id="ogre"]').className }; });
   console.log('slot', JSON.stringify(sl));
-  ok('인형 칸에 넣기 → 오우거 HP +50', sl.max - base.max === 50 && sl.slot.knight === 'ogre' && sl.full && /소환 중 · 최대 HP \+50/.test(sl.txt), [base.max, sl.max]);
+  ok('인형 칸에 넣기 → 오우거 HP +50 (11/6 최대 HP ×1.3 → 실제 +65)', Math.abs(sl.max - base.max - 65) <= 1 && sl.slot.knight === 'ogre' && sl.full && /소환 중 · 최대 HP \+50/.test(sl.txt), [base.max, sl.max]);
   ok('장비 [인형] 칸 = 인형 칸 (가방엔 아이템 없음)', sl.eq === 'doll_ogre' && !sl.inBag && !base.eq);
   ok('다른 유저에게 보이는 인형 (접속 정보 dl·wq) · 봇 복사 dl', sl.dl === 'ogre' && sl.wq === 'doll_ogre' && sl.mine === 'ogre' && !base.dl, sl);
   ok('칸의 인형 1개뿐이면 보유중에 \'소환\' 표시로 남음 · 합성 재료에서 빠짐', / sl/.test(sl.ic) && await p.evaluate(() => DCG.avail('ogre') === 0));

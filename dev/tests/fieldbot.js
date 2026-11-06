@@ -31,8 +31,8 @@ const ok = (c, m) => console.log((c ? 'OK  ' : 'FAIL') + ' ' + m);
   await p.waitForTimeout(3500);
   const s4b = await p.evaluate(() => { const F = window.__FB; return F.bots().map(f => `${f.bot.clan}:${f.bot.name}:${Math.round(f.hp)}/${f.max}:${f.bx ? (f.bx.tgt ? 'PvP' : f.bx.goal) : '-'}`); });
   console.log('④ fight', JSON.stringify(s4), JSON.stringify(s4b)); ok(s4b.some(x => /PvP/.test(x)) && s4b.some(x => { const m = /:(\d+)\/(\d+):/.exec(x); return m && +m[1] < +m[2]; }), '④ 반왕 봇과 라인 봇이 만나 싸움 (피해 들어감)');
-  const d4 = await p.evaluate(() => { const F = window.__FB, s0 = { ...F.stat() }; F.sim(40); const s1 = F.stat(); return { die: s1.die - s0.die, drop: s1.drop - s0.drop, left: F.bots().filter(f => !f.dead).map(f => f.bot.clan + ':' + f.bot.name) }; });
-  console.log('④ after 40s', JSON.stringify(d4)); ok(d4.die > 0 && d4.drop === 0, `④ 봇끼리 싸워 ${d4.die}명 쓰러짐 · 드랍 없음`);
+  const d4 = await p.evaluate(() => { const F = window.__FB, s0 = { ...F.stat() }; F.sim(90); const s1 = F.stat();   /* 11/6: 대인전 피해 ×0.6 → 봇끼리 싸움도 길어져서 40초 → 90초 */ return { die: s1.die - s0.die, ret: s1.ret - s0.ret, drop: s1.drop - s0.drop, left: F.bots().filter(f => !f.dead).map(f => f.bot.clan + ':' + f.bot.name) }; });
+  console.log('④ after 90s', JSON.stringify(d4)); ok(d4.die + d4.ret > 0 && d4.drop === 0, `④ 봇끼리 싸워 ${d4.die}명 쓰러짐 · ${d4.ret}명 귀환(HP 없어서) · 드랍 없음`);
   // ⑤ 플레이어가 라인 봇을 잡으면 타버린 불멸의 가호 · 반왕 봇은 공격이 안 들어감
   const s5 = await p.evaluate(() => { const F = window.__FB, H = __T.hero; for (const f of F.bots()) f.gone = true; F.DBG.noAI = true; const R = F.roster();
     const a = F.spawnTest(R.A.find(b => b.cls === 'elf').uid, H.i - 1, H.j), e = F.spawnTest(R.B.find(b => b.cls === 'wizard').uid, H.i + 1, H.j); const aHp = a.hp; e.hp = 1;
