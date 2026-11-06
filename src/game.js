@@ -108,7 +108,7 @@ const DN = (() => {
     const c=oc.getContext('2d'); if (c.reset) c.reset(); else { c.setTransform(1,0,0,1,0,0); c.globalAlpha=1; c.filter='none'; }   // 11/1: 어둠 판을 매 프레임 깨끗한 상태로 (한 번 꼬이면 밝은 원이 캐릭터가 아닌 엉뚱한 곳에 남던 문제 대비)
     try { drawDark(c, g, vw, vh, ox, oy, D); } catch (e) { if (dnErr++ < 3) { try { TELE.ev('err', { m: 'DN.draw: ' + String(e && e.message || e).slice(0, 160), s: String(e && e.stack || '').slice(0, 600), c: dnErr }); } catch (e2) {} } }
     g.save(); g.globalAlpha=1; g.globalCompositeOperation='source-over'; g.filter='none'; g.drawImage(oc,0,0); g.restore(); }
-  function drawDark(c, g, vw, vh, ox, oy, D){ const town=SCENE==='town', A=(town?0.5:ISLE&&ISLE.def&&ISLE.def.dark?0.95:0.86)*D; c.globalCompositeOperation='source-over'; c.clearRect(0,0,vw,vh);
+  function drawDark(c, g, vw, vh, ox, oy, D){ const town=SCENE==='town', A=(town?0.25:ISLE&&ISLE.def&&ISLE.def.dark?0.48:0.43)*D;   /* 11/6 프로듀서: 밤·던전 어둠을 절반으로 (예전 마을 0.5 · 던전 0.95 · 필드 0.86) — 흐릿하지만 지형·맵이 보이게 */ c.globalCompositeOperation='source-over'; c.clearRect(0,0,vw,vh);
     c.fillStyle=`rgba(4,7,22,${A})`; c.fillRect(0,0,vw,vh);
     const [hx,hy]=W2P(hero.x,hero.z), X=hx+ox, Y=hy+oy-20;
     if (!town){ const r=R()*K*1.414; c.globalCompositeOperation='destination-out'; c.save(); c.translate(X,Y); c.scale(1,0.5);
@@ -921,7 +921,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 245;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 246;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -10873,6 +10873,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 246, items: ['밤과 어두운 던전의 어둠을 절반 정도로 줄였어요. 빛이 닿지 않는 곳도 흐릿하게 지형·벽·나무가 보여요 (시야 거리와 시야 밖 몬스터가 안 보이는 건 그대로).'] },
     { v: 245, items: ["가방에서 같은 종류의 가호(완제)가 한 칸에 겹쳐 보이고 개수가 표시돼요. 효과는 지금처럼 그중 가장 높은 것(강화·축복) 하나만 적용되고, 칸에도 그 가장 높은 가호가 보여요.", "창고에 맡기거나 버릴 때는 가장 낮은 가호부터 빠져요. 창고에서도 같은 가호는 한 칸에 겹쳐지고(칸 하나만 차지), 찾을 때는 가장 높은 것부터 나와요.", "[랭킹] 창의 PVP 랭킹에도 클래스(기사·요정·마법사)가 나와요."] },
     { v: 244, items: ["캐릭터 창 [변신 카드] 칸도 인형 칸처럼 등급에 따라 테두리·바탕이 빛나요. 전설 카드는 금빛 바탕에 반짝이는 효과가 나와요."] },
     { v: 243, items: ["캐릭터 창의 [변신 카드] 칸에 지금 변신 중인 카드 그림과 등급이 나와요. (마우스를 올리면 카드 이름·효과 · 누르면 변신 카드 창)"] },
