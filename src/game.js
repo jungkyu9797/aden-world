@@ -108,7 +108,7 @@ const DN = (() => {
     const c=oc.getContext('2d'); if (c.reset) c.reset(); else { c.setTransform(1,0,0,1,0,0); c.globalAlpha=1; c.filter='none'; }   // 11/1: 어둠 판을 매 프레임 깨끗한 상태로 (한 번 꼬이면 밝은 원이 캐릭터가 아닌 엉뚱한 곳에 남던 문제 대비)
     try { drawDark(c, g, vw, vh, ox, oy, D); } catch (e) { if (dnErr++ < 3) { try { TELE.ev('err', { m: 'DN.draw: ' + String(e && e.message || e).slice(0, 160), s: String(e && e.stack || '').slice(0, 600), c: dnErr }); } catch (e2) {} } }
     g.save(); g.globalAlpha=1; g.globalCompositeOperation='source-over'; g.filter='none'; g.drawImage(oc,0,0); g.restore(); }
-  function drawDark(c, g, vw, vh, ox, oy, D){ const town=SCENE==='town', A=(town?0.5:ISLE&&ISLE.def&&ISLE.def.dark?0.95:0.86)*D; c.globalCompositeOperation='source-over'; c.clearRect(0,0,vw,vh);
+  function drawDark(c, g, vw, vh, ox, oy, D){ const town=SCENE==='town', A=(town?0.25:ISLE&&ISLE.def&&ISLE.def.dark?0.48:0.43)*D;   /* 11/6 프로듀서: 밤·던전 어둠을 절반으로 (예전 마을 0.5 · 던전 0.95 · 필드 0.86) — 흐릿하지만 지형·맵이 보이게 */ c.globalCompositeOperation='source-over'; c.clearRect(0,0,vw,vh);
     c.fillStyle=`rgba(4,7,22,${A})`; c.fillRect(0,0,vw,vh);
     const [hx,hy]=W2P(hero.x,hero.z), X=hx+ox, Y=hy+oy-20;
     if (!town){ const r=R()*K*1.414; c.globalCompositeOperation='destination-out'; c.save(); c.translate(X,Y); c.scale(1,0.5);
