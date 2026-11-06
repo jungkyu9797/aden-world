@@ -27,6 +27,7 @@ app.on('child-process-gone', (_e, d) => { if (!d || d.type !== 'GPU' || d.reason
   try { fs.mkdirSync(path.dirname(GPU_SAFE()), { recursive: true }); fs.writeFileSync(GPU_SAFE(), JSON.stringify({ at: Date.now(), why: d.reason, code: d.exitCode, v: appVer() })); } catch (_) {} });
 let closeOk = false;
 const DEV_OK = () => process.argv.includes('--dev') || fs.existsSync(path.join(__dirname, 'admin_key.js'));
+let SECONDARY = 0;   // 11/6: 운영자 PC에서 두 번째로 띄운 창이면 2·3·4 (아래 '게임은 한 PC에 하나만' 참고)
 const SAVE_DIR = () => path.join(app.getPath('userData'), 'saves');
 
 function createWindow(page, query) {
@@ -36,7 +37,7 @@ function createWindow(page, query) {
     minWidth: 960,
     minHeight: 560,
     backgroundColor: '#0d0a0e',
-    title: '아덴 월드',
+    title: SECONDARY ? `아덴 월드 [창 ${SECONDARY}]` : '아덴 월드',
     icon: path.join(__dirname, 'assets', 'icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {
@@ -102,10 +103,12 @@ async function pinBase(base) { const g = /^https:\/\/raw\.githubusercontent\.com
   return base; }
 async function manifest(base) { return JSON.parse((await getBuf(base + 'version.json?t=' + Date.now())).toString('utf-8')); }
 ipcMain.handle('update:check', async () => {
+  if (SECONDARY) return { ok: false, err: 'secondary' };   // 11/6: 두 번째 창부터는 파일 업데이트를 안 함 (첫 창이 함 · 같은 폴더를 두 창이 같이 고치지 않게)
   const base0 = updateBase(); if (!base0) return { ok: false, err: 'nobase' }; const base = base0;   // 11/3: 확인(2분마다)은 커밋 고정 안 함 — api.github.com 한 시간 60번 제한 (몇 분 늦게 알아도 됨 · 받을 때만 고정)
   try { const m = await manifest(base); return { ok: true, ver: m.ver | 0 }; } catch (e) { return { ok: false, err: String(e.message || e) }; }
 });
 ipcMain.handle('update:run', async (e) => {
+  if (SECONDARY) return { ok: false, err: '두 번째 창에서는 업데이트하지 않아요 — 첫 번째 창에서 업데이트해 주세요' };
   const base0 = updateBase(); if (!base0) return { ok: false, err: 'nobase' }; const base = await pinBase(base0);
   const send = m => { try { e.sender.send('update:progress', m); } catch (_) {} };
   try {
@@ -171,10 +174,15 @@ function watchPower() { let idle0 = 0, n = 0;
     if (++n % 12 === 0) for (const w of BrowserWindow.getAllWindows()) ping(w, 'beat', 20000); }, 5000); }   // 1분마다 살아 있는지
 
 // 11/3: 게임은 한 PC에 하나만 — 이미 켜져 있으면 새로 띄우지 않고 켜져 있는 창을 앞으로 (작업 표시줄에 남은 예전 창 + 새 창이 겹쳐 메모리를 두 배로 쓰던 것)
-const gotLock = app.requestSingleInstanceLock();
+// 11/6 프로듀서: 운영자 PC(게임 폴더에 admin_key.js가 있는 PC)에서만 창을 4개까지 — 본계정과 운영자 계정을 같이 켜서 지켜보려고
+//   창마다 저장 공간(로그인·설정)을 따로 씀: 첫 창 = 원래 userData · 두 번째부터 userData-2, -3, -4 · 두 번째 창부터는 파일 업데이트를 안 함 · 다른 PC는 지금처럼 하나만
+const OP_PC = fs.existsSync(path.join(__dirname, 'admin_key.js'));
+let gotLock = OP_PC ? app.requestSingleInstanceLock({ multi: true }) : app.requestSingleInstanceLock();
+if (!gotLock && OP_PC) { try { const base = app.getPath('userData'); for (let k = 2; k <= 4 && !gotLock; k++) { app.setPath('userData', base + '-' + k); gotLock = app.requestSingleInstanceLock({ multi: true }); if (gotLock) SECONDARY = k; } } catch (e) { gotLock = false; } }
 if (!gotLock) app.quit();
 else {
-  app.on('second-instance', () => { const w = BrowserWindow.getAllWindows()[0]; if (!w || w.isDestroyed()) return; if (w.isMinimized()) w.restore(); w.show(); w.focus(); });
+  app.on('second-instance', (_e, _argv, _cwd, data) => { if (OP_PC && data && data.multi) return;   // 운영자 PC에서 창을 더 띄울 때는 첫 창을 앞으로 가져오지 않음
+    const w = BrowserWindow.getAllWindows()[0]; if (!w || w.isDestroyed()) return; if (w.isMinimized()) w.restore(); w.show(); w.focus(); });
   app.whenReady().then(() => { createWindow(); try { watchPower(); } catch (e) { clog('watchPower ' + e.message); } });
 }
 app.on('window-all-closed', () => app.quit());
