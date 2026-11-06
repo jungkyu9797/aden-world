@@ -529,7 +529,7 @@ function shareExp(f, S){ const M=f.dmgBy; let tot=0; if (M) for (const v of M.va
   if (heroExp>0){ gainExp(heroExp); parts.push('나 +'+heroExp); }
   if (M&&tot>0) for (const [w,v] of M) if (w!==hero&&w.isPet){ const pe=Math.round(S.exp*v/tot*nightR()*pk_); if (pe>0){ const ov=PET.gainExp(w,pe); parts.push(ov<0?w.d.name+'(성장 멈춤)':ov>=pe?w.d.name+'(최고 레벨) → 나 +'+pe:w.d.name+' +'+pe); } }   /* 11/3: 펫이 주인 레벨이면 펫 몫은 주인에게 */
   if (parts.length) say('경험치 '+(parts.length===1&&heroExp>0?'+'+heroExp:parts.join(' · '))+(heroExp>0?lowLvTag(S):'')+(pk_<1?' (봇 파티 ×'+(+pk_.toFixed(3))+')':''),'#d8e8a8'); f.dmgBy=null; }   // 혼자면 '경험치 +140' · 펫과 나누면 '나 +120 · 펫 +20'
-function killCheck(f){ if (f && f.fb) { if (f.hp <= 0 && !f.dead) FBOT.down(f); return; } if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; if (S.gpb && !f.summoned && Math.random()<GIRAN.GHOST_P) f.gpRise=true;   /* 11/6 기란감옥: 산적 → 파우스트의 악령 */ f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
+function killCheck(f){ if (f && f.fb) { if (f.hp <= 0 && !f.dead) FBOT.down(f); return; } if (f && (f.bot || f.twr)) { if (f.hp <= 0 && !f.dead) TWM.down(f); return; } const S=MOB[f.kind]; if (S && S.dummy){ if (f.hp<=0){ if (S.real){ const [x,y]=W2P(f.x,f.z), tt=f.ttk0?time-f.ttk0:0; floatText(x,y-headY(f)-24,`쓰러뜨림! ${tt.toFixed(1)}초`,{color:'#ff8a6a',size:15,big:true,life:1.6}); say(`${S.name}을(를) ${tt.toFixed(1)}초 만에 쓰러뜨렸습니다. (HP ${f.max} · AC ${S.mac}${S.mr ? ' · MR ' + S.mr : ''})`, '#ffb08a'); f.ttk0=0; } f.hp=f.max; } return; } if (f.hp<=0&&!f.dead&&S&&S.rebirth&&!f.reborn&&!f.summoned&&!f.reaper&&!f.soulBoss&&!NET.guestMob(f)){ phxAsh(f,S); return; } if (f.hp<=0&&!f.dead){ f.dead=true; TELE.kill(f.kind); f.deadT=0; if (S.gpb && !f.summoned && Math.random()<GIRAN.GHOST_P) f.gpRise=true;   /* 11/6 아덴감옥: 산적 → 파우스트의 악령 */ f.stunT=0; f.bleed=null; f.hitDn=0; if (!MSFX(f.kind,'death',0.6)) sfx.die(); if (hero.target===f) hero.target=null; if (S.boss && !f.reaper && !f.soulBoss) say((f.dispName||S.name)+'을(를) 쓰러뜨렸습니다.'); if (S.boss) bossTalk(f, 'die');
   const D=NET.distribute(f,S); if (!D){ if (window.SAVER && (!f.dmgBy || [...f.dmgBy.keys()].some(w => w === hero || (w && w.isPet)))) SAVER.kill();   /* 11/1: 혼자 잡은 몹도 절전 [처치]에 셈 (전에는 같은 지역에 다른 사람이 있을 때만 셈) */ shareExp(f,S); if (!f.reaper && !ARENA()){ const c=gahoGold(Math.round(rint(S.coin)*coinX()*FBOT.pbK(S))); coins+=c; if (OFFL_HOOK){ OFFL_HOOK.kill(f,1); OFFL_HOOK.gold(c); } say('골드('+c+') 획득: '+(f.dispName||S.name), '#cfe4a8'); } }   // 같은 지역에 다른 플레이어가 있으면 공헌도대로 나눔
   GROUND.capStart(); if (ARENA()) { if (S.boss && !f.summoned) { GROUND.bossLoot(f); NET.gahoGive(f, D); COLO.bossDown(f); } } else if (f.reaper) reaperDown(f, S, D); else if (S.boss) { GROUND.bossLoot(f); NET.gahoGive(f, D); if (f.summoned) say('갓 모드: 소환한 '+S.name+'을(를) 쓰러뜨렸습니다. (보스 등장 시간에는 영향 없음)', '#ffd86a'); else if (f.soulBoss) soulDown(f, S, D); else ISLAND.bossDown(S.bossKey || f.kind, FB_KILLER || (D ? NET.nameOf([...D.shares.entries()].sort((a,b)=>b[1]-a[1])[0][0]) : PNAME()), !!FB_KILLER); } else if (S.midb) { GROUND.bossLoot(f); ISLAND.midDown(f); } else if (S.hwEv) hwLoot(f); else if (S.spirit) { if (!dreamLoot(f)) regionDrop(f); } else if (S.fgi) fgLoot(f, D);   /* 11/3 잊혀진 섬: 희귀 4% · 영웅 0.5% · 드레이크 고대의 주문서·빛바랜 벨트 3%씩 (고급·일반 없음) */ else { if (Math.random()<FBOT.pbDropK(S, D)) { let got=false; if (MOB_DROPS[f.kind]) for (const [id,pr] of MOB_DROPS[f.kind]) if (Math.random()<pr){ GROUND.drop(id,1,f.i,f.j); const D_=ITEMS[id]; if (!lowRar(id)) say(`${rarTag(id)}${JOSA(D_.name,'이','가')} 떨어졌습니다!`, rarC(id)); got=true; break; } if (!got) got=regionDrop(f); if (!got) cxZoneDrop(f); } if (Math.random()<FBOT.pbDropK(S, D)) reaperTry(f, S, D); }   /* 11/3: 리퍼(영혼석)도 봇 파티 몫만큼 */   /* 11/3 혈맹 파티: 일반 몬스터 드랍 확률 × 1/N × 1.1 (보스는 위에서 그대로) */
   const items=GROUND.capEnd(); if (D) NET.assignLoot(items, D.shares, f, S); } }   // 드랍 우선권: 공헌도 비율만큼 아이템 개수 · 5초
@@ -611,7 +611,7 @@ function updateHero(dt){
 function bossEnrage(f, S) { f.enraged = true; const [x, y] = W2P(f.x, f.z); floatText(x, y - headY(f) - 30, '광폭화!', { color: '#ff3a2a', size: 22, big: true, life: 2, rise: 36 }); shake = Math.max(shake, 0.25);   /* v126 */
   say(`[광폭화] ${JOSA(f.dispName || S.name, '이', '가')} 광폭화했습니다! 공격 속도 +50% · 모든 공격 피해 +20%`, '#ff6a5a'); mxAdd('ring', f, { gnd: 1, c: '255,60,40', r0: 10, r1: 110, w: 6, life: 0.9 }); mxFlash('255,60,40', 0.12, 0.5);
   if (AC && SFX_ON) { const t0 = AC.currentTime; nz(t0, 0.6, 600, 120, 0.3); tone(t0, 'sawtooth', 160, 55, 0.7, 0.14); tone(t0 + 0.05, 'square', 110, 40, 0.6, 0.08); }
-  if (S.morphTo) gpMorph(f, S.morphTo, true); }   // 11/6 기란감옥: 두목 클라인은 광폭화하면 파우스트로 변신 (게스트는 패킷의 종류로 따라 바뀜)
+  if (S.morphTo) gpMorph(f, S.morphTo, true); }   // 11/6 아덴감옥: 두목 클라인은 광폭화하면 파우스트로 변신 (게스트는 패킷의 종류로 따라 바뀜)
 function drawAltar(g, A, part) { const [x, y] = W2P(A.i + 0.5, A.j + 0.5), pu = 0.5 + 0.5 * Math.sin(time * 2.2);
   if (!part) { g.save(); g.translate(x, y); g.scale(1, 0.5); const R = 74; const gr = g.createRadialGradient(0, 0, 10, 0, 0, R); gr.addColorStop(0, `rgba(170,90,255,${0.35 + 0.15 * pu})`); gr.addColorStop(1, 'rgba(90,20,160,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, 7); g.fill();
     g.strokeStyle = `rgba(200,140,255,${0.55 + 0.25 * pu})`; g.lineWidth = 2.2; for (const r of [62, 50]) { g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke(); } g.lineWidth = 1.6; g.rotate(time * 0.25); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; g.beginPath(); g.moveTo(Math.cos(a) * 50, Math.sin(a) * 50); g.lineTo(Math.cos(a + 0.4) * 62, Math.sin(a + 0.4) * 62); g.stroke(); }
@@ -658,7 +658,7 @@ function updateFox(f,dt){
   if (S.boss && !f.dead && !f.enraged && f.max > 0 && f.hp > 0 && f.hp <= f.max * (f.enrAt || (f.enrAt = 0.3 + Math.random() * 0.2))) bossEnrage(f, S);
   if (S.dummy){ f.flash=Math.max(0,(f.flash||0)-dt); f.kx=0; f.ky=0; f.aggro=false; f.stunT=Math.max(0,(f.stunT||0)-dt); f.slowT=Math.max(0,(f.slowT||0)-dt); if (f.dlog){ while (f.dlog.length && time-f.dlog[0][0]>10) f.dlog.shift(); if (!f.dlog.length || time-f.dlog[f.dlog.length-1][0]>4){ f.hp=f.max; f.ttk0=0; } } return; }   // 허수아비: 가만히 서서 맞기만
   if (f.dead){ f.deadT+=dt; if (S.boss||S.midb||f.summoned||ARENA()){ if (f.deadT>(S.boss||S.midb?3:1.6)) f.gone=true; return; }
-    if (f.gpRise && f.deadT>1.6){ gpRise(f); return; }   /* 11/6 기란감옥: 쓰러진 산적의 몸에서 악령이 일어남 */   /* 10/30: 중간 보스(이프리트)는 제자리에서 다시 안 태어남 — ISLAND가 1~1.5시간 뒤 다시 냄 */
+    if (f.gpRise && f.deadT>1.6){ gpRise(f); return; }   /* 11/6 아덴감옥: 쓰러진 산적의 몸에서 악령이 일어남 */   /* 10/30: 중간 보스(이프리트)는 제자리에서 다시 안 태어남 — ISLAND가 1~1.5시간 뒤 다시 냄 */
     if (f.deadT>(S.resp||9)){ const L=f.leader, c=L&&!L.dead?[L.i,L.j]:f.home; const p=(c&&spotNear(c[0],c[1],L?2:3))||freeTile(7);
       const keep={home:f.home,leader:f.leader,grp:f.grp,uid:f.uid}; Object.assign(f,mkMob(f.gpBase||f.kind,p[0],p[1]),keep); f.gpBase=null; if (f.home){ f.hi=f.home[0]; f.hj=f.home[1]; } } return; }
   if (S.boss && f.hp < f.max) { const now = Date.now(); if (!f.lastDmgAt) f.lastDmgAt = now;   // 보스: 2분 동안 아무도 못 때리면 체력 회복 — 초당 최대 HP의 2% (오래 비워 둔 지역이면 들어오자마자 그만큼 한꺼번에)
@@ -2982,7 +2982,7 @@ Object.assign(MOB, {
   fn_ifrit:     { name: '이프리트', lv: 58, hp: 18000, dmg: [89, 144], mac: 0, hit: 0.96, mr: 40, exp: 75000, coin: [17500, 29000], walk: 1.2, run: 3.2, cd: 1.4, aggr: 7, burn: true, el: 'fire', skills: true, midb: true, art: 'ifrit', sc: 0.92, hw: 32, hh: 110, atkTxt: '불꽃 주먹' },
   phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
-// ============================================================ 11/6 기란감옥 (지역 26 · 27 · dev/rooms/giran.md) — 수치는 여기 GIRAN 상수에서 바꿈
+// ============================================================ 11/6 아덴감옥 (처음 이름 기란감옥 → 11/6 프로듀서 수정 요청으로 아덴감옥 · 마을 간수 NPC로 입장) (지역 26 · 27 · dev/rooms/giran.md) — 수치는 여기 GIRAN 상수에서 바꿈
 //   미로 던전 1층·2층 (본토던전과 같은 미로 엔진 · 감옥 돌벽 · 쇠창살) · 하루 4시간(1·2층 합산 · 새벽 5시 초기화 · GPR) · 모두 선공(같은 골목에서 보여야 덤빔)
 //   칼 산적·활 산적(원거리)·도끼 산적두목 = 화둥 2구역 일반몹(사라만다) 수준 — 죽을 때 GHOST_P 확률로 그 자리에서 [파우스트의 악령](언데드 · 턴 언데드 가능 · 난이도 절반)으로 일어남
 //   악령이 쓰러지면 그 자리는 원래 산적으로 다시 태어남(개체 수 그대로) · 악령은 드래곤의 진주(이벤트)를 PEARL_P 확률로 떨어뜨림
@@ -3104,11 +3104,11 @@ Object.assign(MS_ALIAS, {   // 화룡의 둥지 임시 그림 (오리지널 렌�
   fn_golem: ['dv_lizard', 0.95, 'grayscale(1) brightness(.85) contrast(1.25)', 'rock'],   // v190: 무기 없는 덩치(트롤 렌더)에 몸 전체 용암 바위 fn_fly: ['wyvern', 0.42, 'sepia(1) saturate(3.4) hue-rotate(-12deg) brightness(1.2) contrast(1.1)'],
   fn_salamander: ['basilisk', 1.15, 'sepia(1) saturate(3.2) hue-rotate(-30deg) brightness(.72) contrast(1.25)'], fn_hcerberus: ['cerberus', 1.12, 'sepia(1) saturate(3.4) hue-rotate(-16deg) brightness(.78) contrast(1.4)'],
   phoenix: ['wyvern', 1.55, 'sepia(1) saturate(4.2) hue-rotate(-6deg) brightness(1.4) contrast(1.1)'] });
-Object.assign(MS_ALIAS, {   // 11/6 기란감옥 임시 그림 (오리지널 렌더를 물들임) — 정식 렌더(GIRAN_ART 블록의 MSHEET)가 있으면 이 별칭은 안 씀
+Object.assign(MS_ALIAS, {   // 11/6 아덴감옥 임시 그림 (오리지널 렌더를 물들임) — 정식 렌더(GIRAN_ART 블록의 MSHEET)가 있으면 이 별칭은 안 씀
   gp_bandit: ['elmore_soldier', 1.0, 'grayscale(.5) sepia(.8) saturate(1.2) hue-rotate(-12deg) brightness(.8) contrast(1.15)'], gp_archer: ['dark_elf', 1.0, 'grayscale(.4) sepia(.6) hue-rotate(40deg) saturate(1.1) brightness(.9) contrast(1.1)'],
   gp_chief: ['elmore_warrior', 1.04, 'grayscale(.5) sepia(.7) hue-rotate(28deg) saturate(1.1) brightness(.8) contrast(1.15)'], gp_ghost: ['necromancer', 0.72, 'grayscale(1) brightness(1.5) contrast(1.2) sepia(.3) hue-rotate(200deg) saturate(1.6) opacity(.82)'],
   gp_klein: ['elmore_warrior', 1.3, 'grayscale(.4) sepia(1) saturate(1.8) hue-rotate(-8deg) brightness(.85) contrast(1.2)'], gp_faust: ['kaspar', 1.4, 'grayscale(1) brightness(.5) contrast(1.6) sepia(.6) hue-rotate(-40deg) saturate(3)'] });
-/*GIRAN_ART_BEGIN*/ { const GIRAN_MS = { gp_bandit: { W: 250, H: 202, ax: 125, ay: 153, s: 0.8065, af: 8, hh: 81, hw: 29 }, gp_archer: { W: 258, H: 193, ax: 129, ay: 150, s: 0.8065, af: 8, hh: 81, hw: 29 }, gp_chief: { W: 241, H: 217, ax: 120, ay: 169, s: 0.8065, af: 8, hh: 84, hw: 30 }, gp_klein: { W: 313, H: 199, ax: 157, ay: 143, s: 0.9091, af: 8, hh: 106, hw: 38 }, gp_ghost: { W: 179, H: 148, ax: 89, ay: 120, s: 0.8065, af: 8, hh: 84, hw: 30 }, gp_faust: { W: 354, H: 293, ax: 177, ay: 224, s: 1.0417, af: 8, hh: 133, hw: 48 } }; for (const k in GIRAN_MS) if (MOB[k]) MSHEET[k] = GIRAN_MS[k]; }   // 11/6 기란감옥 오리지널 렌더 (dev/render_giran.py) — MOB에 그 몹이 있을 때만 /*GIRAN_ART_END*/
+/*GIRAN_ART_BEGIN*/ { const GIRAN_MS = { gp_bandit: { W: 250, H: 202, ax: 125, ay: 153, s: 0.8065, af: 8, hh: 81, hw: 29 }, gp_archer: { W: 258, H: 193, ax: 129, ay: 150, s: 0.8065, af: 8, hh: 81, hw: 29 }, gp_chief: { W: 241, H: 217, ax: 120, ay: 169, s: 0.8065, af: 8, hh: 84, hw: 30 }, gp_klein: { W: 313, H: 199, ax: 157, ay: 143, s: 0.9091, af: 8, hh: 106, hw: 38 }, gp_ghost: { W: 179, H: 148, ax: 89, ay: 120, s: 0.8065, af: 8, hh: 84, hw: 30 }, gp_faust: { W: 354, H: 293, ax: 177, ay: 224, s: 1.0417, af: 8, hh: 133, hw: 48 } }; for (const k in GIRAN_MS) if (MOB[k]) MSHEET[k] = GIRAN_MS[k]; }   // 11/6 아덴감옥 오리지널 렌더 (dev/render_giran.py) — MOB에 그 몹이 있을 때만 /*GIRAN_ART_END*/
 for (const k in MS_ALIAS) if (!MSHEET[k]) { const [src, sc, tint, lava] = MS_ALIAS[k], M = MSHEET[src]; MSHEET[k] = { ...M, s: M.s * sc, hh: Math.round(M.hh * sc), hw: Math.round(M.hw * sc), src, tint, lava }; }
 // 선공 몬스터(먼저 덤비는 몹, 보스 제외)는 1.3배 크게 그려 멀리서도 잘 보이게
 Object.assign(MOB, {   // v183: 수호탑 대전 — AI 봇(기사·요정·마법사)과 수호탑 (능력치는 판마다 TWM이 정함)
@@ -3129,6 +3129,10 @@ const DROP_Y = { drake: 24, drake_king: 54 };
 for (const k in DROP_Y) { const M = MSHEET[k]; if (!M) continue; M.ay -= DROP_Y[k]; M.hh = Math.max(60, M.hh - Math.round(DROP_Y[k] * M.s)); }
 /* v159: 발밑 대상 고리 크기 따로 (날개가 넓은 몹은 그림 폭으로 재면 고리가 너무 큼) — 클릭 범위는 그대로 */
 const RING = { drake: 26, drake_king: 36, phoenix: 40, fn_salamander: 30, fn_ifrit: 40 }; for (const k in RING) if (MOB[k]) MOB[k].ring = RING[k];
+/* 11/6 프로듀서: 아덴감옥 산적 3종·파우스트의 악령은 유저 캐릭터(기사 Lv 맨몸 화면 키 약 72px)와 같은 키로 — 그림 파일은 그대로, 그리기 배율만 줄임 (선공 1.3배 규칙 뒤에 곱함)
+   [정식 렌더(GIRAN_ART) 배율, 임시 그림(MS_ALIAS) 배율, 이름·HP바 높이] · 배율 = 목표 키 / 재 본 키 (dev/tests/adenprison.js가 다시 잼 · 렌더를 다시 하면 이 표도 다시 맞출 것) · 두목 클라인·파우스트는 그대로 */
+{ const GP_SZ = { gp_bandit: [0.686, 0.758, 81], gp_archer: [0.655, 0.847, 81], gp_chief: [0.676, 0.688, 84], gp_ghost: [0.679, 0.567, 81] };
+  for (const k in GP_SZ) { const M = MSHEET[k], S = MOB[k]; if (!M || !S) continue; const [fa, fb, hh] = GP_SZ[k], f = M.src ? fb : fa; M.s *= f; M.hh = hh; M.hw = Math.max(18, Math.round((M.hw || 30) * f)); S.sc = (S.sc || 1) * f; } }
 { const FN_SZ = { fn_hcerberus: 0.72, fn_salamander: 0.78 }; for (const k in FN_SZ) { const M = MSHEET[k], S = MOB[k], f = FN_SZ[k]; if (!M || !S) continue; M.s *= f; M.hh = Math.max(50, Math.round(M.hh * f)); M.hw = Math.max(18, Math.round(M.hw * f)); S.sc = (S.sc || 1) * f; } }   // 화룡의 둥지: 물들인 임시 그림 크기 맞춤
 // ============================================================ 11/1 몽환의 섬 (지역 24 · dev/rooms/dream.md) — 수치는 전부 여기 DREAM 상수에서 바꿈
 //   단층 N 133 (11/1 2차: 넓이 2배 — 처음 N 94(화둥 2구역 66의 약 2배)에서 한 변 ×√2 → 화둥 2구역의 약 4배) · 가운데 안전지대(유니콘 제단 · 반지름 11 = 처음 7의 1.5배) · 동 용암 / 서 설원·얼음 / 남 사막 / 북 황량한 절벽 (사분면 경계는 대각선 기준 · 2~3칸 섞임)
@@ -3419,7 +3423,7 @@ function dgRand(s) { return () => { s = (s * 16807) % 2147483647; return (s - 1)
 function dgWallImg(v, floor) { const key = v + ':' + floor; if (DGWC[key]) return DGWC[key]; const W = Math.ceil(2 * K) + 4, H = Math.ceil(K + DGWH) + 4, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), R = dgRand(1000 + v * 97 + floor * 13), cx = W / 2, top = 2, h = DGWH;   // 블록 위 꼭짓점 (cx, top) · 바닥 마름모 꼭짓점 아래로 h
   const T = [cx, top], Rr = [cx + K, top + K / 2], Bt = [cx, top + K], L = [cx - K, top + K / 2];
-  const base = floor === 4 ? [56, 57, 60] : floor === 3 ? [66, 62, 56] : floor === 2 ? [52, 46, 52] : [58, 52, 46], PRISON = floor >= 3;   // 11/6 기란감옥(3·4): 차가운 회갈 돌 · 핏자국 대신 쇠창살 감방 문   // 2층은 조금 더 차갑고 붉은 기
+  const base = floor === 4 ? [56, 57, 60] : floor === 3 ? [66, 62, 56] : floor === 2 ? [52, 46, 52] : [58, 52, 46], PRISON = floor >= 3;   // 11/6 아덴감옥(3·4): 차가운 회갈 돌 · 핏자국 대신 쇠창살 감방 문   // 2층은 조금 더 차갑고 붉은 기
   const face = (o, ax, shade) => { g.save(); g.transform(ax[0], ax[1], 0, h, o[0], o[1]); g.beginPath(); g.rect(0, 0, 1, 1); g.clip();   // (u, v) 단위 사각형 → 면 (u: 가로, v: 아래로 h)
     const col = base.map(c0 => Math.round(c0 * shade)); g.fillStyle = `rgb(${col.map(c0 => Math.round(c0 * 0.45))})`; g.fillRect(0, 0, 1, 1);   // 줄눈(어두움)
     const rows = 6, cols = 3; for (let r = 0; r < rows; r++) for (let b = -1; b < cols; b++) { const off = (r % 2) * 0.5 / cols, u0 = b / cols + off, tone = 0.8 + R() * 0.34, cc = col.map(c0 => Math.min(255, Math.round(c0 * tone)));
@@ -3435,7 +3439,7 @@ function dgWallImg(v, floor) { const key = v + ':' + floor; if (DGWC[key]) retur
   g.strokeStyle = 'rgba(0,0,0,.6)'; g.beginPath(); g.moveTo(...Bt); g.lineTo(...down(Bt)); g.stroke();
   const onL = (u, vv) => [L[0] + (Bt[0] - L[0]) * u, L[1] + (Bt[1] - L[1]) * u + h * vv], onR = (u, vv) => [Bt[0] + (Rr[0] - Bt[0]) * u, Bt[1] + (Rr[1] - Bt[1]) * u + h * vv];
   if (v === 1 || v === 5) { for (let q = 0; q < 22; q++) { const [x, y] = (R() < 0.5 ? onL : onR)(R(), 0.55 + R() * 0.45); g.fillStyle = `rgba(${40 + R() * 30 | 0},${70 + R() * 40 | 0},${30 + R() * 20 | 0},${0.35 + R() * 0.3})`; g.beginPath(); g.ellipse(x, y, 2 + R() * 4, 1 + R() * 2, 0, 0, 7); g.fill(); } }   // 이끼
-  if (PRISON && (v === 2 || v === 5)) { const side = R() < 0.5 ? onL : onR, u0 = 0.22 + R() * 0.2, u1 = u0 + 0.38, [ax, ay] = side(u0, 0.18), [bx, by] = side(u1, 0.18), [, cy] = side(u0, 0.98);   // 11/6 기란감옥: 쇠창살 감방 문 (어두운 구멍 + 녹슨 쇠막대 · 가로 띠)
+  if (PRISON && (v === 2 || v === 5)) { const side = R() < 0.5 ? onL : onR, u0 = 0.22 + R() * 0.2, u1 = u0 + 0.38, [ax, ay] = side(u0, 0.18), [bx, by] = side(u1, 0.18), [, cy] = side(u0, 0.98);   // 11/6 아덴감옥: 쇠창살 감방 문 (어두운 구멍 + 녹슨 쇠막대 · 가로 띠)
     const hh = cy - ay; g.fillStyle = 'rgba(6,5,5,.92)'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.lineTo(bx, by + hh); g.lineTo(ax, ay + hh); g.closePath(); g.fill();
     for (let q = 0; q <= 5; q++) { const t = q / 5, x = ax + (bx - ax) * t, y = ay + (by - ay) * t; g.strokeStyle = 'rgba(30,26,24,1)'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + hh); g.stroke(); g.strokeStyle = 'rgba(150,110,80,.7)'; g.lineWidth = 0.9; g.beginPath(); g.moveTo(x - 0.6, y); g.lineTo(x - 0.6, y + hh); g.stroke(); }
     for (const vv of [0.12, 0.55]) { g.strokeStyle = 'rgba(40,34,30,1)'; g.lineWidth = 2; g.beginPath(); g.moveTo(ax, ay + hh * vv); g.lineTo(bx, by + hh * vv); g.stroke(); } }
@@ -4157,11 +4161,11 @@ const ISLAND = (() => {
     25: { name: '잊혀진 섬', tier: 2, hiz: true, fgi: true, isle: true, nobot: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: FGI.SEED, N: FGI.N, hills: [], portals: [], tone: null,
          hello: '잊혀진 섬에 들어왔습니다. 노래하던 섬은 오래전에 잊혔고, 지금은 사나운 몬스터가 가득합니다. 가운데 돌 광장을 조금만 벗어나도 먼저 덤비는 몬스터 떼가 몰려오고, 몬스터는 보통보다 두 배 빨라요 — 2~4명 이상 함께 다니세요! 이 섬에서는 귀환·순간이동이 되지 않습니다(자동사냥·절전 귀환 포함). 섬을 벗어나려면 광장의 섬지기 로렌에게 말을 거세요. 옆의 떠돌이 상인 미카가 물약을 팔아요(본토 마을의 2배 값). 드레이크는 이따금 [고대의 주문서]와 [빛을 바랜 전설의 벨트]를 떨어뜨리고, 가끔 보스 에이션트 자이언트가 깨어납니다.',
          mobs: Object.keys(FG_DEF).flatMap(k => k === 'fg_drake' ? [[k, FGI.D_NEAR, 'near'], [k, FGI.D_FAR, 'far']] : [[k, FGI.N_NEAR, 'near'], [k, FGI.N_FAR, 'far']]), groups: [] },
-    // 11/6 기란감옥 (26 · 27): 본토던전과 같은 미로 엔진(maze) · 감옥 돌벽(wall 3·4 = 차가운 회갈 돌 · 쇠창살 감방 문) · 어둠 · 모두 선공 · 하루 4시간(GPR) · 2층 보스 두목 클라인(→ 파우스트)
-    26: { name: '기란감옥 1층', tier: 1, hiz: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: 26011, N: GIRAN.N, maze: true, dark: true, prison: true, floor: 1, wall: 3, down: 27, hills: [], portals: [], tone: null,
+    // 11/6 아덴감옥 (26 · 27): 본토던전과 같은 미로 엔진(maze) · 감옥 돌벽(wall 3·4 = 차가운 회갈 돌 · 쇠창살 감방 문) · 어둠 · 모두 선공 · 하루 4시간(GPR) · 2층 보스 두목 클라인(→ 파우스트)
+    26: { name: '아덴감옥 1층', tier: 1, hiz: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: 26011, N: GIRAN.N, maze: true, dark: true, prison: true, floor: 1, wall: 3, down: 27, hills: [], portals: [], tone: null,
          hello: '차가운 돌벽과 쇠창살 사이로 산적들의 웃음소리가 울립니다... 같은 골목에 들어서면 모두 덤벼요. 산적을 쓰러뜨리면 가끔 그 몸에서 [파우스트의 악령]이 일어납니다(언데드 · 턴 언데드가 통해요). 하루 이용 시간은 4시간이에요(1·2층 합산 · 새벽 5시 초기화). 미로 끝 어딘가에 2층으로 내려가는 계단이 있습니다.',
          mobs: GIRAN.MOBS1, groups: [] },
-    27: { name: '기란감옥 2층', tier: 2, hiz: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: 27013, N: GIRAN.N, maze: true, dark: true, prison: true, floor: 2, wall: 4, up: 26, hills: [], portals: [], tone: null,
+    27: { name: '아덴감옥 2층', tier: 2, hiz: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: 27013, N: GIRAN.N, maze: true, dark: true, prison: true, floor: 2, wall: 4, up: 26, hills: [], portals: [], tone: null,
          hello: '감옥의 가장 깊은 곳입니다. 산적 떼의 우두머리 두목 클라인이 이 층 어딘가의 넓은 방에 있어요 — 궁지에 몰리면 파우스트로 변신한다고 합니다! 올라가는 계단은 바로 옆에 있어요.',
          mobs: GIRAN.MOBS2, groups: [] },
   };
@@ -4559,7 +4563,7 @@ const ISLAND = (() => {
     ifrit23: { zone: 23, kind: 'fn_ifrit', quiet: true, ent: null, P: DEMO ? 180 : 5400, R: DEMO ? 60 : 1800, RP: DEMO ? 120 : 3600, RR: DEMO ? 60 : 1800, title: '이프리트', where: '화룡의 둥지 2구역', againTxt: DEMO ? '데모: 2~3분 뒤' : '1시간~1시간 30분 뒤' },
     unicorn: { zone: DREAM.ZID, ent: null, P: DEMO ? 180 : DREAM.BOSS_P, R: DEMO ? 60 : DREAM.BOSS_R, RP: DEMO ? 180 : DREAM.BOSS_P, RR: DEMO ? 60 : DREAM.BOSS_R, title: '유니콘', where: '몽환의 섬', againTxt: DEMO ? '데모: 3~4분 뒤' : '2시간~2시간 5분 뒤' },   // 11/1 몽환의 섬: 2시간마다 가운데 제단 (잡힌 뒤에도 2시간~2시간 5분)
     fg_giant: { zone: FGI.ZID, ent: null, P: DEMO ? 180 : FGI.BOSS_P, R: DEMO ? 60 : FGI.BOSS_R, RP: DEMO ? 180 : FGI.BOSS_RP, RR: DEMO ? 60 : FGI.BOSS_RR, title: '에이션트 자이언트', where: '잊혀진 섬', againTxt: DEMO ? '데모: 3~4분 뒤' : '5시간~6시간 뒤' },   // 11/3 잊혀진 섬: 피닉스와 같은 시간표 · 광장 근처에는 안 나옴
-    gp_klein: { zone: 27, ent: null, P: DEMO ? 180 : 7200, R: DEMO ? 60 : 900, RP: DEMO ? 180 : 7200, RR: DEMO ? 60 : 900, title: '두목 클라인', where: '기란감옥 2층', againTxt: DEMO ? '데모: 3~4분 뒤' : '2시간~2시간 15분 뒤' },   // 11/6 기란감옥 (광폭화하면 파우스트로 변신 · 쓰러진 모습이 파우스트여도 이 칸으로 기록)
+    gp_klein: { zone: 27, ent: null, P: DEMO ? 180 : 7200, R: DEMO ? 60 : 900, RP: DEMO ? 180 : 7200, RR: DEMO ? 60 : 900, title: '두목 클라인', where: '아덴감옥 2층', againTxt: DEMO ? '데모: 3~4분 뒤' : '2시간~2시간 15분 뒤' },   // 11/6 아덴감옥 (광폭화하면 파우스트로 변신 · 쓰러진 모습이 파우스트여도 이 칸으로 기록)
   };
   const KILL = (() => { try { return JSON.parse(localStorage.getItem('aden_bk') || '{}') || {}; } catch (e) { return {}; } })(), keepK = () => { try { localStorage.setItem('aden_bk', JSON.stringify(KILL)); } catch (e) {} };
   const hsh = str => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
@@ -4573,7 +4577,7 @@ const ISLAND = (() => {
   const BUID = k => 90000 + Object.keys(BOSS).indexOf(k);
   function removeBoss(k) { const B = BOSS[k], z = get(B.zone), e = B.ent; if (B.fam) for (const m of z.mobs.filter(m_ => B.fam.includes(m_.kind) && m_ !== e)) { m.dead = true; m.gone = true; z.mobs.splice(z.mobs.indexOf(m), 1); if (hero.target === m) hero.target = null; } if (e) { e.dead = true; e.gone = true; const i = z.mobs.indexOf(e); if (i >= 0) z.mobs.splice(i, 1); if (hero.target === e) hero.target = null; } B.ent = null; }
   const get = id => Z[id] || (Z[id] = build(id)); let lastIsle = null;
-  function enter(id, from) { if (id === DREAM.ZID && !DRM.canEnter()) return; if (GIRAN.ZS.includes(id) && !(ISLE && GIRAN.ZS.includes(ISLE.id)) && !GPR.canEnter()) return;   /* 11/6 기란감옥 하루 4시간 (층 사이 계단은 막지 않음 — 시간이 다 되면 GPR.tick이 마을로) */ const z = get(id); try { GIA.sync(id); } catch (e) {} for (const f of z.mobs) if (MSHEET[f.kind] && !(f.kind === 'fg_giant' && GIA.st && GIA.st !== 3)) MIMG[f.kind];   /* 11/2 메모리: 이 지역 몬스터 그림만 받기 시작 · 11/5 에이션트 자이언트 렌더 그림은 잊혀진 섬에서만 (나가면 놓음) */
+  function enter(id, from) { if (id === DREAM.ZID && !DRM.canEnter()) return; if (GIRAN.ZS.includes(id) && !(ISLE && GIRAN.ZS.includes(ISLE.id)) && !GPR.canEnter()) return;   /* 11/6 아덴감옥 하루 4시간 (층 사이 계단은 막지 않음 — 시간이 다 되면 GPR.tick이 마을로) */ const z = get(id); try { GIA.sync(id); } catch (e) {} for (const f of z.mobs) if (MSHEET[f.kind] && !(f.kind === 'fg_giant' && GIA.st && GIA.st !== 3)) MIMG[f.kind];   /* 11/2 메모리: 이 지역 몬스터 그림만 받기 시작 · 11/5 에이션트 자이언트 렌더 그림은 잊혀진 섬에서만 (나가면 놓음) */
     if (ISLE && ISLE !== z) lastIsle = ISLE.id; for (const k in Z) { const q = Z[k]; if (q !== z && q.ground && +k !== lastIsle) q.ground = null; }
     MIMG_TRIM(new Set(z.mobs.map(f => f.kind))); if (z.def.dream) DRA.load();   /* 11/2 메모리: 이 지역에 없고 20초 넘게 안 그린 몬스터 그림은 놓음 (다시 나오면 다시 받음) */   /* 11/2 메모리: 바닥 그림(30~60MB씩)은 지금 지역과 바로 전 지역만 남김 · 다시 오면 다시 만듦 */
     if (!z.ground && im.ground.complete) z.ground = buildGround(z.def, z.hmap);   /* 11/1: 몽환의 섬 하루 4시간 */
@@ -4678,7 +4682,7 @@ const MOB_DROPS = { // 버그베어·킹 버그베어: 갑옷·무기 마법 주
 };
 // 일반 몬스터: 그 지역 보스 드랍표 중 일반·고급 등급만 · 몬스터 레벨이 높을수록 잘 떨어짐 (한 마리당 최대 1개, 수량 1)
 const REGION_BOSS = { fox: 'shelob', goblin: 'shelob', orc: 'shelob', orc_archer: 'shelob', dwarf: 'shelob', hobgoblin: 'shelob', orc_warrior: 'shelob', werewolf: 'shelob', lizardman: 'queen_ant', giant_ant: 'queen_ant', scorpion: 'queen_ant', basilisk: 'queen_ant', fire_ant: 'queen_ant', roba_orc: 'ogre', dudamara_orc: 'ogre', orc_wizard: 'ogre', dark_elf: 'ogre', atuba_orc: 'ogre', gast: 'ogre', skeleton_archer: 'baphomet', zombie: 'baphomet', bugbear: 'baphomet', cerberus: 'baphomet', king_bugbear: 'baphomet', dg_kbugbear: 'kaspar', ungoliant: 'kaspar', ghoul: 'kaspar', dg_cerberus: 'deathknight', necromancer: 'deathknight', elmore_soldier: 'ice_queen', elmore_warrior: 'ice_queen', elmore_mage: 'ice_queen', ettin: 'ice_queen', ice_golem: 'ice_queen', sabertooth: 'ice_queen', dv_skel: 'drake_king', dv_archer: 'drake_king', dv_lizard: 'drake_king', wyvern: 'drake_king', drake: 'drake_king', lesser_dragon: 'drake_king' };
-// 11/6 기란감옥: 산적 3종의 지역 드랍은 파우스트 전리품표의 일반·고급 · 악령은 드래곤의 진주(이벤트) 1% · 보스는 클라인이든 파우스트든 같은 전리품 (변신한 파우스트로 쓰러짐)
+// 11/6 아덴감옥: 산적 3종의 지역 드랍은 파우스트 전리품표의 일반·고급 · 악령은 드래곤의 진주(이벤트) 1% · 보스는 클라인이든 파우스트든 같은 전리품 (변신한 파우스트로 쓰러짐)
 Object.assign(REGION_BOSS, { gp_bandit: 'gp_faust', gp_archer: 'gp_faust', gp_chief: 'gp_faust', gp_ghost: 'gp_faust' });
 DROP_TABLE.gp_faust = [['scroll_acc', 0.3], ['scroll_armor', 0.5], ['scroll_weapon', 0.45], ['bscroll_armor', 0.2], ['bscroll_weapon', 0.15], ['bless_scroll', 0.4, 1, 3], ['dragon_pearl', 0.6, 1, 3]]; DROP_TABLE.gp_klein = DROP_TABLE.gp_faust;
 MOB_DROPS.gp_ghost = [['dragon_pearl', GIRAN.PEARL_P]];
@@ -5881,12 +5885,12 @@ const CX_LIST = [], CX_HERO = [], CX_ZONE = { 3: [], 4: [], 5: [], 6: [], 7: [],
 const CX_P = { zone: 0.003, dwarf: 0.01, rare: 0.04, hero: 0.007 };
 const HERO_P = { drake_king: 0.12, ice_queen: 0.12, shelob: 0.02, queen_ant: 0.08, ogre: 0.08, baphomet: 0.10, kaspar: 0.03, merkyor: 0.03, balthazar: 0.03, sema: 0.03, deathknight: 0.12 };   // 영웅 장비가 나올 확률 (한 번 잡을 때) — 셸로브는 30분마다라 낮게   // 고급: 사막 몬스터 아이템마다 0.3% (한 번에 1개) · 난쟁이 1% · 희귀: 보스 4% · 영웅: 보스 아이템마다 0.7% (한 번에 1개)
 for (const k in ITEMS) { const d = ITEMS[k]; if (/주문서/.test(d.name || '') || /scroll/.test(k) || d.use === 'learn') d.w = 0; }
-// 11/6 기란감옥: 드래곤의 진주(이벤트) — 파우스트의 악령 1% · 마시면 10분 동안 '3단 가속' (공격 속도 +15% · 초록·용기 위에 더해짐) · 아이콘은 코드로 그린 오리지널 (빛나는 진주 + 소용돌이치는 용 문양)
+// 11/6 아덴감옥: 드래곤의 진주(이벤트) — 파우스트의 악령 1% · 마시면 10분 동안 '3단 가속' (공격 속도 +15% · 초록·용기 위에 더해짐) · 아이콘은 코드로 그린 오리지널 (빛나는 진주 + 소용돌이치는 용 문양)
 CXI.dragon_pearl = '<defs><radialGradient id="dpr_g" cx=".38" cy=".34" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#f4e6ff"/><stop offset=".75" stop-color="#b48ae0"/><stop offset="1" stop-color="#4a2a78"/></radialGradient><radialGradient id="dpr_h" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="rgba(255,220,140,.75)"/><stop offset="1" stop-color="rgba(255,180,80,0)"/></radialGradient></defs>'
   + '<circle cx="17" cy="17" r="16" fill="url(#dpr_h)"/><circle cx="17" cy="17.5" r="10.5" fill="url(#dpr_g)" stroke="#2a1440" stroke-width=".9"/>'
   + '<path d="M9.5 20 C11 13 17 10.5 22 13 C25 14.6 24.6 19 21 19.6 C18.4 20 17.6 17.4 19.4 16.6" fill="none" stroke="#c8962a" stroke-width="1.6" stroke-linecap="round"/><path d="M9.5 20 C11 13 17 10.5 22 13 C25 14.6 24.6 19 21 19.6 C18.4 20 17.6 17.4 19.4 16.6" fill="none" stroke="#ffe28a" stroke-width=".6" stroke-linecap="round"/>'
   + '<path d="M22 13 L24.4 10.6 L23.4 13.4 Z" fill="#ffd25a" stroke="#8a5a10" stroke-width=".4"/><circle cx="21.2" cy="14.2" r=".6" fill="#3a1408"/><ellipse cx="13.6" cy="12.6" rx="2.6" ry="1.6" fill="#fff" opacity=".85" transform="rotate(-30 13.6 12.6)"/>';
-ITEMS.dragon_pearl = { name: '드래곤의 진주(이벤트)', icon: 'dragon_pearl', use: 'pearl', buff: 'pearl', w: 0, stack: true, rar: '희귀', desc: `기란감옥 파우스트의 악령이 품고 있던 신비한 진주. 사용하면 ${GIRAN.PEARL_DUR / 60}분 동안 3단 가속 — 공격 속도 +${Math.round(GIRAN.PEARL_AS * 100)}% (초록·용기 물약과 함께 쓸 수 있어요).` };
+ITEMS.dragon_pearl = { name: '드래곤의 진주(이벤트)', icon: 'dragon_pearl', use: 'pearl', buff: 'pearl', w: 0, stack: true, rar: '희귀', desc: `아덴감옥 파우스트의 악령이 품고 있던 신비한 진주. 사용하면 ${GIRAN.PEARL_DUR / 60}분 동안 3단 가속 — 공격 속도 +${Math.round(GIRAN.PEARL_AS * 100)}% (초록·용기 물약과 함께 쓸 수 있어요).` };
 BUFF.pearl = 0; BUFF_DEF.pearl = { name: '3단 가속 (드래곤의 진주)', desc: `공격 속도 +${Math.round(GIRAN.PEARL_AS * 100)}%`, icon: 'dragon_pearl', dur: GIRAN.PEARL_DUR, c: '#e0c4ff' };
 CX_BOSS.gp_faust = []; HERO_P.gp_faust = 0.1;
 for (const b of ['shelob', 'queen_ant', 'ogre', 'baphomet', 'kaspar', 'merkyor', 'balthazar', 'sema', 'deathknight', 'ice_queen', 'drake_king']) if (MOB[b]) ITEMS['soul_' + b] = { name: '영혼석: ' + MOB[b].name, icon: 'soulstone', use: 'soul', boss: b, w: 0.2, stack: true, rar: '영웅', desc: `${MOB[b].name}의 영혼이 깃든 돌. [소환의 제단](월드맵) 가까이에서 쓰면 [영혼석: ${MOB[b].name}] 보스가 나타나요. (${MOB[b].name}와 같은 능력치·드랍) 사냥터에서 나타나는 감시자 리퍼를 쓰러뜨리면 얻어요.` };   /* v126 */   // v107: 모든 주문서·마법서·기술서·정령수정 무게 0
@@ -6479,7 +6483,7 @@ const INV = (() => {
     if (d.use === 'elixir') { const n = elixN(), MX = DREAM.ELIX_MAX; if (n >= MX) { say(`이 캐릭터는 엘릭서를 ${MX}개까지만 마실 수 있어요. (${n}/${MX})`, '#f08a7a'); return; }
       askYesNo(`${JOSA(d.name, '을', '를')} 마시겠습니까?`, `${NAMES_ST[d.st]} +1 (영구) · 이 캐릭터 엘릭서 ${n}/${MX} → ${n + 1}/${MX}`, () => { if (elixN() >= MX || !take(e.id)) return; ELIX[d.st]++; drinkFx(e.id); try { spellFx('levelup', hero); } catch (e_) {} if (AC) tone(AC.currentTime, 'triangle', 660, 1320, 0.4, 0.1); say(`${d.name}: ${NAMES_ST[d.st]}이(가) 영구히 1 올랐습니다! (${NAMES_ST[d.st]} ${STAT[d.st]} · 엘릭서 ${elixN()}/${MX})`, '#ffd86a'); TELE.ev('elixir', { st: d.st, n: elixN() }); render(); try { SAVE.now(false, true); } catch (e_) {} }); return; }   /* 11/1 몽환의 섬 */
     if (d.use === 'antidote') { if (!(BUFF.poison > 0)) { say('독에 걸려 있지 않습니다.', '#9c9682'); return; } take(e.id); cd = 0.5; drinkFx(e.id); BUFF.poison = 0; mxSelf('cure', hero); say('해독제를 마셨습니다. 독이 나았습니다.', '#9ae06a'); return; }
-    if (d.use === 'pearl') { take(e.id); cd = 0.5; BUFF.pearl = GIRAN.PEARL_DUR; spellFx('enok', hero, '#d8b8ff'); say(`드래곤의 진주를 사용했습니다. ${GIRAN.PEARL_DUR / 60}분 동안 3단 가속 — 공격 속도 +${Math.round(GIRAN.PEARL_AS * 100)}%!`, '#e0c4ff'); render(); return; }   // 11/6 기란감옥
+    if (d.use === 'pearl') { take(e.id); cd = 0.5; BUFF.pearl = GIRAN.PEARL_DUR; spellFx('enok', hero, '#d8b8ff'); say(`드래곤의 진주를 사용했습니다. ${GIRAN.PEARL_DUR / 60}분 동안 3단 가속 — 공격 속도 +${Math.round(GIRAN.PEARL_AS * 100)}%!`, '#e0c4ff'); render(); return; }   // 11/6 아덴감옥
     if (d.use === 'candle') { take(e.id); cd = 0.5; BUFF.light = d.ldur || BUFF_DEF.light.dur; spellFx('light', hero, '#fff2a0'); say(`${JOSA(d.name, '을', '를')} 켰습니다. ${Math.round((d.ldur || BUFF_DEF.light.dur) / 60)}분 동안 밤 시야가 넓어져요.`, '#fff2a0'); return; }
     if (d.use === 'counterm') { if (BUFF.counterm > 0) { say('이미 카운터 매직이 걸려 있습니다. (마법 공격을 한 번 막으면 풀려요)', '#9c9682'); return; } if (cmcd > 0) return; take(e.id); cd = 0.5; cmcd = CM_CD; BUFF.counterm = BUFF_DEF.counterm.dur; mxSelf('counterm', hero); spellSfx('counterm'); say('카운터 매직: 다음에 받는 마법 공격 1번을 막아 줍니다. (10분)', '#d8a8ff'); return; }
     if (d.use === 'mana') { take(e.id); cd = 0.5; drinkFx(e.id); BUFF.mana = BUFF_DEF.mana.dur; spellFx('enok', hero, '#8ab8ff'); if (AC) tone(AC.currentTime, 'sine', 440, 760, 0.2, 0.1); buffMsg('mana'); return; }
@@ -7298,6 +7302,7 @@ const TOWN = (() => {
   const COLO_NPC = { i: 5, j: 21 };   const TW_NPC = { i: 9, j: 23 };   // 수호탑 관리인 (콜로세움 관리인 오른쪽 풀밭)
   const DUEL_NPC = { i: 5, j: 25 };   const HW_NPC = { i: 12, j: 26 };   // 할로윈 허수아비 잭 (수호탑 관리인 아래)   // v146: 결투장 관리인 (콜로세움 관리인 아래쪽 풀밭)
   const NB_NPC = { i: 19, j: 18 };   /* 11/4 신규 지원관 세라 (처음 나타나는 자리 오른쪽 · 광장 동쪽 끝) */
+  const GP_NPC = { i: 22, j: 18 };   /* 11/6 프로듀서: 아덴감옥 간수 모르텐 (월드맵 포털 왼쪽 아래 · 제작 장인 위 풀밭 — 포털 오른쪽 아래는 큰 나무 잎에 가려서 여기로) — 아덴감옥은 월드맵이 아니라 이 NPC로만 들어감 · 감옥 입구 쇠창살 문은 바로 뒤(22, 17) */
   const CRAFT_NPC = { i: 21, j: 21 };   // v136: 제작 장인 (분수 오른쪽 아래)   // v136: 콜로세움 관리인 (잡화상점 왼쪽 공터)
 
   // ---- 막힘 지도
@@ -7309,7 +7314,7 @@ const TOWN = (() => {
   });
   const setDoor = (b, open) => { b.open = open; const [i, j] = b.dIn; TB[j][i] = open ? 0 : 1; };
   [[17, 12], [18, 12], [17, 13], [18, 13]].forEach(([i, j]) => TB[j][i] = 1);      // 창고 소품
-  TB[STORE_NPC.j][STORE_NPC.i] = 1; TB[SELL_NPC.j][SELL_NPC.i] = 1; TB[COLO_NPC.j][COLO_NPC.i] = 1; TB[COLO_NPC.j][COLO_NPC.i - 1] = 1; TB[CRAFT_NPC.j][CRAFT_NPC.i] = 1; TB[CRAFT_NPC.j][CRAFT_NPC.i + 1] = 1; TB[DUEL_NPC.j][DUEL_NPC.i] = 1; TB[DUEL_NPC.j][DUEL_NPC.i - 1] = 1; TB[TW_NPC.j][TW_NPC.i] = 1; TB[TW_NPC.j][TW_NPC.i - 1] = 1; TB[HW_NPC.j][HW_NPC.i] = 1; TB[NB_NPC.j][NB_NPC.i] = 1;
+  TB[STORE_NPC.j][STORE_NPC.i] = 1; TB[SELL_NPC.j][SELL_NPC.i] = 1; TB[COLO_NPC.j][COLO_NPC.i] = 1; TB[COLO_NPC.j][COLO_NPC.i - 1] = 1; TB[CRAFT_NPC.j][CRAFT_NPC.i] = 1; TB[CRAFT_NPC.j][CRAFT_NPC.i + 1] = 1; TB[DUEL_NPC.j][DUEL_NPC.i] = 1; TB[DUEL_NPC.j][DUEL_NPC.i - 1] = 1; TB[TW_NPC.j][TW_NPC.i] = 1; TB[TW_NPC.j][TW_NPC.i - 1] = 1; TB[HW_NPC.j][HW_NPC.i] = 1; TB[NB_NPC.j][NB_NPC.i] = 1; TB[GP_NPC.j][GP_NPC.i] = 1; TB[GP_NPC.j - 1][GP_NPC.i] = 1;
   MARKET.DEF.forEach(d => { TB[d.j][d.i] = 1; });   // 시장 상인 자리
   SHOPS.forEach(b => setDoor(b, true));   // 문 없음: 항상 열린 입구
   // v165: 마을 가운데 우물은 없앰 (길을 막아서). 자리만 비워 둠
@@ -7453,6 +7458,7 @@ const TOWN = (() => {
   const TRADER = { i: SELL_NPC.i, j: SELL_NPC.j, sheet: 'villager_m', name: '아덴상단 로이드', row: rowFor(-1, 1), sell: true };
   const CRAFTER = { i: CRAFT_NPC.i, j: CRAFT_NPC.j, sheet: 'villager_m', name: '제작 장인 브론', row: rowFor(-1, 1), craft: true };
   const NBK = { i: NB_NPC.i, j: NB_NPC.j, sheet: 'villager_f', name: '신규 지원관 세라', row: rowFor(0, 1), nbk: true };   /* 11/4 신규지원 */
+  const GPK = { i: GP_NPC.i, j: GP_NPC.j, name: '아덴감옥 간수 모르텐', row: rowFor(-1, 1), gpk: true };   /* 11/6 아덴감옥 입장 */
   const COLOK = { i: COLO_NPC.i, j: COLO_NPC.j, name: '콜로세움 관리인 로물루스', row: rowFor(1, 1), colo: true };
   const DUELK = { i: DUEL_NPC.i, j: DUEL_NPC.j, name: '결투장 관리인 카이론', row: rowFor(1, -1), duel: true };   const TWK = { i: TW_NPC.i, j: TW_NPC.j, name: '수호탑 관리인 레오닉', row: rowFor(1, 1), twk: true };   const HWK = { i: HW_NPC.i, j: HW_NPC.j, name: '할로윈 허수아비 잭', row: rowFor(1, 1), hwk: true };
   function drawHwKeeper(g, e) { const [x, y] = W2P(e.i + 0.5, e.j + 0.5); drawHwCrow(g, 'idle', Math.floor(time * 6) % 8, e.row, x, y, null, 'npc');
@@ -7468,7 +7474,7 @@ const TOWN = (() => {
   function hitShop(sx, sy) { if (heroIn()) return null; const [px, py] = worldAt(sx, sy);
     return SHOPS.find(b => { const [cx, cy] = W2P(b.i + 3, b.j + 3); return px > cx - 160 && px < cx + 160 && py > cy - 260 && py < cy + 70 && Math.abs(px - cx) / 170 + Math.abs(py - (cy - 60)) / 230 < 1; }); }
   function hitNPC(sx, sy) { const [px, py] = worldAt(sx, sy), inn = heroIn();
-    return [...SHOPKEEP.filter(n => n.b === inn), KEEPER, TRADER, ...(inn ? [] : MERCH), ...(inn ? [] : [COLOK, CRAFTER, DUELK, TWK, HWK, NBK])].find(e => { const [x, y] = W2P(e.i + 0.5, e.j + 0.5), hgt = e.market || e.colo || e.duel || e.twk || e.hwk ? 92 : 64; return px > x - 14 && px < x + 14 && py > y - hgt && py < y + 4; }); }
+    return [...SHOPKEEP.filter(n => n.b === inn), KEEPER, TRADER, ...(inn ? [] : MERCH), ...(inn ? [] : [COLOK, CRAFTER, DUELK, TWK, HWK, NBK, GPK])].find(e => { const [x, y] = W2P(e.i + 0.5, e.j + 0.5), hgt = e.market || e.colo || e.duel || e.twk || e.hwk || e.gpk ? 92 : 64; return px > x - 14 && px < x + 14 && py > y - hgt && py < y + 4; }); }
   function hitPortal(sx, sy) { const [px, py] = worldAt(sx, sy), [x, y] = W2P(PORTAL.i + 0.5, PORTAL.j + 0.5); return Math.hypot(px - x, (py - y) * 2) < 30; }
   function go(i, j, act) { hero.target = null; moveGoal = [i, j]; holding = false; pending = { i, j, act }; mark = { t: [i, j], life: 0.5 }; }
   function toggleDoor(b) { const [i, j] = b.dIn; if (b.open && hero.i === i && hero.j === j) { say('문 앞을 비켜야 닫을 수 있습니다.', '#9c9682'); return; }
@@ -7479,13 +7485,14 @@ const TOWN = (() => {
     priceOf(id) { if (!api._pm) { const M = api._pm = {}; const scan = arr => Array.isArray(arr) && arr.forEach(r => { if (!Array.isArray(r)) return; const iid = r[3] || SHOP2ITEM[r[0]]; if (iid && r[1] > 0 && !(iid in M)) M[iid] = r[1]; }); SHOPS.forEach(b => { scan(b.items); (b.tabs || []).forEach(t => scan(t[1])); }); } return api._pm[id] || 0; },
     shop(id) { const b = SHOPS.find(x => x.id === id); if (b) openShop(b); },
     openMarket(k) { const m = MERCH.find(x => x.d.k === k); if (m) openShop(m.shop); },
-    mapMarks() { return [...SHOPS.filter(b => b.npcT).map(b => ({ i: b.npcT[0], j: b.npcT[1], c: '#7fd0ff' })), ...NPCS.filter(n => n.store).map(n => ({ i: n.i, j: n.j, c: '#7fd0ff' })), { i: SELL_NPC.i, j: SELL_NPC.j, c: '#9fe0a0' }, { i: COLO_NPC.i, j: COLO_NPC.j, c: '#ff9a6a' }, { i: DUEL_NPC.i, j: DUEL_NPC.j, c: '#8ec8ff' }, { i: HW_NPC.i, j: HW_NPC.j, c: '#ffa040' }, { i: CRAFT_NPC.i, j: CRAFT_NPC.j, c: '#d0b0ff' }, { i: NB_NPC.i, j: NB_NPC.j, c: '#9fe8c0' }, ...MERCH.map(m => ({ i: m.i, j: m.j, c: '#ffd86a' })), { i: PORTAL.i, j: PORTAL.j, portal: true }]; },
+    mapMarks() { return [...SHOPS.filter(b => b.npcT).map(b => ({ i: b.npcT[0], j: b.npcT[1], c: '#7fd0ff' })), ...NPCS.filter(n => n.store).map(n => ({ i: n.i, j: n.j, c: '#7fd0ff' })), { i: SELL_NPC.i, j: SELL_NPC.j, c: '#9fe0a0' }, { i: COLO_NPC.i, j: COLO_NPC.j, c: '#ff9a6a' }, { i: DUEL_NPC.i, j: DUEL_NPC.j, c: '#8ec8ff' }, { i: HW_NPC.i, j: HW_NPC.j, c: '#ffa040' }, { i: CRAFT_NPC.i, j: CRAFT_NPC.j, c: '#d0b0ff' }, { i: NB_NPC.i, j: NB_NPC.j, c: '#9fe8c0' }, { i: GP_NPC.i, j: GP_NPC.j, c: '#e0c48a' }, ...MERCH.map(m => ({ i: m.i, j: m.j, c: '#ffd86a' })), { i: PORTAL.i, j: PORTAL.j, portal: true }]; },
     hoverAt(sx, sy) { hoverObj = hitNPC(sx, sy) || hitDoor(sx, sy) && { door: hitDoor(sx, sy) } || hitShop(sx, sy) || (hitPortal(sx, sy) ? PORTAL : null); return hoverObj; },
     click(sx, sy) {
       const n = hitNPC(sx, sy);
       if (n) { if (n.market) { const ti = n.i + n.d.f[0], tj = n.j + n.d.f[1]; if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; openShop(n.shop); } else go(ti, tj, () => openShop(n.shop)); return true; }
         if (n.craft) { if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; CRAFT.open(); } else go(n.i, n.j + 1, () => CRAFT.open()); return true; }
         if (n.nbk) { if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; NBS.open(); } else go(n.i - 1, n.j + 1, () => NBS.open()); return true; }
+        if (n.gpk) { if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; gpOpen(); } else go(n.i - 1, n.j + 1, () => gpOpen()); return true; }   // 11/6 아덴감옥 간수
         if (n.colo) { if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; COLO.open(); } else go(n.i + 1, n.j + 1, () => COLO.open()); return true; }
         if (n.duel) { if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; duelOpen(); } else go(n.i + 1, n.j - 1, () => duelOpen()); return true; }         if (n.hwk) { if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; HWM.open(); } else go(n.i + 1, n.j + 1, () => HWM.open()); return true; }
         if (n.twk) { if (cheb(hero.i, hero.j, n.i, n.j) <= 1) { pending = null; moveGoal = null; TWM.open(); } else go(n.i + 1, n.j + 1, () => TWM.open()); return true; }
@@ -7523,6 +7530,7 @@ const TOWN = (() => {
       list.push({ d: TRADER.i + TRADER.j + 1, f: () => { drawKeeper(g, TRADER); const [x, y] = W2P(TRADER.i + 0.5, TRADER.j + 0.5); if (hoverObj !== TRADER) label(g, '아덴상단', x, y - 66, '#9fe0a0'); } });
       if (!inn) { list.push({ d: CRAFT_NPC.i + CRAFT_NPC.j + 1.6, f: () => drawAnvil(g) }); list.push({ d: CRAFTER.i + CRAFTER.j + 1, f: () => { drawKeeper(g, CRAFTER); const [x, y] = W2P(CRAFTER.i + 0.5, CRAFTER.j + 0.5); if (hoverObj !== CRAFTER) label(g, '제작', x, y - 66, '#d0b0ff'); } }); }
       if (!inn) list.push({ d: NBK.i + NBK.j + 1, f: () => drawNbKeeper(g, NBK) });   /* 11/4 신규 지원관 */
+      if (!inn) { list.push({ d: GP_NPC.i + GP_NPC.j, f: () => drawGpGate(g) }); list.push({ d: GPK.i + GPK.j + 1, f: () => drawGpKeeper(g, GPK) }); }   /* 11/6 아덴감옥 간수 · 감옥 입구 */
       if (!inn) { list.push({ d: COLO_NPC.i + COLO_NPC.j, f: () => drawColoSign(g) }); list.push({ d: COLOK.i + COLOK.j + 1, f: () => drawColoKeeper(g, COLOK) }); }
       if (!inn) { list.push({ d: DUEL_NPC.i + DUEL_NPC.j, f: () => drawColoSign(g, DUEL_NPC, true) }); list.push({ d: DUELK.i + DUELK.j + 1, f: () => drawDuelKeeper(g, DUELK) }); list.push({ d: TW_NPC.i + TW_NPC.j, f: () => drawColoSign(g, TW_NPC, true) }); list.push({ d: TWK.i + TWK.j + 1, f: () => drawTwKeeper(g, TWK) }); list.push({ d: HWK.i + HWK.j + 1, f: () => drawHwKeeper(g, HWK) }); }
       // 테스트 상점은 없앰 (아이템은 갓 모드 패널의 '아이템 지급'으로)
@@ -7564,6 +7572,22 @@ const TOWN = (() => {
       g.beginPath(); g.moveTo(x, by + 2); g.quadraticCurveTo(x - 7, by - 1, x - 6.5, by - 5); g.quadraticCurveTo(x - 1.5, by - 4, x, by + 2); g.fill(); g.stroke();
       g.beginPath(); g.moveTo(x, by + 1); g.quadraticCurveTo(x + 7, by - 3, x + 6, by - 7); g.quadraticCurveTo(x + 1, by - 6, x, by + 1); g.fill(); g.stroke(); g.restore(); }
     if (hoverObj !== e) label(g, '신규 지원', x, y - 66, '#9fe8c0'); }
+  // 11/6 아덴감옥 간수 모르텐: 어두운 판금 차림의 간수 (기사 그림 + 장비) · 뒤에 횃불 달린 돌 아치 + 쇠창살 문(코드로 그린 오리지널) · 평소 이름표 '아덴감옥' · 올리면 이름
+  const GPK_EQ = { weapon: 'cx_sw2', helm: 'plate_helm', armor: 'plate_armor', gloves: 'plate_gloves', boots: 'plate_boots', cloak: 'cx_cl4' };   // 잿빛 쇠 갑옷 간수 (방패 없음 — 콜로세움 관리인과 구별)
+  function drawGpKeeper(g, e) { const [x, y] = W2P(e.i + 0.5, e.j + 0.5); g.save(); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y + 1, 15, 7, 0, 0, 7); g.fill(); g.restore();
+    drawHeroSprite(g, 'idle', Math.floor(time * 6 + e.i + 1) % 8, e.row, x, y, null, 'knight', s => (ITEMS[GPK_EQ[s]] ? GPK_EQ[s] : null), null);
+    const L = GPR.left(); label(g, hoverObj === e ? e.name : L > 0 ? '아덴감옥' : '아덴감옥 · 오늘 마감', x, y - 92, hoverObj === e ? '#ffffff' : L > 0 ? '#e0c48a' : '#b89a80'); }
+  function drawGpGate(g) { const [x, y] = W2P(GP_NPC.i + 0.5, GP_NPC.j - 0.5), fl = 0.75 + 0.25 * Math.sin(time * 9) * Math.sin(time * 5.3), W2 = 21, top = y - 58, iw = 14, it = top + 9; g.save();
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(x + 4, y + 2, 27, 9, 0, 0, 7); g.fill();
+    const arch = (w, t) => { g.beginPath(); g.moveTo(x - w, y); g.lineTo(x - w, t + w); g.arc(x, t + w, w, Math.PI, 0); g.lineTo(x + w, y); g.closePath(); };
+    { const sg = g.createLinearGradient(x - W2, 0, x + W2, 0); sg.addColorStop(0, '#4a463f'); sg.addColorStop(0.5, '#6a645a'); sg.addColorStop(1, '#3e3a34'); g.fillStyle = sg; arch(W2, top); g.fill(); g.strokeStyle = '#221e1a'; g.lineWidth = 1.5; g.stroke(); }
+    g.strokeStyle = 'rgba(28,24,20,.6)'; g.lineWidth = 1; for (const yy of [y - 12, y - 25, y - 38]) { g.beginPath(); g.moveTo(x - W2, yy); g.lineTo(x - iw, yy); g.moveTo(x + iw, yy); g.lineTo(x + W2, yy); g.stroke(); }
+    { const gr = g.createLinearGradient(0, it, 0, y); gr.addColorStop(0, '#040303'); gr.addColorStop(1, '#1c1612'); g.fillStyle = gr; arch(iw, it); g.fill(); }
+    g.strokeStyle = '#80786c'; g.lineWidth = 2; for (let k = -2; k <= 2; k++) { const bx = x + k * 5.5, by = it + iw - Math.sqrt(Math.max(0, iw * iw - (k * 5.5) ** 2)); g.beginPath(); g.moveTo(bx, by + 1); g.lineTo(bx, y); g.stroke(); }
+    g.strokeStyle = '#5a5046'; g.lineWidth = 2.4; for (const yy of [it + 17, y - 9]) { g.beginPath(); g.moveTo(x - iw, yy); g.lineTo(x + iw, yy); g.stroke(); }
+    const tx = x - W2 - 3, ty = y - 40; g.fillStyle = '#3a2a1a'; g.fillRect(tx - 1.5, ty, 3, 10); g.globalCompositeOperation = 'lighter';
+    { const fg = g.createRadialGradient(tx, ty - 3, 1, tx, ty - 3, 28 * fl); fg.addColorStop(0, `rgba(255,190,90,${(0.55 * fl).toFixed(2)})`); fg.addColorStop(1, 'rgba(255,120,30,0)'); g.fillStyle = fg; g.beginPath(); g.arc(tx, ty - 3, 28 * fl, 0, 7); g.fill(); }
+    g.fillStyle = `rgba(255,${200 + Math.round(40 * fl)},120,.95)`; g.beginPath(); g.moveTo(tx - 3, ty); g.quadraticCurveTo(tx - 3.5, ty - 6, tx, ty - 10 - 3 * fl); g.quadraticCurveTo(tx + 3.5, ty - 6, tx + 3, ty); g.closePath(); g.fill(); g.restore(); }
   function drawKeeper(g, e) { const [x, y] = W2P(e.i + 0.5, e.j + 0.5), im2 = npcImg[e.sheet + '_idle'];
     if (im2 && im2.complete && im2.naturalWidth) drawSheet(g, im2, SHEET, Math.floor(time * 6 + e.i) % 8, e.row, x, y);
     if (hoverObj === e) label(g, e.name, x, y - 66, '#f2eedf'); }
@@ -7686,7 +7710,7 @@ const TOWN = (() => {
     ['dark_knight_field', '본토던전', '상급', '30~40', 720, 330, '피와 시체가 널린 어둠의 미로. 항상 밤처럼 어둡고 모든 몬스터가 먼저 덤빕니다(같은 골목에 보일 때). 1층(Lv 30~35): 킹 버그베어·웅골리언트·독을 거는 구울, 보스 카스파 패밀리(2시간마다). 미로 끝의 계단으로 2층(Lv 35~40): 킹 버그베어·켈베로스·네크로맨서, 보스 데스나이트(3시간마다, 데스나이트 세트). 월드맵에서는 1층으로만 들어갑니다.'],
     ['dragon_valley', '용의 계곡', '상급', '47~54', 900, 300, '용족이 지배하는 검붉은 협곡 (불 속성 — 물 속성 무기·마법이 잘 듭니다). 1구역(Lv 47~50): 먼저 덤비는 빠른 해골 돌격병·해골 궁수, 3마리씩 무리 지은 트롤. 2구역(Lv 50~54, 모두 선공): 와이번(독)·불 숨결을 뿜는 드레이크·드물게 번개와 토네이도를 쓰는 흑장로, 그리고 보스 드레이크 킹(약 3시간마다, 2인 이상). 용의 비늘·드레이크의 발톱·용의 심장으로 제작 장인 브론에게서 직업 무기(드래곤 슬레이어·용의 지팡이·용의 활)를 만들 수 있어요.'],
     ['fire_dragon_nest', '화룡의 둥지', '상급', '53~60', 1070, 230, '용의 계곡 너머, 용암이 흐르는 화산 분화구 (불 속성 — 물 속성 무기·마법이 잘 듭니다 · 화염 저항이 불 피해를 줄여요). 용암 웅덩이에 들어가면 계속 불에 타고, 가끔 하늘에서 화산탄이 떨어집니다. 모든 몬스터가 먼저 덤빕니다. 1구역(Lv 53~55): 불타는 전사·불타는 궁수·단단한 라바 골렘·3마리씩 나는 드래곤 플라이·제자리에서 불씨를 쏘는 폭탄꽃. 2구역(Lv 55~57): 불 숨결의 사라만다·혼 켈베로스·드물게 화염 기둥을 부르는 아시타지오·복권 같은 파이어에그, 그리고 보스 피닉스(잡힌 뒤 5~6시간마다, 3~4명 · 한 번 되살아남). 1·2구역 어딘가에는 이따금 불의 정령 이프리트(중간 보스)가 알림 없이 나타나요 — 쓰러뜨리면 화룡 갑옷의 핵심 재료인 이프리트의 심장을 얻을 수 있어요. 화룡의 비늘·아시타지오의 재·피닉스의 깃털·이프리트의 심장으로 제작 장인 브론에게서 화룡 갑옷 3종(화룡의 갑옷·화룡의 로브·화룡의 가죽갑옷 · 영웅 · 직업 전용 · 화염 저항 +50)을 만들 수 있어요.'],
-    ['giran_prison', '기란감옥', '상급', '53~58', 880, 470, '기란 마을 아래 버려진 감옥에 산적 떼가 터를 잡았습니다. 차가운 돌벽과 쇠창살 사이 미로 던전(1층·2층 · 항상 어두움 · 모든 몬스터 선공 · 같은 골목에 보일 때). 하루 이용 시간 4시간(1·2층 합산 · 새벽 5시 초기화). 1층(Lv 53~56)·2층(Lv 55~58): 칼 산적·원거리 활 산적·도끼 산적두목 — 쓰러뜨리면 20% 확률로 그 자리에서 [파우스트의 악령](언데드 · 턴 언데드 가능 · 드래곤의 진주(이벤트) 1%)이 일어나요. 몬스터가 많고 시간당 경험치·골드가 높아요. 2층 보스 두목 클라인(약 2시간마다 · 광폭화하면 파우스트로 변신).'],
+    ['giran_prison', '아덴감옥', '상급', '53~58', 880, 470, '아덴 마을 동쪽 성벽 아래 버려진 옛 감옥에 산적 떼가 터를 잡았습니다. 월드맵으로는 갈 수 없고, 아덴 마을 월드맵 포털 옆의 [아덴감옥 간수 모르텐]에게 말을 걸어 들어가요(입장료 1,000 골드). 차가운 돌벽과 쇠창살 사이 미로 던전(1층·2층 · 항상 어두움 · 모든 몬스터 선공 · 같은 골목에 보일 때). 하루 이용 시간 4시간(1·2층 합산 · 새벽 5시 초기화). 1층(Lv 53~56)·2층(Lv 55~58): 칼 산적·원거리 활 산적·도끼 산적두목 — 쓰러뜨리면 20% 확률로 그 자리에서 [파우스트의 악령](언데드 · 턴 언데드 가능 · 드래곤의 진주(이벤트) 1%)이 일어나요. 몬스터가 많고 시간당 경험치·골드가 높아요. 2층 보스 두목 클라인(약 2시간마다 · 광폭화하면 파우스트로 변신).'],
     ['summon_altar', '소환의 제단', '상급', '30~50', 700, 560, '영혼석으로 보스를 불러내는 고대의 제단. 몬스터는 없고, 사냥터에서 감시자 리퍼를 쓰러뜨려 얻은 [영혼석]을 제단 가까이에서 쓰면 그 보스(같은 능력치·드랍)가 나타나요. 한 번에 한 마리.'],
     ['dream_island', '몽환의 섬', '상급', '58~65', 1090, 490, '화룡의 둥지 너머 꿈결 같은 안개에 싸인 큰 섬 (1·2구역 없는 단층 · 화룡의 둥지 2구역의 약 4배 넓이). 맵 한가운데 제단 둘레는 안전지대이고, 광장에서 동서남북으로 속성 색 길(빨강·파랑·잿빛·모래빛)이 두 갈래씩 뻗어 있어요. 동쪽 용암 지대·서쪽 설원과 얼음 호수·남쪽 사막·북쪽 황량한 절벽에 각 속성의 정령이 삽니다. 정령(Lv60 · 근접)은 먼저 덤비지 않지만 대정령(Lv65 · 근접 + 속성 마법 · 1.5배 크기 · 속성 오로라)은 먼저 덤벼요. 정령은 화룡의 둥지 2구역 몬스터보다 약 1.23배 강하고 경험치·골드는 약 1.17배예요. 정령은 반대 속성(불↔물 · 땅↔바람)에 약해요. (같은 속성이어도 피해가 줄지는 않아요) 정령은 축복받은 무기·갑옷 마법 주문서를 5%, 대정령은 15%에 영웅 장비 3%·퓨어엘릭서 15%를 떨어뜨려요. 퓨어엘릭서 100개는 제작 장인 브론에게서 힘·민첩·지능 엘릭서(영구 +1 · 캐릭터당 5개)로 바꿔요. 2시간마다 가운데 제단에 보스 유니콘(피닉스의 약 1.23배 · 돌진·뿔 빛기둥·치유 빛)이 나타나 축데이·축젤·퓨어엘릭서를 떨어뜨립니다. 이곳에서는 순간이동을 할 수 없고 귀환만 돼요.'],
     ['forgotten_island', '잊혀진 섬', '상급', '60~65', 118, 330, '이야기섬 너머 먼 바다에 떠 있는, 오래전 노래가 끊긴 섬 (1·2구역 없는 단층 · 몽환의 섬과 같은 넓이 · 입장료 50만 골드). 맵 한가운데 돌 광장에 도착하고, 광장을 조금만 벗어나도 먼저 덤비는 몬스터 떼가 몰려와요 — 2~4명 이상 파티 사냥 필수! 몬스터(Lv 60~64 · 무속성 · 모두 선공 · 보통보다 2배 빠름 · 화룡의 둥지 2구역보다 체력·공격 약 1.46배 · 경험치·골드 약 1.33배): 잊혀진 섬 버그베어·다크엘프·에틴·가스트·셸로브, 사이사이 중간 보스 잊혀진 섬 드레이크. 귀환·순간이동이 되지 않아(자동사냥·절전 귀환 포함) 섬을 벗어나려면 광장의 섬지기에게 말을 걸어야 해요. 광장의 떠돌이 상인이 물약을 팔아요(본토의 2배). 일반 몬스터는 희귀·영웅 아이템만, 드레이크는 [고대의 주문서]·[빛을 바랜 전설의 벨트]를 3%씩 떨어뜨려요. 주문서를 빛바랜 벨트에 쓰면 전설 [에이션트 자이언트의 반지] 3% · 영웅 벨트 27% · 희귀 벨트 70%. 보스 에이션트 자이언트(잡힌 뒤 5~6시간마다 · 3~4명 이상).'],
@@ -7760,22 +7784,37 @@ const TOWN = (() => {
   // 11/1 프로듀서: 월드맵 몽환의 섬 표시 아래·설명 칸에 오늘 남은 이용 시간 (4시간 · 새벽 5시 초기화)
   const dreamHM = s => { s = Math.max(0, Math.ceil(s / 60)); const h = Math.floor(s / 60), m = s % 60; return (h ? h + '시간 ' : '') + m + '분'; };
   const dreamLeftTxt = () => { const L = DRM.left(); return L > 0 ? `오늘 남은 시간 ${dreamHM(L)}` : '오늘 시간 다 씀 · 새벽 5시 초기화'; };
-  const gpLeftTxt = () => { const L = GPR.left(); return L > 0 ? `오늘 남은 시간 ${dreamHM(L)}` : '오늘 시간 다 씀 · 새벽 5시 초기화'; };   // 11/6 기란감옥
+  const gpLeftTxt = () => { const L = GPR.left(); return L > 0 ? `오늘 남은 시간 ${dreamHM(L)}` : '오늘 시간 다 씀 · 새벽 5시 초기화'; };   // 11/6 아덴감옥
   function dreamTimeMark() { { const m = document.querySelector('#wm-stage .mk[data-r="giran_prison"]'); if (m) { let t = m.querySelector('.wm-tl'); if (!t) { t = document.createElement('em'); t.className = 'wm-tl'; m.appendChild(t); } t.textContent = gpLeftTxt(); t.classList.toggle('out', GPR.left() <= 0); } } const m = document.querySelector('#wm-stage .mk[data-r="dream_island"]'); if (!m) return; let t = m.querySelector('.wm-tl'); if (!t) { t = document.createElement('em'); t.className = 'wm-tl'; m.appendChild(t); } t.textContent = dreamLeftTxt(); t.classList.toggle('out', DRM.left() <= 0); }
-  function pick(r, m) { sel = r; { const b = $('wm-go'), fee = feeOf(r); if (b) b.innerHTML = `사냥 시작 <small>(${fee ? fee.toLocaleString() + ' 골드' : '무료'})</small>`; } document.querySelectorAll('#wm-stage .mk').forEach(x => x.classList.toggle('on', x === m));
+  function pick(r, m) { sel = r; { const b = $('wm-go'), fee = feeOf(r); if (b) b.innerHTML = r[0] === 'giran_prison' ? '마을 간수에게 입장 <small>(아덴감옥 간수 모르텐)</small>' : `사냥 시작 <small>(${fee ? fee.toLocaleString() + ' 골드' : '무료'})</small>`; }   /* 11/6 아덴감옥은 월드맵으로 이동 안 함 */ document.querySelectorAll('#wm-stage .mk').forEach(x => x.classList.toggle('on', x === m));
     $('wm-name').textContent = r[1]; $('wm-grade').textContent = `${r[2]} 사냥터 · 권장 Lv.${r[3]}` + (r[0] === 'dream_island' ? ` · ${dreamLeftTxt()}` : r[0] === 'giran_prison' ? ` · ${gpLeftTxt()}` : ''); $('wm-grade').className = 'g' + ['초보', '중급', '상급'].indexOf(r[2]); $('wm-desc').textContent = r[6]; { const cx_ = $('wm-codex'); if (cx_) { cx_.innerHTML = codexHTML(r); drawPortraits(cx_); } }
     $('wm-warn').hidden = hero.lv >= parseInt(r[3], 10) - 3; }
   const WM_FEE = 1000, feeOf = r => r && r[1] === '이야기섬' ? 0 : r && r[0] === 'forgotten_island' ? FGI.FEE : WM_FEE, feeShort = fee => say(`이동 비용 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a');
-  $('wm-go').onclick = () => { if (!sel) return; if (fgBlock()) return; const r = sel, fee = feeOf(r); if (r[0] === 'dream_island' && !DRM.canEnter()) return; if (r[0] === 'giran_prison' && !GPR.canEnter()) return;   /* 시간을 다 썼으면 이동 비용을 내기 전에 막음 */ if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); goldTax(fee, r[0] === 'forgotten_island' ? 'entry' : 'tele'); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
+  $('wm-go').onclick = () => { if (!sel) return; if (fgBlock()) return; const r = sel, fee = feeOf(r); if (r[0] === 'giran_prison') { gpFromMap(); return; }   /* 11/6 프로듀서: 아덴감옥은 월드맵으로 못 감 — 마을 간수 NPC로만 */ if (r[0] === 'dream_island' && !DRM.canEnter()) return;   /* 시간을 다 썼으면 이동 비용을 내기 전에 막음 */ if (coins < fee) { feeShort(fee); return; } INV.askYesNo(`${JOSA(r[1], '으로', '로')} 이동하시겠습니까?`, `${r[2]} 사냥터 · 권장 Lv.${r[3]} · 이동 비용 ${fee ? fee.toLocaleString() + ' 골드' : '무료'}`, () => { if (coins < fee) { feeShort(fee); return; } if (fee) { coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); goldTax(fee, r[0] === 'forgotten_island' ? 'entry' : 'tele'); say(`이동 비용 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); } closeAll(); toField(r[1]); }); };   // 이동 전 확인
   $('wm-town').onclick = () => askTown();
+  // 11/6 프로듀서: 아덴감옥(옛 이름 기란감옥) 입장은 마을의 [아덴감옥 간수 모르텐]으로만 — 창(gpwin): 설명 · 권장 Lv · 오늘 남은 시간(GPR) · 두목 클라인 다음 출현 · [입장하기] (입장료 = 예전 월드맵 이동 비용 WM_FEE)
+  const GP_HINT = '아덴감옥은 월드맵으로 갈 수 없어요. 아덴 마을 월드맵 포털 옆 [아덴감옥 간수 모르텐]에게 말을 걸어 들어가요.';
+  let gpT = 0;
+  function gpRender() { const w = $('gpwin'); if (!w || w.hidden) return; const L = GPR.left(), fee = WM_FEE; let bt = null; try { bt = ISLAND.bossTimers().gp_klein; } catch (e) {}
+    const boss = bt === 'alive' ? '<b class="on">지금 2층에 나와 있어요</b>' : typeof bt === 'number' ? `<b>약 ${dreamHM(bt)} 뒤</b> <small>(2층 넓은 방 · 3~4명)</small>` : '-';
+    $('gp-info').innerHTML = `<div>상급 사냥터 · 권장 <b>Lv.53~58</b> <small>(1층 Lv 53~56 · 2층 Lv 55~58)</small></div><div>오늘 남은 시간: <b class="${L > 0 ? '' : 'no'}">${L > 0 ? DRM.fmt(L) : '다 씀'}</b> <small>(1·2층 합산 ${GIRAN.DAY_SEC / 3600}시간 · 새벽 5시 초기화)</small></div><div>두목 클라인: ${boss}</div><div>입장료: <b>${fee.toLocaleString()} 골드</b> <small>(가진 골드 ${coins.toLocaleString()})</small></div>`;
+    const b = $('gp-enter'); b.disabled = L <= 0; b.textContent = L > 0 ? `입장하기 (${fee.toLocaleString()} 골드)` : '오늘 시간 다 씀 · 새벽 5시 초기화'; $('gp-warn').hidden = hero.lv >= 50; }
+  function gpOpen() { if (COLO_LOCK) { COLO.lockSay(); return; } if (DEATH) { deadSay(); return; } const w = $('gpwin'); if (!w) return; w.hidden = false; gpRender(); clearInterval(gpT); gpT = setInterval(() => { if (w.hidden || SCENE !== 'town') { w.hidden = true; clearInterval(gpT); gpT = 0; return; } gpRender(); }, 1000);
+    say('아덴감옥 간수 모르텐: 마을 아래 옛 감옥에 산적 떼가 눌러앉았소. 문은 하루 네 시간만 열어 주지 — 쓰러진 산적에게서 일어나는 악령을 조심하시오.', '#e0c48a'); }
+  function gpEnter() { if (SCENE !== 'town') return; if (DEATH) { deadSay(); return; } if (COLO_LOCK) { COLO.lockSay(); return; } if (fgBlock()) return; if (!GPR.canEnter()) { gpRender(); return; }   /* 시간을 다 썼으면 입장료를 내기 전에 막음 */
+    const fee = WM_FEE; if (coins < fee) { say(`아덴감옥 입장료 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a'); return; }
+    coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); goldTax(fee, 'tele'); say(`아덴감옥 입장료 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); $('gpwin').hidden = true; toField('아덴감옥'); }
+  function gpFromMap() { if (SCENE === 'town') { closeAll(); say(GP_HINT, '#e0c48a'); if (cheb(hero.i, hero.j, GPK.i, GPK.j) <= 1) gpOpen(); else go(GPK.i - 1, GPK.j + 1, () => gpOpen()); return; } say(GP_HINT + ' (먼저 귀환 부적으로 마을로)', '#e0c48a'); }
+  { const b = $('gp-enter'); if (b) b.onclick = gpEnter; }
+  api.gpOpen = () => gpOpen(); api.gpNpc = () => ({ i: GPK.i, j: GPK.j, name: GPK.name });   // 테스트·단축용
   function askTown() { if (SCENE === 'town') { closeAll(); return; } if (fgBlock()) return; if (TW()) { say('수호탑 대전에서는 귀환 부적을 쓸 수 없어요. 나가려면 점수판 오른쪽 위 [나가기]를 누르세요.', '#f08a7a'); return; } INV.askYesNo('아덴 마을로 이동하시겠습니까?', '귀환 부적으로 바로 돌아가요. (무료)', () => { closeAll(); scrollHome(); }); }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
   // ESC: 열린 창을 마지막에 연 것부터 하나씩 닫음 → 다 닫혀 있으면 게임 메뉴
-  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'logwin', 'polywin', 'dollwin', 'clanwin', 'nbwin', 'rankwin'], popStack = [];
+  const POPS = ['shop', 'wmap', 'invwin', 'charwin', 'autowin', 'huntwin', 'petwin', 'bulkwin', 'sellwin', 'storewin', 'godpanel', 'itemwin', 'colowin', 'craftwin', 'whowin', 'logwin', 'polywin', 'dollwin', 'clanwin', 'nbwin', 'rankwin', 'gpwin'], popStack = [];
   POPS.forEach(id => { const el = $(id); if (!el) return; new MutationObserver(() => { const k = popStack.indexOf(id); if (k >= 0) popStack.splice(k, 1); if (!el.hidden) popStack.push(id); }).observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
   function closePop(id) { if (id === 'shop' || id === 'wmap') closeAll(); else if (id === 'itemwin') INV.hideDetail(); else if (id === 'bulkwin') INV.bulkClose(); else $(id).hidden = true; }
   // 다른 지역으로 가면(텔레포트·월드맵·귀환·수호탑 등) 마을 NPC 창(상점·판매·창고·제작·콜로세움)은 닫음
-  { let lastZ = null; setInterval(() => { const z = SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field:' + ZONE; if (lastZ !== null && z !== lastZ) for (const id of ['shop', 'sellwin', 'storewin', 'craftwin', 'colowin', 'bulkwin']) { const el = $(id); if (el && !el.hidden) closePop(id); } lastZ = z; }, 200); }
+  { let lastZ = null; setInterval(() => { const z = SCENE === 'town' ? 'town' : ISLE ? 'isle' + ISLE.id : 'field:' + ZONE; if (lastZ !== null && z !== lastZ) for (const id of ['shop', 'sellwin', 'storewin', 'craftwin', 'colowin', 'bulkwin', 'gpwin']) { const el = $(id); if (el && !el.hidden) closePop(id); } lastZ = z; }, 200); }
   function closeTop() { for (let k = popStack.length - 1; k >= 0; k--) { const id = popStack[k], el = $(id); if (!el || el.hidden) { popStack.splice(k, 1); continue; } closePop(id); return true; }
     const vis = POPS.find(id => $(id) && !$(id).hidden); if (vis) { closePop(vis); return true; } return false; }
   addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('askwin').hidden) return; ev.stopImmediatePropagation();
@@ -7921,7 +7960,7 @@ const TOWN = (() => {
     if (name === '용의 계곡' || name === '용의계곡') { ISLAND.enter(16, 'town'); fadeTo(0); syncButtons(); return; }   // v153
     if (name === '화룡의 둥지' || name === '화룡의둥지') { ISLAND.enter(22, 'town'); fadeTo(0); syncButtons(); return; }
     if (name === '몽환의 섬' || name === '몽환의섬') { ISLAND.enter(DREAM.ZID, 'town'); fadeTo(0); syncButtons(); return; }   // 11/1
-    if (name === '기란감옥') { ISLAND.enter(GIRAN.Z1, 'town'); fadeTo(0); syncButtons(); return; }   // 11/6
+    if (name === '아덴감옥' || name === '기란감옥') { ISLAND.enter(GIRAN.Z1, 'town'); fadeTo(0); syncButtons(); return; }   // 11/6 (옛 이름 기란감옥도 받음 · 사람은 마을 간수 NPC로만 들어감 — gpEnter)
     if (name === '잊혀진 섬' || name === '잊혀진섬') { ISLAND.enter(FGI.ZID, 'town'); fadeTo(0); syncButtons(); return; }   // 11/3
     if (name === '소환의 제단') { ISLAND.enter(13, 'town'); fadeTo(0); syncButtons(); return; } try { GIA.free(); } catch (e) {} ISLE = null; setGeom(30); arrows.length = 0; SCENE = 'field'; ZONE = name; blockedT = FIELD_BLOCKED; PROPS = META.props; foxes = FIELD_FOXES; place(...META.spawn); hero.row = 1; say(`***** ${name}에 입장했습니다 *****`, '#f2e6a8'); say('여우를 클릭하면 공격합니다. R: 마을로 귀환', '#9fd0e8'); fadeTo(0); syncButtons(); }
   function syncButtons() { $('btn-home').hidden = true; }   // 위쪽 '마을로 귀환' 버튼은 쓰지 않음 (귀환 주문서·월드맵으로)
@@ -8523,7 +8562,7 @@ const NET = (() => {
   function applyHost(o) { const list = o.pr.m; const seen = new Set(), fresh = o.pr.q != null ? o.pr.q !== hostQ : o.pr !== hostPr; if (fresh) { hostPr = o.pr; hostQ = o.pr.q; hostGap = Math.min(0.5, Math.max(0.04, time - hostAt)); hostAt = time; } { const M = new Map(Array.isArray(o.pr.bt) ? o.pr.bt : []); for (const f of foxes) if (f.uid != null && MOB[f.kind] && MOB[f.kind].boss) f.netAg = M.get(f.uid) || ''; } applyTk(o);
     for (const [uid, k, x10, z10, row, pct, fl] of list) { seen.add(uid); let f = foxes.find(q => q.uid === uid);
       if (!f) { const kind = KINDS[k]; if (!MOB[kind]) continue; f = mkMob(kind, Math.floor(x10 / 10), Math.floor(z10 / 10)); f.uid = uid; f.home = [f.i, f.j]; f.x = x10 / 10; f.z = z10 / 10; f.netNew = true; if (isRpUid(uid)) rpTag(f, REAPERS.get(uid) || null); if (kind.startsWith('tw_')) TWM.tag(f); else if (kind.startsWith('fb_')) FBOT.tag(f); foxes.push(f); }
-      { const nk = KINDS[k]; if (nk !== f.kind && MOB[nk] && (/^gp_/.test(nk) || /^gp_/.test(f.kind))) gpMorph(f, nk, !(fl & 1)); }   // 11/6 기란감옥: 호스트에서 종류가 바뀐 몹 (산적 ↔ 악령 · 클라인 → 파우스트)
+      { const nk = KINDS[k]; if (nk !== f.kind && MOB[nk] && (/^gp_/.test(nk) || /^gp_/.test(f.kind))) gpMorph(f, nk, !(fl & 1)); }   // 11/6 아덴감옥: 호스트에서 종류가 바뀐 몹 (산적 ↔ 악령 · 클라인 → 파우스트)
       { const nx = x10 / 10, nz = z10 / 10; if (fresh && f.nx != null) { const dd = Math.hypot(nx - f.nx, nz - f.nz), v = dd < 3 ? dd / hostGap : 0; f.nv = f.nv > 0 ? f.nv * 0.5 + v * 0.5 : v; } f.nx = nx; f.nz = nz; } f.row = row; f.netMove = !!(fl & 4); const dead = !!(fl & 1);
       if (dead && !f.dead) netDeath(f); else if (!dead && f.dead) { f.dead = false; f.deadT = 0; f.hp = f.max; f.flash = 0; f.x = f.nx; f.z = f.nz; f.atkT = null; }
       if (!dead) { const hh = Math.max(1, Math.round(f.max * pct / 100)); f.hp = f.predUntil > time ? Math.min(f.hp, hh) : hh; }
@@ -9187,16 +9226,16 @@ const DRM = (() => { let day = '', used = 0, last = 0, warned = 0;
   function canEnter() { if (bh() || left() > 0) return true; say(`오늘 몽환의 섬 이용 시간(${DREAM.DAY_SEC / 3600}시간)을 모두 썼어요. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#f08a7a'); return false; }
   return { tick, left, canEnter, fmt, dump: () => ({ d: day, u: Math.round(used) }), load(o) { if (o && typeof o === 'object') { day = String(o.d || ''); used = Math.max(0, +o.u || 0); } roll(); }, dbgSet(u) { roll(); used = Math.max(0, +u || 0); warned = 0; } }; })();
 
-// 11/6 기란감옥 하루 이용 시간 4시간 (1·2층 합산 · 새벽 5시 초기화 · 캐릭터마다 저장 · 몽환의 섬 DRM과 같은 방식) — 다 쓰면 마을로, 그날은 다시 못 들어감
+// 11/6 아덴감옥 하루 이용 시간 4시간 (1·2층 합산 · 새벽 5시 초기화 · 캐릭터마다 저장 · 몽환의 섬 DRM과 같은 방식) — 다 쓰면 마을로, 그날은 다시 못 들어감
 const GPR = (() => { let day = '', used = 0, last = 0, warned = 0;
   const roll = () => { const g = gameDay(); if (day !== g) { day = g; used = 0; warned = 0; } };
   const left = () => { roll(); return Math.max(0, GIRAN.DAY_SEC - used); };
   const bh = () => typeof BOTHOST !== 'undefined' && BOTHOST.on(), inIt = () => SCENE !== 'town' && !!ISLE && GIRAN.ZS.includes(ISLE.id) && !bh();   // 봇 호스트(24시간 서버)는 시간 제한 없음
   function tick(dt) { const on = inIt(), T = document.getElementById('gp-timer'); if (T) T.hidden = !on; if (!on) { last = 0; return; } const now = Date.now(); if (last) used += Math.min(2, (now - last) / 1000); last = now; const L = left();
-    if (T) { T.textContent = `기란감옥 남은 시간 ${DRM.fmt(L)}`; T.classList.toggle('low', L <= 600); }
-    if (L <= 600 && !warned) { warned = 1; say('기란감옥 남은 이용 시간이 10분입니다.', '#e0c48a'); }
-    if (L <= 0) { say(`오늘의 기란감옥 이용 시간(${GIRAN.DAY_SEC / 3600}시간)을 모두 썼습니다. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#e0c48a'); if (!DEATH) TOWN.goTown(); } }
-  function canEnter() { if (bh() || left() > 0) return true; say(`오늘 기란감옥 이용 시간(${GIRAN.DAY_SEC / 3600}시간)을 모두 썼어요. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#f08a7a'); return false; }
+    if (T) { T.textContent = `아덴감옥 남은 시간 ${DRM.fmt(L)}`; T.classList.toggle('low', L <= 600); }
+    if (L <= 600 && !warned) { warned = 1; say('아덴감옥 남은 이용 시간이 10분입니다.', '#e0c48a'); }
+    if (L <= 0) { say(`오늘의 아덴감옥 이용 시간(${GIRAN.DAY_SEC / 3600}시간)을 모두 썼습니다. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#e0c48a'); if (!DEATH) TOWN.goTown(); } }
+  function canEnter() { if (bh() || left() > 0) return true; say(`오늘 아덴감옥 이용 시간(${GIRAN.DAY_SEC / 3600}시간)을 모두 썼어요. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#f08a7a'); return false; }
   return { tick, left, canEnter, dump: () => ({ d: day, u: Math.round(used) }), load(o) { if (o && typeof o === 'object') { day = String(o.d || ''); used = Math.max(0, +o.u || 0); } else { day = ''; used = 0; } roll(); }, dbgSet(u) { roll(); used = Math.max(0, +u || 0); warned = 0; } }; })();
 
 // ===== 할로윈 이벤트 그림 (오리지널 · 캔버스로 직접 그림) =====
@@ -11534,7 +11573,7 @@ const AUTO = (() => {
       if (!bought) { bought = true; if (C.sell && (sellGo || wpc() >= C.sellPct)) autoSell(); sellGo = false; buyAll(); }
       hero.hp = Math.min(hero.max, hero.hp + hero.max * 0.05 * dt); hero.mp = Math.min(hero.maxmp, hero.mp + hero.maxmp * 0.05 * dt);
       if ((anchor ? anchor.z : homeId) === FGI.ZID) { state = 'off'; say('자동사냥: 잊혀진 섬은 월드맵에서 입장료를 내고 다시 들어가야 해요. 멈췄습니다.', '#f08a7a'); return; }   /* 11/3 */
-      if (anchor && GIRAN.ZS.includes(anchor.z) && GPR.left() <= 0) { state = 'off'; say('자동사냥: 오늘 기란감옥 이용 시간을 다 써서 멈췄습니다.', '#e0c48a'); return; }   // 11/6
+      if (anchor && GIRAN.ZS.includes(anchor.z) && GPR.left() <= 0) { state = 'off'; say('자동사냥: 오늘 아덴감옥 이용 시간을 다 써서 멈췄습니다.', '#e0c48a'); return; }   // 11/6
       if (anchor && anchor.z === DREAM.ZID && DRM.left() <= 0) { state = 'off'; say('자동사냥: 오늘 몽환의 섬 이용 시간을 다 써서 멈췄습니다.', '#c8a0ff'); return; }
       if ((anchor ? anchor.z : homeId) === HWC.ZID && (INV.hwHat() < 0 || HWM.left() <= 0)) { state = 'off'; say(INV.hwHat() < 0 ? '자동사냥: 할로윈 모자가 없어 호박밭으로 돌아가지 않아요. 멈췄습니다.' : '자동사냥: 오늘 할로윈 이용 시간을 다 써서 멈췄습니다.', '#f0a060'); return; }
       if (pct() >= C.backHp) { if (wait <= 0) { wait = 2; say(`자동사냥: 2초 뒤 ${(ISLAND.def(anchor ? anchor.z : homeId) || {}).name || home}(으)로 돌아갑니다.`, '#9fd0e8'); } else { wait -= dt; if (wait <= 0.0001) { wait = 0; state = 'hunting'; backToHunt(); } } }
@@ -13318,7 +13357,7 @@ window.SAVER = (() => {
   const hmL = s => { const t = Math.ceil(Math.max(0, s) / 60), h = Math.floor(t / 60), m = t % 60; return h ? `${h}시간${m ? ' ' + m + '분' : ''}` : `${m}분`; };
   function todoHTML() { const L = [];
     try { const n = COLO.entLeft(), mx = COLO.entMax ? COLO.entMax() : 1; L.push({ nm: '콜로세움', rw: '가호 완성품', st: n > 0 ? `${n}/${mx}` : '완료', done: n <= 0, here: COLO.inArena && COLO.inArena() }); } catch (e) {}
-    try { const s = GPR.left(); L.push({ nm: '기란감옥', rw: '드래곤의 진주·경험치', st: s > 0 ? '남은 시간 ' + hmL(s) : '완료', done: s <= 0, here: SCENE !== 'town' && !!ISLE && GIRAN.ZS.includes(ISLE.id) }); } catch (e) {}   // 11/6
+    try { const s = GPR.left(); L.push({ nm: '아덴감옥', rw: '드래곤의 진주·경험치', st: s > 0 ? '남은 시간 ' + hmL(s) : '완료', done: s <= 0, here: SCENE !== 'town' && !!ISLE && GIRAN.ZS.includes(ISLE.id) }); } catch (e) {}   // 11/6
     try { const s = DRM.left(); L.push({ nm: '몽환의 섬', rw: '엘릭서·축데이·축젤', st: s > 0 ? '남은 시간 ' + hmL(s) : '완료', done: s <= 0, here: SCENE !== 'town' && !!ISLE && ISLE.id === DREAM.ZID }); } catch (e) {}
     try { const s = HWM.left(), hat = INV.hwHat() >= 0; L.push({ nm: '할로윈 던전', rw: '호박 주머니·마법인형', st: s <= 0 ? '완료' : (hat ? '' : '모자 필요 · ') + '남은 시간 ' + hmL(s), done: s <= 0, here: HW() }); } catch (e) {}
     return `<h4>오늘 할 일</h4><ul>${L.map(x => `<li class="${x.done ? 'done' : ''}${x.here ? ' here' : ''}"><b>${x.done ? '✔ ' : ''}${esc_(x.nm)}</b><small>${esc_(x.rw)}</small><span>${esc_(x.st)}${x.here ? ' · 지금 여기' : ''}</span></li>`).join('')}</ul><p>새벽 5시에 다시 채워져요</p>`; }
@@ -13326,7 +13365,7 @@ window.SAVER = (() => {
   function svLoc() { let t = zoneTitle(); try { if (SCENE !== 'town' && ISLE && ISLE.id === DREAM.ZID) t += dreamCenter(ISLE.N, hero.i, hero.j) ? ' · 가운데 제단 광장' : ' · ' + ({ E: '동쪽 불', W: '서쪽 물', S: '남쪽 땅', N: '북쪽 바람' })[dreamQuad(ISLE.N, hero.i, hero.j)] + ' 지역'; } catch (e) {} return t; }
   function svLimit() { try { if (SCENE === 'town' || !ISLE) return null; if (HW()) { const L = HWM.left(); return { t: '할로윈 남은 시간 ' + DRM.fmt(L), low: L <= 600 }; }
       if (ISLE.id === DREAM.ZID) { const L = DRM.left(); return { t: '몽환의 섬 남은 시간 ' + DRM.fmt(L), low: L <= 600 }; }
-      if (GIRAN.ZS.includes(ISLE.id)) { const L = GPR.left(); return { t: '기란감옥 남은 시간 ' + DRM.fmt(L), low: L <= 600 }; }   // 11/6
+      if (GIRAN.ZS.includes(ISLE.id)) { const L = GPR.left(); return { t: '아덴감옥 남은 시간 ' + DRM.fmt(L), low: L <= 600 }; }   // 11/6
       const c = COLO.svInfo && COLO.svInfo(); if (c) return { t: c.txt.replace(/^⚔\s*/, ''), low: c.low }; } catch (e) {} return null; }
   function svBosses() { if (SCENE === 'town') return []; const L = []; for (const f of foxes) { if (f.dead || f.gone || f.bot || f.twr) continue; const M_ = MOB[f.kind]; if (!M_ || !(M_.boss || M_.midb) || M_.dummy) continue;
       const d = cheb(f.i, f.j, hero.i, hero.j); if (f.coloBoss || (d <= 20 && (hero.target === f || time - (f.myHitAt ?? -1e9) < 20 || (f.aggro && !f.tgt && d <= 12)))) L.push(f); }

@@ -1,17 +1,17 @@
-// 11/6 기란감옥 (지역 26·27): 입장·미로·몹 · 산적 → 악령(20%) · 턴 언데드 · 악령 → 산적으로 다시 태어남 · 드래곤의 진주 · 2층 · 클라인 광폭화 → 파우스트 · 하루 4시간
-// KT_PORT=8791 bash dev/runkt.sh dev/tests/giran.js
+// 11/6 아덴감옥(처음 이름 기란감옥 · 지역 26·27): 입장·미로·몹 · 산적 → 악령(20%) · 턴 언데드 · 악령 → 산적으로 다시 태어남 · 드래곤의 진주 · 2층 · 클라인 광폭화 → 파우스트 · 하루 4시간
+// KT_PORT=8895 bash dev/runkt.sh dev/tests/giran.js  (입장은 마을 간수 NPC로만 — 여기서는 내부 toField로 바로 · NPC 입장은 dev/tests/adenprison.js)
 const { chromium } = require('playwright'); const login = require('../tq.js');
 const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL') + ' ' + k); };
 (async () => { const b = await chromium.launch(); const errs = []; try {
   const p = await b.newPage({ viewport: { width: 1280, height: 800 } }); p.on('pageerror', e => errs.push(e.message));
   await login(p, { cls: 'wizard', name: 'gpT' });
-  await p.evaluate(() => { __T.GOD_INV = true; __T.hero.lv = 58; __T.TOWN.toField('기란감옥'); }); await p.waitForTimeout(3000);
+  await p.evaluate(() => { __T.GOD_INV = true; __T.hero.lv = 58; __T.TOWN.toField('아덴감옥'); }); await p.waitForTimeout(3000);
   const a = await p.evaluate(() => { const T = __T, z = T.ISLE, cnt = {}; for (const f of z.mobs) cnt[f.kind] = (cnt[f.kind] || 0) + 1; const t = document.getElementById('gp-timer');
     return { id: z.id, name: z.name, N: z.N, maze: !!z.def.maze, cnt, n: z.mobs.length, stairs: z.portals.map(q => q.label), timer: !t.hidden && t.textContent, left: T.GPR_.left() }; });
   console.log('enter', JSON.stringify(a));
-  ok('월드맵 이름으로 1층 입장 (미로 · 계단 · 마을 포털)', a.id === 26 && a.maze && a.stairs.some(s => /2층/.test(s)) && a.stairs.some(s => /마을/.test(s)));
+  ok('1층 입장 (미로 · 계단 · 마을 포털)', a.id === 26 && a.maze && a.stairs.some(s => /2층/.test(s)) && a.stairs.some(s => /마을/.test(s)));
   ok('몹 개체 수 (잊섬 수준 50마리 이상 · 3종)', a.n >= 50 && a.cnt.gp_bandit > 0 && a.cnt.gp_archer > 0 && a.cnt.gp_chief > 0);
-  ok('남은 시간 표시 (4시간)', /기란감옥 남은 시간 3시간 59분/.test(a.timer || '') && a.left > 4 * 3600 - 30);
+  ok('남은 시간 표시 (4시간)', /아덴감옥 남은 시간 3시간 59분/.test(a.timer || '') && a.left > 4 * 3600 - 30);
   await p.waitForTimeout(400); await p.screenshot({ path: 'dev/out/giran_1f.png' });
   // 산적 쓰러뜨리기 → 20% 확률을 강제로 → 악령
   const g = await p.evaluate(async () => { const T = __T, H = T.hero; let m = T.foxes.find(f => f.kind === 'gp_bandit' && !f.dead); const uid = m.uid; const R0 = Math.random; Math.random = () => 0.05; try { m.hp = 1; T.strike ? (H.target = m) : 0; m.hp = 0; T.killCheck(m); } finally { Math.random = R0; }
@@ -47,14 +47,14 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   await p.evaluate(() => { __T.TOWN.goTown(); }); await p.waitForTimeout(1500);
   await p.evaluate(() => { __T.setCoins(100000); document.getElementById('btn-map').click(); }); await p.waitForTimeout(600);
   const wm = await p.evaluate(() => { const m = document.querySelector('#wm-stage .mk[data-r="giran_prison"]'); if (!m) return null; m.click(); const t = m.querySelector('.wm-tl'); return { t: t && t.textContent, grade: document.getElementById('wm-grade').textContent, codex: document.getElementById('wm-codex') ? document.getElementById('wm-codex').textContent.slice(0, 300) : '' }; });
-  console.log('wm', JSON.stringify(wm)); ok('월드맵에 기란감옥 · 남은 시간 · 도감', wm && /오늘 남은 시간/.test(wm.t || '') && /칼 산적/.test(wm.codex) && /두목 클라인/.test(wm.codex));
+  console.log('wm', JSON.stringify(wm)); ok('월드맵에 아덴감옥(정보) · 남은 시간 · 도감', wm && /오늘 남은 시간/.test(wm.t || '') && /칼 산적/.test(wm.codex) && /두목 클라인/.test(wm.codex));
   await p.screenshot({ path: 'dev/out/giran_map.png' }); await p.evaluate(() => { document.getElementById('wmap').hidden = true; });
   // 하루 4시간
   await p.evaluate(() => __T.TOWN.toZone(26)); await p.waitForTimeout(2000);
   await p.evaluate(() => __T.GPR_.dbgSet(4 * 3600 - 2)); await p.waitForTimeout(4000);
   const k = await p.evaluate(() => ({ scene: __T.SCENE, msg: __T.log.slice(-8).map(x => x.t).join(' | ') })); console.log('kick', JSON.stringify(k));
-  ok('다 쓰면 마을로', k.scene === 'town' && /기란감옥 이용 시간\(4시간\)을 모두 썼습니다/.test(k.msg));
-  await p.evaluate(() => __T.TOWN.toField('기란감옥')); await p.waitForTimeout(1500);
+  ok('다 쓰면 마을로', k.scene === 'town' && /아덴감옥 이용 시간\(4시간\)을 모두 썼습니다/.test(k.msg));
+  await p.evaluate(() => __T.TOWN.toField('아덴감옥')); await p.waitForTimeout(1500);
   ok('그날은 다시 못 들어감', await p.evaluate(() => __T.SCENE === 'town'));
   const sv = await p.evaluate(() => __T.GPR_.dump()); ok('저장 값', !!sv.d && sv.u >= 4 * 3600);
   await p.evaluate(() => { __T.GPR_.load({ d: '19990101', u: 99999 }); }); ok('다음 날 초기화', await p.evaluate(() => __T.GPR_.left() === 4 * 3600));

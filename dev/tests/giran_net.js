@@ -1,4 +1,4 @@
-// 11/6 기란감옥 — 두 사람(같은 지역): 호스트에서 산적 → 악령 · 클라인 → 파우스트로 바뀌면 게스트 화면도 같은 종류로 (KT_PORT=8791 bash dev/runkt.sh dev/tests/giran_net.js)
+// 11/6 아덴감옥(처음 이름 기란감옥) — 두 사람(같은 지역): 호스트에서 산적 → 악령 · 클라인 → 파우스트로 바뀌면 게스트 화면도 같은 종류로 (KT_PORT=8895 bash dev/runkt.sh dev/tests/giran_net.js)
 const { chromium } = require('playwright'); const login = require('../tq.js');
 const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL') + ' ' + k); };
 (async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1000, height: 700 } }); const errs = []; try {
