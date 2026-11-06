@@ -10,9 +10,9 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   ok('한쪽이 지역 호스트', !!ra.host !== !!rb.host);
   // 호스트 쪽 산적 하나를 게스트 옆으로 · 악령으로
   const gpos = await G.evaluate(() => [__T.hero.i, __T.hero.j]);
-  const uid = await H.evaluate(async gp => { const T = __T; const m = T.foxes.find(f => f.kind === 'gp_bandit' && !f.dead); m.i = m.fi = gp[0] + 2; m.j = m.fj = gp[1]; m.x = m.i + 0.5; m.z = m.j + 0.5; m.aggro = false; const R0 = Math.random; Math.random = () => 0.05; try { m.hp = 0; T.killCheck(m); } finally { Math.random = R0; } await new Promise(r => setTimeout(r, 2500)); return { uid: m.uid, kind: m.kind }; }, gpos);
+  const uid = await H.evaluate(async gp => { const T = __T; const m = T.foxes.find(f => f.kind === 'gp_bandit2' && !f.dead); m.i = m.fi = gp[0] + 2; m.j = m.fj = gp[1]; m.x = m.i + 0.5; m.z = m.j + 0.5; m.aggro = false; const R0 = Math.random; Math.random = () => 0.05; try { m.hp = 0; T.killCheck(m); } finally { Math.random = R0; } await new Promise(r => setTimeout(r, 2500)); return { uid: m.uid, kind: m.kind }; }, gpos);
   await G.waitForTimeout(2500); const gk = await G.evaluate(u => { const f = __T.foxes.find(q => q.uid === u); return f ? { kind: f.kind, dead: f.dead, max: f.max } : null; }, uid.uid);
-  console.log('ghost', JSON.stringify([uid, gk])); ok('게스트 화면도 산적 → 악령', uid.kind === 'gp_ghost' && gk && gk.kind === 'gp_ghost' && !gk.dead && gk.max === 1050);
+  console.log('ghost', JSON.stringify([uid, gk])); ok('게스트 화면도 산적 → 악령', uid.kind === 'gp_ghost2' && gk && gk.kind === 'gp_ghost2' && !gk.dead && gk.max === 1365);
   // 클라인
   const ku = await H.evaluate(async gp => { const T = __T; let m = T.foxes.find(f => f.kind === 'gp_klein'); if (!m) return null; m.i = m.fi = gp[0] + 3; m.j = m.fj = gp[1] + 1; m.x = m.i + 0.5; m.z = m.j + 0.5; m.enrAt = 0.4; m.hp = Math.round(m.max * 0.35); await new Promise(r => setTimeout(r, 800)); return { uid: m.uid, kind: m.kind }; }, gpos);
   await G.waitForTimeout(2500); const gkl = ku && await G.evaluate(u => { const f = __T.foxes.find(q => q.uid === u); return f ? { kind: f.kind, en: !!f.enraged, log: __T.log.slice(-10).map(x => x.t).join(' | ') } : null; }, ku.uid);

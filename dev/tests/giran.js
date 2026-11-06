@@ -16,7 +16,7 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   // 산적 쓰러뜨리기 → 20% 확률을 강제로 → 악령
   const g = await p.evaluate(async () => { const T = __T, H = T.hero; let m = T.foxes.find(f => f.kind === 'gp_bandit' && !f.dead); const uid = m.uid; const R0 = Math.random; Math.random = () => 0.05; try { m.hp = 1; T.strike ? (H.target = m) : 0; m.hp = 0; T.killCheck(m); } finally { Math.random = R0; }
     const was = { dead: m.dead, rise: !!m.gpRise }; await new Promise(r => setTimeout(r, 2600)); return { was, kind: m.kind, dead: m.dead, uid: m.uid === uid, base: m.gpBase, undead: !!T.MOB[m.kind].undead, hp: m.hp, max: m.max }; });
-  console.log('ghost', JSON.stringify(g)); ok('산적 → 그 자리에서 파우스트의 악령 (같은 칸 · 언데드 · HP 절반 수준)', g.was.dead && g.was.rise && g.kind === 'gp_ghost' && !g.dead && g.uid && g.base === 'gp_bandit' && g.undead && g.max < 1200);
+  console.log('ghost', JSON.stringify(g)); ok('산적 → 그 자리에서 파우스트의 악령 (같은 칸 · 언데드 · HP 절반 수준)', g.was.dead && g.was.rise && g.kind === 'gp_ghost' && !g.dead && g.uid && g.base === 'gp_bandit' && g.undead && g.max < 1400);
   // 확률이 안 걸리면 그냥 산적으로 다시 태어남
   const g2 = await p.evaluate(() => { const T = __T, m = T.foxes.find(f => f.kind === 'gp_archer' && !f.dead); const R0 = Math.random; Math.random = () => 0.9; try { m.hp = 0; T.killCheck(m); } finally { Math.random = R0; } return { rise: !!m.gpRise }; });
   ok('확률이 안 걸리면 악령 없음', !g2.rise);
@@ -38,6 +38,13 @@ const R = {}; const ok = (k, v) => { R[k] = v; console.log((v ? 'OK  ' : 'FAIL')
   await p.evaluate(() => __T.TOWN.toZone(27)); await p.waitForTimeout(2500);
   const f2 = await p.evaluate(() => ({ id: __T.ISLE.id, n: __T.ISLE.mobs.length, hall: __T.ISLE.hall, up: __T.ISLE.portals.some(q => /1층/.test(q.label)) }));
   console.log('2f', JSON.stringify(f2)); ok('2층 (보스 방 · 올라가는 계단)', f2.id === 27 && !!f2.hall && f2.up && f2.n >= 55);
+  // 11/6 프로듀서: 레벨 올림 — 1층 58~61 · 2층 61~64 (2층은 *2 종류 · 체력·공격·경험치·골드 ×1.3 · 1층 ×1.15)
+  const lv = await p.evaluate(() => { const T = __T, M = T.MOB, ks = ['gp_bandit', 'gp_archer', 'gp_chief', 'gp_ghost']; const kinds2 = [...new Set(T.foxes.filter(f => !f.dead && /^gp_/.test(f.kind) && !T.MOB[f.kind].boss).map(f => f.kind))];
+    return { l1: ks.map(k => M[k].lv), l2: ks.map(k => M[k + '2'].lv), hp1: M.gp_bandit.hp, hp2: M.gp_bandit2.hp, ex2: M.gp_bandit2.exp, boss: [M.gp_klein.lv, M.gp_faust.lv, M.gp_klein.hp], kinds2 }; });
+  console.log('lv', JSON.stringify(lv));
+  ok(`레벨: 1층 ${lv.l1} · 2층 ${lv.l2} · 칼 산적 HP ${lv.hp1}/${lv.hp2}`, JSON.stringify(lv.l1) === '[58,58,60,55]' && JSON.stringify(lv.l2) === '[61,61,63,58]' && lv.hp1 === 2415 && lv.hp2 === 2730 && lv.ex2 === 23400);
+  ok(`보스: 클라인 Lv${lv.boss[0]} → 파우스트 Lv${lv.boss[1]} · HP ${lv.boss[2]}`, lv.boss[0] === 64 && lv.boss[1] === 66 && lv.boss[2] === 143000);
+  ok(`2층에는 2층 종류만 (${lv.kinds2})`, lv.kinds2.length >= 3 && lv.kinds2.every(k => /2$/.test(k)));
   // 클라인 → 광폭화 → 파우스트
   const kl = await p.evaluate(async () => { const T = __T, H = T.hero, z = T.ISLE; let m = T.foxes.find(f => f.kind === 'gp_klein' && !f.dead); if (!m) { m = T.mkMob('gp_klein', z.hall[0], z.hall[1]); m.home = [z.hall[0], z.hall[1]]; T.foxes.push(m); }
     H.i = m.i + 2; H.j = m.j; H.x = H.i + 0.5; H.z = H.j + 0.5; m.aggro = true; m.enrAt = 0.4; m.hp = Math.round(m.max * 0.35); await new Promise(r => setTimeout(r, 600));

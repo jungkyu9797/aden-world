@@ -2991,15 +2991,23 @@ Object.assign(MOB, {
 //   경험치·골드: 마리당 화둥 2구역 일반몹의 약 1.3배 (11/6 시뮬: 기준 캐릭터 처치 속도는 화둥 2구역과 비슷 → 시간당 약 1.3배 · 시간 제한 던전이라 효율 높게)
 //   2층 보스 두목 클라인: 광폭화(HP 30~50%)하면 그 자리에서 파우스트로 변신(HP 비율 그대로 · 광폭화 유지 · 저주 마법·악령 부르기)
 const GIRAN = { Z1: 26, Z2: 27, ZS: [26, 27], N: 69, DAY_SEC: 4 * 3600, GHOST_P: 0.4, PEARL_P: 0.1,   /* 11/6 프로듀서: 악령 변신 20% → 40% · 악령의 드래곤의 진주 1% → 10% */ PEARL_DUR: 600, PEARL_AS: 0.15,
-  MOBS1: [['gp_bandit', 26], ['gp_archer', 20], ['gp_chief', 14]], MOBS2: [['gp_bandit', 26], ['gp_archer', 22], ['gp_chief', 18]] };
-Object.assign(MOB, {
+  MOBS1: [['gp_bandit', 26], ['gp_archer', 20], ['gp_chief', 14]], MOBS2: [['gp_bandit2', 26], ['gp_archer2', 22], ['gp_chief2', 18]] };
+const GP_BASE = {   // 11/6 처음 수치(화둥 2구역 급 · Lv52~57) — 아래 GP_FLOOR 배율로 1층·2층 몹을 만듦
   gp_bandit:  { name: '칼 산적', lv: 55, hp: 2100, dmg: [85, 135], mac: 2, hit: 0.94, mr: 25, exp: 18000, coin: [4100, 6600], walk: 1.2, run: 3.2, cd: 1.3, aggr: 6, gpb: true, art: 'vil', sc: 1.0, atkTxt: '굽은 칼' },
   gp_archer:  { name: '활 산적', lv: 55, hp: 1700, dmg: [70, 115], mac: 3, hit: 0.94, mr: 20, exp: 16000, coin: [3700, 6100], walk: 1.1, run: 3.0, cd: 1.55, range: 6, aggr: 6, gpb: true, art: 'vil', sc: 1.0, atkTxt: '화살' },
   gp_chief:   { name: '산적두목', lv: 57, hp: 2700, dmg: [95, 150], mac: 1, hit: 0.95, mr: 30, exp: 22500, coin: [5200, 8400], walk: 1.1, run: 3.0, cd: 1.5, aggr: 7, gpb: true, art: 'vil', sc: 1.1, atkTxt: '도끼' },
   gp_ghost:   { name: '파우스트의 악령', lv: 52, hp: 1050, dmg: [42, 68], mac: 4, hit: 0.92, mr: 30, exp: 10800, coin: [2500, 4000], walk: 1.3, run: 3.4, cd: 1.4, aggr: 7, undead: true, gpGhost: true, art: 'vil', sc: 1.0, atkTxt: '원혼의 손길' },
   gp_klein:   { name: '두목 클라인', lv: 60, hp: 110000, dmg: [36, 60], mac: -2, hit: 0.96, mr: 50, exp: 135000, coin: [210000, 350000], walk: 1.1, run: 3.0, cd: 1.6, boss: true, solo: true, duo: true, atkMul: 1.6, aggr: 7, morphTo: 'gp_faust', art: 'vil', sc: 1.3, atkTxt: '큰 칼' },
   gp_faust:   { name: '파우스트', lv: 62, hp: 110000, dmg: [40, 66], mac: -3, hit: 0.96, mr: 60, exp: 135000, coin: [210000, 350000], walk: 1.2, run: 3.2, cd: 1.5, boss: true, solo: true, duo: true, atkMul: 1.8, aggr: 7, bossKey: 'gp_klein', art: 'vil', sc: 1.4, atkTxt: '저주의 손길' },
-});
+};
+// 11/6 프로듀서: 레벨을 올림 — 1층 58~61 · 2층 61~64 (상위 유저 Lv62~63용) · [레벨 +, 체력·공격 ×, 경험치·골드 ×] · 2층 몹은 같은 이름의 *2 종류(그림은 1층 것 그대로)
+//   보스: 두목 클라인 Lv64 → 파우스트 Lv66 · 체력 ×1.3 · 공격 ×1.15 · 경험치·골드 ×1.3
+const GP_FLOOR = { 1: [3, 1.15, 1.15], 2: [6, 1.3, 1.3] }, GP_BOSS = [4, 1.3, 1.15, 1.3];
+{ const sc = (B, lv, k, kd, kr) => Object.assign({}, B, { lv: B.lv + lv, hp: Math.round(B.hp * k), dmg: B.dmg.map(v => Math.round(v * kd)), exp: Math.round(B.exp * kr), coin: B.coin.map(v => Math.round(v * kr)) });
+  for (const k of ['gp_bandit', 'gp_archer', 'gp_chief', 'gp_ghost']) { const [l1, h1, r1] = GP_FLOOR[1]; MOB[k] = sc(GP_BASE[k], l1, h1, h1, r1); }
+  for (const k of ['gp_klein', 'gp_faust']) { const [l, h, d, r] = GP_BOSS; MOB[k] = sc(GP_BASE[k], l, h, d, r); }
+  for (const k of ['gp_bandit', 'gp_archer', 'gp_chief', 'gp_ghost']) { const [l2, h2, r2] = GP_FLOOR[2]; MOB[k + '2'] = Object.assign(sc(GP_BASE[k], l2, h2, h2, r2), { gpF2: true }); } }
+const gpK2 = (k, z) => (z === GIRAN.Z2 || (z == null && ISLE && ISLE.id === GIRAN.Z2)) && MOB[k + '2'] ? k + '2' : k;   // 2층이면 *2 종류
 Object.assign(BOSS_SKILL, {
   // 두목 클라인: ① 큰 칼 휘두르기(주변 붉은 원) ② 부하 부르기(산적 2~3) ③ 돌진 베기(대상 발밑)
   gp_klein: [
@@ -3007,7 +3015,7 @@ Object.assign(BOSS_SKILL, {
     { id: 'cleave', cd: [7, 10], range: 6, cast: 0.8, use(f){ say('두목 클라인이 내려찍기를 노립니다!', '#ffa07a'); const T = BT || hero; AOES.push({ kind: 'slam', x: T.x, z: T.z, r: 1.5, warn: 0.85, t: 0, life: 1.2, landed: false, dmg: [26, 38], onLand: DG_LAND.quake, msg: ['내려찍기에 맞았습니다!', '내려찍기를 피했습니다.'] }); } },
     { id: 'gang', cd: [20, 26], range: 10, cast: 1.0, use(f){ const alive = foxes.filter(m => m.sumBy === f && !m.dead && !m.gone).length; if (alive >= 4) return; say('두목 클라인이 휘파람을 붑니다! 산적들이 몰려옵니다!', '#ffb07a'); shake = Math.max(shake, 0.25); let n = 0;
         for (let t = 0; t < 40 && n < Math.min(3, 4 - alive, sumLeft(f)); t++) { const i = f.i + Math.round((Math.random() * 2 - 1) * 3), j = f.j + Math.round((Math.random() * 2 - 1) * 3); if (!walkable(i, j) || occ(i, j)) continue;
-          const m = mkMob(Math.random() < 0.6 ? 'gp_bandit' : 'gp_archer', i, j); m.aggro = true; m.summoned = true; m.sumBy = f; m.home = [i, j]; foxes.push(m); n++; const [mx, my] = W2P(i + 0.5, j + 0.5); impact(mx, my, 'quake', '#4a3a2a'); } } },
+          const m = mkMob(gpK2(Math.random() < 0.6 ? 'gp_bandit' : 'gp_archer'), i, j); m.aggro = true; m.summoned = true; m.sumBy = f; m.home = [i, j]; foxes.push(m); n++; const [mx, my] = W2P(i + 0.5, j + 0.5); impact(mx, my, 'quake', '#4a3a2a'); } } },
   ],
   // 파우스트(클라인 변신): ① 저주 폭발(대상 둘레 보라 원 셋) ② 영혼 흡수(주변 큰 보라 원) ③ 악령 부르기(파우스트의 악령 2)
   gp_faust: [
@@ -3016,7 +3024,7 @@ Object.assign(BOSS_SKILL, {
     { id: 'drain', cd: [12, 16], range: 3, cast: 1.1, use(f){ say('파우스트가 영혼을 빨아들입니다! 큰 보라색 원 밖으로 피하세요!', '#b98aff'); AOES.push({ kind: 'mag', c: '140,60,220', x: f.x, z: f.z, r: 3.2, warn: 1.1, t: 0, life: 1.5, landed: false, dmg: [30, 42], onLand: DG_LAND.dark, msg: ['영혼을 빼앗겼습니다!', '영혼 흡수를 피했습니다.'] }); } },
     { id: 'wraith', cd: [18, 24], range: 10, cast: 1.0, use(f){ const alive = foxes.filter(m => m.sumBy === f && !m.dead && !m.gone).length; if (alive >= 4) return; say('파우스트가 원혼들을 깨웁니다!', '#c9a0ff'); let n = 0;
         for (let t = 0; t < 40 && n < Math.min(2, 4 - alive, sumLeft(f)); t++) { const i = f.i + Math.round((Math.random() * 2 - 1) * 3), j = f.j + Math.round((Math.random() * 2 - 1) * 3); if (!walkable(i, j) || occ(i, j)) continue;
-          const m = mkMob('gp_ghost', i, j); m.aggro = true; m.summoned = true; m.sumBy = f; m.home = [i, j]; foxes.push(m); n++; mxAdd('pillar', m, { c: '150,70,255', l: '230,200,255', w: 22, life: 0.8 }); } } },
+          const m = mkMob(gpK2('gp_ghost'), i, j); m.aggro = true; m.summoned = true; m.sumBy = f; m.home = [i, j]; foxes.push(m); n++; mxAdd('pillar', m, { c: '150,70,255', l: '230,200,255', w: 22, life: 0.8 }); } } },
   ],
 });
 Object.assign(BOSS_TALK, {
@@ -3027,10 +3035,10 @@ Object.assign(BOSS_TALK, {
 function gpMorph(f, kind, fx) { const S = MOB[kind]; if (!S || f.kind === kind) return; const r = f.max > 0 ? Math.max(0, f.hp) / f.max : 1; f.kind = kind; f.max = S.hp; f.hp = Math.max(1, Math.round(S.hp * r)); f.mpLeft = mobMana(kind); f.casting = null; f.sk = {}; f.atkT = null; if (fx) gpFx(f, kind); }
 function gpFx(f, kind) { try { const [x, y] = W2P(f.x, f.z);
     if (kind === 'gp_faust') { floatText(x, y - headY(f) - 34, '변신!', { color: '#c9a0ff', size: 22, big: true, life: 2, rise: 36 }); say('[변신] 두목 클라인이 파우스트로 변신했습니다!', '#c9a0ff'); mxAdd('pillar', f, { c: '150,70,255', l: '230,200,255', w: 44, life: 1.2 }); mxAdd('ring', f, { gnd: 1, c: '170,90,255', r0: 10, r1: 130, w: 7, life: 1.0 }); mxFlash('140,60,220', 0.18, 0.6); shake = Math.max(shake, 0.4); }
-    else if (kind === 'gp_ghost') { floatText(x, y - headY(f) - 20, '파우스트의 악령!', { color: '#c9b0ff', size: 14, big: true, life: 1.4 }); mxAdd('pillar', f, { c: '150,70,255', l: '230,200,255', w: 22, life: 0.9 }); }
+    else if (/^gp_ghost/.test(kind)) { floatText(x, y - headY(f) - 20, '파우스트의 악령!', { color: '#c9b0ff', size: 14, big: true, life: 1.4 }); mxAdd('pillar', f, { c: '150,70,255', l: '230,200,255', w: 22, life: 0.9 }); }
   } catch (e) {} }
 // 산적이 쓰러진 자리에서 악령이 일어남 (호스트 · 혼자일 때) — 그 칸(uid·home)을 그대로 쓰고, 악령이 쓰러지면 원래 산적으로 다시 태어남(gpBase)
-function gpRise(f) { const base = f.kind, keep = { home: f.home, uid: f.uid, leader: f.leader, grp: f.grp }; Object.assign(f, mkMob('gp_ghost', f.i, f.j), keep); f.gpBase = base; f.gpRise = false; f.aggro = true; gpFx(f, 'gp_ghost'); }
+function gpRise(f) { const base = f.kind, gk = /2$/.test(base) ? 'gp_ghost2' : 'gp_ghost', keep = { home: f.home, uid: f.uid, leader: f.leader, grp: f.grp }; Object.assign(f, mkMob(gk, f.i, f.j), keep); f.gpBase = base; f.gpRise = false; f.aggro = true; gpFx(f, gk); }   // 11/6: 2층 산적(*2) → 2층 악령
 // 렌더링된 몬스터 스프라이트 (그래픽팀) — 있는 몬스터는 정식 그림, 없으면 임시 그림
 const MSHEET = {
   goblin: { W: 144, H: 137, ax: 56, ay: 112, s: 0.5, af: 8, hh: 56, hw: 18 },
@@ -3134,7 +3142,8 @@ const RING = { drake: 26, drake_king: 36, phoenix: 40, fn_salamander: 30, fn_ifr
 /* 11/6 프로듀서: 아덴감옥 산적 3종·파우스트의 악령은 유저 캐릭터(기사 Lv 맨몸 화면 키 약 72px)와 같은 키로 — 그림 파일은 그대로, 그리기 배율만 줄임 (선공 1.3배 규칙 뒤에 곱함)
    [정식 렌더(GIRAN_ART) 배율, 임시 그림(MS_ALIAS) 배율, 이름·HP바 높이] · 배율 = 목표 키 / 재 본 키 (dev/tests/adenprison.js가 다시 잼 · 렌더를 다시 하면 이 표도 다시 맞출 것) · 두목 클라인·파우스트는 그대로 */
 { const GP_SZ = { gp_bandit: [0.686, 0.758, 81], gp_archer: [0.655, 0.847, 81], gp_chief: [0.641, 0.650, 81], gp_ghost: [0.679, 0.567, 81] };
-  for (const k in GP_SZ) { const M = MSHEET[k], S = MOB[k]; if (!M || !S) continue; const [fa, fb, hh] = GP_SZ[k], f = M.src ? fb : fa; M.s *= f; M.hh = hh; M.hw = Math.max(18, Math.round((M.hw || 30) * f)); S.sc = (S.sc || 1) * f; } }
+  for (const k in GP_SZ) { const M = MSHEET[k], S = MOB[k]; if (!M || !S) continue; const [fa, fb, hh] = GP_SZ[k], f = M.src ? fb : fa; M.s *= f; M.hh = hh; M.hw = Math.max(18, Math.round((M.hw || 30) * f)); S.sc = (S.sc || 1) * f; }
+  for (const k in GP_SZ) { const M = MSHEET[k], k2 = k + '2', S2 = MOB[k2]; if (!M || !S2) continue; MSHEET[k2] = { ...M, src: M.src || k }; S2.sc = MOB[k].sc; if (MOB[k].hh) S2.hh = MOB[k].hh; if (MOB[k].hw) S2.hw = MOB[k].hw; } }   // 11/6: 2층 몹(*2)은 1층 몹 그림·크기 그대로
 { const FN_SZ = { fn_hcerberus: 0.72, fn_salamander: 0.78 }; for (const k in FN_SZ) { const M = MSHEET[k], S = MOB[k], f = FN_SZ[k]; if (!M || !S) continue; M.s *= f; M.hh = Math.max(50, Math.round(M.hh * f)); M.hw = Math.max(18, Math.round(M.hw * f)); S.sc = (S.sc || 1) * f; } }   // 화룡의 둥지: 물들인 임시 그림 크기 맞춤
 // ============================================================ 11/1 몽환의 섬 (지역 24 · dev/rooms/dream.md) — 수치는 전부 여기 DREAM 상수에서 바꿈
 //   단층 N 133 (11/1 2차: 넓이 2배 — 처음 N 94(화둥 2구역 66의 약 2배)에서 한 변 ×√2 → 화둥 2구역의 약 4배) · 가운데 안전지대(유니콘 제단 · 반지름 11 = 처음 7의 1.5배) · 동 용암 / 서 설원·얼음 / 남 사막 / 북 황량한 절벽 (사분면 경계는 대각선 기준 · 2~3칸 섞임)
@@ -4686,9 +4695,9 @@ const MOB_DROPS = { // 버그베어·킹 버그베어: 갑옷·무기 마법 주
 // 일반 몬스터: 그 지역 보스 드랍표 중 일반·고급 등급만 · 몬스터 레벨이 높을수록 잘 떨어짐 (한 마리당 최대 1개, 수량 1)
 const REGION_BOSS = { fox: 'shelob', goblin: 'shelob', orc: 'shelob', orc_archer: 'shelob', dwarf: 'shelob', hobgoblin: 'shelob', orc_warrior: 'shelob', werewolf: 'shelob', lizardman: 'queen_ant', giant_ant: 'queen_ant', scorpion: 'queen_ant', basilisk: 'queen_ant', fire_ant: 'queen_ant', roba_orc: 'ogre', dudamara_orc: 'ogre', orc_wizard: 'ogre', dark_elf: 'ogre', atuba_orc: 'ogre', gast: 'ogre', skeleton_archer: 'baphomet', zombie: 'baphomet', bugbear: 'baphomet', cerberus: 'baphomet', king_bugbear: 'baphomet', dg_kbugbear: 'kaspar', ungoliant: 'kaspar', ghoul: 'kaspar', dg_cerberus: 'deathknight', necromancer: 'deathknight', elmore_soldier: 'ice_queen', elmore_warrior: 'ice_queen', elmore_mage: 'ice_queen', ettin: 'ice_queen', ice_golem: 'ice_queen', sabertooth: 'ice_queen', dv_skel: 'drake_king', dv_archer: 'drake_king', dv_lizard: 'drake_king', wyvern: 'drake_king', drake: 'drake_king', lesser_dragon: 'drake_king' };
 // 11/6 아덴감옥: 산적 3종의 지역 드랍은 파우스트 전리품표의 일반·고급 · 악령은 드래곤의 진주(3단 가속) 10% · 보스는 클라인이든 파우스트든 같은 전리품 (변신한 파우스트로 쓰러짐)
-Object.assign(REGION_BOSS, { gp_bandit: 'gp_faust', gp_archer: 'gp_faust', gp_chief: 'gp_faust', gp_ghost: 'gp_faust' });
+Object.assign(REGION_BOSS, { gp_bandit: 'gp_faust', gp_archer: 'gp_faust', gp_chief: 'gp_faust', gp_ghost: 'gp_faust', gp_bandit2: 'gp_faust', gp_archer2: 'gp_faust', gp_chief2: 'gp_faust', gp_ghost2: 'gp_faust' });
 DROP_TABLE.gp_faust = [['scroll_acc', 0.3], ['scroll_armor', 0.5], ['scroll_weapon', 0.45], ['bscroll_armor', 0.2], ['bscroll_weapon', 0.15], ['bless_scroll', 0.4, 1, 3], ['dragon_pearl', 0.6, 1, 3]]; DROP_TABLE.gp_klein = DROP_TABLE.gp_faust;
-MOB_DROPS.gp_ghost = [['dragon_pearl', GIRAN.PEARL_P]];
+MOB_DROPS.gp_ghost = [['dragon_pearl', GIRAN.PEARL_P]]; MOB_DROPS.gp_ghost2 = MOB_DROPS.gp_ghost;
 Object.assign(REGION_BOSS, { fn_warrior: 'phoenix', fn_archer: 'phoenix', fn_golem: 'phoenix', fn_fly: 'phoenix', fn_bomb: 'phoenix', fn_salamander: 'phoenix', fn_hcerberus: 'phoenix', fn_ashtazio: 'phoenix', fn_egg: 'phoenix' });
 const regionDropP = lv => Math.min(0.12, 0.02 + 0.004 * lv);   // Lv1 2.4% · Lv8 5.2% · Lv14 7.6% · Lv17 8.8%
 let FB_QUIET = false, FB_KILLER = '';   // 11/1: 필드 봇 혼자 잡은 몹의 드랍 — '떨어졌습니다!' 알림 없음 (그 봇이 주워 감) · FB_KILLER: 유저와 봇이 함께 잡은 보스에서 봇 피해가 더 크면 토벌 기록 이름은 그 봇 (2단계 ②)
@@ -7751,7 +7760,7 @@ const TOWN = (() => {
     fire_dragon_nest: { zones: [[22, '1구역 · Lv 53~55'], [23, '2구역 · Lv 55~57']], boss: 'phoenix', bossTxt: '2구역 · 잡으면 5시간~6시간 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)',
       bosses: [['phoenix', '2구역 · 잡으면 5시간~6시간 뒤 다시 나타남 (3~4명 · 불꽃 숨결·불꽃 폭풍·날개 불바람 · 쓰러지면 잿더미에서 HP 30%로 한 번 되살아남)', ['phoenix']], ['fn_ifrit', '중간 보스 · 1구역·2구역에 1마리씩 · 알림 없이 어딘가에 나타남 · 잡으면 1시간~1시간 30분 뒤 (화염 폭발·불덩이)', ['fn_ifrit']]] },
     forgotten_island: { zones: [[FGI.ZID, '단층 · Lv 60~65']], boss: 'fg_giant', bossTxt: '섬 어딘가(광장 밖) · 잡히면 5시간~6시간 뒤 (3~4명 이상 · 발 구르기·바위 던지기·포효 · 전설 벨트 3% · 빛바랜 벨트 1~5 · 고대의 주문서 1~5 반드시)', norm: () => fgCodexIds(), normSrc: id => fgNormSrc(id) },   /* 11/3 */
-    giran_prison: { zones: [[26, '1층 · Lv 53~56'], [27, '2층 · Lv 55~58']], boss: 'gp_klein', bossTxt: '2층 넓은 방 · 잡으면 2시간~2시간 15분 뒤 (3~4명 · 광폭화하면 파우스트로 변신 · 저주 폭발·영혼 흡수·악령 부르기)' },   /* 11/6 */
+    giran_prison: { zones: [[26, '1층 · Lv 58~61'], [27, '2층 · Lv 61~64']], boss: 'gp_klein', bossTxt: '2층 넓은 방 · 잡으면 2시간~2시간 15분 뒤 (3~4명 · 광폭화하면 파우스트로 변신 · 저주 폭발·영혼 흡수·악령 부르기)' },   /* 11/6 */
     dream_island: { zones: [[24, '단층 · Lv 58~65']], boss: 'unicorn', bossTxt: '가운데 제단 · 2시간마다 (돌진 · 뿔 빛기둥 · 치유 빛 1번 · 축데이 1~2 · 축젤 1~2 · 퓨어엘릭서 1~5 반드시)' },
     dark_knight_field: { zones: [[9, '1층 · Lv 30~35'], [10, '2층 · Lv 35~40']], boss: 'deathknight', bossTxt: '', bosses: [['kaspar', '1층 보스 카스파 패밀리 · 넷 모두 쓰러지면 약 2시간 뒤', ['kaspar', 'merkyor', 'balthazar', 'sema']], ['deathknight', '2층 보스 · 약 3시간마다', ['deathknight']]] } };
   const RORD = { '전설': -1, '영웅': 0, '희귀': 1, '고급': 2, '일반': 3 };
@@ -7797,7 +7806,7 @@ const TOWN = (() => {
   let gpT = 0;
   function gpRender() { const w = $('gpwin'); if (!w || w.hidden) return; const L = GPR.left(), fee = WM_FEE; let bt = null; try { bt = ISLAND.bossTimers().gp_klein; } catch (e) {}
     const boss = bt === 'alive' ? '<b class="on">지금 2층에 나와 있어요</b>' : typeof bt === 'number' ? `<b>약 ${dreamHM(bt)} 뒤</b> <small>(2층 넓은 방 · 3~4명)</small>` : '-';
-    $('gp-info').innerHTML = `<div>상급 사냥터 · 권장 <b>Lv.53~58</b> <small>(1층 Lv 53~56 · 2층 Lv 55~58)</small></div><div>오늘 남은 시간: <b class="${L > 0 ? '' : 'no'}">${L > 0 ? DRM.fmt(L) : '다 씀'}</b> <small>(1·2층 합산 ${GIRAN.DAY_SEC / 3600}시간 · 새벽 5시 초기화)</small></div><div>두목 클라인: ${boss}</div><div>입장료: <b>${fee.toLocaleString()} 골드</b> <small>(가진 골드 ${coins.toLocaleString()})</small></div>`;
+    $('gp-info').innerHTML = `<div>상급 사냥터 · 권장 <b>Lv.58~64</b> <small>(1층 Lv 58~61 · 2층 Lv 61~64)</small></div><div>오늘 남은 시간: <b class="${L > 0 ? '' : 'no'}">${L > 0 ? DRM.fmt(L) : '다 씀'}</b> <small>(1·2층 합산 ${GIRAN.DAY_SEC / 3600}시간 · 새벽 5시 초기화)</small></div><div>두목 클라인: ${boss}</div><div>입장료: <b>${fee.toLocaleString()} 골드</b> <small>(가진 골드 ${coins.toLocaleString()})</small></div>`;
     const b = $('gp-enter'); b.disabled = L <= 0; b.textContent = L > 0 ? `입장하기 (${fee.toLocaleString()} 골드)` : '오늘 시간 다 씀 · 새벽 5시 초기화'; $('gp-warn').hidden = hero.lv >= 50; }
   function gpOpen() { if (COLO_LOCK) { COLO.lockSay(); return; } if (DEATH) { deadSay(); return; } const w = $('gpwin'); if (!w) return; w.hidden = false; gpRender(); clearInterval(gpT); gpT = setInterval(() => { if (w.hidden || SCENE !== 'town') { w.hidden = true; clearInterval(gpT); gpT = 0; return; } gpRender(); }, 1000);
     say('아덴감옥 간수 모르텐: 마을 아래 옛 감옥에 산적 떼가 눌러앉았소. 문은 하루 네 시간만 열어 주지 — 쓰러진 산적에게서 일어나는 악령을 조심하시오.', '#e0c48a'); }

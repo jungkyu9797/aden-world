@@ -48,7 +48,7 @@ async function measure(p, comp) { return p.evaluate(async ({ K, comp }) => { con
   const win = await p.evaluate(() => { const w = document.getElementById('gpwin'); return { vis: !w.hidden, t: w.innerText, btn: document.getElementById('gp-enter').textContent, dis: document.getElementById('gp-enter').disabled, log: __T.log.slice(-2).map(x => x.t).join(' | ') }; });
   console.log('win', JSON.stringify({ vis: win.vis, btn: win.btn, t: win.t.slice(0, 260) }));
   await p.screenshot({ path: 'dev/out/adenprison_win.png' });
-  ok('③ 간수를 누르면 창 (설명 · 권장 Lv 53~58 · 오늘 남은 시간 · 두목 클라인 · 입장료)', win.vis && /권장 Lv\.53~58/.test(win.t) && /오늘 남은 시간: 4시간/.test(win.t) && /두목 클라인/.test(win.t) && /1,000 골드/.test(win.btn) && !win.dis && /아덴감옥 간수 모르텐/.test(win.log) && !/기란/.test(win.t));
+  ok('③ 간수를 누르면 창 (설명 · 권장 Lv 58~64 · 오늘 남은 시간 · 두목 클라인 · 입장료)', win.vis && /권장 Lv\.58~64/.test(win.t) && /오늘 남은 시간: 4시간/.test(win.t) && /두목 클라인/.test(win.t) && /1,000 골드/.test(win.btn) && !win.dis && /아덴감옥 간수 모르텐/.test(win.log) && !/기란/.test(win.t));
   await p.click('#gp-enter'); await p.waitForTimeout(2500);
   const en = await p.evaluate(() => ({ isle: __T.ISLE && __T.ISLE.id, scene: __T.SCENE, coins: __T.coins, win: document.getElementById('gpwin').hidden, timer: (() => { const t = document.getElementById('gp-timer'); return !t.hidden && t.textContent; })() }));
   console.log('enter', JSON.stringify(en));
