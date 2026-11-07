@@ -9,7 +9,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'OK  ' : 'FAIL') + ' ' + 
     F.setRef && F.setRef({ copy: F.mine() }); const x = F.roster().A.find(q => !q.pt && !F.pb.why(q.uid)); F.pb.invite(x.uid); await w(800); F.pb.cmd('wait'); const e = F.pb.here()[0]; if (!e) return { err: 'no bot' };
     A.setCfg({ loot: false, retHp: 0, lowPot: false, sell: false, aggrFirst: true, counter: true }); if (!A.on()) A.toggle();
     const L = T.foxes.filter(f => !f.dead && !f.gone && T.MOB[f.kind] && !T.MOB[f.kind].boss && !T.MOB[f.kind].midb && !f.fb).slice(0, 3); if (L.length < 3) return { err: 'mobs' };
-    const [ma, mb, mc] = L, put = (f, i, j) => { f.i = f.fi = i; f.j = f.fj = j; f.x = i + 0.5; f.z = j + 0.5; }, clr = () => { for (const f of L) { f.aggro = false; f.tgt = null; f.hitMeT = 0; f.myDmg = 0; f.dmgBy = null; } e.hitBy = null; e.hitByT = -99; };
+    const [ma, mb, mc] = L, put = (f, i, j) => { f.i = f.fi = i; f.j = f.fj = j; f.x = i + 0.5; f.z = j + 0.5; }, clr = () => { for (const f of L) { f.aggro = false; f.tgt = null; f.hitMeT = 0; f.myDmg = 0; f.dmgBy = null; f._skipT = 0; } e.hitBy = null; e.hitByT = -99; const S_ = A.swap(); if (S_.reset) S_.reset(); };   /* 11/7: v249 '사거리 밖 대상에게 1.5초 못 다가가면 4초 빼기'(_skipT · 막힘 시간) — 이 테스트는 캐릭터가 안 걸어서(A.tick만) 장면이 이어지면 멀리 있는 대상이 '막힘'으로 빠짐(③⑤가 origin/main에서도 FAIL) → 장면마다 지움 */
     const run = s => { for (let k = 0; k < Math.round(s / 0.05); k++) { H.atk = null; A.tick(0.05); } }, nm = f => f === ma ? 'A(봇을 침)' : f === mb ? 'B(새 몹)' : f === mc ? 'C(나를 침)' : String(f && f.kind);
     const out = {}; put(e, H.i - 1, H.j); e.i = H.i - 1; e.j = H.j;
     // ① 봇을 치는 몹 A(5칸) · 새 몹 B(2칸) → A
