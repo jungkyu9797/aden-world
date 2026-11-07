@@ -48,7 +48,7 @@ async function measure(p, comp) { return p.evaluate(async ({ K, comp }) => { con
   const win = await p.evaluate(() => { const w = document.getElementById('gpwin'); return { vis: !w.hidden, t: w.innerText, btn: document.getElementById('gp-enter').textContent, dis: document.getElementById('gp-enter').disabled, log: __T.log.slice(-2).map(x => x.t).join(' | ') }; });
   console.log('win', JSON.stringify({ vis: win.vis, btn: win.btn, t: win.t.slice(0, 260) }));
   await p.screenshot({ path: 'dev/out/adenprison_win.png' });
-  ok('③ 간수를 누르면 창 (설명 · 권장 Lv 58~64 · 오늘 남은 시간 · 두목 클라인 · 입장료)', win.vis && /권장 Lv\.58~64/.test(win.t) && /오늘 남은 시간: 4시간/.test(win.t) && /두목 클라인/.test(win.t) && /1,000 골드/.test(win.btn) && !win.dis && /아덴감옥 간수 모르텐/.test(win.log) && !/기란/.test(win.t));
+  ok('③ 간수를 누르면 창 (설명 · 권장 Lv 58~64 · 오늘 남은 시간 · 두목 클라인 · 입장료)', win.vis && /권장 Lv\.58~64/.test(win.t) && /오늘 남은 시간: 6시간/.test(win.t) && /두목 클라인/.test(win.t) && /1,000 골드/.test(win.btn) && !win.dis && /아덴감옥 간수 모르텐/.test(win.log) && !/기란/.test(win.t));
   await p.click('#gp-enter'); await p.waitForTimeout(2500);
   const en = await p.evaluate(() => ({ isle: __T.ISLE && __T.ISLE.id, scene: __T.SCENE, coins: __T.coins, win: document.getElementById('gpwin').hidden, timer: (() => { const t = document.getElementById('gp-timer'); return !t.hidden && t.textContent; })() }));
   console.log('enter', JSON.stringify(en));
@@ -58,7 +58,7 @@ async function measure(p, comp) { return p.evaluate(async ({ K, comp }) => { con
   ok('자동사냥 복귀 길(마을 → 아덴감옥 1층)은 그대로', await p.evaluate(() => __T.ISLE && __T.ISLE.id === 26));
   await p.evaluate(() => __T.TOWN.goTown()); await p.waitForTimeout(1000);
   // ④ 오늘 시간을 다 쓰면 창의 [입장하기]가 막히고, 눌러도(내부 입장) 못 들어감 · 골드 그대로
-  await p.evaluate(() => { __T.GPR_.dbgSet(4 * 3600); __T.TOWN.gpOpen(); }); await p.waitForTimeout(300);
+  await p.evaluate(() => { __T.GPR_.dbgSet(6 * 3600); __T.TOWN.gpOpen(); }); await p.waitForTimeout(300);
   const c1 = await p.evaluate(() => __T.coins);
   const blk = await p.evaluate(() => ({ dis: document.getElementById('gp-enter').disabled, btn: document.getElementById('gp-enter').textContent, t: document.getElementById('gp-info').innerText }));
   await p.evaluate(() => { const b = document.getElementById('gp-enter'); b.disabled = false; b.click(); }); await p.waitForTimeout(800);
@@ -66,7 +66,7 @@ async function measure(p, comp) { return p.evaluate(async ({ K, comp }) => { con
   await p.evaluate(() => __T.TOWN.toField('아덴감옥')); await p.waitForTimeout(800);
   const blk3 = await p.evaluate(() => __T.SCENE);
   console.log('block', JSON.stringify({ blk, blk2, blk3 }));
-  ok('④ 남은 시간 0이면 막힘 (버튼 꺼짐 · 눌러도 못 들어감 · 골드 그대로)', blk.dis && /다 씀/.test(blk.btn) && blk2.scene === 'town' && blk2.coins === c1 && /아덴감옥 이용 시간\(4시간\)을 모두 썼어요/.test(blk2.log) && blk3 === 'town');
+  ok('④ 남은 시간 0이면 막힘 (버튼 꺼짐 · 눌러도 못 들어감 · 골드 그대로)', blk.dis && /다 씀/.test(blk.btn) && blk2.scene === 'town' && blk2.coins === c1 && /아덴감옥 이용 시간\(6시간\)을 모두 썼어요/.test(blk2.log) && blk3 === 'town');
   await p.evaluate(() => { __T.GPR_.dbgSet(0); document.getElementById('gpwin').hidden = true; });
   // ⑤ 몹 크기: 산적 3종·악령 키 ≈ 기사 (0.9~1.1배) · 클라인·파우스트는 그대로
   const m1 = await measure(p, true); fs.writeFileSync('dev/out/adenprison_size.png', Buffer.from(m1.url.split(',')[1], 'base64'));

@@ -2985,12 +2985,12 @@ Object.assign(MOB, {
   phoenix:      { name: '피닉스', lv: 60, hp: 150000, dmg: [39, 66], mac: -2, hit: 0.96, mr: 55, exp: 162000, coin: [260000, 432000], walk: 1.1, run: 3.0, cd: 1.8, el: 'fire', boss: true, solo: true, duo: true, atkMul: 1.7, rebirth: 0.3, flame: 3, art: 'fox', sc: 3.0, hw: 80, hh: 110, atkTxt: '불꽃 부리' },
 });
 // ============================================================ 11/6 아덴감옥 (처음 이름 기란감옥 → 11/6 프로듀서 수정 요청으로 아덴감옥 · 마을 간수 NPC로 입장) (지역 26 · 27 · dev/rooms/giran.md) — 수치는 여기 GIRAN 상수에서 바꿈
-//   미로 던전 1층·2층 (본토던전과 같은 미로 엔진 · 감옥 돌벽 · 쇠창살) · 하루 4시간(1·2층 합산 · 새벽 5시 초기화 · GPR) · 모두 선공(같은 골목에서 보여야 덤빔)
+//   미로 던전 1층·2층 (본토던전과 같은 미로 엔진 · 감옥 돌벽 · 쇠창살) · 하루 6시간(1·2층 합산 · 새벽 5시 초기화 · GPR · 11/7 전 4시간) · 모두 선공(같은 골목에서 보여야 덤빔)
 //   칼 산적·활 산적(원거리)·도끼 산적두목 = 화둥 2구역 일반몹(사라만다) 수준 — 죽을 때 GHOST_P 확률로 그 자리에서 [파우스트의 악령](언데드 · 턴 언데드 가능 · 난이도 절반)으로 일어남
 //   악령이 쓰러지면 그 자리는 원래 산적으로 다시 태어남(개체 수 그대로) · 악령은 드래곤의 진주(3단 가속)를 PEARL_P 확률로 떨어뜨림
 //   경험치·골드: 마리당 화둥 2구역 일반몹의 약 1.3배 (11/6 시뮬: 기준 캐릭터 처치 속도는 화둥 2구역과 비슷 → 시간당 약 1.3배 · 시간 제한 던전이라 효율 높게)
 //   2층 보스 두목 클라인: 광폭화(HP 30~50%)하면 그 자리에서 파우스트로 변신(HP 비율 그대로 · 광폭화 유지 · 저주 마법·악령 부르기)
-const GIRAN = { Z1: 26, Z2: 27, ZS: [26, 27], N: 69, DAY_SEC: 4 * 3600, GHOST_P: 0.4, PEARL_P: 0.1,   /* 11/6 프로듀서: 악령 변신 20% → 40% · 악령의 드래곤의 진주 1% → 10% */ PEARL_DUR: 600, PEARL_AS: 0.15,
+const GIRAN = { Z1: 26, Z2: 27, ZS: [26, 27], N: 69, DAY_SEC: 6 * 3600,   /* 11/7 프로듀서: 하루 이용 시간 4시간 → 6시간 */ GHOST_P: 0.4, PEARL_P: 0.1,   /* 11/6 프로듀서: 악령 변신 20% → 40% · 악령의 드래곤의 진주 1% → 10% */ PEARL_DUR: 600, PEARL_AS: 0.15,
   MOBS1: [['gp_bandit', 26], ['gp_archer', 20], ['gp_chief', 14]], MOBS2: [['gp_bandit2', 26], ['gp_archer2', 22], ['gp_chief2', 18]] };
 const GP_BASE = {   // 11/6 처음 수치(화둥 2구역 급 · Lv52~57) — 아래 GP_FLOOR 배율로 1층·2층 몹을 만듦
   gp_bandit:  { name: '칼 산적', lv: 55, hp: 2100, dmg: [85, 135], mac: 2, hit: 0.94, mr: 25, exp: 18000, coin: [4100, 6600], walk: 1.2, run: 3.2, cd: 1.3, aggr: 6, gpb: true, art: 'vil', sc: 1.0, atkTxt: '굽은 칼' },
@@ -4175,7 +4175,7 @@ const ISLAND = (() => {
          mobs: Object.keys(FG_DEF).flatMap(k => k === 'fg_drake' ? [[k, FGI.D_NEAR, 'near'], [k, FGI.D_FAR, 'far']] : [[k, FGI.N_NEAR, 'near'], [k, FGI.N_FAR, 'far']]), groups: [] },
     // 11/6 아덴감옥 (26 · 27): 본토던전과 같은 미로 엔진(maze) · 감옥 돌벽(wall 3·4 = 차가운 회갈 돌 · 쇠창살 감방 문) · 어둠 · 모두 선공 · 하루 4시간(GPR) · 2층 보스 두목 클라인(→ 파우스트)
     26: { name: '아덴감옥 1층', tier: 1, hiz: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: 26011, N: GIRAN.N, maze: true, dark: true, prison: true, floor: 1, wall: 3, down: 27, hills: [], portals: [], tone: null,
-         hello: '차가운 돌벽과 쇠창살 사이로 산적들의 웃음소리가 울립니다... 같은 골목에 들어서면 모두 덤벼요. 산적을 쓰러뜨리면 가끔 그 몸에서 [파우스트의 악령]이 일어납니다(언데드 · 턴 언데드가 통해요). 하루 이용 시간은 4시간이에요(1·2층 합산 · 새벽 5시 초기화). 미로 끝 어딘가에 2층으로 내려가는 계단이 있습니다.',
+         hello: '차가운 돌벽과 쇠창살 사이로 산적들의 웃음소리가 울립니다... 같은 골목에 들어서면 모두 덤벼요. 산적을 쓰러뜨리면 가끔 그 몸에서 [파우스트의 악령]이 일어납니다(언데드 · 턴 언데드가 통해요). 하루 이용 시간은 6시간이에요(1·2층 합산 · 새벽 5시 초기화). 미로 끝 어딘가에 2층으로 내려가는 계단이 있습니다.',
          mobs: GIRAN.MOBS1, groups: [] },
     27: { name: '아덴감옥 2층', tier: 2, hiz: true, v2P: 0.3, v2M: 0.5, coinX: 1.15, seed: 27013, N: GIRAN.N, maze: true, dark: true, prison: true, floor: 2, wall: 4, up: 26, hills: [], portals: [], tone: null,
          hello: '감옥의 가장 깊은 곳입니다. 산적 떼의 우두머리 두목 클라인이 이 층 어딘가의 넓은 방에 있어요 — 궁지에 몰리면 파우스트로 변신한다고 합니다! 올라가는 계단은 바로 옆에 있어요.',
@@ -7809,7 +7809,7 @@ const TOWN = (() => {
     $('gp-info').innerHTML = `<div>상급 사냥터 · 권장 <b>Lv.58~64</b> <small>(1층 Lv 58~61 · 2층 Lv 61~64)</small></div><div>오늘 남은 시간: <b class="${L > 0 ? '' : 'no'}">${L > 0 ? DRM.fmt(L) : '다 씀'}</b> <small>(1·2층 합산 ${GIRAN.DAY_SEC / 3600}시간 · 새벽 5시 초기화)</small></div><div>두목 클라인: ${boss}</div><div>입장료: <b>${fee.toLocaleString()} 골드</b> <small>(가진 골드 ${coins.toLocaleString()})</small></div>`;
     const b = $('gp-enter'); b.disabled = L <= 0; b.textContent = L > 0 ? `입장하기 (${fee.toLocaleString()} 골드)` : '오늘 시간 다 씀 · 새벽 5시 초기화'; $('gp-warn').hidden = hero.lv >= 50; }
   function gpOpen() { if (COLO_LOCK) { COLO.lockSay(); return; } if (DEATH) { deadSay(); return; } const w = $('gpwin'); if (!w) return; w.hidden = false; gpRender(); clearInterval(gpT); gpT = setInterval(() => { if (w.hidden || SCENE !== 'town') { w.hidden = true; clearInterval(gpT); gpT = 0; return; } gpRender(); }, 1000);
-    say('아덴감옥 간수 모르텐: 마을 아래 옛 감옥에 산적 떼가 눌러앉았소. 문은 하루 네 시간만 열어 주지 — 쓰러진 산적에게서 일어나는 악령을 조심하시오.', '#e0c48a'); }
+    say('아덴감옥 간수 모르텐: 마을 아래 옛 감옥에 산적 떼가 눌러앉았소. 문은 하루 여섯 시간만 열어 주지 — 쓰러진 산적에게서 일어나는 악령을 조심하시오.', '#e0c48a'); }
   function gpEnter() { if (SCENE !== 'town') return; if (DEATH) { deadSay(); return; } if (COLO_LOCK) { COLO.lockSay(); return; } if (fgBlock()) return; if (!GPR.canEnter()) { gpRender(); return; }   /* 시간을 다 썼으면 입장료를 내기 전에 막음 */
     const fee = WM_FEE; if (coins < fee) { say(`아덴감옥 입장료 ${fee.toLocaleString()} 골드가 부족해요. (가진 골드 ${coins.toLocaleString()})`, '#f08a7a'); return; }
     coins -= fee; TELE.ev('buy', { id: 'teleport', q: 1, g: fee }); goldTax(fee, 'tele'); say(`아덴감옥 입장료 ${fee.toLocaleString()} 골드를 냈습니다.`, '#f2e6a8'); INV.render(); $('gpwin').hidden = true; toField('아덴감옥'); }
@@ -9234,7 +9234,7 @@ const DRM = (() => { let day = '', used = 0, last = 0, warned = 0;
   function canEnter() { if (bh() || left() > 0) return true; say(`오늘 몽환의 섬 이용 시간(${DREAM.DAY_SEC / 3600}시간)을 모두 썼어요. 새벽 5시 뒤에 다시 들어올 수 있어요.`, '#f08a7a'); return false; }
   return { tick, left, canEnter, fmt, dump: () => ({ d: day, u: Math.round(used) }), load(o) { if (o && typeof o === 'object') { day = String(o.d || ''); used = Math.max(0, +o.u || 0); } roll(); }, dbgSet(u) { roll(); used = Math.max(0, +u || 0); warned = 0; } }; })();
 
-// 11/6 아덴감옥 하루 이용 시간 4시간 (1·2층 합산 · 새벽 5시 초기화 · 캐릭터마다 저장 · 몽환의 섬 DRM과 같은 방식) — 다 쓰면 마을로, 그날은 다시 못 들어감
+// 11/6 아덴감옥 하루 이용 시간 6시간(11/7 · 전 4시간) (1·2층 합산 · 새벽 5시 초기화 · 캐릭터마다 저장 · 몽환의 섬 DRM과 같은 방식) — 다 쓰면 마을로, 그날은 다시 못 들어감
 const GPR = (() => { let day = '', used = 0, last = 0, warned = 0;
   const roll = () => { const g = gameDay(); if (day !== g) { day = g; used = 0; warned = 0; } };
   const left = () => { roll(); return Math.max(0, GIRAN.DAY_SEC - used); };
