@@ -923,7 +923,7 @@ const AMB = (() => {
 })();
 
 // ============================================================ 스킬: 마법(서클당 3개, 기사는 2서클까지 · 마법서) + 기사 기술 5종(기술서)
-const GAME_VER = 247;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
+const GAME_VER = 248;   // 업데이트할 때마다 올림 (로그인 화면에 표시 · PC 업데이트 비교)
 let CLASS = 'knight'; const CLASS_NAME = { knight: '기사', elf: '요정', wizard: '마법사' };
 // 직업별 시작 능력치·HP/MP·레벨업 성장·시작 장비 (리니지 클래식 감각의 임시안)
 const CLS_DEF = {
@@ -10134,9 +10134,10 @@ const FBOT = (() => {
     if (!tg && LD) tg = ptHelp(f, foes, R);   // 11/1 ② 파티: 리더·파티원이 치는 적 · 파티원을 때리는 적
     if (!tg) { const ign = X.ign || {}, nb = foes.filter(e => cheb(f.i, f.j, e.i, e.j) <= R && !((ign[keyT(e)] || 0) > time) && los(f, e)); if (nb.length) tg = pickTarget(f, b, X, nb); }
     X.tgt = tg; if ((tg && !had) || (X.mob && !X.mobWas)) { if (time - X.fightT > 8) X.potAt = rr(C.POT_AT); } if (tg || X.mob) X.fightT = time; X.mobWas = X.mob;   // 11/1: 싸움마다 물약 먹는 HP%를 다시 정함
-    if (X.go && (tg || cheb(f.i, f.j, X.go[0], X.go[1]) <= 6 || (X.goT && time > X.goT))) { X.go = null; X.goT = 0; talk(f, X.vis === 'r' ? 'reinf' : 'boss'); }   // 11/1 ② 지원군·뒷치기 파티 도착 (적을 만나거나 6칸 안 · 90초 넘으면 그만)
+    if (X.go && (tg || cheb(f.i, f.j, X.go[0], X.go[1]) <= 6 || (X.goT && time > X.goT))) { X.go = null; X.goT = 0; talk(f, X.vis === 'r' || X.guard ? 'reinf' : 'boss'); }   // 11/1 ② 지원군·뒷치기 파티 도착 (적을 만나거나 6칸 안 · 90초 넘으면 그만)
     if (tg) { X.mob = null; X.goal = null; if (!had) { const k = keyT(tg); if (b.team === 'B' && isPl(tg) && !((X.seen[k] || 0) > time) && !X.go) { X.seen[k] = time + 90; talk(f, 'see', tg); } else if (ast) talk(f, 'ally', tg); } return; }
-    if (X.go) { if (!X.goT) X.goT = time + 90; X.goal = 'go'; X.mob = null; return; }   // 11/1 ② 지원군·뒷치기 파티: 먼저 싸움터·보스 쪽으로 걸어감
+    if (X.go) { if (!X.goT) X.goT = time + 90; X.goal = 'go'; X.mob = null; return; }
+    if (X.guard) { const G = X.guard; if (G.dead || G.gone || !foxes.includes(G)) { X.guard = null; X.guardK = null; } else if (cheb(f.i, f.j, G.i, G.j) > 6) { X.mob = null; X.goal = 'follow'; X.fol = formSpot(G, f); return; } }   // 11/6 프로듀서: 아군(반왕) 봇이 유저가 치는 보스 곁을 지킴 — 보스는 안 치고(mobOk가 보스를 뺌) 다가오는 라인 봇·유저를 때리는 적을 상대   // 11/1 ② 지원군·뒷치기 파티: 먼저 싸움터·보스 쪽으로 걸어감
     if (X.boss && !bossOk(X.boss, f)) X.boss = null;
     if (X.boss) { if (X.loot && X.loot.length && cheb(f.i, f.j, X.loot[0].i, X.loot[0].j) <= 3) { X.goal = 'loot'; return; } X.mob = X.boss; X.goal = 'boss'; if (hp < 0.4 && LD && Math.random() < 0.3) talk(f, 'heal'); return; }   // 11/1 ② 보스 사냥·뒷치기: 보스에게 (적이 보이면 위에서 먼저 상대)
     if (X.loot && X.loot.length && !(X.mob && X.mob.tgt === f && mobOk(X.mob, f))) { X.goal = 'loot'; return; }   // 잡은 몹의 드랍 줍기 (나를 때리는 몹이 있으면 먼저 상대)
@@ -10354,27 +10355,34 @@ const FBOT = (() => {
     if (!el.length) return null; el.sort((a, b) => a.t - b.t); const R = K_.rngS(hsh(key + ':grp') | 0); return el[Math.floor(R() * Math.min(2, el.length))]; }   // 가장 빨리 잡을 두 무리 중 하나 (씨앗)
   function bossTick() { if (DBG.noBoss || !here()) return; const zid = ISLE.id, now = Date.now() / 1000; teams();
     for (const I of ISLAND.bossInfo(zid)) { if (!I.alive) continue; const key = I.k + ':' + I.sid, H = bossPlan(key, I.at); if (H.done) continue; const m = I.ent; if (!m || !bossOk(m) || !foxes.includes(m)) continue;
-      const plOn = playerOn(m); for (const f of live_) { const V = VIS.get(f.uid); if (V && V.boss === key && f.bx && !f.bx.boss) { f.bx.boss = m; f.bx.bsK = key; } }   // 불러온 라인 파티는 유저가 빠져도 보스를 가져감
+      const plOn = playerOn(m); for (const f of live_) { const V = VIS.get(f.uid); if (V && V.boss === key && f.bx && !f.bx.boss) { f.bx.boss = m; f.bx.bsK = key; } else if (V && V.guard === key && f.bx && !f.bx.guardK) { f.bx.guard = m; f.bx.guardK = key; } }
+      if (!plOn) { for (const f of live_) if (f.bx && f.bx.guardK === key && !VIS.has(f.uid)) { f.bx.guard = null; f.bx.guardK = null; } }   // 11/6: 유저가 보스에서 빠지면 지키던 이 지역 반왕 봇은 원래대로
+      else { const kE = live_.filter(f => f.bot.team === 'B' && f.bx && f.bx.boss === m && !VIS.has(f.uid)).length, gd = live_.filter(f => f.bot.team === 'A' && f.bx && f.bx.guardK === key && !VIS.has(f.uid)).length;   // 11/6 프로듀서: 보스로 온 이 지역 라인 봇 수만큼 이 지역 반왕 봇이 보스 곁을 지킴 (보스는 안 침 · 다가오는 라인 봇을 상대)
+        if (kE > gd) { const cand = live_.filter(f => f.bot.team === 'A' && f.bx && !f.bx.guardK && !f.bx.boss && !VIS.has(f.uid)).sort((a, b) => cheb(a.i, a.j, m.i, m.j) - cheb(b.i, b.j, m.i, m.j)); for (const f of cand.slice(0, kE - gd)) { f.bx.guard = m; f.bx.guardK = key; STAT.ally = (STAT.ally || 0) + 1; talk(f, 'ally'); } } }   // 불러온 라인 파티는 유저가 빠져도 보스를 가져감
       if (plOn && H.bs) { for (const f of live_) { if (f.bot.team !== 'B' || !f.bx || f.bx.bsK === key) continue; f.bx.bsK = key; if ((hsh(f.uid + ':bs:' + key) % 1000) / 1000 < (DBG.bsP ?? C.BS_P)) { f.bx.boss = m; STAT.bs++; talk(f, 'boss'); } }   // 뒷치기: 라인 봇마다 확률
-        if (H.bsPt && !H.bsCalled) { H.bsCalled = true; callParty('B', m, key); } }
+        if (H.bsPt && !H.bsCalled) { H.bsCalled = true; const nE = callParty('B', m, key); if (nE) callParty('A', m, key, nE, true); } }   // 11/6 프로듀서: 적 원정 파티가 오면 아군(반왕) 원정 파티도 같은 인원만큼
       if (H.go && now >= H.at) { if (!H.grp || !H.grp.u.some(u => live_.some(f => f.uid === u))) H.grp = pickGroup(m, key, plOn); if (H.grp) for (const u of H.grp.u) { const f = live_.find(e => e.uid === u); if (f && f.bx && f.bx.boss !== m) { f.bx.boss = m; talk(f, 'boss'); } }
         else if (!H.exp && !plOn && (MOB[m.kind].lv || 0) >= C.BOSS_EXP_LV && now >= H.at + C.BOSS_EXP_DL) { H.exp = true; const tm = (hsh(key + ':exp') & 1) ? 'A' : 'B'; if (callParty(tm, m, key) || callParty(tm === 'A' ? 'B' : 'A', m, key)) STAT.bossExp = (STAT.bossExp || 0) + 1; } } } }   // 11/3 프로듀서: 큰 보스(Lv.55 이상 · 드레이크 킹·피닉스)는 이 사냥터에 갈 무리가 없으면 다른 사냥터의 파티를 원정으로 부름 (유저가 치는 중이면 안 부름 · 라인 뒷치기 규칙은 따로)
   // 일정표 밖의 파티를 이 지역으로 (뒷치기): 이 지역에 없는 그 혈맹 파티 중 레벨이 가장 맞는 파티 · 지역 가장자리에서 보스 쪽으로 걸어 들어옴 · 보스가 끝나면 30초 뒤 복귀
-  function callParty(team, m, key) { const RO_ = roster(), zid = ISLE.id, P = plan(), zr = zones().find(z => z.id === zid), mid = zr ? (zr.lo + zr.hi) / 2 : 0, lv = refNow().lv, now = Date.now();
+  function callParty(team, m, key, max, guard) {   /* 11/6: guard = 아군 원정(보스 곁을 지킴 · 보스는 안 침) · max = 최대 인원 · 부른 인원을 돌려줌 */ const RO_ = roster(), zid = ISLE.id, P = plan(), zr = zones().find(z => z.id === zid), mid = zr ? (zr.lo + zr.hi) / 2 : 0, lv = refNow().lv, now = Date.now();
     const cands = RO_.pt.filter(p => p.team === team && !p.uids.some(u => live_.some(f => f.uid === u) || VIS.has(u))).map(p => ({ p, h: P.at[p.lead] === zid ? 1 : 0, d: Math.abs(elvOf(RO_.by.get(p.lead), lv) - mid) })).sort((a, b) => a.h - b.h || a.d - b.d).map(x => x.p); if (!cands.length) return false;
-    const room = C.ZONE_CAP - live_.length; if (room < 2) return false; const go = [m.i, m.j]; let n = 0; for (const u of cands[0].uids) { if (n >= room) break; if ((AWAY.get(u) || 0) > now) continue; VIS.set(u, { z: zid, boss: key, go }); n++; } if (n) { STAT.bsPt++; visSpawn(); } return n > 0; }
+    const room = C.ZONE_CAP - live_.length; if (room < (guard ? 1 : 2)) return 0; const go = [m.i, m.j]; let n = 0; for (const u of cands[0].uids) { if (n >= room || (max && n >= max)) break; if ((AWAY.get(u) || 0) > now) continue; VIS.set(u, guard ? { z: zid, guard: key, go } : { z: zid, boss: key, go }); n++; }
+    if (guard && max && n < max && n < room) { const P_ = roster()[team].filter(b => !live_.some(f => f.uid === b.uid) && !VIS.has(b.uid) && P.at[b.uid] !== zid && !((AWAY.get(b.uid) || 0) > now)).sort((x, y) => Math.abs(elvOf(x, lv) - mid) - Math.abs(elvOf(y, lv) - mid)); for (const b of P_) { if (n >= max || n >= room) break; VIS.set(b.uid, { z: zid, guard: key, go }); n++; } }   // 11/6: 아군 원정 파티가 적보다 적으면 다른 반왕 봇으로 같은 인원까지
+    if (n) { if (guard) STAT.allyPt = (STAT.allyPt || 0) + 1; else STAT.bsPt++; visSpawn(); } return n; }
   // ----- 11/1 2단계 ② 지원군 (지역 호스트 · 1초마다): 혈맹 간 전투(봇↔유저·봇↔봇)가 REINF_AT(25초) 넘게 이어지면 REINF_CHK(10초)마다 머릿수를 비교(유저는 반왕) → 적은 쪽에 그 차이만큼 일정표의 다른 봇이 옴 (지역당 ZONE_CAP 12까지) · 전투 없이 REINF_END(60초)가 지나면 귀환 연출과 함께 돌아감
   const FT = { since: 0, last: -1e9, at: null, chk: 0, cd: 0 };
   function fightMark(a, T) { const A = sideOf(a), B = sideOf(T); if (!A || !B || A.t === B.t || A.t === 'N' || B.t === 'N') return; if (time - FT.last > 8) FT.since = time; FT.last = time; FT.at = [T.i | 0, T.j | 0]; }
   const bossUp = key => ISLAND.bossInfo(ISLE.id).some(I => I.k + ':' + I.sid === key && I.alive) && !(BH.get(key) || {}).done;
   function reinfTick() { if (DBG.noReinf || !here()) return; visSpawn(); const now = Date.now();
-    for (const [u, V] of [...VIS]) { if (!V.boss) continue; if (!V.end && !bossUp(V.boss)) V.end = time + 30; if (V.end && time > V.end) visLeave(u); }   // 뒷치기 파티: 보스가 끝나면 30초 뒤 복귀
+    for (const [u, V] of [...VIS]) { const bk = V.boss || V.guard; if (!bk) continue; if (!V.end && !bossUp(bk)) V.end = time + 30; if (V.end && time > V.end) visLeave(u); }   // 뒷치기 파티: 보스가 끝나면 30초 뒤 복귀
     if (time - FT.last > C.REINF_END) { for (const [u, V] of [...VIS]) if (V.r) visLeave(u); return; }   // 싸움이 끝나고 60초 → 지원군 복귀
     if (time - FT.since < (DBG.reinfAt ?? C.REINF_AT) || time < FT.chk || time < FT.cd) return; FT.chk = time + C.REINF_CHK;   // 11/6: 지원군이 온 뒤 REINF_CD(3분)는 다시 안 부름
     if (time - FT.last > 10) return; const T = teams(), diff = T.A.length - T.B.length, team = diff > 1 ? 'B' : diff < -1 ? 'A' : null; if (!team || !T.A.length || !T.B.length) return; const room = C.ZONE_CAP - live_.length; if (room <= 0) return;   // 싸움이 이어지는 동안(10초 안 피해)·양쪽 다 있을 때만
     const n = Math.min(room, Math.abs(diff), C.REINF_MAX || 99), zid = ISLE.id, P = plan(), zr = zones().find(z => z.id === zid), lv = refNow().lv, mid = zr ? (zr.lo + zr.hi) / 2 : lv;
-    const cands = roster()[team].filter(b => !live_.some(f => f.uid === b.uid) && !VIS.has(b.uid) && P.at[b.uid] !== zid && !((AWAY.get(b.uid) || 0) > now)).map(b => ({ b, d: Math.abs(elvOf(b, lv) - mid), r: Math.random() })).sort((x, y) => x.d - y.d || x.r - y.r);
-    for (const { b } of cands.slice(0, n)) { VIS.set(b.uid, { z: zid, r: 1, go: FT.at ? FT.at.slice() : null }); STAT.reinf++; } if (cands.length && n > 0) FT.cd = time + (DBG.reinfCd ?? C.REINF_CD ?? 0); visSpawn(); }
+    const pick = (tm, k, mir) => { const cands = roster()[tm].filter(b => !live_.some(f => f.uid === b.uid) && !VIS.has(b.uid) && P.at[b.uid] !== zid && !((AWAY.get(b.uid) || 0) > now)).map(b => ({ b, d: Math.abs(elvOf(b, lv) - mid), r: Math.random() })).sort((x, y) => x.d - y.d || x.r - y.r);
+      let c = 0; for (const { b } of cands.slice(0, k)) { VIS.set(b.uid, { z: zid, r: 1, go: FT.at ? FT.at.slice() : null }); if (!mir) STAT.reinf++; c++; } return c; };
+    const got = pick(team, team === 'B' ? Math.min(n, Math.floor(room / 2)) : n), ally = team === 'B' && got > 0 ? pick('A', got, true) : 0; if (ally) STAT.reinfA = (STAT.reinfA || 0) + ally;   // 11/6 프로듀서: 적(라인) 지원군이 오면 아군(반왕) 지원군도 같은 인원만큼 (지역 자리를 반씩)
+    if (got > 0) FT.cd = time + (DBG.reinfCd ?? C.REINF_CD ?? 0); visSpawn(); }
   function visSpawn() { let n = 0; const now = Date.now(); for (const [u, V] of [...VIS]) { if (n >= 2) break; if (foxes.some(f => f.uid === u && !f.gone)) continue; if ((AWAY.get(u) || 0) > now) { if (V.r) VIS.delete(u); continue; } if (live_.length + n >= C.ZONE_CAP) break; if (spawn(roster().by.get(u), edgeSpot(), V)) n++; } }   // 한 번에 2명씩 가장자리에서 · 죽은 지원군은 다시 안 옴
   function visLeave(u) { VIS.delete(u); const f = foxes.find(q => q.uid === u && !q.gone); if (!f) return; if (!f.dead) { talk(f, 'bye'); fx(['r', f.uid]); STAT.reinfBack++; } leave(f, true); }
   // 그리기 부담 조절 (수호탑 대전과 같은 방식): 봇이 있는 사냥터에서 프레임이 계속 24 밑이면 봇 그림을 한 단계씩 간단히 (1 = 6칸 밖 간단히 · 2 = 모두 간단히)
@@ -10920,6 +10928,7 @@ const UPD = (() => { const $ = id => document.getElementById(id), N = () => wind
 // ============================================================ 업데이트 소식: 버전이 올라간 뒤 처음 접속하면 팝업으로 (ESC 메뉴에서 다시 보기)
 const NOTES = (() => { const $ = id => document.getElementById(id), KEY = 'aden_seen_ver';
   const LIST = [
+    { v: 248, items: ["이제 아군(반왕) 혈맹 봇도 적처럼 도와주러 와요. 라인 지원군이 오면 반왕 지원군도 같은 인원만큼 와요.", "보스를 치고 있을 때 라인 봇이 꼬장 오면, 그 사냥터의 반왕 봇이 같은 인원만큼 보스 곁으로 와서 지켜 줘요. 라인 원정 파티가 오면 반왕 원정 파티도 같은 인원만큼 와요. (반왕 봇은 보스를 치지 않아서 보스를 빼앗지 않아요)"] },
     { v: 247, items: ["대인전 피해가 0.6배로 줄었어요 (유저끼리 · 혈맹 봇과 · 봇끼리). 싸움이 길어져서 물약·스턴·도망을 판단할 시간이 생겨요. 몬스터 사냥과 수호탑 대전은 그대로예요.", "기사의 '몬스터에게 주는 피해 +25%'는 원래 대인전에는 안 붙는데, 혈맹 봇에게 붙고 있던 것을 고쳤어요.", "모든 직업(기사·요정·마법사)의 최대 HP가 30% 늘었어요. 레벨·체력·장비·마법인형·가호까지 모두 합친 최대 HP 전체가 1.3배예요. (예: 오우거 인형 HP +50은 실제로 +65)", "혈맹 봇 지원군이 덜 와요. 싸움이 60초(전 25초) 넘게 이어질 때만 오고, 한 번에 최대 2명, 온 뒤 3분 동안은 더 오지 않아요.", "보스를 칠 때 다른 사냥터의 라인 파티가 원정 오는 확률을 50%에서 20%로 낮췄어요. (그 사냥터에 있던 라인 봇이 오는 건 그대로)"] },
     { v: 246, items: ['밤과 어두운 던전의 어둠을 절반 정도로 줄였어요. 빛이 닿지 않는 곳도 흐릿하게 지형·벽·나무가 보여요 (시야 거리와 시야 밖 몬스터가 안 보이는 건 그대로).'] },
     { v: 245, items: ["가방에서 같은 종류의 가호(완제)가 한 칸에 겹쳐 보이고 개수가 표시돼요. 효과는 지금처럼 그중 가장 높은 것(강화·축복) 하나만 적용되고, 칸에도 그 가장 높은 가호가 보여요.", "창고에 맡기거나 버릴 때는 가장 낮은 가호부터 빠져요. 창고에서도 같은 가호는 한 칸에 겹쳐지고(칸 하나만 차지), 찾을 때는 가장 높은 것부터 나와요.", "[랭킹] 창의 PVP 랭킹에도 클래스(기사·요정·마법사)가 나와요."] },
