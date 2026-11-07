@@ -4879,7 +4879,7 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (d.evo && d.eb) { const mh = petMaxHp(d); if (d.maxhp !== mh) { d.maxhp = mh; d.hp = Math.min(d.hp, MXH(d)); ch = true; } }   /* 11/4: 진화 펫 HP 성장 +20으로 바뀐 것을 이미 있는 펫에도 */
       if (first && d.lv > cap) say(`[펫] ${nm(d)}은(는) 주인보다 레벨이 높아서 주인 레벨이 Lv.${d.lv}에 닿을 때까지 자라지 않아요. (데리고 다니며 싸우는 건 그대로)`, '#ffd86a');   /* 11/4 프로듀서: 주인보다 높은 펫은 레벨을 내리지 않고 경험치도 넘기지 않음 (11/3의 한 번 넘기기 없앰) */ }
     if (ch) refresh(); }
-  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); if (!p.sum && HIZ()) { const S_ = src && MOB[src.kind], bs = !!(S_ && (S_.boss || S_.midb)); dmg = Math.max(1, Math.round(dmg * (src ? hzAcMul(petAC(d), bs) * v2Z('P') : v2Z('M')))); }   /* 11/4 프로듀서: 펫도 유저·봇과 같은 사냥터 방어(2구역 · 물리 = 사냥터 배율 × AC · 범위·지속 피해 = 마법 배율) */ dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
+  function hurt(p, dmg, src) { if (!p || p.dead) return; const d = p.d; if (src) { p.hitBy = src; p.hitByT = time; }   /* 11/7: 나를 때린 몹 (petFoe) */ if (p.sum && src) p.pvpHit = !!(src.bot || src.isRemote); if (p.sum && (src ? MOB[src.kind] && MOB[src.kind].boss : foxes.some(f => !f.dead && f.aggro && MOB[f.kind] && MOB[f.kind].boss))) dmg = Math.max(1, Math.round(dmg * SUMB.take * (src ? 1 : SUMB.aoeTake))); if (!p.sum && HIZ()) { const S_ = src && MOB[src.kind], bs = !!(S_ && (S_.boss || S_.midb)); dmg = Math.max(1, Math.round(dmg * (src ? hzAcMul(petAC(d), bs) * v2Z('P') : v2Z('M')))); }   /* 11/4 프로듀서: 펫도 유저·봇과 같은 사냥터 방어(2구역 · 물리 = 사냥터 배율 × AC · 범위·지속 피해 = 마법 배율) */ dmg = Math.max(1, dmg - Math.floor(Math.max(0, 10 - petAC(d)) / 3)); d.hp -= dmg; p.flash = 0.09;
     const [px, py] = W2P(p.x, p.z); floatText(px, py - 46, String(dmg), { color: '#ff8a6a', size: 11 });
     if (src) { const [sx, sy] = W2P(src.x, src.z); const vx = px - sx, vy = py - sy, l = Math.hypot(vx, vy) || 1; p.kx = vx / l; p.ky = vy / l; } p.hitD = 0.3; p.hitT = 0.3; p.kmag = 4;
     if (d.hp <= 0) { d.hp = 0; p.dead = true; p.deadT = 0; d.state = 'dead'; p.lunge = 0; { const nx = p.sum && SUMB.tank ? PETS_HERE.find(q => q !== p && q.sum && !q.dead) : null; for (const f of foxes) if (f.tgt === p) f.tgt = nx && MOB[f.kind] && MOB[f.kind].boss ? nx : null; }   /* v189: 보스는 남은 소환수로 */
@@ -4924,6 +4924,22 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
   function townRevive() { if (SCENE !== 'town' || DEATH || !window.__gameOn) return 0; const n = [];
     for (const e of INV.bag()) { const d = e.pet; if (!d || d.state !== 'dead' || !PET_KIND[d.kind]) continue; d.state = 'out'; d.hp = MXH(d); let p = entOf(e); if (p) { p.dead = false; p.deadT = 0; p.atkT = null; place(p); } else p = spawn(e); if (p) { try { spellFx('heal', p); } catch (x) {} } n.push(nm(d)); }
     if (n.length) { say(`[펫] 마을에 돌아와서 ${n.length > 1 ? n.join('·') + '이(가) 모두' : JOSA(n[0], '이', '가')} 되살아났어요. (HP 가득)`, '#c8f0a0'); refresh(); } return n.length; }
+  /* 11/7 프로듀서: 소환수·펫(공격 모드) 사냥 순서 — 캐릭터 자동사냥(AUTO pickIn·oorSwap)·혈맹 파티 봇(pbInR)과 같은 규칙 · 소환수·펫의 사거리 = 바로 옆 1칸
+     ① 바로 옆에서 주인이나 자기를 때리는 몹 (HP 적은 몹 먼저) · 치던 몹이 옆에 있고 싸우는 중이면 죽을 때까지 (계속 바뀌지 않게)
+     ② 치던 몹이 옆을 벗어나면(다른 몹·벽) → 옆에서 주인·자기를 때리는 다른 몹 · 없으면 다가가고, 1.5초 넘게 못 다가가면(막힘) 그 몹은 4초 빼고 다시 고름
+     ③ 옆에 그런 몹이 없으면 → 멀리서 주인·자기를 때리는 몹 + 주인이 치는 대상 (같은 순위 · 가까운 몹 · 치러 가던 몹은 1칸 넘게 더 가까운 몹이 생길 때만 바꿈 — 같은 거리끼리 왔다 갔다 하지 않게)
+     영상(아덴감옥 · 마법사 + 혼 켈베로스): 어두운 던전은 시야가 7.5칸 원이라 마법사가 7칸 밖 대각선 몹을 치면 '안 보이는 몹'으로 버리고 곁에 붙어 있었음 → 싸우는 몹은 시야 밖이어도 쫓아감 (주인 12칸 안) */
+  const petOwnT = () => { const H = hero.target; if (H && !H.dead && !H.gone && !H.isRemote) return H; const Q = hero.lastHit; return Q && !Q.dead && !Q.gone && !Q.isRemote && time - (hero.lastHitT || -99) < 4 ? Q : null; };
+  const petOk = (f, p) => !!f && !f.dead && !f.gone && !f.isPet && !f.isRemote && !(p.skipF === f && p.skipT > time) && cheb(f.i, f.j, hero.i, hero.j) <= 12;
+  const petFoe = (f, p) => { if (!petOk(f, p) || f.fb || f.bot || f.twr || f.bindUntil > time || f.ashT > 0 || TWM.ally(f)) return false; const S = MOB[f.kind]; if (!S || S.dummy || S.pet) return false;
+    return (f.aggro && f.tgt === p) || (!!f.hitMeT && time - f.hitMeT < 6) || (p.hitBy === f && time - (p.hitByT || -99) < 6) || (f.aggro && (!f.tgt || f.tgt === hero) && !NET.guestMob(f)); };   // 주인·자기를 6초 안에 때렸거나 노리는 몹 (다른 PC가 계산하는 몹은 '노림'을 안 믿음 — pbAtk와 같음)
+  function petPick(p) { const own = petOwnT(), cur = p.target, adj = f => cheb(p.i, p.j, f.i, f.j) === 1, curOk = !!cur && petOk(cur, p) && (cur === own || petFoe(cur, p));
+    if (curOk && adj(cur)) return cur;   // ① 치던 몹이 옆에서 싸우는 중 → 죽을 때까지
+    let b = null, bv = 1e9; for (const f of foxes) { if (!adj(f) || !petFoe(f, p)) continue; const v = f.hp / Math.max(1, f.max); if (v < bv) { bv = v; b = f; } } if (b) return b;   // ①② 옆에서 주인·자기를 때리는 몹
+    let c = null, cv = 1e9; const see = f => { const v = cheb(p.i, p.j, f.i, f.j) + f.hp / Math.max(1, f.max) * 0.5; if (v < cv) { cv = v; c = f; } };   // ③ 멀리서 주인·자기를 때리는 몹 + 주인이 치는 대상
+    if (own && petOk(own, p)) see(own); for (const f of foxes) if (f !== own && petFoe(f, p)) see(f);
+    if (curOk && c !== cur && cv >= cheb(p.i, p.j, cur.i, cur.j) - 1) return cur; return c; }
+  function petStuck(p, T, dt) { const k = p.i * 4096 + p.j; if (p.stkF !== T || p.stkK !== k) { p.stkF = T; p.stkK = k; p.stkT = 0; return false; } if ((p.stkT += dt) < 1.5) return false; p.stkT = 0; p.stkF = null; p.skipF = T; p.skipT = time + 4; p.target = null; return true; }   // ② 1.5초 넘게 못 다가가면 4초 빼고 다시
   function tick(dt) { if (window.__gameOn) capCheck(); if (TW() || HW()) { if (sumLive()) sumClear('tw'); PETS_HERE = []; lastHI = null; return; }   // 수호탑 대전: 펫은 밖에서 기다리고(나오면 다시 옆에) · 소환수는 돌려보냄
     const z = zk(), jump = lastHI !== null && cheb(hero.i, hero.j, lastHI, lastHJ) > 3; lastHI = hero.i; lastHJ = hero.j;
     if (z === 'town' && (trT -= dt) <= 0) { trT = 1; townRevive(); }
@@ -4945,10 +4961,9 @@ const evoReady = () => ['idle', 'walk', 'attack'].every(a => EVO_IMG[a].complete
       if (cheb(p.i, p.j, hero.i, hero.j) > 16 && d.mode !== 'rest') { place(p); continue; }
       if (p.scatterT > 0) { p.scatterT -= dt; if (p.scatter && (p.i !== p.scatter[0] || p.j !== p.scatter[1])) { const st = astar(p, (i, j) => i === p.scatter[0] && j === p.scatter[1], p.scatter[0], p.scatter[1]); if (!st.length || !beginStep(p, st[0])) p.scatter = null; } continue; }
       if (d.mode === 'rest') continue;
-      if (d.mode === 'attack') { let T = hero.target && !hero.target.dead && !hero.target.isRemote ? hero.target : hero.lastHit && !hero.lastHit.dead && !hero.lastHit.isRemote && time - hero.lastHitT < 4 ? hero.lastHit : null;
-        if (!T) T = foxes.find(f => !f.dead && f.tgt === p) || null; if (T && (cheb(T.i, T.j, hero.i, hero.j) > 12 || !DN.seen(T.i, T.j))) T = null; p.target = T;
-        if (T) { if (cheb(p.i, p.j, T.i, T.j) === 1) { face(p, T); if (p.cool <= 0 && p.lunge <= 0) { p.cool = (p.sum ? K_(p).cd : 1.1) / GSPD / hm; p.lunge = 0.3 / GSPD; p.atkT = 0; } continue; }
-          const st = astar(p, (i, j) => cheb(i, j, T.i, T.j) === 1, T.i, T.j); if (st.length) beginStep(p, st[0]); continue; } }
+      if (d.mode === 'attack') { const T = petPick(p); p.target = T;   /* 11/7: 사냥 순서 (위 petPick) — 예전: 주인 대상 → 나를 노리는 몹 (시야 밖이면 버림) */
+        if (T) { if (cheb(p.i, p.j, T.i, T.j) === 1) { p.stkF = null; face(p, T); if (p.cool <= 0 && p.lunge <= 0) { p.cool = (p.sum ? K_(p).cd : 1.1) / GSPD / hm; p.lunge = 0.3 / GSPD; p.atkT = 0; } continue; }
+          if (petStuck(p, T, dt)) continue; const st = astar(p, (i, j) => cheb(i, j, T.i, T.j) === 1, T.i, T.j); if (st.length) beginStep(p, st[0]); continue; } }
       else p.target = null;
       const dist = cheb(p.i, p.j, hero.i, hero.j);
       if (dist > 2) { const st = astar(p, (i, j) => cheb(i, j, hero.i, hero.j) <= 1 && !(i === hero.i && j === hero.j), hero.i, hero.j); if (st.length) beginStep(p, st[0]); }
@@ -10484,11 +10499,11 @@ const FBOT = (() => {
     if (near(e, 14)) { potFx(e, POTS[k]); const [x, y] = W2P(e.x, e.z); floatText(x + 10, y - 96, '+' + h, { color: '#8af08a', size: 10 }); snd(e, 'pot'); } return true; }
   // 일점사: 파티장이 치는 대상 (12칸 안) → 없으면 파티장·파티 봇을 노리거나 때린 몹·라인 봇
   function pbOk(T, inF) { if (!T || T.dead || T.gone || T.pbot || T.pbR || T.isRemote || T === hero || !(inF || foxes.includes(T))) return false; if (T.fb) { if (!T.bot || T.bot.team !== 'B') return false; } else { const S = MOB[T.kind]; if (!S || S.pet || TWM.ally(T) || T.ashT > 0) return false; }
-    if (cheb(T.i, T.j, hero.i, hero.j) > PBC.VIEW) return false; return !(ISLE && !DN.seen(T.i, T.j)); }
+    if (cheb(T.i, T.j, hero.i, hero.j) > PBC.VIEW) return false; return !(ISLE && !DN.seen(T.i, T.j)) || T === hero.target || (T === hero.lastHit && time - (hero.lastHitT || -99) < 4) || pbAtk(T); }   /* 11/7: 어두운 던전(시야 7.5칸 원) 밖이라도 파티장이 치는 몹·파티를 치는 몹은 같이 침 (전에는 버리고 따라다님) */
   function pbAtk(m) { if (m.fb) { const X = m.bx; if (X && (X.tgt === hero || (X.tgt && X.tgt.pbot))) return true; } else if (!NET.guestMob(m) && m.aggro && (!m.tgt || m.tgt === hero || (m.tgt.pbot && PB_HERE.includes(m.tgt)))) return true;
     return (m.hitMeT && time - m.hitMeT < 4) || PB_HERE.some(q => q.hitBy === m && time - (q.hitByT || -99) < 4); }
-  function pbPick(e, lim) { let T = hero.target; if (!pbOk(T)) T = hero.lastHit && time - (hero.lastHitT || -99) < 4 && pbOk(hero.lastHit) ? hero.lastHit : null; if (T) return T;   /* lim: 11/4 전투 우선 켬 → 덤비는 적 봇도 파티장 PRI칸 안만 */
-    let best = null, bd = 99; for (const m of foxes) { if (!pbOk(m, true) || !pbAtk(m) || (lim && m.fb && cheb(m.i, m.j, hero.i, hero.j) > PBC.PRI)) continue; const d = cheb(e.i, e.j, m.i, m.j); if (d < bd) { bd = d; best = m; } } return best; }
+  function pbPick(e, lim) { const X = e.px, sk = m => !!X && X.skipF === m && X.skipT > time; let T = hero.target; if (!pbOk(T) || sk(T)) T = hero.lastHit && time - (hero.lastHitT || -99) < 4 && pbOk(hero.lastHit) && !sk(hero.lastHit) ? hero.lastHit : null; if (T) return T;   /* 11/7: sk = 1.5초 넘게 못 다가가 4초 빼 둔 몹 (pbFight) */   /* lim: 11/4 전투 우선 켬 → 덤비는 적 봇도 파티장 PRI칸 안만 */
+    let best = null, bd = 99; for (const m of foxes) { if (!pbOk(m, true) || !pbAtk(m) || sk(m) || (lim && m.fb && cheb(m.i, m.j, hero.i, hero.j) > PBC.PRI)) continue; const d = cheb(e.i, e.j, m.i, m.j); if (d < bd) { bd = d; best = m; } } return best; }
   // ----- 11/4 혈맹 파티 2단계 (dev/rooms/botparty.md)
   //   ② 근처 각개 사냥(N칸 · 기본 6 · 3~10): 파티장 N칸 안의 몹만 — 덤비는 몹 → 파티장이 치는 몹 또는 직접 고른 몹(다른 파티 봇이 치는 몹은 덜 고름) · 치던 몹이 N칸 밖으로 나가면 놓고 따라감
   //   ③ 쫄법사(법사 봇만): 공격 안 함 · 파티장 2칸 안으로 따라다님 · 파티장 힐(HP 80% 밑이면 먼저)·이뮨(싸우거나 HP 80% 밑) → 파티장이 괜찮으면 파티 봇 힐·싸우는 봇 이뮨
@@ -10497,12 +10512,22 @@ const FBOT = (() => {
     if (m.tgt && m.tgt !== hero && !m.tgt.pbot) return false; if (OTT && OTT.has(m.uid)) return false; if (m.dmgBy && m.dmgBy.size) for (const k of m.dmgBy.keys()) if (k !== hero) return false; return true; }
   function pbNear(e, X, N) { teams(); const cur = X.tgt; if (cur && !cur.fb && pbOk(cur) && cheb(cur.i, cur.j, hero.i, hero.j) <= N) return cur;   /* 치던 몹은 N칸 안이면 끝까지 */
     const R = Math.max(N, PBC.PRI), lh = hero.lastHit && time - (hero.lastHitT || -99) < 4 ? hero.lastHit : null; let best = null, bd = 1e9;
-    for (const m of foxes) { if (!pbOk(m, true)) continue; const dh = cheb(m.i, m.j, hero.i, hero.j); if (dh > (m.fb ? R : N)) continue; const d = cheb(e.i, e.j, m.i, m.j); if (d > 1 && !los(e, m)) continue; let v;
+    for (const m of foxes) { if (!pbOk(m, true) || (X.skipF === m && X.skipT > time)) continue; const dh = cheb(m.i, m.j, hero.i, hero.j); if (dh > (m.fb ? R : N)) continue; const d = cheb(e.i, e.j, m.i, m.j); if (d > 1 && !los(e, m)) continue; let v;
       if (pbAtk(m)) v = d - 50; else if (m === hero.target || m === lh) v = d - 1; else if (m.fb || !pbFree(m)) continue; else v = d + (PB_HERE.some(q => q !== e && q.px && q.px.tgt === m) ? 4 : 0);
       if (v < bd) { bd = v; best = m; } } return best; }
   function pbPriT(e, X) { let best = null, bd = 1e9; for (const f of teams().B) { if (!f.fb || !pbOk(f, true) || cheb(f.i, f.j, hero.i, hero.j) > PBC.PRI) continue; const d = cheb(e.i, e.j, f.i, f.j) - (f === X.tgt ? 3 : 0); if (d < bd) { bd = d; best = f; } } return best; }   /* 전투 우선: 파티장 8칸 안에 보이는 적 봇 (치던 봇 먼저) */
   function pbFar(T, st, N) { const d = cheb(T.i, T.j, hero.i, hero.j); if (st === 'near') return d > (T.fb ? Math.max(N, PBC.PRI) + 1 : N); return !!(PBS.pri && T.fb && T !== hero.target && d > PBC.PRI + 1); }   /* 이 대상은 놓고 돌아옴 (일점사 + 전투 우선 끔 = 1단계 그대로) */
-  function pbChoose(e, X, st, N) { const P = PBS.pri ? pbPriT(e, X) : null; if (P) return P; return st === 'near' ? pbNear(e, X, N) : pbPick(e, PBS.pri); }
+  /* 11/7 프로듀서: 사냥 순서 (캐릭터 자동사냥·소환수·펫과 같은 규칙) — 전투 우선(적 봇)은 그대로 먼저
+     ① 내 사거리(기사 1 · 요정 8 · 법사 7칸 · 던전 벽 너머는 밖) 안에서 파티장·나를 때리는 몹 (가까운 몹 → HP 적은 몹 · 치던 몹이 사거리 안에서 그러는 중이면 죽을 때까지)
+     ② 치던 몹이 사거리를 벗어나면 → 사거리 안에서 파티장·나를 때리는 다른 몹 · 없으면 다가가고 1.5초 넘게 못 다가가면 그 몹은 4초 빼고 다시 고름 (pbFight)
+     ③ 그다음은 원래대로: 일점사 = 파티장 대상 → 파티장·파티 봇을 노리는 몹 (어두운 던전 시야 밖이어도) · 근처 각개 = pbNear */
+  const pbHitsOU = (m, e) => { const me = e.hitBy === m && time - (e.hitByT || -99) < 6; if (m.fb) { const B = m.bx; return me || (!!B && (B.tgt === hero || B.tgt === e)); }
+    return me || (!!m.hitMeT && time - m.hitMeT < 6) || (m.aggro && (!m.tgt || m.tgt === hero || m.tgt === e) && !NET.guestMob(m)); };
+  function pbInR(e, X, st, N) { const R = RNG[e.bot.cls], inR = m => { const d = cheb(e.i, e.j, m.i, m.j); return d <= R && (d <= 1 || los(e, m)); }, near_ = m => cheb(e.i, e.j, m.i, m.j) <= R;
+    const ok = m => pbOk(m, true) && !(X.skipF === m && X.skipT > time) && (st !== 'near' || cheb(m.i, m.j, hero.i, hero.j) <= (m.fb ? Math.max(N, PBC.PRI) : N)) && pbHitsOU(m, e);
+    const cur = X.tgt; if (cur && foxes.includes(cur) && ok(cur) && inR(cur)) return cur;
+    let b = null, bd = 1e9; for (const m of foxes) { if (!near_(m) || !ok(m) || !inR(m)) continue; const v = cheb(e.i, e.j, m.i, m.j) + m.hp / Math.max(1, m.max) * 0.9; if (v < bd) { bd = v; b = m; } } return b; }
+  function pbChoose(e, X, st, N) { const P = PBS.pri ? pbPriT(e, X) : null; if (P) return P; const I = pbInR(e, X, st, N); if (I) return I; return st === 'near' ? pbNear(e, X, N) : pbPick(e, PBS.pri); }
   const pbRoll = (e, T, mul) => { const [d, cr] = rollD(e, mul); return [Math.random() < hitChance(e, T) ? d : 0, cr]; };
   // ----- 11/4 지원·버프 (dev/notes/pbbuff.md)
   //   법사 봇: 7칸 안 HP 60% 밑 파티장·파티 봇 힐(필드 봇과 같은 양 · 4.5초) · 싸우는 파티장·기사 봇에게 이뮨 투 함(18초 · 12초마다) — 대기·이동 중에도 · 채팅은 종류마다 1분에 한 번만
@@ -10571,6 +10596,7 @@ const FBOT = (() => {
     pbWalk(e, X, dt, hero.i, hero.j, (i, j) => cheb(i, j, hero.i, hero.j) <= fol - 1 && !(i === hero.i && j === hero.j)); if (X.stuck > PBC.STUCK && dh > fol + 1) { pbPlace(e); pbAppear(e); } }
   function pbFight(e, X, dt, T) { const b = e.bot, d = cheb(e.i, e.j, T.i, T.j), R = RNG[b.cls], see = d <= 1 || los(e, T);
     if (d <= R && see) { X.stuck = 0; face(e, T); if (X.cd <= 0) pbAttack(e, X, T, d); return; }
+    { const k = e.i * 4096 + e.j; if (X.oorF !== T || X.oorK !== k) { X.oorF = T; X.oorK = k; X.oorT = 0; } else if ((X.oorT += dt) >= 1.5) { X.oorT = 0; X.oorF = null; X.skipF = T; X.skipT = time + 4; X.tgt = null; X.th = 0; return; } }   /* 11/7: 사거리 밖 대상에게 1.5초 넘게 못 다가가면(몸·벽으로 막힘) 4초 빼고 다시 고름 */
     const want = b.cls === 'knight' || !see ? 1 : R - 1; pbWalk(e, X, dt, T.i, T.j, (i, j) => cheb(i, j, T.i, T.j) <= want); if (X.stuck > PBC.STUCK) { X.tgt = null; X.th = 1.5; X.stuck = 0; } }
   function pbBot(e, dt) { const X = e.px, b = e.bot; e.flash = Math.max(0, (e.flash || 0) - dt); if (e.atkT != null) { e.atkT += dt; if (e.atkT >= ATK_T) e.atkT = null; }
     if (e.dead) { e.deadT += dt; if (nowMs() - (e.deadAt || 0) >= PBC.CORPSE) pbLeave(e.uid, 'dead'); return; }
@@ -11557,7 +11583,7 @@ const AUTO = (() => {
   /* 11/4 프로듀서: 혈맹 파티 봇이 ① 일점사일 때 자동사냥 대상 순서 = 나를 치는 몹 → 파티 봇을 치는 몹 → 새 몹 (봇들이 내 대상을 같이 치므로 봇을 치는 몹을 먼저 정리) */
   const pbFocus = () => { try { return PB_HERE.length > 0 && FBOT.pb.S.m.some(m => (m.st || 'focus') === 'focus'); } catch (e) { return false; } };
   const pbHitters = () => { const S = new Set(); for (const e of PB_HERE) { if (!e || e.dead || e.gone) continue; const m = e.hitBy; if (m && !m.dead && !m.gone && time - (e.hitByT || -99) < 6) S.add(m); } let PP = null; try { PP = NET.inParty() && NET.partyPeers ? NET.partyPeers() : null; } catch (e) {} for (const f of foxes) { if (f.dead || f.gone || !f.aggro || !f.tgt || f.tgt.dead) continue; if (f.tgt.pbot && PB_HERE.includes(f.tgt)) S.add(f); else if (PP && PP.size && f.tgt.isRemote && PP.has(f.tgt.peer)) S.add(f); } return S; };   /* 11/5: 파티 봇(스타일 상관없이) · 사람 파티원을 치는 몹 */
-  const NEAR_R = 2, onMe = f => !f.dead && !f.gone && (atkMe(f) || (C.aggrFirst && f.aggro && f.tgt === hero)), nearAtk = f => onMe(f) && cheb(f.i, f.j, hero.i, hero.j) <= NEAR_R, hitByMe = T => (T.myDmg || 0) > 0 || !!(T.dmgBy && T.dmgBy.get && T.dmgBy.get(hero) > 0);   /* 11/5 프로듀서: 둘러싸였을 때 순서 = 붙어서 나를 치는 몹 → 파티원을 치는 몹 → 멀리서 치는(원거리) 몹 */
+  const onMe = f => !f.dead && !f.gone && (atkMe(f) || (C.aggrFirst && f.aggro && f.tgt === hero)), nearAtk = f => onMe(f) && inRng(f), hitByMe = T => (T.myDmg || 0) > 0 || !!(T.dmgBy && T.dmgBy.get && T.dmgBy.get(hero) > 0);   /* 11/5 프로듀서: 둘러싸였을 때 순서 = 붙어서 나를 치는 몹 → 파티원을 치는 몹 → 멀리서 치는(원거리) 몹 */   /* 11/7 프로듀서: '붙어서'(2칸) → '내 사거리 안'(inRng: 기사 1칸 · 활 요정 8칸 · 마법사 7칸 · 벽·장애물로 막히면 밖) — 소환수·펫(PET.petPick)·혈맹 파티 봇(pbInR)도 같은 순서 */
   /* 11/7 프로듀서: 잡던 몹이 내 사거리 밖으로 벗어나 칠 수 없게 되면(둘러싸여 못 다가가는 등) → 사거리 안에서 나를 치는 몹으로 바로 바꿈 (가까운 몹 · HP 적은 몹 먼저)
      그런 몹이 없는데 사거리 밖 대상에게 1.5초 넘게 못 다가가면(길이 몸으로 막힘) 그 몹은 4초 동안 빼고 다시 고름 · 사거리 안이면 지금처럼 죽을 때까지 (v230 · 계속 바뀌지 않게) */
   let oorT = 0, oorPos = '';
@@ -11567,11 +11593,11 @@ const AUTO = (() => {
     if (bA) { hero.target = bA; moveGoal = null; oorT = 0; SWAP.n++; return true; }
     const pos = hero.i + ',' + hero.j; if (pos === oorPos) oorT += 0.5; else { oorT = 0; oorPos = pos; }
     if (oorT >= 1.5) { oorT = 0; T._skipT = time + 4; const p = pick(); hero.target = p && p.f !== T ? p.f : null; moveGoal = null; SWAP.stuck++; return true; } return false; }
-  const SWAP = { n: 0, stuck: 0 };
+  const SWAP = { n: 0, stuck: 0, reset() { oorT = 0; oorPos = ''; } };   /* reset: 테스트용 (걸어가지 않는 테스트 캐릭터가 장면 사이에 '막힘'으로 쌓이지 않게) */
   function pickIn(pd, only, OT, PH) { let b = null, bd = 1e9, fb = null, fd = 1e9;
     for (const f of foxes) { if (f.dead || f.gone || f.bindUntil > time || TWM.ally(f) || f._skipT > time) continue; if (f.fb && (!C.counter || !(f.hitMeT && time - f.hitMeT < 6))) continue;   /* v191: 라인 혈맹 봇은 나를 공격 중일 때만 (반격) */ const S = MOB[f.kind]; if (C.noBoss && S.boss) continue; if (S.dummy) continue; if (only && !only(f)) continue; if (OT && OT.has(f.uid) && !mineF(f)) continue;
-      let d = stepsTo(pd, f); if (d < 0) { const c = cheb(f.i, f.j, hero.i, hero.j); if (c < fd) { fd = c; fb = f; } continue; }
-      if (nearAtk(f)) d -= 300; else if (PH && PH.has(f)) d -= 200; else if (atkMe(f) || (C.aggrFirst && f.aggro && f.tgt === hero && d <= 8)) d -= 100; if (d < bd) { bd = d; b = f; } }   /* 11/5: 붙어서 치는 몹 −300 → 파티원 치는 몹 −200 → 멀리서 나를 치는 몹 −100 (같은 단계에서는 가까운 몹) */
+      const nA = nearAtk(f); let d = stepsTo(pd, f); if (d < 0 && nA) d = 0; if (d < 0) { const c = cheb(f.i, f.j, hero.i, hero.j); if (c < fd) { fd = c; fb = f; } continue; }   /* 11/7: 사거리 안에서 나를 치는 몹은 걸어서 못 가도(물 건너 등) 칠 수 있으니 1순위 */
+      if (nA) d = cheb(f.i, f.j, hero.i, hero.j) + f.hp / Math.max(1, f.max) * 0.9 - 300; else if (PH && PH.has(f)) d -= 200; else if (atkMe(f) || (C.aggrFirst && f.aggro && f.tgt === hero && d <= 8)) d -= 100; if (d < bd) { bd = d; b = f; } }   /* 11/5: 붙어서 치는 몹 −300 → 파티원 치는 몹 −200 → 멀리서 나를 치는 몹 −100 (같은 단계에서는 가까운 몹) */
     return b ? { f: b, d: bd } : fb ? { f: fb, d: 999 } : null; }
   let rtT = 0;
   function tick(dt) {
@@ -11593,7 +11619,7 @@ const AUTO = (() => {
         const it = lootTarget(threat ? 4 : 10); if (it) { it._try = (it._try || 0) + 1; GROUND.go(it); return; }   // v109: 처치 후엔 떨어진 아이템 먼저 (둘러싸여도 4칸 안은 주우러 감)
         const p = pick(); if (p) hero.target = p.f; }
       // 가는 중에 더 가까운 몹이 보이면 갈아탐 (지금 대상이 나를 때리는 중이 아니고, 3걸음 이상 더 가까울 때)
-      else if (hero.target && !hero.target.dead && !hero.target.fb && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target;   /* 11/3: 봇과 싸우는 중엔 다른 몹으로 안 갈아탐 */ if (oorSwap(T)) return; if (T.bindUntil > time) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } if (C.manner && !mineF(T) && NET.othersTargets().has(T.uid)) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } if (fighting(T) && (inRng(T) || stepsTo(pathDist(22), T) >= 0)) { if (!nearAtk(T) && !(hitByMe(T) && (inRng(T) || cheb(T.i, T.j, hero.i, hero.j) <= NEAR_R))) { const p = pick(); if (p && p.f !== T && !(p.f.fb && !ctrNow(T)) && (nearAtk(p.f) || (!hitByMe(T) && pbHitters().has(p.f) && !pbHitters().has(T)))) hero.target = p.f; } return; }   /* 11/5 프로듀서: 잡던 몹이 멀리 있고(원거리 몹·도망) 아직 칠 수 없는데 붙어서 나를 치는 몹이 있으면 그쪽 먼저 · 아직 안 때린 먼 몹보다 파티원을 치는 몹 먼저 */   /* 11/4 프로듀서: 잡기 시작한 몹(내가 때렸거나 나를 노리는 몹)은 죽을 때까지 — 몹이 많아도 다른 몹으로 안 갈아탐 (길이 막혀 못 가면 갈아탐 · 봇 반격은 counterTick 설정대로) */ const threat = !atkMe(T) && foxes.some(f => f !== T && atkMe(f)), PH = pbHitters(), pthreat = PH.size > 0 && !atkMe(T) && !PH.has(T);   /* 11/4: 새 몹에게 가는 중에 파티 봇을 치는 몹이 생기면 그쪽으로 */
+      else if (hero.target && !hero.target.dead && !hero.target.fb && !hero.atk && (rtT -= dt) <= 0) { rtT = 0.5; const T = hero.target;   /* 11/3: 봇과 싸우는 중엔 다른 몹으로 안 갈아탐 */ if (oorSwap(T)) return; if (T.bindUntil > time) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } if (C.manner && !mineF(T) && NET.othersTargets().has(T.uid)) { const p = pick(); hero.target = p && p.f !== T ? p.f : null; return; } if (fighting(T) && (inRng(T) || stepsTo(pathDist(22), T) >= 0)) { if (!inRng(T)) { const p = pick();   /* 11/7: 사거리 안에서 싸우는 몹은 죽을 때까지 · 사거리 밖이면(사거리 안 공격자는 oorSwap이 먼저 바꿈) 아직 안 때린 몹보다 파티원을 치는 몹 */ if (p && p.f !== T && !(p.f.fb && !ctrNow(T)) && (nearAtk(p.f) || (!hitByMe(T) && pbHitters().has(p.f) && !pbHitters().has(T)))) hero.target = p.f; } return; }   /* 11/5 프로듀서: 잡던 몹이 멀리 있고(원거리 몹·도망) 아직 칠 수 없는데 붙어서 나를 치는 몹이 있으면 그쪽 먼저 · 아직 안 때린 먼 몹보다 파티원을 치는 몹 먼저 */   /* 11/4 프로듀서: 잡기 시작한 몹(내가 때렸거나 나를 노리는 몹)은 죽을 때까지 — 몹이 많아도 다른 몹으로 안 갈아탐 (길이 막혀 못 가면 갈아탐 · 봇 반격은 counterTick 설정대로) */ const threat = !atkMe(T) && foxes.some(f => f !== T && atkMe(f)), PH = pbHitters(), pthreat = PH.size > 0 && !atkMe(T) && !PH.has(T);   /* 11/4: 새 몹에게 가는 중에 파티 봇을 치는 몹이 생기면 그쪽으로 */
         if (threat || pthreat || (!(T.aggro && T.tgt === hero && cheb(T.i, T.j, hero.i, hero.j) <= 3) && cheb(T.i, T.j, hero.i, hero.j) > 1)) { const pd = pathDist(22), cur = stepsTo(pd, T), p = pick(pd), PT = partyT();
           const party = PT && PT.size && p && (C.tgtMode === 'same' ? PT.has(p.f.uid) && !PT.has(T.uid) : PT.has(T.uid) && !PT.has(p.f.uid));   // 파티 규칙에 맞는 몹이 생기면 바로 갈아탐
           if (p && p.f !== T && !(p.f.fb && !ctrNow(T)) && ((threat && atkMe(p.f)) || (pthreat && PH.has(p.f)) || party || cur < 0 || p.d <= cur - 3)) hero.target = p.f; } }   /* 11/3: 잡던 몹을 마저 잡는 설정이면 봇으로 안 갈아탐 */
